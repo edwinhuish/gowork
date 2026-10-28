@@ -238,6 +238,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		// 只是文件名后缀不同（-CI / -PL）。所以没有"新建商票"这种动作，只有打印。
 		shipments.GET("/:id/invoice", h.PDF.Invoice)
 		shipments.GET("/:id/packing-list", h.PDF.PackingList)
+		// 改证重开：号码不变、版本加一。它是"重新签发"，不是"另开一票"。
+		shipments.POST("/:id/reissue", h.Shipment.Reissue)
 
 		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
 		secured.GET("/shipment-candidates", h.Shipment.Candidates)

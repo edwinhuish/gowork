@@ -483,6 +483,56 @@ func TestShipmentRejectsCrossCustomer(t *testing.T) {
 	}
 }
 
+// 改证重开只升版本、不换号：报关单、提单与客户账上都认原号，
+// 换号等于换了一票货。草稿不参与改证——内容还能直接改。
+func TestShipmentReissue(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+
+	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 10},
+		},
+	})
+	if err != nil {
+		t.Fatalf("建出货批次失败: %v", err)
+	}
+	if _, err := fx.shipments.Reissue(ctx, s.ID); err == nil {
+		t.Fatal("草稿改证应被拒")
+	}
+
+	confirmed, err := fx.shipments.UpdateStatus(ctx, s.ID, dto.ShipmentStatusInput{
+		Status: int8(model.DocumentStatusConfirmed),
+	})
+	if err != nil {
+		t.Fatalf("确认出货单失败: %v", err)
+	}
+	if confirmed.InvoiceRevision != 0 {
+		t.Fatalf("首版版本号应为 0，实际 %d", confirmed.InvoiceRevision)
+	}
+
+	first, err := fx.shipments.Reissue(ctx, s.ID)
+	if err != nil {
+		t.Fatalf("改证失败: %v", err)
+	}
+	if first.InvoiceRevision != 1 {
+		t.Errorf("改证一次后版本 = %d，期望 1", first.InvoiceRevision)
+	}
+	if first.DocNo != s.DocNo {
+		t.Errorf("改证换号了：%q → %q", s.DocNo, first.DocNo)
+	}
+
+	second, err := fx.shipments.Reissue(ctx, s.ID)
+	if err != nil {
+		t.Fatalf("第二次改证失败: %v", err)
+	}
+	if second.InvoiceRevision != 2 {
+		t.Errorf("改证两次后版本 = %d，期望 2", second.InvoiceRevision)
+	}
+}
+
 // 装箱数据挂在分配行上，箱数与毛净重按行相加就是整票的合计。
 //
 // 只拦"一定录反了"的情形（负值、净重大于毛重），不要求填全：

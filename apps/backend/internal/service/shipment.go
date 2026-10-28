@@ -31,6 +31,8 @@ type ShipmentService interface {
 	UpdateLogistics(
 		ctx context.Context, id uint, in dto.ShipmentLogisticsInput,
 	) (*model.Shipment, error)
+	// Reissue 改证重开：号码不变，商票版本加一（文件名与打印件带 -R{n}）。
+	Reissue(ctx context.Context, id uint) (*model.Shipment, error)
 	// Candidates 列出还能出货的销售订单行，供出货单选行。
 	// excludeShipmentID 传当前正在编辑的那一票，好把它自己占的数量还给它。
 	Candidates(ctx context.Context, keyword string, excludeShipmentID uint) ([]dto.ShipmentCandidate, error)
@@ -326,6 +328,31 @@ func (s *shipmentService) UpdateLogistics(
 		return nil, err
 	}
 	s.log.Info("更新物流节点", "id", id, "bl_no", in.BLNo, "vessel", in.Vessel)
+	return s.load(ctx, id)
+}
+
+// Reissue 改证重开：号码不变，商票版本加一。
+//
+// 换号等于换了一票货——报关单、提单与客户账上都认原号，所以版本只体现在文件名
+// 与打印件上（`DN-2610-001-R1`）。草稿不需要改证：内容还能直接改；
+// 已取消的票也不再出单证。
+func (s *shipmentService) Reissue(ctx context.Context, id uint) (*model.Shipment, error) {
+	existing, err := s.shipments.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch existing.Status {
+	case model.DocumentStatusDraft:
+		return nil, errs.ErrConflict.WithMsg("草稿还没有签发，直接改内容即可，不需要改证")
+	case model.DocumentStatusCancelled:
+		return nil, errs.ErrConflict.WithMsg("已取消的出货单不再出单证，不需要改证")
+	}
+
+	rev, err := s.shipments.BumpInvoiceRevision(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("商票改证重开", "id", id, "doc_no", existing.DocNo, "revision", rev)
 	return s.load(ctx, id)
 }
 

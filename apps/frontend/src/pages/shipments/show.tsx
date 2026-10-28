@@ -105,6 +105,26 @@ export function ShipmentShow() {
     }
   }
 
+  /**
+   * 改证重开：号码不变、商票版本加一。
+   *
+   * 换号等于换了一票货——报关单、提单与客户账上都认原号，
+   * 所以版本只体现在文件名与打印件上（DN-2610-001-R1）。
+   */
+  const reissue = async () => {
+    if (!s) return
+    setActing(true)
+    try {
+      const next = await shipmentApi.reissue(s.id)
+      message.success(`已重开为第 ${next.invoice_revision} 版，号码不变`)
+      await invalidate({ resource: 'shipments', invalidates: ['detail', 'list'] })
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '改证失败')
+    } finally {
+      setActing(false)
+    }
+  }
+
   const changeStatus = async (next: number, okText: string) => {
     if (!s) return
     setActing(true)
@@ -132,6 +152,18 @@ export function ShipmentShow() {
           <Button loading={printing === 'pl'} onClick={() => printDoc('pl')}>
             装箱单
           </Button>
+          {/* 草稿直接改内容即可，已取消的不再出单证，两种都不需要改证。 */}
+          {s && s.status !== 10 && s.status !== 90 && (
+            <Popconfirm
+              title="改证重开这一票？"
+              description={`号码 ${s.doc_no} 不变，商票版本升到 R${s.invoice_revision + 1}；商业发票与装箱单的文件名随之带版本号。`}
+              okText="重开"
+              cancelText="返回"
+              onConfirm={reissue}
+            >
+              <Button loading={acting}>改证重开</Button>
+            </Popconfirm>
+          )}
           {s?.status === 10 && <EditButton resource="shipments" recordItemId={s.id} />}
           {actions.map((a) =>
             a.danger ? (

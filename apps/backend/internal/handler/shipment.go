@@ -133,6 +133,23 @@ func (h *ShipmentHandler) UpdateStatus(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Reissue POST /api/v1/shipments/:id/reissue
+//
+// 改证重开：号码不变、版本加一。没有入参——版本号是服务端算的，
+// 让前端传"新版本"就等于允许跳版或倒退。
+func (h *ShipmentHandler) Reissue(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.shipments.Reissue(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 // UpdateLogistics PUT /api/v1/shipments/:id/logistics
 //
 // 独立入口：提单号与船期是订舱之后才知道的，那时出货单早已确认、不可再改。

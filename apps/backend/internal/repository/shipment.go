@@ -56,6 +56,11 @@ type ShipmentRepository interface {
 	) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
+	// BumpInvoiceRevision 把商票版本加一，返回新版本号（改证重开）。
+	//
+	// 用 SQL 自增而不是"读出来 +1 再写回"：两个窗口同时点重开，
+	// 后写的那次会覆盖前一次，两版并成一版，而客户手上已经拿到了其中一版。
+	BumpInvoiceRevision(ctx context.Context, id uint) (int, error)
 	FindByID(ctx context.Context, id uint) (*model.Shipment, error)
 	List(ctx context.Context, f ShipmentFilter, p Pagination) ([]model.Shipment, int64, error)
 	// AllocatedQty 返回某条销售订单行**已被有效出货占用**的数量。
@@ -164,6 +169,26 @@ func (r *shipmentRepo) Update(ctx context.Context, id uint, fields map[string]an
 
 func (r *shipmentRepo) Delete(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
+}
+
+func (r *shipmentRepo) BumpInvoiceRevision(ctx context.Context, id uint) (int, error) {
+	db := r.DB().WithContext(ctx)
+	res := db.Model(&model.Shipment{}).Where("id = ?", id).
+		Update("invoice_revision", gorm.Expr("invoice_revision + 1"))
+	if res.Error != nil {
+		return 0, fmt.Errorf("升商票版本 id=%d: %w", id, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return 0, errs.ErrNotFound
+	}
+
+	// 回读而不是自己算 +1：并发时以库里落下的值为准，算出来的那个数与实际版本可能差一版。
+	var rev int
+	if err := db.Model(&model.Shipment{}).Where("id = ?", id).
+		Pluck("invoice_revision", &rev).Error; err != nil {
+		return 0, fmt.Errorf("读取商票版本 id=%d: %w", id, err)
+	}
+	return rev, nil
 }
 
 func (r *shipmentRepo) FindByID(ctx context.Context, id uint) (*model.Shipment, error) {

@@ -54,6 +54,14 @@ export const shipmentApi = {
     http.put<Shipment>(`/shipments/${id}/logistics`, body),
 
   /**
+   * 改证重开：号码不变、商票版本加一（文件名与打印件带 -R{n}）。
+   *
+   * 没有入参：版本号由服务端自增，前端传"新版本"就等于允许跳版或倒退。
+   * 草稿与已取消的一票会被拒（409）。
+   */
+  reissue: (id: number) => http.post<Shipment>(`/shipments/${id}/reissue`),
+
+  /**
    * 还能出货的销售订单行。独立前缀而不是 /shipments/candidates：
    * 后者会被 /shipments/:id 当成 id=candidates 解析。
    *

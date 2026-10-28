@@ -180,6 +180,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `DN-{YYMM}-{NNN}`，同时是这一票的套号；分配挂销售订单**行**，数量不得超过未出数量（409）；一票只能装同一客户、同一币种的订单（400）；分配行可带装箱数据（`cartons` / `gross_weight` / `net_weight` / `measurement`，可留空，只拦负值与净重 > 毛重） |
 | GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
+| POST | `/api/v1/shipments/:id/reissue` | `Shipment.Reissue` | 改证重开：号码不变、`invoice_revision` 自增（无入参）；草稿 409（内容还能直接改）、已取消 409 |
 | GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |
 | GET / POST | `/api/v1/shipment-charges` | `Charge.List` / `.Create` | 运费杂费挂到一票货；**不校验出货状态**（账单晚于出货到达）；外币按当日汇率折本币 |
 | GET / PUT / DELETE | `/api/v1/shipment-charges/:id` | `Charge.Get` / `.Update` / `.Delete` | 不能改挂到另一票货；有费用的批次拒绝删除（409） |
