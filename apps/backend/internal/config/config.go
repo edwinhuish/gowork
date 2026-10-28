@@ -51,6 +51,24 @@ type Config struct {
 	Cache    Cache    `yaml:"cache"`
 	JWT      JWT      `yaml:"jwt"`
 	Log      Log      `yaml:"log"`
+	PDF      PDF      `yaml:"pdf"`
+}
+
+// PDF 描述单据打印（报价单 / 形式发票）。
+//
+// 字体与模板都能指向外部文件：换版式、换字体不该要求重新编译。
+// 两者留空时用内置模板与自动探测到的中文字体；探测不到也不阻止启动——
+// 打印是附加能力，不该让整个服务起不来（PDF 接口会明确报缺什么）。
+type PDF struct {
+	// FontPath 是用于嵌入 PDF 的中文字体，必须是 TrueType（.ttf）。
+	// .ttc 字体集合不被支持：那种文件里装了多套字，渲染时挑哪一套是猜的。
+	FontPath string `yaml:"font_path"`
+	// TemplateDir 非空时以目录里的 *.json 为准，改完下一次请求就生效。
+	TemplateDir string `yaml:"template_dir"`
+	// 抬头信息，模板里用 {company_name} / {company_address} / {company_contact} 引用。
+	CompanyName    string `yaml:"company_name"`
+	CompanyAddress string `yaml:"company_address"`
+	CompanyContact string `yaml:"company_contact"`
 }
 
 type App struct {
@@ -221,6 +239,18 @@ func (c *Config) applyDefaults() {
 	if c.Log.Format == "" {
 		c.Log.Format = "text"
 	}
+
+	// 抬头给一套占位值：不填也能打印，拿到 PDF 的人一眼能看出这是样例抬头，
+	// 比留空印出一张没有主体的单据更容易发现该改配置。
+	if c.PDF.CompanyName == "" {
+		c.PDF.CompanyName = "GoWork Trading Co., Ltd."
+	}
+	if c.PDF.CompanyAddress == "" {
+		c.PDF.CompanyAddress = "Ningbo, Zhejiang, China"
+	}
+	if c.PDF.CompanyContact == "" {
+		c.PDF.CompanyContact = "sales@gowork.example"
+	}
 }
 
 // applyEnv 只覆盖最常因环境而变的几项，其余仍以配置文件为准。
@@ -242,6 +272,9 @@ func (c *Config) applyEnv() {
 	setStr(&c.JWT.Secret, "GOWORK_JWT_SECRET")
 	setStr(&c.Log.Level, "GOWORK_LOG_LEVEL")
 	setStr(&c.Log.Format, "GOWORK_LOG_FORMAT")
+	setStr(&c.PDF.FontPath, "GOWORK_PDF_FONT_PATH")
+	setStr(&c.PDF.TemplateDir, "GOWORK_PDF_TEMPLATE_DIR")
+	setStr(&c.PDF.CompanyName, "GOWORK_PDF_COMPANY_NAME")
 
 	setInt(&c.Database.Port, "GOWORK_DB_PORT")
 	setInt(&c.Cache.Redis.DB, "GOWORK_REDIS_DB")

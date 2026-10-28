@@ -51,3 +51,16 @@ jwt:
 log:
   level: info
   format: text
+
+# 单据打印（报价单 / 形式发票）。
+#
+# font_path 必须是 TrueType（.ttf）且同时含拉丁与汉字：只含汉字的回退字体
+# （如 DroidSansFallback）会让 PDF 上的单号与金额整段消失，服务启动时会拒绝它。
+# 留空则自动探测常见路径，探测不到只是 PDF 不可用，不影响其它功能。
+pdf:
+  font_path: ""
+  # 非空时以目录里的 *.json 为准，改完下一次请求生效（不用重启）。
+  template_dir: ""
+  company_name: "GoWork Trading Co., Ltd."
+  company_address: "Ningbo, Zhejiang, China"
+  company_contact: "sales@gowork.example"

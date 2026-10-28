@@ -1,0 +1,53 @@
+{
+  "title": "QUOTATION",
+  "subtitle": "报价单",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    { "label": "No.", "value": "{doc_no}" },
+    { "label": "Date", "value": "{date}" },
+    { "label": "Valid Until", "value": "{valid_until}" },
+    { "label": "Trade Term", "value": "{trade_term}" }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "REFERENCE",
+      "lines": [
+        "Quotation No.: {doc_no}",
+        "Version: {version}",
+        "Currency: {currency_code} @ {exchange_rate}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      { "title": "No.", "key": "no", "width": 12, "align": "left" },
+      { "title": "Description", "key": "description", "width": 74, "align": "left" },
+      { "title": "Qty", "key": "qty", "width": 20, "align": "right" },
+      { "title": "UOM", "key": "unit", "width": 16, "align": "left" },
+      { "title": "Unit Price", "key": "unit_price", "width": 29, "align": "right" },
+      { "title": "Amount", "key": "amount", "width": 29, "align": "right" }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    { "label": "Total ({currency_code})", "value": "{amount_total}" },
+    { "label": "Total in {base_currency}", "value": "{amount_base_total}" }
+  ],
+  "notes": [
+    "Trade Term: {trade_term} · Validity: {valid_until} · Payment: {settlement_method}",
+    "Remarks: {remark}"
+  ]
+}

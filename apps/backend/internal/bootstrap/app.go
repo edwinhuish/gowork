@@ -20,6 +20,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/infra/logger"
 	"github.com/edwinhuish/gowork/internal/migrate"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/pdf"
 	"github.com/edwinhuish/gowork/internal/repository"
 	"github.com/edwinhuish/gowork/internal/server"
 	"github.com/edwinhuish/gowork/internal/service"
@@ -175,6 +176,9 @@ func New(cfg *config.Config) (*App, error) {
 	contractSvc := service.NewContractService(
 		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithContractLogger(log))
+
+	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
+	pdfSvc := buildPDFService(cfg, log, quotationRepo, orderRepo, contractRepo, currencySvc)
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
@@ -229,6 +233,7 @@ func New(cfg *config.Config) (*App, error) {
 		Source:     handler.NewProductSourceHandler(sourceSvc),
 		Quotation:  handler.NewQuotationHandler(quotationSvc),
 		Contract:   handler.NewContractHandler(contractSvc),
+		PDF:        handler.NewPDFHandler(pdfSvc),
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Shipment:   handler.NewShipmentHandler(shipmentSvc),
@@ -268,4 +273,49 @@ func (a *App) Close() {
 			a.Log.Warn("关闭数据库出错", "err", err)
 		}
 	}
+}
+
+// buildPDFService 装配打印能力。
+//
+// 字体与模板都是可选的：缺字体时打印不可用（PDF 接口会明确说缺什么），
+// 但服务照常启动——报价、合同、出货都不依赖打印这件事。
+func buildPDFService(
+	cfg *config.Config,
+	log *slog.Logger,
+	quotations repository.QuotationRepository,
+	orders repository.SalesOrderRepository,
+	contracts repository.ContractRepository,
+	currencies service.CurrencyService,
+) service.PDFService {
+	fontPath := cfg.PDF.FontPath
+	if fontPath == "" {
+		fontPath = pdf.DetectFont()
+	}
+	if fontPath == "" {
+		// 不是错误：很多精简镜像里没有中文字体，为了打印让整个服务起不来不值得。
+		log.Warn("未找到中文字体，单据 PDF 不可用；用 pdf.font_path 指定一个 .ttf")
+		return nil
+	}
+
+	set, err := pdf.Load(cfg.PDF.TemplateDir)
+	if err != nil {
+		log.Warn("PDF 模板不可用，单据 PDF 不可用", "err", err)
+		return nil
+	}
+
+	renderer, err := pdf.NewRenderer(set, fontPath)
+	if err != nil {
+		log.Warn("PDF 字体加载失败，单据 PDF 不可用", "err", err, "font", fontPath)
+		return nil
+	}
+
+	log.Info("单据 PDF 已启用", "font", fontPath, "templates", set.Names())
+	return service.NewPDFService(quotations, orders, contracts, currencies, renderer,
+		service.CompanyInfo{
+			Name:    cfg.PDF.CompanyName,
+			Address: cfg.PDF.CompanyAddress,
+			Contact: cfg.PDF.CompanyContact,
+		},
+		service.WithPDFLogger(log),
+	)
 }

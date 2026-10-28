@@ -29,6 +29,7 @@ type Handlers struct {
 	Source     *handler.ProductSourceHandler
 	Quotation  *handler.QuotationHandler
 	Contract   *handler.ContractHandler
+	PDF        *handler.PDFHandler
 	SalesOrder *handler.SalesOrderHandler
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
@@ -186,6 +187,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		quotations.POST("/:id/versions", h.Quotation.NewVersion)
 		// 报价转订单：一次点击生成订单草稿，之后这张报价单不能再转。
 		quotations.POST("/:id/convert", h.Quotation.Convert)
+		// 打印走 GET：PDF 是附件，不能进统一响应体，错误仍走统一体。
+		quotations.GET("/:id/pdf", h.PDF.Quotation)
 
 		// 试算独立前缀：与 /:id 同级会抢路径（同 opportunities-summary 的处理）。
 		secured.POST("/quotations-preview", h.Quotation.Preview)
@@ -200,6 +203,7 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		contracts.PUT("/:id", h.Contract.Update)
 		contracts.DELETE("/:id", h.Contract.Delete)
 		contracts.PUT("/:id/status", h.Contract.UpdateStatus)
+		contracts.GET("/:id/pdf", h.PDF.Contract)
 
 		// 销售订单：报价谈成后的出货凭证。总额只由明细汇总，状态走完整状态机。
 		orders := secured.Group("/sales-orders")

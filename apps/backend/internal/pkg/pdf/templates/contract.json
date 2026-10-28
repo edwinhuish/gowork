@@ -1,0 +1,69 @@
+{
+  "title": "{doc_title}",
+  "subtitle": "{doc_subtitle}",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    { "label": "Invoice No.", "value": "{doc_no}" },
+    { "label": "Date", "value": "{sign_date}" },
+    { "label": "Delivery", "value": "{delivery_date}" },
+    { "label": "Contract Type", "value": "{type_label}" }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "REFERENCE",
+      "lines": [
+        "Source: {source_label} {source_doc_no}",
+        "Currency: {currency_code} @ {exchange_rate}",
+        "Trade Term: {trade_term}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      { "title": "No.", "key": "no", "width": 12, "align": "left" },
+      { "title": "Description", "key": "description", "width": 74, "align": "left" },
+      { "title": "Qty", "key": "qty", "width": 20, "align": "right" },
+      { "title": "UOM", "key": "unit", "width": 16, "align": "left" },
+      { "title": "Unit Price", "key": "unit_price", "width": 29, "align": "right" },
+      { "title": "Amount", "key": "amount", "width": 29, "align": "right" }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    { "label": "Total ({currency_code})", "value": "{amount_total}" },
+    { "label": "Total in {base_currency}", "value": "{amount_base_total}" }
+  ],
+  "sections": [
+    {
+      "title": "PAYMENT TERMS",
+      "rows": "terms",
+      "columns": [
+        { "title": "No.", "key": "no", "width": 12, "align": "left" },
+        { "title": "Term", "key": "name", "width": 70, "align": "left" },
+        { "title": "Due Date", "key": "due_date", "width": 28, "align": "left" },
+        { "title": "Condition", "key": "trigger", "width": 34, "align": "left" },
+        { "title": "Amount", "key": "amount", "width": 36, "align": "right" }
+      ],
+      "total": [
+        { "label": "Payment Total ({currency_code})", "value": "{terms_total}" }
+      ]
+    }
+  ],
+  "notes": [
+    "This document is issued against {source_label} {source_doc_no}.",
+    "Remarks: {remark}"
+  ]
+}

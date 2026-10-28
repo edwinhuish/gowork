@@ -14,12 +14,15 @@ import (
 )
 
 type contractFixture struct {
-	svc        ContractService
-	quotations QuotationService
-	orderRepo  repository.SalesOrderRepository
-	now        time.Time
-	customerID uint
-	productID  uint
+	svc           ContractService
+	quotations    QuotationService
+	orderRepo     repository.SalesOrderRepository
+	quotationRepo repository.QuotationRepository
+	contractRepo  repository.ContractRepository
+	currencySvc   CurrencyService
+	now           time.Time
+	customerID    uint
+	productID     uint
 	// orderSeq 给每张测试订单发一个不重复的单号：doc_no 上有唯一索引，
 	// 两个子测试各造一张同号订单，第二个会死在约束上而不是死在断言上。
 	orderSeq *int
@@ -93,28 +96,31 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 
 	docNoSvc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock))
 	orderRepo := repository.NewSalesOrderRepository(db)
+	quotationRepo := repository.NewQuotationRepository(db)
+	contractRepo := repository.NewContractRepository(db)
 
 	// 报价服务只用来造来源单据；orders 传 nil 是因为这批测试不做报价转单。
 	quotationSvc := NewQuotationService(
-		repository.NewQuotationRepository(db), partnerRepo, productRepo, sourceRepo,
+		quotationRepo, partnerRepo, productRepo, sourceRepo,
 		currencySvc, docNoSvc, nil, WithQuotationClock(clock),
 	)
 	contractSvc := NewContractService(
-		repository.NewContractRepository(db),
-		repository.NewQuotationRepository(db),
-		orderRepo,
+		contractRepo, quotationRepo, orderRepo,
 		currencySvc, docNoSvc,
 		WithContractClock(clock),
 	)
 
 	return contractFixture{
-		svc:        contractSvc,
-		quotations: quotationSvc,
-		orderRepo:  orderRepo,
-		now:        now,
-		customerID: customer.ID,
-		productID:  product.ID,
-		orderSeq:   new(int),
+		svc:           contractSvc,
+		quotations:    quotationSvc,
+		orderRepo:     orderRepo,
+		quotationRepo: quotationRepo,
+		contractRepo:  contractRepo,
+		currencySvc:   currencySvc,
+		now:           now,
+		customerID:    customer.ID,
+		productID:     product.ID,
+		orderSeq:      new(int),
 	}
 }
 
