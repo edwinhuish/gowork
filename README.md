@@ -2,14 +2,19 @@
 
 外贸 ERP 的 monorepo 骨架：Go 后端（gin + gorm + redis）+ React 前端，用 Taskfile 统一管理指令。
 
+> 面向 AI 协作者的文档：根目录 [`AGENTS.md`](AGENTS.md) 讲目标与整体架构，
+> `apps/backend/AGENTS.md`、`apps/frontend/AGENTS.md` 讲各自的分层、接口与约定。
+> 本文只负责"怎么把它跑起来"。
+
 目录分两块，构建与运行彼此独立，靠 HTTP API 解耦：
 
 ```
 GoWork/
+├── AGENTS.md                 # 面向 AI 的项目总览（目标 / 架构 / 模块划分）
 ├── Taskfile.yml              # 根编排：只调用子项目的 Taskfile
 ├── apps/
-│   ├── backend/              # Go 服务
-│   └── frontend/             # React 应用
+│   ├── backend/              # Go 服务（+ AGENTS.md：分层、接口、数据流）
+│   └── frontend/             # React 应用（+ AGENTS.md：分层、数据流、页面套路）
 ├── deployments/
 │   └── docker-compose.yml    # PostgreSQL + Redis（MySQL 走 profile）
 └── docs/
@@ -29,7 +34,7 @@ GoWork/
 
 ## 快速开始
 
-前置：Go ≥ 1.24、Node ≥ 20、pnpm ≥ 11。Taskfile 需要 `task`（安装见文末）。
+前置：Go ≥ 1.26（`go.mod` 声明）、Node ≥ 20、pnpm ≥ 11。Taskfile 需要 `task`（安装见文末）。
 
 前端包管理器是 **pnpm**，用 corepack 一条命令对齐版本（版本锁在 `apps/frontend/package.json` 的 `packageManager`）：
 
