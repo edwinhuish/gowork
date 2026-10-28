@@ -1,6 +1,6 @@
-import { Tag } from 'antd'
+import { Space, Tag } from 'antd'
 
-import { categoryLabel } from '@/constants/catalog'
+import { categoryLabel, PARTY_ROLE } from '@/constants/catalog'
 
 /**
  * 业务字段的统一展示件。
@@ -44,4 +44,35 @@ export function Empty() {
 export function Mono({ children }: { children?: string | null }) {
   if (!children) return <Empty />
   return <span className="cell-mono">{children}</span>
+}
+
+/**
+ * 主体角色。
+ *
+ * 必须按位判断，不能写 role === 1：一个主体可以同时是客户和供应商（值为 3），
+ * 用等号判断会让它在两个列表里都显示成"未知角色"。
+ */
+export function RoleTag({ value }: { value?: number | null }) {
+  const role = value ?? 0
+  const customer = (role & PARTY_ROLE.customer) !== 0
+  const supplier = (role & PARTY_ROLE.supplier) !== 0
+
+  if (!customer && !supplier) return <Empty />
+  return (
+    <Space size={4}>
+      {customer && <Tag color="blue">客户</Tag>}
+      {supplier && <Tag color="geekblue">供应商</Tag>}
+    </Space>
+  )
+}
+
+/**
+ * 主体类型。
+ *
+ * 公司是常态，用中性样式不抢注意力；个人要显眼一些 ——
+ * 它意味着报关资料、发票抬头都跟公司主体不同，不是纯粹的标签差异。
+ */
+export function EntityTypeTag({ value }: { value?: number | null }) {
+  if (value === 1) return <Tag color="gold">个人</Tag>
+  return <Tag>公司</Tag>
 }

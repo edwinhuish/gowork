@@ -2,9 +2,9 @@ import type { CrudFilters } from '@refinedev/core'
 import { CreateButton, List, useTable } from '@refinedev/antd'
 import { Button, Form, Input, Select, Space, Table } from 'antd'
 
-import { Empty, Mono, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
-import type { Supplier } from '@/types'
+import type { Party } from '@/types'
 
 interface SupplierSearch {
   keyword?: string
@@ -13,7 +13,7 @@ interface SupplierSearch {
 
 /** 供应商列表。与产品列表同一套骨架：筛选条 + 表格 + 新建入口。 */
 export function SupplierList() {
-  const { tableProps, searchFormProps } = useTable<Supplier>({
+  const { tableProps, searchFormProps } = useTable<Party>({
     resource: 'suppliers',
     syncWithLocation: true,
     onSearch: (values): CrudFilters => {
@@ -64,6 +64,20 @@ export function SupplierList() {
           dataIndex="name"
           title="名称"
           render={(value: string) => <span className="cell-strong">{value}</span>}
+        />
+        {/* 供应商与客户已合并为同一张表，这里会混进「客供两用」的主体。
+            角色列把它标出来，免得运营以为是分录错了。 */}
+        <Table.Column
+          dataIndex="role"
+          title="角色"
+          width={140}
+          render={(value: number) => <RoleTag value={value} />}
+        />
+        <Table.Column
+          dataIndex="entity_type"
+          title="类型"
+          width={80}
+          render={(value: number) => <EntityTypeTag value={value} />}
         />
         <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />

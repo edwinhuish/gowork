@@ -2,9 +2,9 @@ import type { CrudFilters } from '@refinedev/core'
 import { CreateButton, List, useTable } from '@refinedev/antd'
 import { Button, Form, Input, Select, Space, Table } from 'antd'
 
-import { Empty, Mono, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
-import type { Customer } from '@/types'
+import type { Party } from '@/types'
 
 interface CustomerSearch {
   keyword?: string
@@ -19,7 +19,7 @@ interface CustomerSearch {
  * 做成下拉就得先维护一份国家字典，当前阶段没必要。
  */
 export function CustomerList() {
-  const { tableProps, searchFormProps } = useTable<Customer>({
+  const { tableProps, searchFormProps } = useTable<Party>({
     resource: 'customers',
     syncWithLocation: true,
     onSearch: (values): CrudFilters => {
@@ -65,7 +65,7 @@ export function CustomerList() {
         </Form.Item>
       </Form>
 
-      <Table {...tableProps} rowKey="id" scroll={{ x: 900 }}>
+      <Table {...tableProps} rowKey="id" scroll={{ x: 1120 }}>
         <Table.Column
           dataIndex="code"
           title="编码"
@@ -76,6 +76,19 @@ export function CustomerList() {
           dataIndex="name"
           title="名称"
           render={(value: string) => <span className="cell-strong">{value}</span>}
+        />
+        {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
+        <Table.Column
+          dataIndex="role"
+          title="角色"
+          width={140}
+          render={(value: number) => <RoleTag value={value} />}
+        />
+        <Table.Column
+          dataIndex="entity_type"
+          title="类型"
+          width={80}
+          render={(value: number) => <EntityTypeTag value={value} />}
         />
         <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />

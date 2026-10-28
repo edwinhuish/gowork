@@ -2,12 +2,12 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
-import { Empty, StatusTag } from '@/components/fields'
-import type { Customer } from '@/types'
+import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
+import type { Party } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function CustomerShow() {
-  const { result, query } = useShow<Customer>({ resource: 'customers' })
+  const { result, query } = useShow<Party>({ resource: 'customers' })
 
   return (
     <Show isLoading={query.isLoading} title={result?.name ?? '客户详情'}>
@@ -22,6 +22,8 @@ export function CustomerShow() {
             children: <span className="cell-mono">{result?.code}</span>,
           },
           { key: 'name', label: '名称', children: result?.name || <Empty /> },
+          { key: 'role', label: '角色', children: <RoleTag value={result?.role} /> },
+          { key: 'entity_type', label: '主体类型', children: <EntityTypeTag value={result?.entity_type} /> },
           { key: 'country', label: '国家/地区', children: result?.country || <Empty /> },
           { key: 'status', label: '状态', children: <StatusTag value={result?.status} /> },
           { key: 'contact', label: '联系人', children: result?.contact || <Empty /> },
