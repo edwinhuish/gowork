@@ -71,7 +71,8 @@ apps/frontend/
         ├── quotations/       同上 + show / preview（试算页）
         ├── contracts/        list / create（只能从来源单据生成）/ edit / show + terms-editor
         ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示与 admin 强制放行）
-        ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板）
+        ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板；
+        │                      详情页可下载商业发票与装箱单，只能改证重开、不能另开一票）
         ├── settlements/      应收应付共用的 list / form-fields / show
         ├── receivables/ payables/  四页薄封装，只传 resource 与方向
         ├── payments/         收付款 list / create / edit / show（+ 核销行编辑器，create 里自带）
@@ -175,7 +176,7 @@ api/client.ts
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
-| `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId` |
+| `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量 + 装箱数据） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId`；装箱数据（箱数 / 毛净重 / 尺寸）可留空，净重大于毛重由后端拒 |
 | `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |
 | `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
 | `pages/stock-documents/` | 出入库单（列表 / 新建 / 编辑 / 详情 + 确认） | 类型切换会换往来单位的下拉源（供应商 / 客户）；盘点明细填实盘数，账面由后端确认时取 |
