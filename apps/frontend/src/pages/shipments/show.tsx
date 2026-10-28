@@ -60,6 +60,16 @@ function statusColor(value: number): string {
   return 'default'
 }
 
+/**
+ * 装箱数据没填时显示「—」。
+ *
+ * 0 在这里的意思是"还没装箱"，与"装了 0 箱"无关：装箱方案要到实际装箱时才定，
+ * 草稿阶段留空是常态，印一个 0 会让人以为已经排过箱。
+ */
+function packingText(value: number): string {
+  return value > 0 ? formatQty(value) : '—'
+}
+
 export function ShipmentShow() {
   const { result, query } = useShow<Shipment>({ resource: 'shipments' })
   const invalidate = useInvalidate()
@@ -68,6 +78,10 @@ export function ShipmentShow() {
   const s = result
   const actions = s ? nextActions(s.status) : []
   const totalQty = (s?.allocations ?? []).reduce((sum, a) => sum + a.qty, 0)
+  // 箱数与毛净重只由分配行相加得出：票头上另存一份，装箱单的合计就会与明细对不上。
+  const packCartons = (s?.allocations ?? []).reduce((sum, a) => sum + (a.cartons ?? 0), 0)
+  const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + (a.gross_weight ?? 0), 0)
+  const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + (a.net_weight ?? 0), 0)
 
   const changeStatus = async (next: number, okText: string) => {
     if (!s) return
@@ -158,6 +172,21 @@ export function ShipmentShow() {
             label: '合计数量',
             children: s ? `${(s.allocations ?? []).length} 行 · 共 ${formatQty(totalQty)}` : <Empty />,
           },
+          {
+            key: 'packing',
+            label: '装箱 / 毛净重',
+            // 纸箱与重量是印装箱单与报关资料用的，由明细逐行相加得出。
+            span: 2,
+            children:
+              packCartons > 0 || packGross > 0 || packNet > 0 ? (
+                <span className="cell-mono">
+                  {formatQty(packCartons)} 箱 · G.W. {formatQty(packGross)} kg · N.W.{' '}
+                  {formatQty(packNet)} kg
+                </span>
+              ) : (
+                <Empty />
+              ),
+          },
           { key: 'remark', label: '备注', span: 2, children: s?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(s?.created_at) },
           { key: 'updated_at', label: '更新时间', children: formatTime(s?.updated_at) },
@@ -170,7 +199,7 @@ export function ShipmentShow() {
           size="small"
           dataSource={s?.allocations ?? []}
           pagination={false}
-          scroll={{ x: 900 }}
+          scroll={{ x: 1200 }}
           locale={{ emptyText: '没有明细' }}
         >
           <Table.Column
@@ -207,6 +236,33 @@ export function ShipmentShow() {
             width={110}
             align="right"
             render={(value: number) => formatQty(value)}
+          />
+          <Table.Column
+            dataIndex="cartons"
+            title="箱数"
+            width={80}
+            align="right"
+            render={(value: number) => packingText(value)}
+          />
+          <Table.Column
+            dataIndex="gross_weight"
+            title="毛重 kg"
+            width={100}
+            align="right"
+            render={(value: number) => packingText(value)}
+          />
+          <Table.Column
+            dataIndex="net_weight"
+            title="净重 kg"
+            width={100}
+            align="right"
+            render={(value: number) => packingText(value)}
+          />
+          <Table.Column
+            dataIndex="measurement"
+            title="外箱尺寸"
+            width={140}
+            render={(value: string) => value || <Empty />}
           />
           <Table.Column
             dataIndex="remark"

@@ -511,6 +511,17 @@ export interface ShipmentAllocation {
   spec: string
   unit: string
   qty: number
+  /**
+   * 装箱数据，只有印装箱单时才需要；0 与空串表示"还没装箱"。
+   *
+   * 重量是**这一行的合计**，不是单箱：合计直接相加就能得到整票的 G.W. / N.W.，
+   * 按单箱记的话改一次箱数就要把所有合计重算一遍。
+   */
+  cartons: number
+  gross_weight: number
+  net_weight: number
+  /** 外箱尺寸，如 "60×40×30CM"，系统只原样印出来，不算体积。 */
+  measurement: string
   remark: string
 }
 

@@ -349,6 +349,9 @@ func (s *shipmentService) buildAllocations(
 	// dealPartnerID 记住这票货的客户：一票只能装同一个客户的订单。
 	// 货代可以拼柜，单据不能拼——送货单、商业发票、装箱单上只有一个收货人。
 	var dealPartnerID uint
+	// currencyCode 同理：商业发票上只有一个币种与一个合计。
+	// 混币种的订单并进一票，发票要么合价说谎、要么两行之间无法相加。
+	var currencyCode string
 
 	for _, row := range in {
 		if row.Qty <= 0 {
@@ -374,6 +377,15 @@ func (s *shipmentService) buildAllocations(
 				"一票货只能装同一个客户的订单：%s 属于另一个客户", item.SalesOrder.DocNo))
 		}
 
+		// 币种同理：商业发票只有一个币种与一个合计。分币种拆票，别在一张发票上混着开。
+		if currencyCode == "" {
+			currencyCode = item.SalesOrder.CurrencyCode
+		} else if item.SalesOrder.CurrencyCode != currencyCode {
+			return nil, errs.BadRequest(fmt.Sprintf(
+				"一票货只能装同一币种的订单：%s 是 %s，本票已按 %s 开票",
+				item.SalesOrder.DocNo, item.SalesOrder.CurrencyCode, currencyCode))
+		}
+
 		allocated, err := s.shipments.AllocatedQty(ctx, item.ID, excludeShipmentID)
 		if err != nil {
 			return nil, err
@@ -387,6 +399,10 @@ func (s *shipmentService) buildAllocations(
 		}
 		used[item.ID] += row.Qty
 
+		if err := checkPacking(item, row); err != nil {
+			return nil, err
+		}
+
 		rows = append(rows, model.ShipmentAllocation{
 			SalesOrderItemID: item.ID,
 			SKUCode:          item.SKUCode,
@@ -395,9 +411,31 @@ func (s *shipmentService) buildAllocations(
 			Unit:             item.Unit,
 			Qty:              row.Qty,
 			Remark:           row.Remark,
+			Cartons:          row.Cartons,
+			GrossWeight:      row.GrossWeight,
+			NetWeight:        row.NetWeight,
+			Measurement:      strings.TrimSpace(row.Measurement),
 		})
 	}
 	return rows, nil
+}
+
+// checkPacking 校验一行装箱数据。
+//
+// 只拦"一定录反了"的情形，不要求填全：装箱数据是装箱时才有的，
+// 草稿阶段留空很正常，逼着填只会让人随手填 0。
+func checkPacking(item *model.SalesOrderItem, row dto.ShipmentAllocationInput) error {
+	if row.Cartons < 0 || row.GrossWeight < 0 || row.NetWeight < 0 {
+		return errs.BadRequest(item.SKUCode + " 的箱数与毛净重不能为负")
+	}
+	// 净重是货物本身，毛重是货物加包装：净重大于毛重只可能是两栏填反了。
+	// 装箱单上这两个数是要申报的，印出去再改就是改证。
+	if row.NetWeight > row.GrossWeight+qtyEpsilon {
+		return errs.BadRequest(fmt.Sprintf(
+			"%s 的净重 %s 大于毛重 %s，两栏可能填反了",
+			item.SKUCode, formatQty(row.NetWeight), formatQty(row.GrossWeight)))
+	}
+	return nil
 }
 
 // checkOrderShippable 判断这张销售订单现在能不能出货。

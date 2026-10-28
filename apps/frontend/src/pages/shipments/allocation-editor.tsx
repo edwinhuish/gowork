@@ -8,6 +8,11 @@ import { formatQty } from '@/utils/format'
 export interface AllocationRow {
   sales_order_item_id?: number
   qty?: number
+  /** 装箱数据：印装箱单用，可留空。重量是这一行的合计，不是单箱。 */
+  cartons?: number
+  gross_weight?: number
+  net_weight?: number
+  measurement?: string
   remark?: string
 }
 
@@ -166,67 +171,114 @@ export function AllocationEditor({
                   : Math.max(info.unshipped - (row.qty ?? 0), 0)
 
               return (
-                <Row gutter={8} key={field.key} align="top">
-                  <Col span={spans.item}>
-                    {/* 隐藏字段必须渲染，否则提交时这一行不知道对应哪条订单 */}
-                    <Form.Item
-                      name={[field.name, 'sales_order_item_id']}
-                      rules={[{ required: true, message: '请选择销售订单行' }]}
-                      hidden
-                    >
-                      <Input />
-                    </Form.Item>
-                    <div style={{ paddingTop: 6 }} className="cell-stack">
-                      <span className="cell-strong">
-                        {info ? `${info.skuCode} ${info.nameCN}` : '订单行 #'}
-                        {!info && row.sales_order_item_id}
-                      </span>
-                      <span className="cell-sub">
-                        {info?.docNo || '来源订单未知'}
-                        {info?.spec ? ` · ${info.spec}` : ''}
-                      </span>
-                    </div>
-                  </Col>
-
-                  <Col span={spans.remain}>
-                    <div style={{ paddingTop: 6 }}>
-                      {info?.unshipped === undefined ? (
-                        <Typography.Text type="secondary">—</Typography.Text>
-                      ) : (
-                        <span className="cell-mono">
-                          已出 {formatQty(info.shipped ?? 0)} / 未出 {formatQty(remain ?? 0)}
+                <div key={field.key} style={{ marginBottom: 8 }}>
+                  <Row gutter={8} align="top">
+                    <Col span={spans.item}>
+                      {/* 隐藏字段必须渲染，否则提交时这一行不知道对应哪条订单 */}
+                      <Form.Item
+                        name={[field.name, 'sales_order_item_id']}
+                        rules={[{ required: true, message: '请选择销售订单行' }]}
+                        hidden
+                      >
+                        <Input />
+                      </Form.Item>
+                      <div style={{ paddingTop: 6 }} className="cell-stack">
+                        <span className="cell-strong">
+                          {info ? `${info.skuCode} ${info.nameCN}` : '订单行 #'}
+                          {!info && row.sales_order_item_id}
                         </span>
-                      )}
-                    </div>
-                  </Col>
+                        <span className="cell-sub">
+                          {info?.docNo || '来源订单未知'}
+                          {info?.spec ? ` · ${info.spec}` : ''}
+                        </span>
+                      </div>
+                    </Col>
 
-                  <Col span={spans.qty}>
-                    <Form.Item
-                      name={[field.name, 'qty']}
-                      rules={[{ required: true, message: '填数量' }]}
-                    >
-                      <InputNumber
-                        style={{ width: '100%' }}
-                        min={0.001}
-                        step={1}
-                        precision={3}
-                        placeholder="0"
-                      />
-                    </Form.Item>
-                  </Col>
+                    <Col span={spans.remain}>
+                      <div style={{ paddingTop: 6 }}>
+                        {info?.unshipped === undefined ? (
+                          <Typography.Text type="secondary">—</Typography.Text>
+                        ) : (
+                          <span className="cell-mono">
+                            已出 {formatQty(info.shipped ?? 0)} / 未出 {formatQty(remain ?? 0)}
+                          </span>
+                        )}
+                      </div>
+                    </Col>
 
-                  <Col span={spans.remark}>
-                    <Form.Item name={[field.name, 'remark']}>
-                      <Input maxLength={255} placeholder="包装、批号等" />
-                    </Form.Item>
-                  </Col>
+                    <Col span={spans.qty}>
+                      <Form.Item
+                        name={[field.name, 'qty']}
+                        rules={[{ required: true, message: '填数量' }]}
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0.001}
+                          step={1}
+                          precision={3}
+                          placeholder="0"
+                        />
+                      </Form.Item>
+                    </Col>
 
-                  <Col span={spans.action}>
-                    <Button type="link" danger onClick={() => remove(field.name)}>
-                      删除
-                    </Button>
-                  </Col>
-                </Row>
+                    <Col span={spans.remark}>
+                      <Form.Item name={[field.name, 'remark']}>
+                        <Input maxLength={255} placeholder="包装、批号等" />
+                      </Form.Item>
+                    </Col>
+
+                    <Col span={spans.action}>
+                      <Button type="link" danger onClick={() => remove(field.name)}>
+                        删除
+                      </Button>
+                    </Col>
+                  </Row>
+
+                  {/* 装箱数据单独一行：它不是每票都必须填，混在数量那一行里
+                      会让人以为漏填就保存不了。重量是整行合计，印装箱单时逐行相加即得整票。 */}
+                  <Row gutter={8}>
+                    <Col span={spans.item}>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        装箱（印装箱单用，可留空）
+                      </Typography.Text>
+                    </Col>
+                    <Col span={3}>
+                      <Form.Item name={[field.name, 'cartons']} style={{ marginBottom: 0 }}>
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          precision={0}
+                          placeholder="箱数"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={3}>
+                      <Form.Item name={[field.name, 'gross_weight']} style={{ marginBottom: 0 }}>
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          precision={3}
+                          placeholder="毛重 G.W. kg"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={3}>
+                      <Form.Item name={[field.name, 'net_weight']} style={{ marginBottom: 0 }}>
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          precision={3}
+                          placeholder="净重 N.W. kg"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={6}>
+                      <Form.Item name={[field.name, 'measurement']} style={{ marginBottom: 0 }}>
+                        <Input maxLength={64} placeholder="外箱尺寸，如 60×40×30CM" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </div>
               )
             })}
 

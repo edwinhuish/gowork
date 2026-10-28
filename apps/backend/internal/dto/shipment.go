@@ -15,7 +15,17 @@ type ShipmentQuery struct {
 type ShipmentAllocationInput struct {
 	SalesOrderItemID uint    `json:"sales_order_item_id" binding:"required"`
 	Qty              float64 `json:"qty" binding:"required,gt=0"`
-	Remark           string  `json:"remark" binding:"max=255"`
+
+	// 装箱数据，只有印装箱单时才需要；留空就是"还没装箱"，不拦。
+	//
+	// 重量是这一行的合计（不是单箱），与装箱单上每行的 G.W. / N.W. 对应。
+	Cartons     int     `json:"cartons" binding:"gte=0,lte=100000"`
+	GrossWeight float64 `json:"gross_weight" binding:"gte=0,lte=1000000"`
+	NetWeight   float64 `json:"net_weight" binding:"gte=0,lte=1000000"`
+	// Measurement 是外箱尺寸，如 "60×40×30CM"，原样印在装箱单上。
+	Measurement string `json:"measurement" binding:"max=64"`
+
+	Remark string `json:"remark" binding:"max=255"`
 }
 
 // ShipmentInput 新建与编辑共用。

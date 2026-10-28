@@ -475,3 +475,80 @@ func TestShipmentRejectsCrossCustomer(t *testing.T) {
 		t.Fatalf("同客户合并一票应允许，实际 %v", err)
 	}
 }
+
+// 装箱数据挂在分配行上，箱数与毛净重按行相加就是整票的合计。
+//
+// 只拦"一定录反了"的情形（负值、净重大于毛重），不要求填全：
+// 装箱方案要到实际装箱时才定，草稿阶段留空是正常的。
+func TestShipmentPacking(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+
+	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{
+				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40,
+				Cartons: 8, GrossWeight: 168.5, NetWeight: 160,
+				Measurement: " 60×40×30CM ",
+			},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20, Cartons: 2, GrossWeight: 21, NetWeight: 20},
+		},
+	})
+	if err != nil {
+		t.Fatalf("建出货批次失败: %v", err)
+	}
+
+	if got := s.Allocations[0].Measurement; got != "60×40×30CM" {
+		t.Errorf("尺寸应去掉首尾空白，实际 %q", got)
+	}
+	cartons, gross, net := s.PackingTotals()
+	if cartons != 10 {
+		t.Errorf("总箱数 = %d，期望 10", cartons)
+	}
+	if diff := gross - 189.5; diff > 1e-6 || diff < -1e-6 {
+		t.Errorf("总毛重 = %v，期望 189.5", gross)
+	}
+	if diff := net - 180; diff > 1e-6 || diff < -1e-6 {
+		t.Errorf("总净重 = %v，期望 180", net)
+	}
+
+	t.Run("净重大于毛重被拒", func(t *testing.T) {
+		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+			ShipDate: "2026-10-28",
+			Allocations: []dto.ShipmentAllocationInput{
+				{
+					SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1,
+					Cartons: 1, GrossWeight: 10, NetWeight: 20,
+				},
+			},
+		})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("净重大于毛重期望 40001，实际 %v", err)
+		}
+	})
+
+	t.Run("负数被拒", func(t *testing.T) {
+		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+			ShipDate: "2026-10-28",
+			Allocations: []dto.ShipmentAllocationInput{
+				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1, Cartons: -1},
+			},
+		})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("负箱数期望 40001，实际 %v", err)
+		}
+	})
+
+	t.Run("留空不拦", func(t *testing.T) {
+		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+			ShipDate: "2026-10-28",
+			Allocations: []dto.ShipmentAllocationInput{
+				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
+			},
+		}); err != nil {
+			t.Fatalf("装箱数据留空应允许，实际 %v", err)
+		}
+	})
+}
