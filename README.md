@@ -52,11 +52,16 @@ corepack enable pnpm        # 之后 pnpm 命令会按 packageManager 自动取�
 ```
 
 ```bash
-task install     # 装依赖（后端 go mod + 前端 pnpm install）
-task dev         # 并行起后端 :8080 与前端 :5173
+task install           # 装依赖（后端 go mod + 前端 pnpm install）
+task backend:tool:air  # 一次性：装后端热重载工具 air（go install，不进 go.mod）
+task dev               # 并行起后端 :8080（air 热重载）与前端 :5173（Vite HMR）
 ```
 
 打开 http://localhost:5173，默认账号 **admin / admin123**。
+
+改后端 `*.go` 会自动重新编译并重启，改前端由 Vite HMR 直接生效，两侧都不用手动重启。
+`task backend:dev` 若提示找不到 air，就是上面那条 `tool:air` 没执行（版本锁在
+`apps/backend/Taskfile.yml` 的 `AIR_VERSION`，配置见 `apps/backend/.air.toml`）。
 
 首次启动会自动建表并写入演示数据（5 个往来单位、4 个产品）。演示数据刻意包含两种
 合并前无法表达的情况：一个"客供两用"主体（`BOTH001`，role=3）和一个个人主体
@@ -65,7 +70,7 @@ task dev         # 并行起后端 :8080 与前端 :5173
 没有 `task` 时等价操作：
 
 ```bash
-cd apps/backend && go run ./cmd/server           # 后端
+cd apps/backend && air -c .air.toml              # 后端（热重载；不想热重载就 go run ./cmd/server）
 cd apps/frontend && pnpm install && pnpm run dev # 前端
 ```
 
@@ -112,7 +117,9 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | `task` | 列出全部任务 |
 | `task install` | 安装前后端依赖（前端 pnpm install） |
 | `task install:ci` | 按锁文件严格安装（前端 `--frozen-lockfile`，依赖与锁文件不一致直接失败） |
-| `task dev` | 并行启动前后端 |
+| `task dev` | 并行启动前后端（后端 air 热重载，前端 Vite HMR） |
+| `task backend:dev:once` | 后端单次启动、不监听变更 |
+| `task backend:tool:air` | 安装 air（一次性；版本锁在 `apps/backend/Taskfile.yml`） |
 | `task build` | 构建后端二进制 + 前端静态产物 |
 | `task test` | 后端单元测试 |
 | `task test:storage` | 三库两缓存的一致性测试（未启动的服务自动跳过） |

@@ -223,15 +223,51 @@ jti 不变意味着它们指向同一条会话，续期天然幂等；若每次�
 ## 7. 运行与配置
 
 ```bash
-task backend:dev        # SQLite + 内存缓存（默认，零外部依赖），:8080
+task backend:dev        # 热重载启动（air），SQLite + 内存缓存（默认，零外部依赖），:8080
+task backend:dev:once   # 同上但不监听变更（调启动流程 / 没有 air 时用）
 task backend:dev:pg     # PostgreSQL + Redis，:8081（需先 task infra:up）
 task backend:dev:mysql  # MySQL + Redis，:8082（需先 infra:up + compose --profile mysql）
 task backend:build      # 产出 bin/gowork-server
 task backend:test       # go test ./... -count=1
 task backend:test:storage  # 三库两缓存一致性测试
+task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 vars.AIR_VERSION）
 ```
 
 直接跑二进制：`./bin/gowork-server -config configs/config.yaml`（`-config` 是唯一启动参数）。
+
+### 热重载（air）
+
+`task backend:dev` 走 [air](https://github.com/air-verse/air)：改 `*.go` → 重新编译 → 自动重启。
+前端 `pnpm dev` 本来就是 Vite HMR，根目录 `task dev` 因此是两端都热更新的。
+
+| 事项 | 约定 |
+|---|---|
+| 配置文件 | `apps/backend/.air.toml`，与 `go.mod` 同级。air 只从**工作目录**找它，所以必须在 `apps/backend` 下启动（Taskfile 的 `dir` 已保证）；在别处跑要用 `-c` 显式指，且 `root` 会对不上，不推荐 |
+| 安装 | `task backend:tool:air`。air 是开发工具，**不进 `go.mod`**；版本锁在 `Taskfile.yml` 的 `vars.AIR_VERSION` |
+| 监听范围 | `root = "."`（就是 `apps/backend`），`include_ext = ["go"]`：只有 `.go` 变更触发编译 |
+| 忽略目录 | `bin`（产物与 `build-errors.log`，不排除会自己触发自己）、`data`（sqlite 的 `db`/`-wal`/`-shm` 与缓存快照运行期一直在写）、`.git`、`vendor`、`node_modules`、`.vscode`、`.idea` |
+| 排除文件 | `_test.go`（不进服务二进制，改了不必重启）、编辑器临时/交换文件（`.#*`、`*~`）。另有 `exclude_unchanged = true`：内容没变不重启 |
+| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task backend:build` 的发布参数，热重载剥符号只拖慢重启 |
+| 运行命令 | `entrypoint = ["./bin/dev/gowork-server"]`，不写 `-config`，走 `main.go` 里 `-config` 的默认值 `configs/config.yaml` |
+| 产物位置 | `bin/dev/gowork-server`；`bin/` 已在 `.gitignore`。它与 `task backend:build` 的 `bin/gowork-server` 是两个文件，互不覆盖 |
+| 日志 | 业务日志仍是 slog 打 **stdout**，不经 air、不落文件。air 自己的 `building... / running... / failed to build` 带 `[HH:MM:SS]` 前缀（`log.time = true`），与业务日志一眼分得开。编译报错详情在终端，`bin/dev/build-errors.log` 只有一行 `exit status N` |
+| 重启语义 | `send_interrupt = true` + `kill_delay = "3s"`：先 SIGINT 走优雅关闭（刷缓存快照、关连接池），3 秒不退才 SIGKILL。`stop_on_error = true`：编译不过就停掉旧进程，不留着旧二进制继续服务（见第 9 节最后一条） |
+| 改配置 | `.yaml` / `.air.toml` 不在监听范围内，改完要手动 Ctrl-C 再起——air 不重载自身配置，被启动的进程也只在启动时读一次配置 |
+
+换库启动仍可热重载：`task backend:dev:pg` / `dev:mysql` 用 `air -c .air.toml -- -config configs/config.postgres.yaml`，
+`--` 之后的参数由 air 原样透传给被启动的二进制。
+
+想临时调 air 自身参数，用命令行覆盖而不是改文件：`air -c .air.toml -build.delay 1000`。
+容器 / 网络挂载卷上 inotify 收不到事件时再加 `-build.poll true`。
+
+**团队协作**：`.air.toml` 提交进仓库、全组共用一份——air 不合并多份配置，谁本地改一份，
+谁的重启行为就和别人不一样，而症状是"同样的改动我这边重启了、你那边没有"。
+个人差异往两处走：端口/库这类环境差异用 `GOWORK_*` 环境变量
+（`GOWORK_HTTP_ADDR=:8090 task backend:dev`），air 自身参数用命令行覆盖。
+升级 air 版本只改 `Taskfile.yml` 的 `AIR_VERSION` 并单独提交——行为变化表现为"重启时机变了"，
+混在功能提交里没人查得出来。
+
+### 配置文件与端口
 
 | 配置文件（均在 `configs/`） | 数据库 | 缓存 | 端口 |
 |---|---|---|---|
