@@ -73,6 +73,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.PurchaseOrderItem{},
 			&model.Shipment{},
 			&model.ShipmentAllocation{},
+			&model.ShipmentCharge{},
 			&model.StockMovement{},
 			&model.StockSnapshot{},
 			&model.StockDocument{},
@@ -112,6 +113,7 @@ func New(cfg *config.Config) (*App, error) {
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
+	chargeRepo := repository.NewShipmentChargeRepository(db)
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
 
@@ -157,7 +159,12 @@ func New(cfg *config.Config) (*App, error) {
 	// 出货批次管的是"订单行已经被出掉多少"，所以它依赖销售订单仓储（读行与状态），
 	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
 	shipmentSvc := service.NewShipmentService(
-		shipmentRepo, orderRepo, docNoSvc, service.WithShipmentLogger(log))
+		shipmentRepo, orderRepo, chargeRepo, docNoSvc, service.WithShipmentLogger(log))
+	// 运费杂费只依赖出货仓储（确认这票存在）与币种服务（折本币），
+	// 不依赖出货服务：它要的是"这票还在不在"，不是"这票能不能改"。
+	chargeSvc := service.NewShipmentChargeService(
+		chargeRepo, shipmentRepo, partnerRepo, currencySvc,
+		service.WithShipmentChargeLogger(log))
 	// 库存只依赖流水仓储与产品（取快照用的 SKU / 品名），不依赖任何单据服务：
 	// 单据产生流水的那一步由 T-16 的单据层调用，方向始终是"单据 → 流水"。
 	stockSvc := service.NewStockService(
@@ -185,6 +192,7 @@ func New(cfg *config.Config) (*App, error) {
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Shipment:   handler.NewShipmentHandler(shipmentSvc),
+		Charge:     handler.NewShipmentChargeHandler(chargeSvc),
 		Stock:      handler.NewStockHandler(stockSvc),
 		StockDoc:   handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),

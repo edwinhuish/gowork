@@ -32,7 +32,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
-		&model.Shipment{}, &model.ShipmentAllocation{})
+		&model.Shipment{}, &model.ShipmentAllocation{}, &model.ShipmentCharge{})
 
 	clock := func() time.Time { return *now }
 	currencyRepo := repository.NewCurrencyRepository(db)
@@ -105,7 +105,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 
 	return shipmentFixture{
 		shipments: NewShipmentService(
-			shipmentRepo, orderRepo, docNoSvc,
+			shipmentRepo, orderRepo, repository.NewShipmentChargeRepository(db), docNoSvc,
 			WithShipmentClock(clock),
 			WithShipmentLogger(slog.New(slog.DiscardHandler)),
 		),

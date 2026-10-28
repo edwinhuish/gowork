@@ -31,6 +31,7 @@ type Handlers struct {
 	SalesOrder *handler.SalesOrderHandler
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
+	Charge     *handler.ShipmentChargeHandler
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
@@ -210,6 +211,17 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 
 		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
 		secured.GET("/shipment-candidates", h.Shipment.Candidates)
+
+		// 运费杂费：归集到一票货的成本。不校验出货状态——货代账单总是晚于出货到达。
+		charges := secured.Group("/shipment-charges")
+		charges.GET("", h.Charge.List)
+		charges.POST("", h.Charge.Create)
+		charges.GET("/:id", h.Charge.Get)
+		charges.PUT("/:id", h.Charge.Update)
+		charges.DELETE("/:id", h.Charge.Delete)
+
+		// 一票货的费用合计。独立前缀，理由同上。
+		secured.GET("/shipment-charges-summary", h.Charge.Summary)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)

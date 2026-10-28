@@ -43,9 +43,11 @@ const candidateLimit = 200
 type shipmentService struct {
 	shipments repository.ShipmentRepository
 	salesOrds repository.SalesOrderRepository
-	docNos    DocNoService
-	clock     func() time.Time
-	log       *slog.Logger
+	// charges 只在删除前一票时用：删掉批次会让它下面的费用变成查不到来源的孤儿行。
+	charges repository.ShipmentChargeRepository
+	docNos  DocNoService
+	clock   func() time.Time
+	log     *slog.Logger
 }
 
 type ShipmentOption func(*shipmentService)
@@ -62,12 +64,14 @@ func WithShipmentClock(now func() time.Time) ShipmentOption {
 func NewShipmentService(
 	shipments repository.ShipmentRepository,
 	salesOrds repository.SalesOrderRepository,
+	charges repository.ShipmentChargeRepository,
 	docNos DocNoService,
 	opts ...ShipmentOption,
 ) ShipmentService {
 	s := &shipmentService{
 		shipments: shipments,
 		salesOrds: salesOrds,
+		charges:   charges,
 		docNos:    docNos,
 		clock:     time.Now,
 		log:       slog.Default(),
@@ -145,6 +149,16 @@ func (s *shipmentService) Delete(ctx context.Context, id uint) error {
 	}
 	if !existing.IsEditable() {
 		return errs.ErrConflict.WithMsg("只有草稿可以删除；已确认的出货单请改为已取消")
+	}
+	// 费用行不跟着批次走：批次软删除后，那些费用仍留在库里却再也点不进来，
+	// 对账时会出现"这笔钱是给哪票货的"查不到的情况。与产品↔货源同一条规则。
+	n, err := s.charges.CountByShipmentID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return errs.ErrConflict.WithMsg(
+			fmt.Sprintf("该出货批次还有 %d 条运费杂费，请先删除费用", n))
 	}
 	return s.shipments.Delete(ctx, id)
 }
