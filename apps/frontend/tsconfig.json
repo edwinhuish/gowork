@@ -16,9 +16,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    // 不写 baseUrl：它在 TS 6.0 起已弃用、7.0 会失效。
+    // paths 缺省即以本文件所在目录为基准解析，src/* 的写法不变。
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "vite.config.ts"]
