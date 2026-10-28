@@ -55,6 +55,7 @@ type ProductRepository interface {
 	List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error)
 	Count(ctx context.Context) (int64, error)
 	CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error)
+	CountBySupplierID(ctx context.Context, supplierID uint) (int64, error)
 }
 
 type productRepo struct {
@@ -120,5 +121,15 @@ func (r *productRepo) Count(ctx context.Context) (int64, error) {
 func (r *productRepo) CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error) {
 	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
 		return db.Where("status = ?", status)
+	})
+}
+
+// CountBySupplierID 统计挂在某个供应商下的产品数。
+//
+// 主体合并后，供应商不再是独立的一张表，"能不能删这个供应商"变成一个要
+// 跨聚合根判断的问题：有产品在引用它就不能删，也不能把它身上的 supplier 角色摘掉。
+func (r *productRepo) CountBySupplierID(ctx context.Context, supplierID uint) (int64, error) {
+	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
+		return db.Where("supplier_id = ?", supplierID)
 	})
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/edwinhuish/gowork/internal/dto"
@@ -20,7 +21,10 @@ type ProductService interface {
 
 type productService struct {
 	repo repository.ProductRepository
-	log  *slog.Logger
+	// parties 用来校验 supplier_id 指向的主体确实具备供应商角色。
+	// 合并后的主表什么角色都可能，光有外键约束不住"选了个客户当供应商"。
+	parties repository.PartyRepository
+	log     *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -30,8 +34,12 @@ func WithProductLogger(l *slog.Logger) ProductOption {
 	return func(s *productService) { s.log = l }
 }
 
-func NewProductService(repo repository.ProductRepository, opts ...ProductOption) ProductService {
-	s := &productService{repo: repo, log: slog.Default()}
+func NewProductService(
+	repo repository.ProductRepository,
+	parties repository.PartyRepository,
+	opts ...ProductOption,
+) ProductService {
+	s := &productService{repo: repo, parties: parties, log: slog.Default()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -50,6 +58,9 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 	}
 	if dup {
 		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
+	}
+	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
+		return nil, err
 	}
 
 	m := &model.Product{
@@ -88,6 +99,9 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	}
 	if dup {
 		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
+	}
+	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
+		return nil, err
 	}
 
 	fields := map[string]any{
@@ -143,4 +157,26 @@ func defaultUnit(unit string) string {
 		return "PCS"
 	}
 	return unit
+}
+
+// checkSupplier 确认 supplier_id 指向的主体存在且具备供应商角色。
+//
+// 不校验启用状态：供应商停用后，已经指向它的产品仍然要能被编辑
+// （改个售价、改个规格），一刀切拦住会让运营卡在"先改供应商再改产品"。
+// 停用的供应商在下拉里已经选不到，新引用进不来，这就够了。
+func (s *productService) checkSupplier(ctx context.Context, id *uint) error {
+	if id == nil {
+		return nil
+	}
+	p, err := s.parties.FindByID(ctx, *id)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return errs.BadRequest("指定的供应商不存在")
+		}
+		return err
+	}
+	if !p.Role.Has(model.PartyRoleSupplier) {
+		return errs.BadRequest("所选主体不具备供应商角色：" + p.Name)
+	}
+	return nil
 }

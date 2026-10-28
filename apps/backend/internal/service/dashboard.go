@@ -22,11 +22,10 @@ type DashboardService interface {
 // dashboardService 演示了"聚合多个仓储 + 结果缓存"的典型服务：
 // 它不持有任何一个 model 的写权限，只做读取与汇总。
 type dashboardService struct {
-	products  repository.ProductRepository
-	suppliers repository.SupplierRepository
-	customers repository.CustomerRepository
-	cache     cache.Cache
-	log       *slog.Logger
+	products repository.ProductRepository
+	parties  repository.PartyRepository
+	cache    cache.Cache
+	log      *slog.Logger
 }
 
 type DashboardOption func(*dashboardService)
@@ -37,17 +36,15 @@ func WithDashboardLogger(l *slog.Logger) DashboardOption {
 
 func NewDashboardService(
 	products repository.ProductRepository,
-	suppliers repository.SupplierRepository,
-	customers repository.CustomerRepository,
+	parties repository.PartyRepository,
 	c cache.Cache,
 	opts ...DashboardOption,
 ) DashboardService {
 	s := &dashboardService{
-		products:  products,
-		suppliers: suppliers,
-		customers: customers,
-		cache:     c,
-		log:       slog.Default(),
+		products: products,
+		parties:  parties,
+		cache:    c,
+		log:      slog.Default(),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -75,10 +72,13 @@ func (s *dashboardService) Summary(ctx context.Context) (*dto.DashboardSummary, 
 	if summary.EnabledProducts, err = s.products.CountByEnableStatus(ctx, model.EnableStatusOn); err != nil {
 		return nil, err
 	}
-	if summary.SupplierTotal, err = s.suppliers.Count(ctx); err != nil {
+	// 供应商与客户现在是同一张表的两种角色，按角色计数。
+	// "客供两用"的主体在两个指标里各计一次 —— 它确实同时是两种身份，
+	// 只是共用一条记录、一套联系方式，这正是合并想达到的效果。
+	if summary.SupplierTotal, err = s.parties.CountByRole(ctx, model.PartyRoleSupplier); err != nil {
 		return nil, err
 	}
-	if summary.CustomerTotal, err = s.customers.Count(ctx); err != nil {
+	if summary.CustomerTotal, err = s.parties.CountByRole(ctx, model.PartyRoleCustomer); err != nil {
 		return nil, err
 	}
 

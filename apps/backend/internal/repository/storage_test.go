@@ -69,7 +69,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		t.Fatalf("方言应为 %s，实际 %s", driver, got)
 	}
 
-	if err := database.AutoMigrate(db, &model.Supplier{}, &model.Product{}); err != nil {
+	if err := database.AutoMigrate(db, &model.Party{}, &model.Product{}); err != nil {
 		t.Fatalf("迁移失败: %v", err)
 	}
 
@@ -77,15 +77,18 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	suffix := time.Now().UnixNano()
 	mark := fmt.Sprintf("T%d", suffix)
 
-	// 每次跑用独立供应商圈定数据集，避免和库里已有的演示数据混在一起。
-	supplierRepo := NewSupplierRepository(db)
-	supplier := &model.Supplier{Code: "SUP-" + mark, Name: "测试供应商", Status: model.EnableStatusOn}
-	if err := supplierRepo.Create(ctx, supplier); err != nil {
+	// 每次跑用独立主体圈定数据集，避免和库里已有的演示数据混在一起。
+	partyRepo := NewPartyRepository(db)
+	supplier := &model.Party{
+		Code: "SUP-" + mark, Name: "测试供应商",
+		Role: model.PartyRoleSupplier, Status: model.EnableStatusOn,
+	}
+	if err := partyRepo.Create(ctx, supplier); err != nil {
 		t.Fatalf("创建供应商: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = db.Unscoped().Where("supplier_id = ?", supplier.ID).Delete(&model.Product{}).Error
-		_ = db.Unscoped().Where("id = ?", supplier.ID).Delete(&model.Supplier{}).Error
+		_ = db.Unscoped().Where("id = ?", supplier.ID).Delete(&model.Party{}).Error
 	})
 
 	products := []*model.Product{
@@ -130,6 +133,48 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 		if exists, err := repo.ExistsBySKUCode(ctx, products[0].SKUCode, products[0].ID); err != nil || exists {
 			t.Fatalf("排除自身后不应命中: %v, %v", exists, err)
+		}
+	})
+
+	t.Run("角色过滤按包含语义", func(t *testing.T) {
+		// 客供两用是合并的核心场景：同一个主体既能在采购侧被选到，
+		// 又能在销售侧被选到，而且是同一条记录、同一套联系方式。
+		both := &model.Party{
+			Code: "BOTH-" + mark, Name: "客供两用主体",
+			Role:   model.PartyRoleCustomer | model.PartyRoleSupplier,
+			Status: model.EnableStatusOn,
+		}
+		if err := partyRepo.Create(ctx, both); err != nil {
+			t.Fatalf("创建客供两用主体: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = db.Unscoped().Where("id = ?", both.ID).Delete(&model.Party{}).Error
+		})
+
+		supplierRole := model.PartyRoleSupplier
+		if _, total, err := partyRepo.List(ctx, PartyFilter{Role: &supplierRole, Keyword: mark},
+			Pagination{Page: 1, PageSize: 20}); err != nil {
+			t.Fatalf("List: %v", err)
+		} else if total != 2 {
+			t.Fatalf("筛供应商应同时包含纯供应商与客供两用主体，得到 %d 条", total)
+		}
+
+		customerRole := model.PartyRoleCustomer
+		list, total, err := partyRepo.List(ctx, PartyFilter{Role: &customerRole, Keyword: mark},
+			Pagination{Page: 1, PageSize: 20})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if total != 1 || len(list) != 1 || list[0].ID != both.ID {
+			t.Fatalf("筛客户应只命中客供两用那一条，得到 %d 条", total)
+		}
+
+		// 概览计数与列表必须口径一致：按 role = ? 统计会漏掉 role=3 的主体。
+		if n, err := partyRepo.CountByRole(ctx, model.PartyRoleSupplier); err != nil || n < 2 {
+			t.Fatalf("供应商计数应至少包含纯供应商与两用主体: n=%d err=%v", n, err)
+		}
+		if n, err := partyRepo.CountByRole(ctx, model.PartyRoleCustomer); err != nil || n < 1 {
+			t.Fatalf("客户计数应至少包含两用主体: n=%d err=%v", n, err)
 		}
 	})
 

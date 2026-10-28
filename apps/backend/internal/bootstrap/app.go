@@ -18,6 +18,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/infra/cache"
 	"github.com/edwinhuish/gowork/internal/infra/database"
 	"github.com/edwinhuish/gowork/internal/infra/logger"
+	"github.com/edwinhuish/gowork/internal/migrate"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/repository"
 	"github.com/edwinhuish/gowork/internal/server"
@@ -46,14 +47,20 @@ func New(cfg *config.Config) (*App, error) {
 	if cfg.Database.AutoMigrate {
 		if err := database.AutoMigrate(db,
 			&model.User{},
-			&model.Supplier{},
-			&model.Customer{},
+			&model.Party{},
 			&model.Product{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
 		}
 		log.Info("数据库结构已同步")
+	}
+
+	// 数据迁移必须排在结构同步之后：它要把旧表的数据读出来写进新表，
+	// 而新表是上一步才建出来的。顺序反了就是"表不存在"。
+	if err := migrate.Run(db, log); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("执行数据迁移: %w", err)
 	}
 
 	c, err := cache.New(cfg.Cache, log)
@@ -64,8 +71,7 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ---- 数据访问层 ----
 	userRepo := repository.NewUserRepository(db)
-	supplierRepo := repository.NewSupplierRepository(db)
-	customerRepo := repository.NewCustomerRepository(db)
+	partyRepo := repository.NewPartyRepository(db)
 	productRepo := repository.NewProductRepository(db)
 
 	// ---- 业务层 ----
@@ -79,24 +85,22 @@ func New(cfg *config.Config) (*App, error) {
 		},
 		service.WithAuthLogger(log),
 	)
-	productSvc := service.NewProductService(productRepo, service.WithProductLogger(log))
-	supplierSvc := service.NewSupplierService(supplierRepo, service.WithSupplierLogger(log))
-	customerSvc := service.NewCustomerService(customerRepo, service.WithCustomerLogger(log))
-	dashboardSvc := service.NewDashboardService(productRepo, supplierRepo, customerRepo, c, service.WithDashboardLogger(log))
+	productSvc := service.NewProductService(productRepo, partyRepo, service.WithProductLogger(log))
+	partySvc := service.NewPartyService(partyRepo, productRepo, service.WithPartyLogger(log))
+	dashboardSvc := service.NewDashboardService(productRepo, partyRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, server.Handlers{
 		Auth:      handler.NewAuthHandler(authSvc),
 		Product:   handler.NewProductHandler(productSvc),
-		Supplier:  handler.NewSupplierHandler(supplierSvc),
-		Customer:  handler.NewCustomerHandler(customerSvc),
+		Party:     handler.NewPartyHandler(partySvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
 
 	if cfg.Database.Seed {
-		if err := app.seed(context.Background(), authSvc, userRepo, supplierRepo, customerRepo, productRepo); err != nil {
+		if err := app.seed(context.Background(), authSvc, userRepo, partyRepo, productRepo); err != nil {
 			app.Close()
 			return nil, fmt.Errorf("初始化种子数据: %w", err)
 		}
