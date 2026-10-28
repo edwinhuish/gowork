@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/edwinhuish/gowork/internal/dto"
@@ -24,7 +24,10 @@ type productService struct {
 	// partners 用来校验 supplier_id 指向的主体确实具备供应商角色。
 	// 合并后的主表什么角色都可能，光有外键约束不住"选了个客户当供应商"。
 	partners repository.PartnerRepository
-	log      *slog.Logger
+	// sources 只在删除前判断有没有货源挂着这个产品。
+	// 产品的 supplier_id / cost_price 是默认货源的冗余，真货源在 md_product_source。
+	sources repository.ProductSourceRepository
+	log     *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -37,9 +40,10 @@ func WithProductLogger(l *slog.Logger) ProductOption {
 func NewProductService(
 	repo repository.ProductRepository,
 	partners repository.PartnerRepository,
+	sources repository.ProductSourceRepository,
 	opts ...ProductOption,
 ) ProductService {
-	s := &productService{repo: repo, partners: partners, log: slog.Default()}
+	s := &productService{repo: repo, partners: partners, sources: sources, log: slog.Default()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -123,9 +127,22 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	return s.repo.FindByID(ctx, id)
 }
 
+// Delete 在有货源挂靠时拒绝删除。
+//
+// 产品的软删除不会带走 md_product_source 里的行，那些行会在"按供应商查货源"
+// 的列表里继续出现，而按产品查又查不到——典型的表现是某家供应商的价比对
+// 突然多出一条点不进去的记录。让人先删货源，比事后清理孤儿行便宜。
 func (s *productService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.FindByID(ctx, id); err != nil {
 		return err
+	}
+	n, err := s.sources.CountByProductID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return errs.ErrConflict.WithMsg(
+			fmt.Sprintf("该产品还有 %d 条货源记录，请先在产品详情页删除货源", n))
 	}
 	return s.repo.Delete(ctx, id)
 }
@@ -161,22 +178,8 @@ func defaultUnit(unit string) string {
 
 // checkSupplier 确认 supplier_id 指向的主体存在且具备供应商角色。
 //
-// 不校验启用状态：供应商停用后，已经指向它的产品仍然要能被编辑
-// （改个售价、改个规格），一刀切拦住会让运营卡在"先改供应商再改产品"。
-// 停用的供应商在下拉里已经选不到，新引用进不来，这就够了。
+// 规则本身在 ensureSupplierRole 里，货源模块用的是同一份：产品上的默认货源
+// 与 md_product_source 里的货源行对"供应商"的定义必须一致，各写一份迟早分叉。
 func (s *productService) checkSupplier(ctx context.Context, id *uint) error {
-	if id == nil {
-		return nil
-	}
-	p, err := s.partners.FindByID(ctx, *id)
-	if err != nil {
-		if errors.Is(err, errs.ErrNotFound) {
-			return errs.BadRequest("指定的供应商不存在")
-		}
-		return err
-	}
-	if !p.Role.Has(model.PartnerRoleSupplier) {
-		return errs.BadRequest("所选主体不具备供应商角色：" + p.Name)
-	}
-	return nil
+	return ensureSupplierRole(ctx, s.partners, id)
 }

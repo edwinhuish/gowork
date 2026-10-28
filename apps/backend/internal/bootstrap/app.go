@@ -59,6 +59,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.Product{},
 			&model.Currency{},
 			&model.ExchangeRate{},
+			&model.ProductSource{},
 			&model.DocSeq{},
 			&model.Contact{},
 			&model.Activity{},
@@ -90,6 +91,7 @@ func New(cfg *config.Config) (*App, error) {
 	productRepo := repository.NewProductRepository(db)
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
+	sourceRepo := repository.NewProductSourceRepository(db)
 	contactRepo := repository.NewContactRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	opptyRepo := repository.NewOpportunityRepository(db)
@@ -106,7 +108,8 @@ func New(cfg *config.Config) (*App, error) {
 		},
 		service.WithAuthLogger(log),
 	)
-	productSvc := service.NewProductService(productRepo, partnerRepo, service.WithProductLogger(log))
+	productSvc := service.NewProductService(
+		productRepo, partnerRepo, sourceRepo, service.WithProductLogger(log))
 	partnerSvc := service.NewPartnerService(
 		partnerRepo, productRepo, currencyRepo, service.WithPartnerLogger(log))
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
@@ -118,6 +121,8 @@ func New(cfg *config.Config) (*App, error) {
 		opptyRepo, partnerRepo, currencySvc, service.WithOpportunityLogger(log))
 	leadSvc := service.NewLeadService(
 		leadRepo, partnerSvc, partnerRepo, service.WithLeadLogger(log))
+	sourceSvc := service.NewProductSourceService(
+		sourceRepo, productRepo, partnerRepo, currencySvc, service.WithProductSourceLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -131,6 +136,7 @@ func New(cfg *config.Config) (*App, error) {
 		Activity:  handler.NewActivityHandler(activitySvc),
 		Oppty:     handler.NewOpportunityHandler(opptySvc),
 		Lead:      handler.NewLeadHandler(leadSvc),
+		Source:    handler.NewProductSourceHandler(sourceSvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 

@@ -139,6 +139,11 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/opportunities` | `Oppty.List` / `.Create` | `OpportunityService.List` / `.Create`（按预计成交日升序） |
 | GET / PUT / DELETE | `/api/v1/opportunities/:id` | `Oppty.Get` / `.Update` / `.Delete` | 同名方法，阶段变更走商机状态机 |
 | GET | `/api/v1/opportunities-summary` | `Oppty.Summary` | 按阶段汇总；独立前缀，避免与 `/:id` 抢路径 |
+| GET / POST | `/api/v1/leads` | `Lead.List` / `.Create` | `LeadService.List` / `.Create`（按创建时间倒序） |
+| GET / PUT / DELETE | `/api/v1/leads/:id` | `Lead.Get` / `.Update` / `.Delete` | 同名方法（已转化不能靠改 status 完成） |
+| POST | `/api/v1/leads/:id/convert` | `Lead.Convert` | 建主体 + 回填 `partner_id`；重复转化 409，同名同国只 warning |
+| GET / POST | `/api/v1/product-sources` | `Source.List` / `.Create` | `ProductSourceService.List` / `.Create`（`?product_id=` 过滤，按本币价升序） |
+| GET / PUT / DELETE | `/api/v1/product-sources/:id` | `Source.Get` / `.Update` / `.Delete` | 同名方法（不可改产品与供应商） |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -149,7 +154,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
 产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
-`country` / `status`。
+`country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 

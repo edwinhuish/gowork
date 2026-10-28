@@ -26,6 +26,7 @@ type Handlers struct {
 	Activity  *handler.ActivityHandler
 	Oppty     *handler.OpportunityHandler
 	Lead      *handler.LeadHandler
+	Source    *handler.ProductSourceHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -62,6 +63,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		products.GET("/:id", h.Product.Get)
 		products.PUT("/:id", h.Product.Update)
 		products.DELETE("/:id", h.Product.Delete)
+
+		// 产品货源：一个产品对多个供应商的货号与采购价，报价单的成本从这里取。
+		// 用 ?product_id= 过滤，与产品详情页的货源面板一一对应。
+		sources := secured.Group("/product-sources")
+		sources.GET("", h.Source.List)
+		sources.POST("", h.Source.Create)
+		sources.GET("/:id", h.Source.Get)
+		sources.PUT("/:id", h.Source.Update)
+		sources.DELETE("/:id", h.Source.Delete)
 
 		partners := secured.Group("/partners")
 		partners.GET("", h.Partner.List(nil))

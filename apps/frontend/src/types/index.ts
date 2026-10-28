@@ -245,3 +245,35 @@ export interface Product {
   created_at: string
   updated_at: string
 }
+
+/**
+ * 产品货源：某产品在某供应商处的采购来源与货号、价格、交期。
+ *
+ * 一个产品可挂多个货源，产品上的 supplier_id 只是默认货源。
+ * 采购价按「原币 + 币种 + 本币 + 汇率」四件套存：只存原币的话，
+ * 比价得手工乘汇率，而汇率每天在变，昨天的比价结论今天就不成立。
+ *
+ * 查重维度是「产品 + 供应商 + 货号」，不是全局货号：我方一个 SKU 拆成
+ * 散装与彩盒两套编码、都从同一家同一个货号进货，是真实做法。
+ */
+export interface ProductSource {
+  id: number
+  product_id: number
+  partner_id: number
+  /** 供应商货号；允许为空——打样阶段对方还没给号。 */
+  supplier_sku: string
+  purchase_price: number
+  currency_code: string
+  purchase_price_base: number
+  exchange_rate: number
+  /** 最小起订量，0 表示对方没提要求。 */
+  moq: number
+  /** 交期天数，0 表示未确认。 */
+  delivery_days: number
+  status: number
+  remark: string
+  product?: Product | null
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}

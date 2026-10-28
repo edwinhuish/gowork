@@ -18,7 +18,8 @@ import type { PageResult } from '@/types'
  *   category+supplier_id+status 仅产品
  *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
  *   currency_code 仅汇率；币种本身只用 status + keyword
- *   partner_id 仅联系人 / 跟进记录（按主体看是 CRM 的主维度）
+ *   partner_id 仅联系人 / 跟进记录 / 产品货源（按主体看是 CRM 的主维度，货源侧是反向查）
+ *   product_id 仅产品货源（产品详情页的货源面板按产品取数）
  *   due 仅跟进记录（=1 时只取已到期未跟进，判定在后端按整天算）
  *
  * refine 用 CrudFilters 表达筛选条件，这里翻译成后端认可的同名查询参数。
@@ -34,6 +35,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'entity_type',
   'currency_code',
   'partner_id',
+  'product_id',
   'due',
   'stage',
   'open_only',
