@@ -34,7 +34,15 @@ export const salesOrderApi = {
 
   remove: (id: number) => http.delete<{ deleted: boolean }>(`/sales-orders/${id}`),
 
-  /** 状态流转走服务端状态机，跳步会被拒（409）。 */
-  updateStatus: (id: number, status: number) =>
-    http.put<SalesOrder>(`/sales-orders/${id}/status`, { status }),
+  /**
+   * 状态流转走服务端状态机，跳步会被拒（409）。
+   *
+   * forceCredit 只在确认（10→20）时有意义：越过客户信用额度。
+   * 前端勾选只是表达意图，后端还会看当前登录身份是不是 admin。
+   */
+  updateStatus: (id: number, status: number, forceCredit = false) =>
+    http.put<SalesOrder>(`/sales-orders/${id}/status`, {
+      status,
+      force_credit: forceCredit,
+    }),
 }

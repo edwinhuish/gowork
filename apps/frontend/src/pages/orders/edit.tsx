@@ -4,6 +4,7 @@ import { Alert, Divider, Form } from 'antd'
 import { LineItemsEditor } from '@/components/line-items-editor'
 import type { SalesOrder } from '@/types'
 
+import { CreditHint } from './credit-hint'
 import { OrderFormFields } from './form-fields'
 
 /**
@@ -39,6 +40,9 @@ export function OrderEdit() {
 
       <Form {...formProps} layout="vertical" className="entity-form">
         <OrderFormFields partnerReadOnly />
+
+        {/* 草稿改完还要确认，额度这一刻就该看见；改明细不会占额度，所以只是提示。 */}
+        <CreditHint partnerId={Form.useWatch<number | undefined>('partner_id', form)} />
 
         <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
           明细

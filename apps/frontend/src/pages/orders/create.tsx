@@ -4,6 +4,7 @@ import { Divider, Form } from 'antd'
 import { LineItemsEditor } from '@/components/line-items-editor'
 import type { SalesOrder } from '@/types'
 
+import { CreditHint } from './credit-hint'
 import { OrderFormFields } from './form-fields'
 
 export function OrderCreate() {
@@ -25,6 +26,9 @@ export function OrderCreate() {
         }}
       >
         <OrderFormFields />
+
+        {/* 选中客户就把额度摊开：超额不会在这里拦，但可以先看见差多少。 */}
+        <CreditHint partnerId={Form.useWatch<number | undefined>('partner_id', form)} />
 
         <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
           明细

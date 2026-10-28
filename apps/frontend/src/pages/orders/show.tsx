@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useInvalidate, useNavigation, useShow } from '@refinedev/core'
+import { useGetIdentity, useInvalidate, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
-import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
+import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd'
 
 import { salesOrderApi } from '@/api/sales-orders'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { SalesOrder, SalesOrderItem } from '@/types'
+
+import { CreditHint } from './credit-hint'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
 interface StatusAction {
@@ -60,16 +62,20 @@ export function OrderShow() {
   const { result, query } = useShow<SalesOrder>({ resource: 'sales-orders' })
   const invalidate = useInvalidate()
   const { create } = useNavigation()
+  const { data: identity } = useGetIdentity<{ role?: string }>()
   const [acting, setActing] = useState(false)
+  // 勾了才带 force_credit：默认不勾，防止"手滑确认"变成默认绕过额度。
+  const [forceCredit, setForceCredit] = useState(false)
+  const isAdmin = identity?.role === 'admin'
 
   const o = result
   const actions = o ? nextActions(o.status) : []
 
-  const changeStatus = async (next: number, okText: string) => {
+  const changeStatus = async (next: number, okText: string, force = false) => {
     if (!o) return
     setActing(true)
     try {
-      await salesOrderApi.updateStatus(o.id, next)
+      await salesOrderApi.updateStatus(o.id, next, force)
       message.success(okText)
       await invalidate({ resource: 'sales-orders', invalidates: ['detail', 'list'] })
     } catch (err) {
@@ -90,6 +96,17 @@ export function OrderShow() {
           {(o?.status === 20 || o?.status === 30) && (
             <Button onClick={() => create('shipments')}>按这张单出货</Button>
           )}
+          {/* 强制放行只对 admin 露出；后端仍会再看一次身份，勾了也不等于一定放行。 */}
+          {o?.status === 10 && isAdmin && (
+            <Tooltip title="越过客户信用额度确认。放行会记录操作人与超额金额。">
+              <Checkbox
+                checked={forceCredit}
+                onChange={(e) => setForceCredit(e.target.checked)}
+              >
+                强制放行额度
+              </Checkbox>
+            </Tooltip>
+          )}
           {actions.map((a) =>
             a.danger ? (
               <Popconfirm
@@ -109,7 +126,13 @@ export function OrderShow() {
                 key={a.next}
                 type={a.primary ? 'primary' : 'default'}
                 loading={acting}
-                onClick={() => changeStatus(a.next, `订单已标记为${orderStatusLabel(a.next)}`)}
+                onClick={() =>
+                  changeStatus(
+                    a.next,
+                    `订单已标记为${orderStatusLabel(a.next)}`,
+                    a.next === 20 && forceCredit,
+                  )
+                }
               >
                 {a.label}
               </Button>
@@ -118,6 +141,9 @@ export function OrderShow() {
         </Space>
       }
     >
+      {/* 还没结清的单据才谈额度：已完成的对账已闭环，已取消的不占额度。 */}
+      {o && o.status >= 10 && o.status <= 40 && <CreditHint partnerId={o.partner_id} />}
+
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered

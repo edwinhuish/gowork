@@ -590,6 +590,23 @@ export interface AgingReport {
 }
 
 /**
+ * 客户当前占用的信用额度，单位本币。
+ *
+ * 敞口 = 未结清应收 + 已确认未开票订单。只算前一半会漏掉已经承诺出去、还没开票的货。
+ */
+export interface CreditSummary {
+  partner_id: number
+  /** 0 表示不限（不是"没有额度"）。 */
+  credit_limit: number
+  unlimited: boolean
+  open_receivable: number
+  unbilled_order: number
+  exposure: number
+  /** 额度减敞口；超了就是负数。不限额度时为 0。 */
+  available: number
+}
+
+/**
  * 单票毛利。金额全是本币：外币收入与人民币成本只有折到同一个币种才能相减。
  *
  * 口径：毛利 = 收入 − 采购成本 − 运杂费。汇兑损益不在这里（T-23 单独成行）。
