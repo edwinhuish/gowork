@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { AgingReport } from '@/types'
+import type { AgingReport, PageResult, ShipmentProfit } from '@/types'
 
 export interface AgingParams {
   /** 10 应收 / 20 应付，留空按应收。 */
@@ -16,7 +16,18 @@ export interface AgingParams {
  * 不走 dataProvider：报表返回聚合结果而不是分页资源，硬套 list 只会拿到
  * 一层 {list,total} 包装，把分桶字段挤到另一层去。
  */
+export interface ShipmentProfitParams {
+  /** 只看一票：出货详情页的毛利面板传当前票。 */
+  shipment_id?: number
+  page?: number
+  page_size?: number
+}
+
 export const reportApi = {
   aging: (params: AgingParams = {}) =>
     http.get<AgingReport>(`/reports/aging${toQuery({ ...params })}`),
+
+  /** 单票毛利，带 shipment_id 时是 0 或 1 条。金额全是本币。 */
+  shipmentProfits: (params: ShipmentProfitParams = {}) =>
+    http.get<PageResult<ShipmentProfit>>(`/reports/shipment-profits${toQuery({ ...params })}`),
 }

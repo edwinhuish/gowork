@@ -589,6 +589,26 @@ export interface AgingReport {
   grand_total_base: number
 }
 
+/**
+ * 单票毛利。金额全是本币：外币收入与人民币成本只有折到同一个币种才能相减。
+ *
+ * 口径：毛利 = 收入 − 采购成本 − 运杂费。汇兑损益不在这里（T-23 单独成行）。
+ */
+export interface ShipmentProfit {
+  shipment_id: number
+  doc_no: string
+  ship_date: string
+  status: number
+  revenue: number
+  cost: number
+  charge: number
+  profit: number
+  /** 毛利率，0.2254 = 22.54%；收入为 0 时给 0。 */
+  margin: number
+  /** 有销售行没有可用成本（没挂采购单或采购单还是草稿），成本与毛利因此不完整。 */
+  cost_missing: boolean
+}
+
 export interface Payment {
   id: number
   doc_no: string
