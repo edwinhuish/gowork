@@ -1,6 +1,7 @@
 import {
   AccountBookOutlined,
   AppstoreOutlined,
+  BarChartOutlined,
   CommentOutlined,
   ContactsOutlined,
   DashboardOutlined,
@@ -34,6 +35,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
+import { AgingPage } from '@/pages/aging'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
@@ -252,6 +254,12 @@ export default function App() {
                 meta: { label: '收付款', icon: <TransactionOutlined /> },
               },
               {
+                // 账龄是只读聚合：没有 create / edit，只有一页报表。
+                name: 'aging',
+                list: '/aging',
+                meta: { label: '账龄', icon: <BarChartOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -398,6 +406,10 @@ export default function App() {
                     <Route path="create" element={<PaymentCreate />} />
                     <Route path="edit/:id" element={<PaymentEdit />} />
                     <Route path="show/:id" element={<PaymentShow />} />
+                  </Route>
+
+                  <Route path="aging">
+                    <Route index element={<AgingPage />} />
                   </Route>
 
                   <Route path="currencies">

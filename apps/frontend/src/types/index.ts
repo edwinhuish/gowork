@@ -548,6 +548,47 @@ export interface PaymentAllocation {
  * 汇率取**到账日**，不是应收单上锁的开单日：同一个 1000 美元，开票 7.1、到账 7.3，
  * 差额才是汇兑损益。已核销金额 = 核销行之和，小于金额的部分是预收 / 预付。
  */
+/**
+ * 账龄分桶：按逾期天数把未核销金额切开。
+ *
+ * 桶边界只有后端一份（未到期 / 1-30 / 31-60 / 61-90 / 90+），前端只负责显示。
+ * 在前端重算一遍，同一批数据就会有两个账龄，而客户只认其中一个。
+ */
+export interface AgingBuckets {
+  not_due: number
+  days_1_30: number
+  days_31_60: number
+  days_61_90: number
+  days_over_90: number
+}
+
+/** 一行账龄：一个主体的一种币种。跨币种的原币金额不可相加，所以按币种拆行。 */
+export interface AgingRow {
+  partner_id: number
+  partner_code: string
+  partner_name: string
+  currency_code: string
+  /** 未核销的原币分桶。 */
+  amount: AgingBuckets
+  /** 同样口径的本币分桶（按单据上锁定的汇率折）。 */
+  amount_base: AgingBuckets
+  total: number
+  total_base: number
+  /** YYYY-MM-DD：这一行里最早到期的那张单，催款从这里开始。 */
+  earliest_due_date: string
+}
+
+/** 账龄报表。合计只给本币：把美元与人民币的原币金额加在一起没有意义。 */
+export interface AgingReport {
+  /** 10 应收 / 20 应付 */
+  direction: number
+  /** YYYY-MM-DD：分桶的截止日。 */
+  as_of: string
+  rows: AgingRow[]
+  total_base: AgingBuckets
+  grand_total_base: number
+}
+
 export interface Payment {
   id: number
   doc_no: string

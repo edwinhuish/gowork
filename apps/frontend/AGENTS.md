@@ -77,6 +77,7 @@ apps/frontend/
         ├── stock/            只读当前库存 + 重算（没有 create / edit）
         ├── stock-movements/  流水列表 + 手工录入（没有 edit）
         ├── stock-documents/  出入库单 + items-editor + 确认
+        ├── aging/            账龄报表（只读聚合，没有 create / edit）
         ├── currencies/       list / create / edit / form-fields（代码编辑时只读）
         └── exchange-rates/   list / create / form-fields（没有 edit）
 ```
