@@ -18,10 +18,7 @@ func (f CustomerFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 3)
 
 	if f.Keyword != "" {
-		kw := "%" + f.Keyword + "%"
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("code LIKE ? OR name LIKE ? OR contact LIKE ?", kw, kw, kw)
-		})
+		scopes = append(scopes, likeAny(f.Keyword, "code", "name", "contact"))
 	}
 	if f.Country != "" {
 		c := f.Country

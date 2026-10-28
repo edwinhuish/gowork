@@ -23,10 +23,7 @@ func (f ProductFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 4)
 
 	if f.Keyword != "" {
-		kw := "%" + f.Keyword + "%"
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("sku_code LIKE ? OR name_cn LIKE ? OR name_en LIKE ?", kw, kw, kw)
-		})
+		scopes = append(scopes, likeAny(f.Keyword, "sku_code", "name_cn", "name_en"))
 	}
 	if f.Category != "" {
 		cat := f.Category
