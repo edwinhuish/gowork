@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+
+	"github.com/edwinhuish/gowork/internal/pkg/dialect"
 )
 
 // likeEscape 是 LIKE 的转义字符。
@@ -23,7 +25,7 @@ func likeAny(keyword string, columns ...string) Scope {
 
 	return func(db *gorm.DB) *gorm.DB {
 		op := "LIKE"
-		if db.Dialector.Name() == "postgres" {
+		if db.Dialector.Name() == dialect.Postgres {
 			op = "ILIKE"
 		}
 

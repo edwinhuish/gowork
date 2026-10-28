@@ -18,13 +18,18 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/edwinhuish/gowork/internal/pkg/dialect"
 )
 
 // 支持的数据库驱动。
+//
+// 取值定义在 pkg/dialect：配置校验、连接装配与方言分支共用同一组字面量，
+// 这里只保留配置语义的名字。
 const (
-	DriverPostgres = "postgres"
-	DriverMySQL    = "mysql"
-	DriverSQLite   = "sqlite"
+	DriverPostgres = dialect.Postgres
+	DriverMySQL    = dialect.MySQL
+	DriverSQLite   = dialect.SQLite
 )
 
 // 支持的缓存驱动。
