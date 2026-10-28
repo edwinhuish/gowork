@@ -65,6 +65,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.Activity{},
 			&model.Opportunity{},
 			&model.Lead{},
+			&model.Quotation{},
+			&model.QuotationItem{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -96,6 +98,7 @@ func New(cfg *config.Config) (*App, error) {
 	activityRepo := repository.NewActivityRepository(db)
 	opptyRepo := repository.NewOpportunityRepository(db)
 	leadRepo := repository.NewLeadRepository(db)
+	quotationRepo := repository.NewQuotationRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -123,6 +126,12 @@ func New(cfg *config.Config) (*App, error) {
 		leadRepo, partnerSvc, partnerRepo, service.WithLeadLogger(log))
 	sourceSvc := service.NewProductSourceService(
 		sourceRepo, productRepo, partnerRepo, currencySvc, service.WithProductSourceLogger(log))
+	// 单号服务在这里落地：T-10 是第一张真正需要 DocNo 的单据。
+	docNoSvc := service.NewDocNoService(
+		repository.NewDocSeqRepository(db), service.WithDocNoLogger(log))
+	quotationSvc := service.NewQuotationService(
+		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc,
+		service.WithQuotationLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -137,6 +146,7 @@ func New(cfg *config.Config) (*App, error) {
 		Oppty:     handler.NewOpportunityHandler(opptySvc),
 		Lead:      handler.NewLeadHandler(leadSvc),
 		Source:    handler.NewProductSourceHandler(sourceSvc),
+		Quotation: handler.NewQuotationHandler(quotationSvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 

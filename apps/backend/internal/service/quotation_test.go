@@ -1,0 +1,350 @@
+package service
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/dto"
+	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/repository"
+)
+
+type quotationFixture struct {
+	svc         QuotationService
+	now         *time.Time
+	customerID  uint
+	supplierID  uint
+	productID   uint
+	product2ID  uint
+	cheapSrcID  uint
+	priceySrcID uint
+}
+
+func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
+	t.Helper()
+	ctx := context.Background()
+
+	db := openTestDB(t,
+		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
+		&model.ProductSource{}, &model.Quotation{}, &model.QuotationItem{}, &model.DocSeq{})
+
+	currencyRepo := repository.NewCurrencyRepository(db)
+	rateRepo := repository.NewExchangeRateRepository(db)
+	currencySvc := NewCurrencyService(currencyRepo, rateRepo)
+	clock := func() time.Time { return *now }
+
+	if _, err := currencySvc.Create(ctx, dto.CurrencyInput{
+		Code: "CNY", Name: "人民币", IsBase: boolPtr(true),
+	}); err != nil {
+		t.Fatalf("建本币失败: %v", err)
+	}
+	if _, err := currencySvc.Create(ctx, dto.CurrencyInput{Code: "USD", Name: "美元"}); err != nil {
+		t.Fatalf("建外币失败: %v", err)
+	}
+	if _, err := NewExchangeRateService(rateRepo, currencyRepo).Create(ctx,
+		dto.ExchangeRateInput{
+			CurrencyCode:  "USD",
+			Rate:          7.1,
+			EffectiveDate: now.Format(rateDateLayout),
+		}); err != nil {
+		t.Fatalf("登记汇率失败: %v", err)
+	}
+
+	partnerRepo := repository.NewPartnerRepository(db)
+	customer := &model.Partner{
+		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	supplier := &model.Partner{
+		Code: "S001", Name: "永康五金厂", Role: model.PartnerRoleSupplier,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	for _, p := range []*model.Partner{customer, supplier} {
+		if err := partnerRepo.Create(ctx, p); err != nil {
+			t.Fatalf("建主体失败: %v", err)
+		}
+	}
+
+	productRepo := repository.NewProductRepository(db)
+	p1 := &model.Product{
+		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Spec: "100×75×3", Unit: "PCS",
+		Status: model.EnableStatusOn,
+	}
+	p2 := &model.Product{
+		SKUCode: "BH01-0002", NameCN: "没有货源的产品", Unit: "PCS",
+		Status: model.EnableStatusOn,
+	}
+	for _, p := range []*model.Product{p1, p2} {
+		if err := productRepo.Create(ctx, p); err != nil {
+			t.Fatalf("建产品失败: %v", err)
+		}
+	}
+
+	sourceRepo := repository.NewProductSourceRepository(db)
+	sourceSvc := NewProductSourceService(
+		sourceRepo, productRepo, partnerRepo, currencySvc, WithProductSourceClock(clock))
+	cheap, err := sourceSvc.Create(ctx, dto.ProductSourceInput{
+		ProductID: p1.ID, PartnerID: supplier.ID, SupplierSKU: "B-100",
+		PurchasePrice: 8, MOQ: 1000, DeliveryDays: 20,
+	})
+	if err != nil {
+		t.Fatalf("建货源失败: %v", err)
+	}
+	pricey, err := sourceSvc.Create(ctx, dto.ProductSourceInput{
+		ProductID: p1.ID, PartnerID: supplier.ID, SupplierSKU: "A-100",
+		PurchasePrice: 1.2, CurrencyCode: "USD", MOQ: 500, DeliveryDays: 15,
+	})
+	if err != nil {
+		t.Fatalf("建货源失败: %v", err)
+	}
+
+	return quotationFixture{
+		svc: NewQuotationService(
+			repository.NewQuotationRepository(db), partnerRepo, productRepo, sourceRepo,
+			currencySvc,
+			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
+			WithQuotationClock(clock),
+		),
+		now:         now,
+		customerID:  customer.ID,
+		supplierID:  supplier.ID,
+		productID:   p1.ID,
+		product2ID:  p2.ID,
+		cheapSrcID:  cheap.ID,
+		priceySrcID: pricey.ID,
+	}
+}
+
+func TestQuotationRules(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newQuotationFixture(t, &now)
+
+	input := dto.QuotationInput{
+		PartnerID:    fx.customerID,
+		TradeTerm:    "FOB",
+		CurrencyCode: "usd",
+		ValidUntil:   "2026-11-30",
+		Items: []dto.QuotationItemInput{
+			{ProductID: fx.productID, Qty: 100, UnitPrice: 10},
+		},
+	}
+
+	var created *dto.QuotationDetail
+	t.Run("金额与毛利由后端算，成本锁在明细上", func(t *testing.T) {
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		created = q
+
+		if q.DocNo != "QT-202610-0001" {
+			t.Errorf("doc_no = %q，期望 QT-202610-0001", q.DocNo)
+		}
+		if q.Version != 1 || q.RootID != 0 {
+			t.Errorf("version/root_id = %d/%d，期望 1/0", q.Version, q.RootID)
+		}
+		if q.CurrencyCode != "USD" || !approx(q.ExchangeRate, 7.1) {
+			t.Errorf("币种/汇率 = %s/%v，期望 USD/7.1", q.CurrencyCode, q.ExchangeRate)
+		}
+		// 100 × 10 USD = 1000 USD；× 7.1 = 7100 CNY；成本取最低货源 8 CNY × 100 = 800。
+		if !approx(q.AmountTotal, 1000) || !approx(q.AmountBaseTotal, 7100) {
+			t.Errorf("金额 = %v / %v，期望 1000 / 7100", q.AmountTotal, q.AmountBaseTotal)
+		}
+		if !approx(q.CostTotal, 800) || !approx(q.GrossProfit, 6300) {
+			t.Errorf("成本/毛利 = %v / %v，期望 800 / 6300", q.CostTotal, q.GrossProfit)
+		}
+		if !approx(q.MarginRate, 0.887324) {
+			t.Errorf("毛利率 = %v，期望 0.887324", q.MarginRate)
+		}
+
+		item := q.Items[0]
+		if !approx(item.CostPrice, 8) {
+			t.Errorf("明细成本价 = %v，期望 8（最低货源）", item.CostPrice)
+		}
+		if item.SourceID == nil || *item.SourceID != fx.cheapSrcID {
+			t.Errorf("明细未记录成本取自哪条货源，实际 %v", item.SourceID)
+		}
+		// 产品信息快照：产品改名后报价单上仍是发给客户的那个说法。
+		if item.SKUCode != "BH01-0001" || item.NameCN != "不锈钢合页" || item.Unit != "PCS" {
+			t.Errorf("产品快照缺失: %+v", item)
+		}
+	})
+
+	t.Run("指定货源则按指定价", func(t *testing.T) {
+		src := fx.priceySrcID
+		in := input
+		in.Items = []dto.QuotationItemInput{
+			{ProductID: fx.productID, Qty: 100, UnitPrice: 10, SourceID: &src},
+		}
+		q, err := fx.svc.Create(ctx, in)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		if !approx(q.CostTotal, 852) {
+			t.Errorf("成本 = %v，期望 852（1.2 USD × 7.1 × 100）", q.CostTotal)
+		}
+		if !approx(q.MarginRate, 0.88) {
+			t.Errorf("毛利率 = %v，期望 0.88", q.MarginRate)
+		}
+	})
+
+	t.Run("产品没有货源时不给报价", func(t *testing.T) {
+		in := input
+		in.Items = []dto.QuotationItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: 10}}
+		_, err := fx.svc.Create(ctx, in)
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("期望 40001（请先维护货源），实际 %v", err)
+		}
+	})
+
+	t.Run("报给供应商被拒", func(t *testing.T) {
+		in := input
+		in.PartnerID = fx.supplierID
+		_, err := fx.svc.Create(ctx, in)
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("期望 40001，实际 %v", err)
+		}
+	})
+
+	t.Run("有效期不能早于今天", func(t *testing.T) {
+		in := input
+		in.ValidUntil = "2026-10-01"
+		_, err := fx.svc.Create(ctx, in)
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("期望 40001，实际 %v", err)
+		}
+	})
+
+	t.Run("试算不落库且与保存口径一致", func(t *testing.T) {
+		pv, err := fx.svc.Preview(ctx, dto.QuotationPreviewInput{
+			CurrencyCode: "usd", Items: input.Items,
+		})
+		if err != nil {
+			t.Fatalf("试算失败: %v", err)
+		}
+		if !approx(pv.AmountBaseTotal, created.AmountBaseTotal) ||
+			!approx(pv.CostTotal, created.CostTotal) ||
+			!approx(pv.MarginRate, created.MarginRate) {
+			t.Errorf("试算 %v/%v/%v 与保存 %v/%v/%v 口径不一致",
+				pv.AmountBaseTotal, pv.CostTotal, pv.MarginRate,
+				created.AmountBaseTotal, created.CostTotal, created.MarginRate)
+		}
+		if pv.Items[0].SourceName != "永康五金厂" {
+			t.Errorf("试算未给出成本来源，实际 %q", pv.Items[0].SourceName)
+		}
+	})
+
+	t.Run("报价单只能确认或取消", func(t *testing.T) {
+		_, err := fx.svc.UpdateStatus(ctx, created.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusPreparing),
+		})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("期望 40001（报价单不该出现备货中），实际 %v", err)
+		}
+	})
+
+	t.Run("确认后不可改也不可删", func(t *testing.T) {
+		q, err := fx.svc.UpdateStatus(ctx, created.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		})
+		if err != nil {
+			t.Fatalf("确认失败: %v", err)
+		}
+		if q.ConvertBlock != "" {
+			t.Errorf("已确认且有效期内不该有拦截原因，实际 %q", q.ConvertBlock)
+		}
+		if _, err := fx.svc.Update(ctx, created.ID, input); err == nil {
+			t.Fatal("已确认的报价单不该允许修改")
+		} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901，实际 %v", err)
+		}
+		if err := fx.svc.Delete(ctx, created.ID); err == nil {
+			t.Fatal("已确认的报价单不该允许删除")
+		} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901，实际 %v", err)
+		}
+	})
+
+	t.Run("另存新版本沿用单号并升版本", func(t *testing.T) {
+		v2, err := fx.svc.NewVersion(ctx, created.ID, dto.QuotationVersionInput{})
+		if err != nil {
+			t.Fatalf("另存新版本失败: %v", err)
+		}
+		if v2.DocNo != created.DocNo || v2.Version != 2 {
+			t.Errorf("新版本 = %s v%d，期望 %s v2", v2.DocNo, v2.Version, created.DocNo)
+		}
+		if v2.Status != model.DocumentStatusDraft {
+			t.Errorf("新版本状态 = %d，期望草稿", v2.Status)
+		}
+		if v2.RootID != created.ID {
+			t.Errorf("新版本 root_id = %d，期望指向第 1 版 %d", v2.RootID, created.ID)
+		}
+		if len(v2.Items) != 1 || !approx(v2.Items[0].CostPrice, created.Items[0].CostPrice) {
+			t.Errorf("新版本未复制明细或成本快照变了: %+v", v2.Items)
+		}
+	})
+
+	t.Run("过期后不可确认，另存必须给新有效期", func(t *testing.T) {
+		start := now
+		defer func() { now = start }()
+
+		short := input
+		short.ValidUntil = "2026-10-28"
+		q, err := fx.svc.Create(ctx, short)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		// 截止日当天仍有效。
+		if q.Expired {
+			t.Error("截止日当天不该算过期")
+		}
+
+		now = start.AddDate(0, 0, 5)
+		got, err := fx.svc.Get(ctx, q.ID)
+		if err != nil {
+			t.Fatalf("查报价单失败: %v", err)
+		}
+		if !got.Expired || !strings.Contains(got.ConvertBlock, "有效期") {
+			t.Errorf("过期后应拦住转订单，实际 expired=%v block=%q", got.Expired, got.ConvertBlock)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		}); err == nil {
+			t.Fatal("过期报价单不该允许确认")
+		} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901，实际 %v", err)
+		}
+
+		if _, err := fx.svc.NewVersion(ctx, q.ID, dto.QuotationVersionInput{}); err == nil {
+			t.Fatal("过期报价单另存新版本时应要求填新的有效期")
+		}
+		v2, err := fx.svc.NewVersion(ctx, q.ID, dto.QuotationVersionInput{ValidUntil: "2026-12-31"})
+		if err != nil {
+			t.Fatalf("带新有效期另存应成功: %v", err)
+		}
+		if v2.Expired {
+			t.Error("新有效期下不该算过期")
+		}
+	})
+
+	t.Run("取消是终态", func(t *testing.T) {
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusCancelled),
+		}); err != nil {
+			t.Fatalf("草稿直接作废应被允许: %v", err)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		}); err == nil {
+			t.Fatal("已取消的报价单不该再被确认")
+		}
+	})
+}

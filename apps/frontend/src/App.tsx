@@ -4,6 +4,7 @@ import {
   ContactsOutlined,
   DashboardOutlined,
   DollarOutlined,
+  FileTextOutlined,
   FundOutlined,
   ShopOutlined,
   UserAddOutlined,
@@ -32,6 +33,12 @@ import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
 import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
+import {
+  QuotationCreate,
+  QuotationEdit,
+  QuotationList,
+  QuotationShow,
+} from '@/pages/quotations'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -116,6 +123,15 @@ export default function App() {
                 meta: { label: '商机', icon: <FundOutlined /> },
               },
               {
+                // 报价单是 ERP 侧第一张单据：单号、状态机、成本快照都从它开始。
+                name: 'quotations',
+                list: '/quotations',
+                create: '/quotations/create',
+                edit: '/quotations/edit/:id',
+                show: '/quotations/show/:id',
+                meta: { label: '报价单', icon: <FileTextOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -190,6 +206,13 @@ export default function App() {
                     <Route index element={<OpportunityList />} />
                     <Route path="create" element={<OpportunityCreate />} />
                     <Route path="edit/:id" element={<OpportunityEdit />} />
+                  </Route>
+
+                  <Route path="quotations">
+                    <Route index element={<QuotationList />} />
+                    <Route path="create" element={<QuotationCreate />} />
+                    <Route path="edit/:id" element={<QuotationEdit />} />
+                    <Route path="show/:id" element={<QuotationShow />} />
                   </Route>
 
                   <Route path="currencies">

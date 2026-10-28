@@ -277,3 +277,99 @@ export interface ProductSource {
   created_at: string
   updated_at: string
 }
+
+/**
+ * 报价明细行。
+ *
+ * 金额、本币金额、成本价、成本额全部由后端算并锁在这里：成本是**快照**，
+ * 供应商涨价后回看三个月前的报价，仍应显示当时的毛利。
+ */
+export interface QuotationItem {
+  id: number
+  quotation_id: number
+  product_id: number
+  /** 产品信息快照：产品改名后报价单上仍是发给客户的那个说法。 */
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  /** 报价币种单价。 */
+  unit_price: number
+  amount: number
+  amount_base: number
+  /** 本币单位成本快照，来自货源。 */
+  cost_price: number
+  cost_amount: number
+  /** 成本取自哪条货源，事后能回答「这个价按谁家算的」。 */
+  source_id: number | null
+  remark: string
+  product?: Product | null
+}
+
+/**
+ * 报价单。
+ *
+ * 与商机的区别在「承诺」：商机金额随汇率重算，报价单发出后金额、汇率、成本一律锁定。
+ * 同一份报价谈多轮时共用 doc_no、只递增 version，所以「QT-202610-0001 的第 3 版」
+ * 在邮件里能被唯一指认。
+ */
+export interface Quotation {
+  id: number
+  doc_no: string
+  version: number
+  /** 第 1 版的 id；第 1 版自身为 0。 */
+  root_id: number
+  partner_id: number
+  trade_term: string
+  /** 10 草稿 / 20 已确认 / 90 已取消 */
+  status: number
+  currency_code: string
+  exchange_rate: number
+  valid_until: string
+  amount_total: number
+  amount_base_total: number
+  cost_total: number
+  gross_profit: number
+  /** 毛利率，0.235 表示 23.5%。 */
+  margin_rate: number
+  remark: string
+  partner?: Partner | null
+  items?: QuotationItem[]
+  created_at: string
+  updated_at: string
+}
+
+/** 详情比列表多两个由服务端算的字段：是否过期、为什么不能转订单。 */
+export interface QuotationDetail extends Quotation {
+  expired: boolean
+  convert_block?: string
+}
+
+export interface QuotationPreviewItem {
+  product_id: number
+  sku_code: string
+  name_cn: string
+  unit: string
+  qty: number
+  unit_price: number
+  amount: number
+  amount_base: number
+  cost_price: number
+  cost_amount: number
+  gross_profit: number
+  source_id: number | null
+  source_name: string
+}
+
+/** 报价试算结果：口径与保存后完全一致（同一个折算函数）。 */
+export interface QuotationPreview {
+  currency_code: string
+  exchange_rate: number
+  items: QuotationPreviewItem[]
+  amount_total: number
+  amount_base_total: number
+  cost_total: number
+  gross_profit: number
+  margin_rate: number
+}

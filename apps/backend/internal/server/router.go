@@ -27,6 +27,7 @@ type Handlers struct {
 	Oppty     *handler.OpportunityHandler
 	Lead      *handler.LeadHandler
 	Source    *handler.ProductSourceHandler
+	Quotation *handler.QuotationHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -149,6 +150,20 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		leads.PUT("/:id", h.Lead.Update)
 		leads.DELETE("/:id", h.Lead.Delete)
 		leads.POST("/:id/convert", h.Lead.Convert)
+
+		// 报价单：主链上第一张真正的单据。单号走 DocNoService，状态走状态机。
+		// 状态变更与另存新版本各自独立成接口，避免"保存一下顺手把报价确认了"。
+		quotations := secured.Group("/quotations")
+		quotations.GET("", h.Quotation.List)
+		quotations.POST("", h.Quotation.Create)
+		quotations.GET("/:id", h.Quotation.Get)
+		quotations.PUT("/:id", h.Quotation.Update)
+		quotations.DELETE("/:id", h.Quotation.Delete)
+		quotations.PUT("/:id/status", h.Quotation.UpdateStatus)
+		quotations.POST("/:id/versions", h.Quotation.NewVersion)
+
+		// 试算独立前缀：与 /:id 同级会抢路径（同 opportunities-summary 的处理）。
+		secured.POST("/quotations-preview", h.Quotation.Preview)
 	}
 
 	return engine

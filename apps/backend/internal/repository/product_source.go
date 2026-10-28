@@ -65,6 +65,12 @@ type ProductSourceRepository interface {
 	) (bool, error)
 	// CountByProductID 统计某产品下的货源条数，供产品删除前判断有没有引用。
 	CountByProductID(ctx context.Context, productID uint) (int64, error)
+	// FindCheapestByProductID 取该产品本币价最低的**启用**货源，供报价单落成本快照。
+	//
+	// 取最低价而不是"产品上的默认供应商"：报价时要比的就是"现在从谁家进最便宜"，
+	// 默认供应商是会过期的历史选择（旺季分单、对方已经涨价）。
+	// 找不到返回 errs.ErrNotFound，由调用方给出"请先维护货源"的提示。
+	FindCheapestByProductID(ctx context.Context, productID uint) (*model.ProductSource, error)
 }
 
 type productSourceRepo struct {
@@ -127,4 +133,22 @@ func (r *productSourceRepo) CountByProductID(ctx context.Context, productID uint
 	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
 		return db.Where("product_id = ?", productID)
 	})
+}
+
+func (r *productSourceRepo) FindCheapestByProductID(
+	ctx context.Context, productID uint,
+) (*model.ProductSource, error) {
+	var m model.ProductSource
+	err := r.DB().WithContext(ctx).
+		Preload("Partner").
+		Where("product_id = ? AND status = ?", productID, model.EnableStatusOn).
+		Order("purchase_price_base ASC, id ASC").
+		First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询产品 id=%d 的最低货源: %w", productID, err)
+	}
+	return &m, nil
 }

@@ -146,6 +146,27 @@ export function leadSourceLabel(value?: string | null): string {
   return LEAD_SOURCE_OPTIONS.find((o) => o.value === value)?.label ?? value
 }
 
+/**
+ * 报价单状态。取值与后端 model.DocumentStatus 一致，但只列报价单真会走到的三个：
+ * 备货中 / 已出货属于订单，报价单永远不该出现（后端也会拒绝）。
+ */
+export const QUOTATION_STATUS_OPTIONS = [
+  { value: 10, label: '草稿' },
+  { value: 20, label: '已确认' },
+  { value: 90, label: '已取消' },
+]
+
+export function quotationStatusLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return QUOTATION_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
+}
+
+/** 贸易术语的中文名；未知码原样透出，不吞数据。 */
+export function tradeTermLabel(value?: string | null): string {
+  if (!value) return '—'
+  return TRADE_TERM_OPTIONS.find((o) => o.value === value)?.label ?? value
+}
+
 /** 结算方式：决定账期与风险，也决定报价的价格基础。 */
 export const SETTLEMENT_METHOD_OPTIONS = [
   { value: 'TT', label: 'T/T 电汇' },

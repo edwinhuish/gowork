@@ -33,6 +33,9 @@ type CurrencyService interface {
 	ToBase(ctx context.Context, amount float64, currencyCode string, on time.Time) (base, rate float64, err error)
 	// BaseCode 返回本币代码。币种留空表示"用本币"时，需要它来落字段。
 	BaseCode(ctx context.Context) (string, error)
+	// Decimals 返回该币种的金额小数位，报价单与订单算行金额时按它舍入。
+	// 不把小数位写死在调用处：日元 0 位、多数币种 2 位，写死 2 会让日元单据多出两位小数。
+	Decimals(ctx context.Context, code string) (int, error)
 }
 
 type currencyService struct {
@@ -268,6 +271,17 @@ func (s *currencyService) BaseCode(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return base.Code, nil
+}
+
+func (s *currencyService) Decimals(ctx context.Context, code string) (int, error) {
+	c, err := s.repo.FindByCode(ctx, code)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return 0, errs.BadRequest("币种不存在：" + code)
+		}
+		return 0, err
+	}
+	return c.DecimalPlaces, nil
 }
 
 // rateOn 取某币种相对本币在 on 当日的折算率，本币自身恒为 1。
