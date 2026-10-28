@@ -11,11 +11,19 @@
 
 ## 1. 项目目标
 
-外贸 ERP 的最小可用骨架。先把「供应商 → 产品 → 客户」这段主数据做扎实，
-再按同一套分层往里加单据（订单 / 采购 / 库存 / 出货）。
+外贸采购代理的 **ERP + CRM 集成系统**。一条主数据（产品 / 供应商 / 客户），
+两侧业务：ERP 管采购、库存、出货与订单，CRM 管联系人、跟进与商机。
+
+**集成发生在数据层，不是两个系统对接。** CRM 里跟进的客户与 ERP 里开票的客户
+是同一行 `md_customer` 记录——没有同步任务，也没有第二份客户表。
+域边界与判断标准见 `docs/glossary.md` 第二节。
 
 **当前阶段：主数据。** 已实现鉴权、产品、供应商、客户、概览统计。
-订单、采购、库存、出货批次**尚未实现**，扩展套路见 `docs/architecture.md` 第六节。
+ERP 侧的订单 / 采购 / 库存 / 出货、CRM 侧的联系人 / 跟进 / 商机**均未实现**，
+扩展套路见 `docs/architecture.md` 第六节。
+
+**改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
+归哪个域、哪些词不许用——那里面每一条都是踩过的坑。
 
 **刻意不做的事**（不要"顺手"加上）：
 
@@ -23,6 +31,7 @@
 |---|---|
 | 多租户 / 权限矩阵 | 只有 `admin` 与普通用户两种角色，够用；先做会把每条查询都染色 |
 | 微服务拆分 | 单进程足够；分层已经让边界清楚，拆进程是部署问题不是代码问题 |
+| 给 CRM 建独立的客户表 | 客户被两侧同时写，拆表就要双向同步，集成从数据层退化成消息层 |
 | 把订单号 / 批次号 / 价格编进 SKU | SKU 只承载身份。订单与出货是多对多（分批 / 合并），塞进编码必崩 |
 | GraphQL / tRPC | REST + 统一响应体已经够薄，换协议收益不抵学习成本 |
 
@@ -38,11 +47,13 @@ GoWork/
 │   │   ├── configs/             # 4 份配置样例：默认 / prod / postgres / mysql
 │   │   └── internal/            # 全部业务代码，不对外暴露
 │   └── frontend/                # React 单页应用（见 apps/frontend/AGENTS.md）
-│       ├── src/                 # pages / hooks / api / components / store / types
+│       ├── src/                 # pages / providers / api / components / constants / utils / types
 │       └── pnpm-workspace.yaml  # pnpm 设置（不是工作区划分）
 ├── deployments/
 │   └── docker-compose.yml       # 本地 PostgreSQL + Redis（MySQL 走 profile）
-├── docs/architecture.md         # 分层约定、存储可替换性、扩展指引
+├── docs/
+│   ├── glossary.md              # 术语表：业务对象叫什么、归哪个域（唯一事实来源）
+│   └── architecture.md          # 分层约定、存储可替换性、扩展指引
 └── .github/workflows/ci.yml     # CI：go build/vet/test + pnpm install/typecheck/build
 ```
 
@@ -91,16 +102,21 @@ gin HTTP 层 (Go :8080)
 
 **后端**（细节见 `apps/backend/AGENTS.md`）：
 
-| 模块 | 路由前缀 | 说明 |
-|---|---|---|
-| auth | `/api/v1/auth` | 登录、当前用户、登出；登录失败限流 |
-| product | `/api/v1/products` | 产品主数据，SKU 唯一 |
-| supplier | `/api/v1/suppliers` | 供应商 |
-| customer | `/api/v1/customers` | 客户 |
-| dashboard | `/api/v1/dashboard` | 聚合统计，结果缓存 30 秒 |
+| 模块 | 域 | 路由前缀 | 说明 |
+|---|---|---|---|
+| auth | 系统 | `/api/v1/auth` | 登录、当前用户、登出；登录失败限流 |
+| product | 共享主数据 | `/api/v1/products` | 产品，SKU 编码唯一 |
+| supplier | 主数据（ERP 用） | `/api/v1/suppliers` | 供应商，采购侧 |
+| customer | 主数据（ERP + CRM 共用） | `/api/v1/customers` | 客户主体，两侧引用的同一行 |
+| dashboard | 系统 | `/api/v1/dashboard` | 跨域聚合统计，结果缓存 30 秒 |
 
-**前端**（细节见 `apps/frontend/AGENTS.md`）：登录页 + 概览 / 产品 / 供应商 / 客户四个列表页，
-共用一套列表状态机（分页、关键字、加载、错误、竞态）。
+**前端**（细节见 `apps/frontend/AGENTS.md`）：登录页 + 概览 + 产品 / 供应商 / 客户
+三个模块。每个模块是 refine 的 `list / create / edit / show` 四页，
+新建与编辑共用 `form-fields.tsx` 里的字段定义。
+
+**未实现但已定名的模块**（先看术语表再加，别另起名字）：ERP 侧的
+`PurchaseOrder` / `SalesOrder` / `Shipment` / `StockMovement`，CRM 侧的
+`Contact` / `Activity` / `Opportunity`。
 
 ## 6. 跨层约定
 
@@ -116,6 +132,8 @@ gin HTTP 层 (Go :8080)
 4. **前端只认 pnpm。** 锁文件只有 `pnpm-lock.yaml`；`npm install` 会被 `preinstall` 守卫拦掉。
 5. **新增业务模块照五步走**：model → repository → dto → service → handler+router，
    最后在 `bootstrap/app.go` 装配一次。检查清单在 `docs/architecture.md` 第六节末尾。
+   **起名和定表前缀之前先查 `docs/glossary.md`**：未实现的模块名已经定好了，
+   自己换一个叫法会让前后端和文档立刻分叉。
 
 ## 7. 运行
 
@@ -136,6 +154,7 @@ task lint         # go vet + tsc --noEmit
 | 文件 | 讲什么 | 什么时候读 |
 |---|---|---|
 | `AGENTS.md`（本文） | 目标、架构、技术栈、模块划分 | 第一次接触项目 |
+| `docs/glossary.md` | **术语表**：业务对象叫什么、归哪个域、哪些词不许用、命名规则 | 写任何新代码或文档之前 |
 | `apps/backend/AGENTS.md` | 后端分层、核心模块、接口清单、数据流、约定 | 改 Go 代码 |
 | `apps/frontend/AGENTS.md` | 前端分层、数据流、页面套路、约定 | 改 React 代码 |
 | `docs/architecture.md` | 取舍的**理由**、存储可替换性、扩展指引 | 要动架构或质疑某个设计 |

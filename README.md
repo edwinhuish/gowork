@@ -1,8 +1,13 @@
 # GoWork
 
-外贸 ERP 的 monorepo 骨架：Go 后端（gin + gorm + redis）+ React 前端，用 Taskfile 统一管理指令。
+外贸采购代理的 **ERP + CRM 集成系统**：Go 后端（gin + gorm + redis）+ React 管理端，
+用 Taskfile 统一管理指令。
+
+一条主数据（产品 / 供应商 / 客户）供两侧业务共用——ERP 管采购、库存、出货与订单，
+CRM 管联系人、跟进与商机，两侧引用同一行客户记录。
 
 > 面向 AI 协作者的文档：根目录 [`AGENTS.md`](AGENTS.md) 讲目标与整体架构，
+> [`docs/glossary.md`](docs/glossary.md) 是术语与域边界的唯一事实来源，
 > `apps/backend/AGENTS.md`、`apps/frontend/AGENTS.md` 讲各自的分层、接口与约定。
 > 本文只负责"怎么把它跑起来"。
 
@@ -18,6 +23,7 @@ GoWork/
 ├── deployments/
 │   └── docker-compose.yml    # PostgreSQL + Redis（MySQL 走 profile）
 └── docs/
+    ├── glossary.md           # 术语表：叫什么、归哪个域、哪些词不许用
     └── architecture.md       # 分层约定、存储可替换性、扩展指引
 ```
 
@@ -138,7 +144,7 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | POST | `/api/v1/auth/login` | 登录 |
 | GET | `/api/v1/auth/profile` | 当前用户 |
 | POST | `/api/v1/auth/logout` | 登出 |
-| GET | `/api/v1/dashboard/summary` | 首页统计 |
+| GET | `/api/v1/dashboard/summary` | 概览统计 |
 | GET/POST | `/api/v1/products` | 产品列表 / 新建 |
 | GET/PUT/DELETE | `/api/v1/products/:id` | 产品详情 / 编辑 / 删除 |
 | GET/POST | `/api/v1/suppliers` | 供应商列表 / 新建 |
@@ -152,12 +158,20 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 
 ## 已实现模块
 
-- **鉴权**：登录、登出、身份校验、登录失败限流（15 分钟内 5 次）
-- **产品**：SKU 编码唯一校验、分类、供应商关联、成本/售价、软删除
-- **供应商 / 客户**：编码唯一校验、关键字搜索、软删除
-- **概览**：聚合统计，结果缓存 30 秒
+**共享主数据**（ERP 与 CRM 同时引用）
 
-订单、采购、库存、出货批次等模块尚未实现，扩展方式见 [docs/architecture.md](docs/architecture.md)。
+- **产品**：SKU 编码唯一校验、分类、默认货源（供应商）、成本/售价、软删除
+- **供应商**：编码唯一校验、关键字搜索、软删除
+- **客户**：编码唯一校验、国家/地区、主联系人、软删除
+
+**系统**
+
+- **鉴权**：登录、登出、身份校验、登录失败限流（15 分钟内 5 次）、令牌滑动续期
+- **概览**：跨域聚合统计，结果缓存 30 秒
+
+**未实现**：ERP 侧的采购订单、销售订单、库存、出货批次；CRM 侧的联系人、
+跟进记录、商机。名称已在 [docs/glossary.md](docs/glossary.md) 定好，
+扩展方式见 [docs/architecture.md](docs/architecture.md) 第六节。
 
 ## 安装 task
 
