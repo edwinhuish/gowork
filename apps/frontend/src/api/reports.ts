@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { AgingReport, PageResult, ShipmentProfit } from '@/types'
+import type { AgingReport, ExchangeGainReport, PageResult, ShipmentProfit } from '@/types'
 
 export interface AgingParams {
   /** 10 应收 / 20 应付，留空按应收。 */
@@ -23,6 +23,14 @@ export interface ShipmentProfitParams {
   page_size?: number
 }
 
+export interface ExchangeGainParams {
+  /** 按到账日筛，闭区间；留空不限。 */
+  from?: string
+  to?: string
+  partner_id?: number
+  currency_code?: string
+}
+
 export const reportApi = {
   aging: (params: AgingParams = {}) =>
     http.get<AgingReport>(`/reports/aging${toQuery({ ...params })}`),
@@ -30,4 +38,8 @@ export const reportApi = {
   /** 单票毛利，带 shipment_id 时是 0 或 1 条。金额全是本币。 */
   shipmentProfits: (params: ShipmentProfitParams = {}) =>
     http.get<PageResult<ShipmentProfit>>(`/reports/shipment-profits${toQuery({ ...params })}`),
+
+  /** 汇兑损益：逐笔核销，正收益负损失，单位本币。 */
+  exchangeGains: (params: ExchangeGainParams = {}) =>
+    http.get<ExchangeGainReport>(`/reports/exchange-gains${toQuery({ ...params })}`),
 }

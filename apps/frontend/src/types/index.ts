@@ -590,6 +590,52 @@ export interface AgingReport {
 }
 
 /**
+ * 一笔核销产生的汇兑损益。
+ *
+ * 到账汇率与目标单据锁定的汇率不同，同一笔原币折出来的本币就不同：
+ * 应收差额记收益（正），应付差额记损失（负）。预收 / 预付款没有核销对象，
+ * 不出现在这里——还没核销就没有可比的单据汇率。
+ */
+export interface ExchangeGainLine {
+  payment_id: number
+  payment_doc_no: string
+  pay_date: string
+  /** 10 收款 / 20 付款 */
+  direction: number
+  partner_id: number
+  partner_code: string
+  partner_name: string
+  currency_code: string
+  /** 10 应收单 / 20 应付单 */
+  target_type: number
+  target_doc_no: string
+  /** 核销原币 */
+  amount: number
+  /** 按到账汇率折的本币 */
+  amount_base: number
+  payment_rate: number
+  document_rate: number
+  /** 按单据汇率折出来的同一笔原币 */
+  document_base: number
+  /** 正数收益、负数损失，单位本币 */
+  gain_base: number
+}
+
+export interface ExchangeGainSubtotal {
+  currency_code: string
+  amount: number
+  gain_base: number
+}
+
+export interface ExchangeGainReport {
+  from: string
+  to: string
+  lines: ExchangeGainLine[]
+  subtotals: ExchangeGainSubtotal[]
+  total_gain_base: number
+}
+
+/**
  * 客户当前占用的信用额度，单位本币。
  *
  * 敞口 = 未结清应收 + 已确认未开票订单。只算前一半会漏掉已经承诺出去、还没开票的货。

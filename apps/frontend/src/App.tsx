@@ -2,6 +2,7 @@ import {
   AccountBookOutlined,
   AppstoreOutlined,
   BarChartOutlined,
+  LineChartOutlined,
   CommentOutlined,
   ContactsOutlined,
   DashboardOutlined,
@@ -36,6 +37,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
 import { AgingPage } from '@/pages/aging'
+import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
@@ -260,6 +262,11 @@ export default function App() {
                 meta: { label: '账龄', icon: <BarChartOutlined /> },
               },
               {
+                name: 'exchange-gains',
+                list: '/exchange-gains',
+                meta: { label: '汇兑损益', icon: <LineChartOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -410,6 +417,10 @@ export default function App() {
 
                   <Route path="aging">
                     <Route index element={<AgingPage />} />
+                  </Route>
+
+                  <Route path="exchange-gains">
+                    <Route index element={<ExchangeGainsPage />} />
                   </Route>
 
                   <Route path="currencies">
