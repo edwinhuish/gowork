@@ -1,5 +1,9 @@
-# 本地开发默认配置：SQLite + 进程内缓存，缺省零外部依赖即可启动。
-# 需要 MySQL / Redis 时改用 config.prod.yaml，或用 GOWORK_* 环境变量覆盖。
+# 本地开发默认配置：SQLite + 内存缓存（落盘），零外部依赖即可启动。
+#
+# 想换外部服务不用改代码，只改这里（或对应 GOWORK_* 环境变量）：
+#   换 MySQL    -> database.driver: mysql，配置 host/user/password/name
+#   换 PgSQL    -> database.driver: postgres，其余字段名完全一样
+#   换 Redis    -> cache.driver: redis，配置 cache.redis.addr
 app:
   name: gowork
   env: dev
@@ -14,20 +18,31 @@ http:
 
 database:
   driver: sqlite
+  # sqlite 的 dsn 就是文件路径 + pragma；不写则默认 data/gowork.db。
+  # WAL 让读不阻塞写，busy_timeout 让并发写等锁而不是直接报错。
   dsn: "file:./data/gowork.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
-  max_open: 20
-  max_idle: 5
+  max_open: 8
+  max_idle: 4
+  log_level: warn
   auto_migrate: true
   seed: true
 
-redis:
-  # 留空表示不连 Redis，直接使用进程内缓存。
-  # 填 "localhost:6379" 即可启用，连不上时会按 fallback_to_memory 决定是否降级。
-  addr: ""
-  password: ""
-  db: 0
+cache:
+  driver: memory
   prefix: "gowork:"
+  # 仅 driver=redis 时生效：redis 连不上是否退回内存。生产应为 false。
   fallback_to_memory: true
+  memory:
+    # 落盘，重启后登录态、限流计数不会突然清零。
+    persist: true
+    path: "data/cache.snapshot"
+    # 写操作只置脏标记，按这个间隔合并落盘；退出时还会再刷一次。
+    save_interval: 30
+  redis:
+    addr: ""
+    password: ""
+    db: 0
+    dial_timeout: 2
 
 jwt:
   secret: "dev-only-secret-please-change-in-production-1a2b3c4d"

@@ -1,0 +1,53 @@
+# MySQL + Redis 配置示例。
+#
+# 用途：验证「同一套业务代码换库不用改任何 Go 代码」。
+#   GOWORK_DB_PASSWORD=gowork task backend:run -- -config configs/config.mysql.yaml
+#
+# 注意与 postgres 的差别只在 params 的语义：
+#   postgres -> key=value（sslmode、TimeZone）
+#   mysql    -> query string（charset、parseTime、loc）
+
+app:
+  name: gowork
+  env: dev
+
+http:
+  addr: ":8081"
+  mode: debug
+  cors_origins:
+    - http://localhost:5173
+  shutdown_timeout: 10
+
+database:
+  driver: mysql
+  host: 127.0.0.1
+  port: 3306
+  user: gowork
+  password: ""
+  name: gowork
+  params:
+    charset: utf8mb4
+    parseTime: "True"
+    loc: Local
+  max_open: 50
+  max_idle: 10
+  auto_migrate: true
+  seed: true
+
+cache:
+  driver: redis
+  prefix: "gowork:"
+  fallback_to_memory: true
+  redis:
+    addr: "127.0.0.1:6379"
+    db: 0
+  memory:
+    persist: false
+
+jwt:
+  secret: "dev-only-secret-please-change-in-production-1a2b3c4d"
+  expire: 24
+
+log:
+  level: info
+  format: text

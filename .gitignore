@@ -11,6 +11,10 @@ data/
 *.db-shm
 *.db-wal
 
+# memory 缓存落盘快照（含登录会话，不应入库）
+*.snapshot
+*.snapshot.corrupt
+
 # env & secrets
 .env
 .env.*

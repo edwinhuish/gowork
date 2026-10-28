@@ -56,7 +56,7 @@ func New(cfg *config.Config) (*App, error) {
 		log.Info("数据库结构已同步")
 	}
 
-	c, err := cache.New(cfg.Redis, log)
+	c, err := cache.New(cfg.Cache, log)
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("初始化缓存: %w", err)

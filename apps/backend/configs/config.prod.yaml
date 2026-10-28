@@ -1,6 +1,10 @@
-# 生产配置模板：MySQL + Redis。
+# 生产配置模板：PostgreSQL + Redis。
+#
 # 密码一律通过环境变量注入，不要写进仓库：
-#   GOWORK_DB_DSN、GOWORK_REDIS_PASSWORD、GOWORK_JWT_SECRET
+#   GOWORK_DB_PASSWORD、GOWORK_REDIS_PASSWORD、GOWORK_JWT_SECRET
+# 换 MySQL 只需把 driver 改成 mysql 并把 port 改成 3306，其余键名不变
+# （也可以直接参考 config.mysql.yaml）。
+
 app:
   name: gowork
   env: prod
@@ -13,20 +17,34 @@ http:
   shutdown_timeout: 15
 
 database:
-  driver: mysql
-  dsn: "gowork:gowork@tcp(mysql:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local"
+  driver: postgres
+  host: postgres
+  port: 5432
+  user: gowork
+  password: ""
+  name: gowork
+  params:
+    sslmode: require
+    TimeZone: Asia/Shanghai
   max_open: 100
   max_idle: 20
   max_lifetime: 3600
+  log_level: warn
   auto_migrate: false
   seed: false
 
-redis:
-  addr: "redis:6379"
-  password: ""
-  db: 0
+cache:
+  driver: redis
   prefix: "gowork:"
+  # 生产不允许静默降级：多实例部署下退回进程内缓存会造成数据不一致。
   fallback_to_memory: false
+  redis:
+    addr: "redis:6379"
+    password: ""
+    db: 0
+    dial_timeout: 2
+  memory:
+    persist: false
 
 jwt:
   secret: ""

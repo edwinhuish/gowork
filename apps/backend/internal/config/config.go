@@ -2,11 +2,17 @@
 //
 // 优先级：配置文件 < 环境变量（GOWORK_ 前缀）。
 // 生产环境的密码、DSN 一律走环境变量，不进仓库。
+//
+// 存储相关的配置都遵循同一个思路：**用配置选项切换实现，而不是改代码**。
+// 数据库靠 database.driver（postgres | mysql | sqlite），
+// 缓存靠 cache.driver（redis | memory），两者互不牵连，可以任意组合。
 package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,11 +20,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// 支持的数据库驱动。
+const (
+	DriverPostgres = "postgres"
+	DriverMySQL    = "mysql"
+	DriverSQLite   = "sqlite"
+)
+
+// 支持的缓存驱动。
+const (
+	CacheRedis  = "redis"
+	CacheMemory = "memory"
+)
+
+// 各驱动的默认端口，未显式配置时使用。
+var defaultPorts = map[string]int{
+	DriverPostgres: 5432,
+	DriverMySQL:    3306,
+}
+
 type Config struct {
 	App      App      `yaml:"app"`
 	HTTP     HTTP     `yaml:"http"`
 	Database Database `yaml:"database"`
-	Redis    Redis    `yaml:"redis"`
+	Cache    Cache    `yaml:"cache"`
 	JWT      JWT      `yaml:"jwt"`
 	Log      Log      `yaml:"log"`
 }
@@ -35,23 +60,65 @@ type HTTP struct {
 	ShutdownTimeout int      `yaml:"shutdown_timeout"` // 秒
 }
 
+// Database 描述数据库连接。
+//
+// 两种写法二选一：
+//  1. 直接给 dsn —— 完全掌控连接串，适合云厂商托管的特殊参数；
+//  2. 拆成 host/port/user/password/name + params —— 换驱动时只改 driver 一个字段，
+//     剩下的字段名不变（postgres 与 mysql 共用同一组键），避免换库就得重写连接串。
 type Database struct {
-	Driver      string `yaml:"driver"` // mysql | sqlite
-	DSN         string `yaml:"dsn"`
-	MaxOpen     int    `yaml:"max_open"`
-	MaxIdle     int    `yaml:"max_idle"`
-	MaxLifetime int    `yaml:"max_lifetime"` // 秒
-	AutoMigrate bool   `yaml:"auto_migrate"`
-	Seed        bool   `yaml:"seed"`
+	Driver   string `yaml:"driver"` // postgres | mysql | sqlite
+	DSN      string `yaml:"dsn"`    // 显式连接串，非空时忽略下面的拆分字段
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Name     string `yaml:"name"`
+	// Params 是附加连接参数，语义按驱动解释：
+	// postgres 拼成 key=value（sslmode、search_path…），mysql 拼成 query（charset、loc…）。
+	Params map[string]string `yaml:"params"`
+
+	MaxOpen     int  `yaml:"max_open"`
+	MaxIdle     int  `yaml:"max_idle"`
+	MaxLifetime int  `yaml:"max_lifetime"` // 秒
+	AutoMigrate bool `yaml:"auto_migrate"`
+	Seed        bool `yaml:"seed"`
+	// LogLevel: silent | error | warn | info，默认 warn（只打慢查询与错误）。
+	LogLevel string `yaml:"log_level"`
 }
 
-type Redis struct {
+// Cache 描述缓存实现。
+type Cache struct {
+	Driver string `yaml:"driver"` // redis | memory
+	// Prefix 统一加在业务 key 前，两套实现都生效，切换驱动后 key 语义不变。
+	Prefix string `yaml:"prefix"`
+	// FallbackToMemory 仅在 driver=redis 时有意义：连接失败是否退回内存实现。
+	// 生产应设为 false —— 带病降级会让人误以为多实例共享还在生效。
+	FallbackToMemory bool         `yaml:"fallback_to_memory"`
+	Redis            RedisConfig  `yaml:"redis"`
+	Memory           MemoryConfig `yaml:"memory"`
+}
+
+type RedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
-	Prefix   string `yaml:"prefix"`
-	// FallbackToMemory 在 Redis 不可用时退回进程内缓存，保证本地开发零依赖可跑。
-	FallbackToMemory bool `yaml:"fallback_to_memory"`
+	// DialTimeout 连接与读写超时（秒），默认 2。
+	DialTimeout int `yaml:"dial_timeout"`
+}
+
+// MemoryConfig 控制进程内缓存的行为。
+//
+// 内存实现支持落盘：退出时把非过期数据写进快照，下次启动加载回来。
+// 这样开发环境不用起 Redis，重启后登录态、限流计数也不会突然清零。
+type MemoryConfig struct {
+	// Persist 是否落盘，默认 true（仅 driver=memory 生效）。
+	Persist *bool `yaml:"persist"`
+	// Path 快照文件路径，默认 ./data/cache.snapshot；目录不存在会自动创建。
+	Path string `yaml:"path"`
+	// SaveInterval 定时落盘间隔（秒），默认 30。
+	// 每次写操作只置脏标记，真正的磁盘 IO 由这个间隔合并，避免 Set 变成同步写盘。
+	SaveInterval int `yaml:"save_interval"`
 }
 
 type JWT struct {
@@ -101,8 +168,12 @@ func (c *Config) applyDefaults() {
 	if c.HTTP.ShutdownTimeout == 0 {
 		c.HTTP.ShutdownTimeout = 10
 	}
+
 	if c.Database.Driver == "" {
-		c.Database.Driver = "sqlite"
+		c.Database.Driver = DriverSQLite
+	}
+	if c.Database.Port == 0 {
+		c.Database.Port = defaultPorts[c.Database.Driver]
 	}
 	if c.Database.MaxOpen == 0 {
 		c.Database.MaxOpen = 50
@@ -113,6 +184,29 @@ func (c *Config) applyDefaults() {
 	if c.Database.MaxLifetime == 0 {
 		c.Database.MaxLifetime = 3600
 	}
+	if c.Database.LogLevel == "" {
+		c.Database.LogLevel = "warn"
+	}
+
+	if c.Cache.Driver == "" {
+		c.Cache.Driver = CacheMemory
+	}
+	if c.Cache.Prefix == "" {
+		c.Cache.Prefix = "gowork:"
+	}
+	if c.Cache.Redis.DialTimeout == 0 {
+		c.Cache.Redis.DialTimeout = 2
+	}
+	if c.Cache.Memory.Persist == nil {
+		c.Cache.Memory.Persist = boolPtr(true)
+	}
+	if c.Cache.Memory.Path == "" {
+		c.Cache.Memory.Path = "data/cache.snapshot"
+	}
+	if c.Cache.Memory.SaveInterval == 0 {
+		c.Cache.Memory.SaveInterval = 30
+	}
+
 	if c.JWT.Expire == 0 {
 		c.JWT.Expire = 24
 	}
@@ -131,17 +225,25 @@ func (c *Config) applyEnv() {
 	setStr(&c.HTTP.Mode, "GOWORK_HTTP_MODE")
 	setStr(&c.Database.Driver, "GOWORK_DB_DRIVER")
 	setStr(&c.Database.DSN, "GOWORK_DB_DSN")
-	setStr(&c.Redis.Addr, "GOWORK_REDIS_ADDR")
-	setStr(&c.Redis.Password, "GOWORK_REDIS_PASSWORD")
+	setStr(&c.Database.Host, "GOWORK_DB_HOST")
+	setStr(&c.Database.User, "GOWORK_DB_USER")
+	setStr(&c.Database.Password, "GOWORK_DB_PASSWORD")
+	setStr(&c.Database.Name, "GOWORK_DB_NAME")
+	setStr(&c.Database.LogLevel, "GOWORK_DB_LOG_LEVEL")
+	setStr(&c.Cache.Driver, "GOWORK_CACHE_DRIVER")
+	setStr(&c.Cache.Memory.Path, "GOWORK_CACHE_MEMORY_PATH")
+	setStr(&c.Cache.Redis.Addr, "GOWORK_REDIS_ADDR")
+	setStr(&c.Cache.Redis.Password, "GOWORK_REDIS_PASSWORD")
 	setStr(&c.JWT.Secret, "GOWORK_JWT_SECRET")
 	setStr(&c.Log.Level, "GOWORK_LOG_LEVEL")
 	setStr(&c.Log.Format, "GOWORK_LOG_FORMAT")
 
-	if v := os.Getenv("GOWORK_REDIS_DB"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			c.Redis.DB = n
-		}
-	}
+	setInt(&c.Database.Port, "GOWORK_DB_PORT")
+	setInt(&c.Cache.Redis.DB, "GOWORK_REDIS_DB")
+	setInt(&c.Cache.Memory.SaveInterval, "GOWORK_CACHE_SAVE_INTERVAL")
+	setBool(&c.Cache.FallbackToMemory, "GOWORK_CACHE_FALLBACK_TO_MEMORY")
+	setBoolPtr(&c.Cache.Memory.Persist, "GOWORK_CACHE_MEMORY_PERSIST")
+
 	if v := os.Getenv("GOWORK_HTTP_CORS_ORIGINS"); v != "" {
 		c.HTTP.CORSOrigins = strings.Split(v, ",")
 	}
@@ -149,17 +251,11 @@ func (c *Config) applyEnv() {
 
 // Validate 校验启动必需项，把配置问题暴露在启动阶段而不是首次请求。
 func (c *Config) Validate() error {
-	switch c.Database.Driver {
-	case "mysql":
-		if c.Database.DSN == "" {
-			return fmt.Errorf("database.driver=mysql 时必须配置 database.dsn")
-		}
-	case "sqlite":
-		if c.Database.DSN == "" {
-			return fmt.Errorf("database.driver=sqlite 时必须配置 database.dsn")
-		}
-	default:
-		return fmt.Errorf("不支持的 database.driver: %s", c.Database.Driver)
+	if err := c.Database.Validate(); err != nil {
+		return err
+	}
+	if err := c.Cache.Validate(); err != nil {
+		return err
 	}
 
 	if c.JWT.Secret == "" {
@@ -171,6 +267,108 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func (d Database) Validate() error {
+	switch d.Driver {
+	case DriverSQLite:
+		// sqlite 允许 dsn 与 name 都为空，此时走默认文件路径。
+	case DriverPostgres, DriverMySQL:
+		if d.DSN != "" {
+			return nil
+		}
+		if d.Host == "" || d.Name == "" || d.User == "" {
+			return fmt.Errorf("database.driver=%s 时需要 dsn，或同时配置 host / name / user", d.Driver)
+		}
+	default:
+		return fmt.Errorf("不支持的 database.driver: %s（可选 %s / %s / %s）",
+			d.Driver, DriverPostgres, DriverMySQL, DriverSQLite)
+	}
+	return nil
+}
+
+func (c Cache) Validate() error {
+	switch c.Driver {
+	case CacheMemory:
+		if c.Memory.Persist != nil && *c.Memory.Persist && c.Memory.Path == "" {
+			return fmt.Errorf("cache.driver=memory 且开启持久化时必须配置 cache.memory.path")
+		}
+	case CacheRedis:
+		if c.Redis.Addr == "" {
+			return fmt.Errorf("cache.driver=redis 时必须配置 cache.redis.addr")
+		}
+	default:
+		return fmt.Errorf("不支持的 cache.driver: %s（可选 %s / %s）", c.Driver, CacheRedis, CacheMemory)
+	}
+	return nil
+}
+
+// ResolvedDSN 返回实际使用的连接串。
+// 显式配置了 dsn 就用它；否则按驱动把拆分字段拼成该驱动认可的格式。
+func (d Database) ResolvedDSN() string {
+	if d.DSN != "" {
+		return d.DSN
+	}
+
+	switch d.Driver {
+	case DriverPostgres:
+		kv := map[string]string{
+			"host":   d.Host,
+			"port":   strconv.Itoa(d.Port),
+			"user":   d.User,
+			"dbname": d.Name,
+		}
+		if d.Password != "" {
+			kv["password"] = d.Password
+		}
+		// 生产默认要求 TLS，本地容器没证书，这里只给"没配就用 disable"的兜底。
+		if _, ok := d.Params["sslmode"]; !ok {
+			kv["sslmode"] = "disable"
+		}
+		for k, v := range d.Params {
+			kv[k] = v
+		}
+		return postgresDSN(kv)
+
+	case DriverMySQL:
+		query := url.Values{}
+		query.Set("charset", "utf8mb4")
+		query.Set("parseTime", "True")
+		query.Set("loc", "Local")
+		for k, v := range d.Params {
+			query.Set(k, v)
+		}
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s",
+			d.User, d.Password, d.Host, d.Port, d.Name, query.Encode())
+
+	default:
+		// sqlite：dsn 已在上方返回；走到这里说明只想给个文件名。
+		name := d.Name
+		if name == "" {
+			name = "data/gowork.db"
+		}
+		// WAL + busy_timeout 是并发读写下最实用的两个 pragma，三库行为对齐时也要靠它。
+		return fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", name)
+	}
+}
+
+// postgresDSN 拼 key=value 形式的连接串，含空格或引号的值需要加单引号。
+func postgresDSN(kv map[string]string) string {
+	keys := make([]string, 0, len(kv))
+	for k := range kv {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v := kv[k]
+		if v == "" || strings.ContainsAny(v, " '\\") {
+			v = "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
+		}
+		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, " ")
+}
+
 // IsProd 判断是否生产环境。
 func (c *Config) IsProd() bool { return c.App.Env == "prod" }
 
@@ -179,8 +377,40 @@ func (c *Config) ShutdownDuration() time.Duration {
 	return time.Duration(c.HTTP.ShutdownTimeout) * time.Second
 }
 
+// MemoryPersistEnabled 判断内存缓存是否落盘。
+func (m MemoryConfig) PersistEnabled() bool {
+	return m.Persist != nil && *m.Persist && m.Path != ""
+}
+
+func boolPtr(b bool) *bool { return &b }
+
 func setStr(dst *string, key string) {
 	if v := os.Getenv(key); v != "" {
 		*dst = v
+	}
+}
+
+func setInt(dst *int, key string) {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			*dst = n
+		}
+	}
+}
+
+func setBool(dst *bool, key string) {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			*dst = b
+		}
+	}
+}
+
+// setBoolPtr 处理三态开关（未配置 / true / false），用于 persist 这类默认开启的选项。
+func setBoolPtr(dst **bool, key string) {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			*dst = &b
+		}
 	}
 }
