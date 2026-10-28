@@ -59,6 +59,42 @@ export interface Partner {
   updated_at: string
 }
 
+/**
+ * 币种。三位 ISO 4217 代码是业务身份，单据上存的就是它，所以创建后不可修改。
+ *
+ * is_base 标记本币：全库有且只有一个，是折算的基准。
+ */
+export interface Currency {
+  id: number
+  code: string
+  name: string
+  symbol: string
+  decimal_places: number
+  is_base: boolean
+  status: number
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 汇率：1 单位 currency_code = rate 单位 base_code。
+ *
+ * 只追加不覆盖，没有编辑入口；effective_date 是业务日期（后端按 UTC 零点存），
+ * 展示时只取日期部分，见 utils/format.ts 的 formatDate。
+ */
+export interface ExchangeRate {
+  id: number
+  currency_code: string
+  base_code: string
+  rate: number
+  effective_date: string
+  source: string
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Product {
   id: number
   sku_code: string

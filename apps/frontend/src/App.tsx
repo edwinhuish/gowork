@@ -1,4 +1,11 @@
-import { AppstoreOutlined, DashboardOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined,
+  DashboardOutlined,
+  DollarOutlined,
+  ShopOutlined,
+  SwapOutlined,
+  TeamOutlined,
+} from '@ant-design/icons'
 import { Authenticated, Refine } from '@refinedev/core'
 import routerProvider, {
   CatchAllNavigate,
@@ -11,8 +18,10 @@ import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
 import { AppLayout } from '@/components/layout/AppLayout'
+import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
 import { DashboardPage } from '@/pages/dashboard'
+import { ExchangeRateCreate, ExchangeRateList } from '@/pages/exchange-rates'
 import { LoginPage } from '@/pages/login'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
@@ -70,6 +79,20 @@ export default function App() {
                 show: '/customers/show/:id',
                 meta: { label: '客户', icon: <TeamOutlined /> },
               },
+              {
+                name: 'currencies',
+                list: '/currencies',
+                create: '/currencies/create',
+                edit: '/currencies/edit/:id',
+                meta: { label: '币种', icon: <DollarOutlined /> },
+              },
+              {
+                // 汇率没有 edit：历史汇率不可改，所以 resources 里也不声明编辑路径。
+                name: 'exchange-rates',
+                list: '/exchange-rates',
+                create: '/exchange-rates/create',
+                meta: { label: '汇率', icon: <SwapOutlined /> },
+              },
             ]}
             options={{
               syncWithLocation: true,
@@ -107,6 +130,17 @@ export default function App() {
                     <Route path="create" element={<CustomerCreate />} />
                     <Route path="edit/:id" element={<CustomerEdit />} />
                     <Route path="show/:id" element={<CustomerShow />} />
+                  </Route>
+
+                  <Route path="currencies">
+                    <Route index element={<CurrencyList />} />
+                    <Route path="create" element={<CurrencyCreate />} />
+                    <Route path="edit/:id" element={<CurrencyEdit />} />
+                  </Route>
+
+                  <Route path="exchange-rates">
+                    <Route index element={<ExchangeRateList />} />
+                    <Route path="create" element={<ExchangeRateCreate />} />
                   </Route>
                 </Route>
               </Route>

@@ -32,3 +32,13 @@ type Base struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+// DateOnly 把时间截到"业务日期"：取本地日历日，存成 UTC 零点。
+//
+// 汇率的生效日、单据的业务日期都不是时间点。保留时分秒会带来两个问题：
+// 同一天录入的两条汇率因为时分不同而各自成一条，唯一索引形同虚设；
+// 以及东八区录入的日期在存成 UTC 之后退到前一天。
+func DateOnly(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}

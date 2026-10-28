@@ -57,6 +57,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.User{},
 			&model.Partner{},
 			&model.Product{},
+			&model.Currency{},
+			&model.ExchangeRate{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -81,6 +83,8 @@ func New(cfg *config.Config) (*App, error) {
 	userRepo := repository.NewUserRepository(db)
 	partnerRepo := repository.NewPartnerRepository(db)
 	productRepo := repository.NewProductRepository(db)
+	currencyRepo := repository.NewCurrencyRepository(db)
+	rateRepo := repository.NewExchangeRateRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -95,6 +99,8 @@ func New(cfg *config.Config) (*App, error) {
 	)
 	productSvc := service.NewProductService(productRepo, partnerRepo, service.WithProductLogger(log))
 	partnerSvc := service.NewPartnerService(partnerRepo, productRepo, service.WithPartnerLogger(log))
+	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
+	rateSvc := service.NewExchangeRateService(rateRepo, currencyRepo, service.WithExchangeRateLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -102,13 +108,16 @@ func New(cfg *config.Config) (*App, error) {
 		Auth:      handler.NewAuthHandler(authSvc),
 		Product:   handler.NewProductHandler(productSvc),
 		Partner:   handler.NewPartnerHandler(partnerSvc),
+		Currency:  handler.NewCurrencyHandler(currencySvc),
+		Rate:      handler.NewExchangeRateHandler(rateSvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
 
 	if cfg.Database.Seed {
-		if err := app.seed(context.Background(), authSvc, userRepo, partnerRepo, productRepo); err != nil {
+		if err := app.seed(context.Background(), authSvc,
+			userRepo, partnerRepo, productRepo, currencyRepo, rateRepo); err != nil {
 			app.Close()
 			return nil, fmt.Errorf("初始化种子数据: %w", err)
 		}

@@ -63,7 +63,9 @@ apps/frontend/
         ├── dashboard/index.tsx
         ├── products/        list / create / edit / show / form-fields / index
         ├── suppliers/       同上
-        └── customers/       同上
+        ├── customers/       同上
+        ├── currencies/      list / create / edit / form-fields / index（代码编辑时只读）
+        └── exchange-rates/  list / create / form-fields / index（没有 edit）
 ```
 
 **`suppliers/` 与 `customers/` 是同一个数据模型的两种角色视图**，类型都是 `Partner`。
@@ -114,9 +116,9 @@ api/client.ts
 后端 /api/v1/*（dev 经 Vite proxy，生产由反代接管）
 ```
 
-**筛选走白名单**：`dataProvider` 只翻译 `keyword` / `category` / `supplier_id` / `status` / `country`，
-其余条件直接丢弃。后端没有对应参数时**不要**把它拼进 URL —— 后端会静默忽略，
-表现成「点了查询没反应」，比报错难查得多。
+**筛选走白名单**：`dataProvider` 只翻译 `keyword` / `category` / `supplier_id` / `status` /
+`country` / `role` / `entity_type` / `currency_code`，其余条件直接丢弃。后端没有对应参数时
+**不要**把它拼进 URL —— 后端会静默忽略，表现成「点了查询没反应」，比报错难查得多。
 
 **错误只有一条路径**：`client.ts` 抛 `ApiError`（带 `code`），refine 捕获后调 `authProvider.onError`；
 非 401 错误交回页面，由表单/表格的局部状态展示。页面里不写 `try/catch` 兜底空实现。

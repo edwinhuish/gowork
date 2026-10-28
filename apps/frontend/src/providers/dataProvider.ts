@@ -17,6 +17,7 @@ import type { PageResult } from '@/types'
  *   page / page_size / keyword 全资源通用
  *   category+supplier_id+status 仅产品
  *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
+ *   currency_code 仅汇率；币种本身只用 status + keyword
  *
  * refine 用 CrudFilters 表达筛选条件，这里翻译成后端认可的同名查询参数。
  * 白名单是有意的：不认识的条件直接丢弃，而不是拼进 URL 让后端静默忽略——
@@ -29,6 +30,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'country',
   'role',
   'entity_type',
+  'currency_code',
 ])
 
 function buildListQuery({ pagination, filters }: GetListParams): Record<string, unknown> {

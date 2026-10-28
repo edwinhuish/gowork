@@ -51,6 +51,7 @@ apps/backend/
     │   └── logger/              slog 构造
     └── pkg/
         ├── errs/                错误码与错误包装
+        ├── money/               金额舍入规则（全站唯一一套）
         └── response/            统一响应体
 ```
 
@@ -127,6 +128,10 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |
 | GET / POST | `/api/v1/suppliers` | `Partner.*(&supplierRole)` | 同上 |
+| GET / POST | `/api/v1/currencies` | `Currency.List` / `.Create` | `CurrencyService.List` / `.Create` |
+| GET / PUT / DELETE | `/api/v1/currencies/:id` | `Currency.Get` / `.Update` / `.Delete` | 同名方法 |
+| GET / POST | `/api/v1/exchange-rates` | `Rate.List` / `.Create` | `ExchangeRateService.List` / `.Create` |
+| GET / DELETE | `/api/v1/exchange-rates/:id` | `Rate.Get` / `.Delete` | 同名方法（汇率不可编辑） |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。

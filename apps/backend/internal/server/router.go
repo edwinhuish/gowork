@@ -20,6 +20,8 @@ type Handlers struct {
 	Auth      *handler.AuthHandler
 	Product   *handler.ProductHandler
 	Partner   *handler.PartnerHandler
+	Currency  *handler.CurrencyHandler
+	Rate      *handler.ExchangeRateHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -83,6 +85,21 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		suppliers.GET("/:id", h.Partner.Get(&supplierRole))
 		suppliers.PUT("/:id", h.Partner.Update(&supplierRole))
 		suppliers.DELETE("/:id", h.Partner.Delete(&supplierRole))
+
+		// 币种与汇率：后面每张单据都引用它们（币种代码 + 当日汇率）。
+		currencies := secured.Group("/currencies")
+		currencies.GET("", h.Currency.List)
+		currencies.POST("", h.Currency.Create)
+		currencies.GET("/:id", h.Currency.Get)
+		currencies.PUT("/:id", h.Currency.Update)
+		currencies.DELETE("/:id", h.Currency.Delete)
+
+		// 汇率没有 PUT：历史汇率不可改，录错就删掉重录。
+		rates := secured.Group("/exchange-rates")
+		rates.GET("", h.Rate.List)
+		rates.POST("", h.Rate.Create)
+		rates.GET("/:id", h.Rate.Get)
+		rates.DELETE("/:id", h.Rate.Delete)
 	}
 
 	return engine

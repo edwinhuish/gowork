@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"time"
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/repository"
@@ -17,11 +18,59 @@ func (a *App) seed(
 	users repository.UserRepository,
 	partners repository.PartnerRepository,
 	products repository.ProductRepository,
+	currencies repository.CurrencyRepository,
+	rates repository.ExchangeRateRepository,
 ) error {
 	if err := a.seedAdmin(ctx, auth, users); err != nil {
 		return err
 	}
+	if err := a.seedCurrencies(ctx, currencies, rates); err != nil {
+		return err
+	}
 	return a.seedDemoData(ctx, partners, products)
+}
+
+// seedCurrencies 写入本币与两种常用外币，并给它们各一条当日汇率。
+//
+// 演示数据必须带汇率：没有汇率时任何折算都会报「缺少某日汇率」，
+// 而空表看起来只是"还没录"，容易让人以为折算功能坏了。
+func (a *App) seedCurrencies(
+	ctx context.Context,
+	currencies repository.CurrencyRepository,
+	rates repository.ExchangeRateRepository,
+) error {
+	n, err := currencies.Count(ctx)
+	if err != nil || n > 0 {
+		return err
+	}
+
+	demoCurrencies := []model.Currency{
+		{Code: "CNY", Name: "人民币", Symbol: "¥", DecimalPlaces: 2, Status: model.EnableStatusOn},
+		{Code: "USD", Name: "美元", Symbol: "$", DecimalPlaces: 2, Status: model.EnableStatusOn},
+		{Code: "EUR", Name: "欧元", Symbol: "€", DecimalPlaces: 2, Status: model.EnableStatusOn},
+	}
+	for i := range demoCurrencies {
+		if err := currencies.Create(ctx, &demoCurrencies[i]); err != nil {
+			return err
+		}
+	}
+	if err := currencies.SetBase(ctx, demoCurrencies[0].ID); err != nil {
+		return err
+	}
+
+	today := model.DateOnly(time.Now())
+	demoRates := []model.ExchangeRate{
+		{CurrencyCode: "USD", BaseCode: "CNY", Rate: 7.10, EffectiveDate: today, Source: "演示数据"},
+		{CurrencyCode: "EUR", BaseCode: "CNY", Rate: 7.75, EffectiveDate: today, Source: "演示数据"},
+	}
+	for i := range demoRates {
+		if err := rates.Create(ctx, &demoRates[i]); err != nil {
+			return err
+		}
+	}
+
+	a.Log.Info("已写入币种与汇率", "currencies", len(demoCurrencies), "rates", len(demoRates))
+	return nil
 }
 
 func (a *App) seedAdmin(ctx context.Context, auth service.AuthService, users repository.UserRepository) error {
