@@ -4,6 +4,8 @@ vars:
   BIN_DIR: bin
   APP_NAME: gowork-server
   CONFIG_FILE: configs/config.yaml
+  AIR_VERSION: v1.67.4
+  AIR_CONFIG: .air.toml
 
 tasks:
   default:
@@ -30,20 +32,42 @@ tasks:
       - go build -trimpath -ldflags "-s -w" -o {{.BIN_DIR}}/{{.APP_NAME}} ./cmd/server
 
   dev:
-    desc: 开发模式启动（SQLite + 内存缓存，零外部依赖）
+    desc: 热重载启动（air 监听 *.go 变更 → 重新编译 → 自动重启；SQLite + 内存缓存）
+    preconditions:
+      - sh: command -v air
+        msg: '未找到 air：先执行 task backend:tool:air（或 go install github.com/air-verse/air@{{.AIR_VERSION}}）'
+    cmds:
+      - mkdir -p data
+      - air -c {{.AIR_CONFIG}}
+
+  dev:once:
+    desc: 单次启动、不监听变更（改启动流程 / 没有 air 时用）
     cmds:
       - mkdir -p data
       - go run ./cmd/server -config {{.CONFIG_FILE}}
 
   dev:pg:
-    desc: 以 PostgreSQL + Redis 启动，需先 task infra:up
+    desc: 以 PostgreSQL + Redis 热重载启动，需先 task infra:up
+    preconditions:
+      - sh: command -v air
+        msg: '未找到 air：先执行 task backend:tool:air（或 go install github.com/air-verse/air@{{.AIR_VERSION}}）'
     cmds:
-      - go run ./cmd/server -config configs/config.postgres.yaml
+      # `--` 之后的参数由 air 追加给被启动的二进制（.air.toml 的 entrypoint 不带参数，
+      # 默认走 main.go 里 -config 的 configs/config.yaml；这里补一个 -config 换库）。
+      - air -c {{.AIR_CONFIG}} -- -config configs/config.postgres.yaml
 
   dev:mysql:
-    desc: 以 MySQL + Redis 启动，需先 task infra:up AND docker compose --profile mysql up -d
+    desc: 以 MySQL + Redis 热重载启动，需先 task infra:up AND docker compose --profile mysql up -d
+    preconditions:
+      - sh: command -v air
+        msg: '未找到 air：先执行 task backend:tool:air（或 go install github.com/air-verse/air@{{.AIR_VERSION}}）'
     cmds:
-      - go run ./cmd/server -config configs/config.mysql.yaml
+      - air -c {{.AIR_CONFIG}} -- -config configs/config.mysql.yaml
+
+  tool:air:
+    desc: 安装 air（版本锁在 vars.AIR_VERSION；走 go install，不进 go.mod）
+    cmds:
+      - go install github.com/air-verse/air@{{.AIR_VERSION}}
 
   run:
     desc: 运行已编译的二进制

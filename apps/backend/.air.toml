@@ -1,0 +1,71 @@
+# air 热重载配置（github.com/air-verse/air）。
+#
+# 位置：与 go.mod 同级，即 apps/backend/.air.toml。
+# air 只从「当前工作目录」读 .air.toml，而所有后端命令（含根 Taskfile）都以
+# apps/backend 为工作目录，所以配置必须放这一层——放仓库根目录会找不到。
+# 想从别处启动就显式指定：air -c apps/backend/.air.toml（不推荐，root 会对不上）。
+#
+# 常规用法：task backend:dev（后端热重载）或根目录 task dev（前后端一起）。
+
+root = "."
+# 编译产物与 air 自己的 build-errors.log 都落在 bin/dev/，root 是 "." 所以是相对路径。
+# bin/ 已在 .gitignore 里，不需要为 air 单独加忽略规则。
+tmp_dir = "bin/dev"
+
+[build]
+  # 编译命令：只走普通 build，不带 -trimpath / -ldflags "-s -w"（那是 task build 的发布参数，
+  # 每次热重载都做符号裁剪只会拖慢重启，调试信息也不该被剥掉）。
+  cmd = "go build -o ./bin/dev/gowork-server ./cmd/server"
+  # 产物路径与启动入口分开写：entrypoint 是「怎么跑」，bin 是「产物在哪」。
+  bin = "./bin/dev/gowork-server"
+  # 不带 -config 参数，走 cmd/server 里 -config 的默认值 configs/config.yaml。
+  # 换库启动时由 Taskfile 追加：air -c .air.toml -- -config configs/config.postgres.yaml
+  entrypoint = ["./bin/dev/gowork-server"]
+
+  # 保存多个文件时把连续事件合并成一次编译，避免连触发三次重启。
+  delay = 300
+  # 编译失败时停掉旧进程，而不是让它继续按旧二进制服务。
+  # 这与 AGENTS.md 第 9 节那条「接口整批 500，其实跑着改表名前编译的旧二进制」是同一个坑：
+  # 编不过还留着旧进程，改完看不到预期行为时最难想到原因是"当前跑的根本不是这份代码"。
+  # 失败详情打在终端（air 的 build-errors.log 只记一行 exit status）。
+  stop_on_error = true
+  # 重启先发 SIGINT 让服务走优雅关闭（defer app.Close() 刷缓存快照、连接池收敛），
+  # 3 秒还没退出才 SIGKILL。kill_delay 是「最多等多久」，进程提前退出会立即继续。
+  send_interrupt = true
+  kill_delay = "3s"
+
+  # 只监听 Go 源码：include_ext 是白名单，yaml / md / toml 的改动不会触发重启。
+  include_ext = ["go"]
+  # 排除的目录（相对 root）：
+  #   bin      —— 编译产物与 build-errors.log，写进去会形成「编译→触发→再编译」的死循环
+  #   data     —— sqlite 的 db / -wal / -shm 与缓存快照，运行期一直在写，监听它们纯属浪费
+  #   .git     —— 版本库元数据，改动与业务代码无关
+  #   vendor / node_modules —— 依赖目录，只在 go mod / pnpm 变更时动
+  #   编辑器与 IDE 目录
+  exclude_dir = ["bin", "data", ".git", "vendor", "node_modules", ".vscode", ".idea"]
+  # 排除的文件类型 / 命名：
+  #   _test.go —— 测试文件不进服务二进制，改了不必重启（跑 task backend:test 即可）
+  #   临时/交换文件（.swp、编辑器写入过程中的 .#xxx、vim 备份 xxx~）
+  exclude_regex = ["_test\\.go$", "^\\.#", "~$"]
+  # 内容没变就跳过（编辑器「保存但未修改」不会触发重启）。
+  exclude_unchanged = true
+
+  # 轮询模式留给容器 / 网络文件系统：inotify 在 macOS 挂载卷、Docker bind mount 上收不到事件。
+  poll = false
+  # air 在 <tmp_dir> 下留一个 build-errors.log（bin/dev/build-errors.log），
+  # 但里面只有一行 "exit status N"；go build 的真实报错打在终端，看终端就行。
+  log = "build-errors.log"
+
+[log]
+  # 给 air 自己的 "building… / running… / Process exited" 行加时间戳。
+  # 业务日志由 slog 自己带时间与级别，两套前缀一眼能分开。
+  time = true
+
+[misc]
+  # Ctrl-C 不删二进制：现场还能单独跑 ./bin/dev/gowork-server 复现问题。
+  clean_on_exit = false
+
+[screen]
+  # 不每次清屏：编译失败后要能看到前一次的报错，配合 keep_scroll 可回滚查看。
+  clear_on_rebuild = false
+  keep_scroll = true
