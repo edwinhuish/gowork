@@ -123,6 +123,7 @@ func New(cfg *config.Config) (*App, error) {
 	receivableRepo := repository.NewReceivableRepository(db)
 	payableRepo := repository.NewPayableRepository(db)
 	paymentRepo := repository.NewPaymentRepository(db)
+	reportRepo := repository.NewReportRepository(db)
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
 
@@ -198,6 +199,8 @@ func New(cfg *config.Config) (*App, error) {
 	stockDocSvc := service.NewStockDocumentService(
 		stockDocRepo, productRepo, partnerRepo, docNoSvc,
 		service.WithStockDocumentLogger(log))
+	// 报表只读不写，也不缓存：数字要能和明细逐笔对上。
+	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -221,6 +224,7 @@ func New(cfg *config.Config) (*App, error) {
 		Receivable: handler.NewReceivableHandler(receivableSvc),
 		Payable:    handler.NewPayableHandler(payableSvc),
 		Payment:    handler.NewPaymentHandler(paymentSvc),
+		Report:     handler.NewReportHandler(reportSvc),
 		Stock:      handler.NewStockHandler(stockSvc),
 		StockDoc:   handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),

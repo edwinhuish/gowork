@@ -36,6 +36,7 @@ type Handlers struct {
 	Receivable *handler.ReceivableHandler
 	Payable    *handler.PayableHandler
 	Payment    *handler.PaymentHandler
+	Report     *handler.ReportHandler
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
@@ -262,6 +263,11 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		payments.GET("/:id", h.Payment.Get)
 		payments.PUT("/:id", h.Payment.Update)
 		payments.DELETE("/:id", h.Payment.Delete)
+
+		// 报表：跨表聚合，统一走 /reports，不散成各资源后面的 -summary。
+		// 账龄按主体给出未核销金额的 30/60/90+ 分桶（T-22）。
+		reports := secured.Group("/reports")
+		reports.GET("/aging", h.Report.Aging)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)
