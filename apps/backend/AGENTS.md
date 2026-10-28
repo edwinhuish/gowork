@@ -120,6 +120,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 域归属见 `docs/glossary.md` 第三节：`products` 与 `partners` 会被 ERP、CRM 两侧引用。
 新增接口时先确认它落在哪个域，再决定表前缀。
 
+**本表写代码现状**：编号一栏是当前实现，与目标口径（蓝图 §五.4）不一致的地方已就地标注（如 shipments 的 `SH-`）。T-47 落地前**以本表为准**，落地时再删掉标注。
+
 | 方法 | 路径 | handler | service |
 |---|---|---|---|
 | GET | `/healthz` | `handler.Health` | — |
