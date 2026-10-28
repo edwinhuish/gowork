@@ -381,6 +381,62 @@ export interface QuotationDetail extends Quotation {
 }
 
 /**
+ * 合同的一条付款分期：30% 订金 / 70% 见提单副本。
+ *
+ * 本币金额随行存一份：分期报表要按本币汇总，每次再乘一遍汇率既慢，
+ * 又会和合同总额差一个末位（舍入位置不同）。
+ */
+export interface ContractTerm {
+  id: number
+  contract_id: number
+  /** 展示顺序，从 1 开始：付款有先后，顺序不是装饰。 */
+  seq: number
+  name: string
+  /** 原币金额（合同币种）。 */
+  amount: number
+  /** 本币金额，按合同汇率折算。 */
+  amount_base: number
+  /** 约定付款日，可空。 */
+  due_date: string | null
+  /** "见提单副本后 7 天内"这类条件，与付款日可同时存在。 */
+  trigger: string
+}
+
+/**
+ * 合同：形式发票（PI）与销售合同共用一张表。
+ *
+ * **没有货物明细**：明细留在报价单或订单上，这里只有一份对外承诺的快照。
+ * 金额与汇率在生成时照抄来源单据，之后不重取当日汇率——转单那一刻改价
+ * 等于单方面改掉已经报出去的价。
+ */
+export interface Contract {
+  id: number
+  /** PI- 前缀是形式发票，SC- 是销售合同。 */
+  doc_no: string
+  /** 10 形式发票 / 20 销售合同 */
+  type: number
+  partner_id: number
+  /** 10 报价单 / 20 销售订单 */
+  source_type: number
+  source_id: number
+  source_doc_no: string
+  /** 10 草稿 / 20 已确认 / 90 已取消 */
+  status: number
+  sign_date: string
+  delivery_date: string | null
+  currency_code: string
+  exchange_rate: number
+  amount_total: number
+  amount_base_total: number
+  remark: string
+  partner?: Partner | null
+  /** 列表不带分期，只有详情带。 */
+  terms?: ContractTerm[]
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 销售订单明细。
  *
  * 与报价明细的区别：这里没有成本价与成本额。订单是"客户认下的量"，

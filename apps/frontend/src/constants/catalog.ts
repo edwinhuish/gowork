@@ -318,6 +318,50 @@ export function quotationStatusLabel(value?: number | null): string {
 }
 
 /**
+ * 合同类型：形式发票与销售合同共用一张表。
+ *
+ * 差别只在客户怎么称呼它、能不能凭它开信用证，字段与生命周期完全一样，
+ * 所以后端用 type 区分而不是两张表。
+ */
+export const CONTRACT_TYPE_OPTIONS = [
+  { value: 10, label: '形式发票（PI）' },
+  { value: 20, label: '销售合同' },
+]
+
+export function contractTypeLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return CONTRACT_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? `类型 ${value}`
+}
+
+/** 合同的来源单据：PI 常先于订单成立，所以报价单也是合法来源。 */
+export const CONTRACT_SOURCE_TYPE_OPTIONS = [
+  { value: 10, label: '报价单' },
+  { value: 20, label: '销售订单' },
+]
+
+export function contractSourceTypeLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return CONTRACT_SOURCE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? `来源 ${value}`
+}
+
+/**
+ * 合同状态只有草稿 / 已确认 / 已取消。
+ *
+ * 备货中与已出货属于订单与出货批次：合同是对客户的承诺，
+ * 没有"货在哪"这个维度，多给阶段只会让下拉框被误用。
+ */
+export const CONTRACT_STATUS_OPTIONS = [
+  { value: 10, label: '草稿' },
+  { value: 20, label: '已确认' },
+  { value: 90, label: '已取消' },
+]
+
+export function contractStatusLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return CONTRACT_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
+}
+
+/**
  * 销售订单状态：完整的单据状态机。
  * 跳步（草稿直接到已出货）与往回退都由后端拒绝，前端只在详情页给出当前可走的下一步。
  */

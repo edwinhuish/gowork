@@ -8,6 +8,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   DollarOutlined,
+  FileProtectOutlined,
   FileTextOutlined,
   FundOutlined,
   GlobalOutlined,
@@ -39,6 +40,7 @@ import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
 import { AgingPage } from '@/pages/aging'
 import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
+import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
 import { DashboardPage } from '@/pages/dashboard'
@@ -182,6 +184,16 @@ export default function App() {
                 edit: '/quotations/edit/:id',
                 show: '/quotations/show/:id',
                 meta: { label: '报价单', icon: <FileTextOutlined /> },
+              },
+              {
+                // 合同：PI 与销售合同共用一张表。没有空白新建，
+                // 只能从已确认的报价单或订单生成，金额与汇率照抄来源。
+                name: 'contracts',
+                list: '/contracts',
+                create: '/contracts/create',
+                edit: '/contracts/edit/:id',
+                show: '/contracts/show/:id',
+                meta: { label: '合同', icon: <FileProtectOutlined /> },
               },
               {
                 // 订单：报价谈成之后要出货的那张凭证，状态走完整状态机。
@@ -355,6 +367,13 @@ export default function App() {
                     <Route path="create" element={<QuotationCreate />} />
                     <Route path="edit/:id" element={<QuotationEdit />} />
                     <Route path="show/:id" element={<QuotationShow />} />
+                  </Route>
+
+                  <Route path="contracts">
+                    <Route index element={<ContractList />} />
+                    <Route path="create" element={<ContractCreate />} />
+                    <Route path="edit/:id" element={<ContractEdit />} />
+                    <Route path="show/:id" element={<ContractShow />} />
                   </Route>
 
                   <Route path="sales-orders">
