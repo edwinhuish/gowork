@@ -123,8 +123,9 @@ func TestSalesOrderRules(t *testing.T) {
 		}
 		created = o
 
-		if o.DocNo != "SO-202610-0001" {
-			t.Errorf("doc_no = %q，期望 SO-202610-0001", o.DocNo)
+		// 手建订单没有报价可继承，算一笔新生意：{案号}-SO{NN}。
+		if o.BaseNo == "" || o.DocNo != o.BaseNo+"-SO01" {
+			t.Errorf("doc_no/base_no = %q / %q，期望 {案号}-SO01", o.DocNo, o.BaseNo)
 		}
 		if o.TradeTerm != "FOB" {
 			t.Errorf("trade_term = %q，期望归一化为 FOB", o.TradeTerm)

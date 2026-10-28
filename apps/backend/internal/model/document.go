@@ -2,6 +2,8 @@ package model
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -163,12 +165,56 @@ func (t DocType) IsValid() bool {
 	return false
 }
 
+// DocTypeDeal 是案号号段的内部类型，不会出现在任何单号里。
+//
+// 复用 sys_doc_seq 而不是另建一张表：号段的语义就是"某个键下已发到几号"，
+// 案号与月号段的区别只是键从年月换成了 `{客户}:{年}`。
+const DocTypeDeal DocType = "DEAL"
+
 // DocNoPeriod 返回单号里的年月段（YYYYMM）。
 func DocNoPeriod(t time.Time) string {
 	return t.Format("200601")
 }
 
-// FormatDocNo 拼出业务单号：类型(2)-年月(6)-流水(4)，如 SO-202610-0001。
+// FormatDocNo 拼出业务单号：类型(2)-年月(6)-流水(4)，如 PO-202610-0001。
+//
+// 报价单与销售订单不走这里：它们的号由案号派生（见 FormatDealDocNo）。
 func FormatDocNo(t DocType, period string, seq uint) string {
 	return fmt.Sprintf("%s-%s-%04d", t, period, seq)
+}
+
+// DealBaseNo 拼案号：{客户编码}{YY}{NN}，如 DZ2603，读作「DZ 客户 2026 年第 3 笔生意」。
+//
+// 客户编码不得以数字结尾（术语表硬性约束）：案号靠字面量分段，
+// 编码尾部是数字就分不清哪几位是编码、哪几位是年份。
+func DealBaseNo(partnerCode string, year int, seq uint) string {
+	return fmt.Sprintf("%s%02d%02d", partnerCode, year%100, seq)
+}
+
+// FormatDealDocNo 拼案号内的单据号：{案号}-{类型}{NN}，如 DZ2603-QT01 / DZ2603-SO01。
+//
+// 序号与案号里的 NN 相同：同一笔生意的报价与订单在单号上就并排放着，
+// 客户报出 DZ2603 时，不用解释是哪张单也知道在说哪一票。
+func FormatDealDocNo(baseNo string, t DocType, seq uint) string {
+	return fmt.Sprintf("%s-%s%02d", baseNo, t, seq)
+}
+
+// ParseDealDocNo 把 DZ2603-QT01 拆回 (DZ2603, 1)。
+//
+// 从右边找最后一次 "-{类型}"：客户编码允许含 "-"，从左边切会把 DZ-CO 切成 DZ。
+func ParseDealDocNo(docNo string, t DocType) (baseNo string, seq uint, ok bool) {
+	suffix := "-" + string(t)
+	idx := strings.LastIndex(docNo, suffix)
+	if idx <= 0 {
+		return "", 0, false
+	}
+	digits := docNo[idx+len(suffix):]
+	if len(digits) != 2 {
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(digits)
+	if err != nil || n <= 0 {
+		return "", 0, false
+	}
+	return docNo[:idx], uint(n), true
 }

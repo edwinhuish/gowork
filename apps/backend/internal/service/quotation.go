@@ -91,7 +91,8 @@ func NewQuotationService(
 func (s *quotationService) Create(
 	ctx context.Context, in dto.QuotationInput,
 ) (*dto.QuotationDetail, error) {
-	if err := ensureCustomerRole(ctx, s.partners, in.PartnerID); err != nil {
+	partner, err := loadCustomer(ctx, s.partners, in.PartnerID)
+	if err != nil {
 		return nil, err
 	}
 	terms, err := s.buildTerms(ctx, in)
@@ -105,13 +106,18 @@ func (s *quotationService) Create(
 
 	// 取号排在最后：前面任何一步失败都不该消耗掉一个单号。
 	// 单号有缺口本身无害，但缺口会让人怀疑"是不是丢了一张单"。
-	docNo, err := s.docNos.Next(ctx, model.DocTypeQuotation)
+	deal, err := s.docNos.NextDeal(ctx, DealKey{
+		PartnerID:   partner.ID,
+		PartnerCode: partner.Code,
+		Year:        s.clock().Year(),
+	}, model.DocTypeQuotation)
 	if err != nil {
 		return nil, err
 	}
 
 	q := &model.Quotation{
-		DocNo:           docNo,
+		DocNo:           deal.DocNo,
+		BaseNo:          deal.BaseNo,
 		Version:         1,
 		PartnerID:       in.PartnerID,
 		TradeTerm:       terms.TradeTerm,
@@ -386,8 +392,16 @@ func (s *quotationService) Convert(
 		})
 	}
 
+	// 订单沿用报价的案号与序号：QT03 转出必得 SO03。
+	// 序号从单号里解析，不另存一列——两处存同一个数字，迟早会有一处没跟上。
+	var dealSeq uint
+	if _, seq, ok := model.ParseDealDocNo(q.DocNo, model.DocTypeQuotation); ok {
+		dealSeq = seq
+	}
 	order, err := s.orders.CreateFromQuotation(ctx, QuotationOrderInput{
 		PartnerID:    q.PartnerID,
+		BaseNo:       q.BaseNo,
+		DealSeq:      dealSeq,
 		TradeTerm:    q.TradeTerm,
 		CurrencyCode: q.CurrencyCode,
 		ExchangeRate: q.ExchangeRate,
@@ -650,15 +664,26 @@ func (s *quotationService) pickSource(
 func ensureCustomerRole(
 	ctx context.Context, partners repository.PartnerRepository, id uint,
 ) error {
+	_, err := loadCustomer(ctx, partners, id)
+	return err
+}
+
+// loadCustomer 取主体并确认它有客户角色。
+//
+// 返回主体本身而不只是 error：发案号要用它的编码拼 `{编码}{YY}{NN}`，
+// 再查一次等于同一次请求里把同一行读两遍。
+func loadCustomer(
+	ctx context.Context, partners repository.PartnerRepository, id uint,
+) (*model.Partner, error) {
 	p, err := partners.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
-			return errs.BadRequest("往来单位不存在")
+			return nil, errs.BadRequest("往来单位不存在")
 		}
-		return err
+		return nil, err
 	}
 	if !p.Role.Has(model.PartnerRoleCustomer) {
-		return errs.BadRequest(fmt.Sprintf("所选主体不具备客户角色：%s", p.Name))
+		return nil, errs.BadRequest(fmt.Sprintf("所选主体不具备客户角色：%s", p.Name))
 	}
-	return nil
+	return p, nil
 }

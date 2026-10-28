@@ -152,8 +152,9 @@ func TestQuotationRules(t *testing.T) {
 		}
 		created = q
 
-		if q.DocNo != "QT-202610-0001" {
-			t.Errorf("doc_no = %q，期望 QT-202610-0001", q.DocNo)
+		// 报价单号由案号派生（{案号}-QT{NN}），首笔生意从 01 起。
+		if q.BaseNo == "" || q.DocNo != q.BaseNo+"-QT01" {
+			t.Errorf("doc_no/base_no = %q / %q，期望 {案号}-QT01", q.DocNo, q.BaseNo)
 		}
 		if q.Version != 1 || q.RootID != 0 {
 			t.Errorf("version/root_id = %d/%d，期望 1/0", q.Version, q.RootID)
@@ -416,6 +417,15 @@ func TestQuotationConvert(t *testing.T) {
 		}
 		if order.DocNo != got.SalesOrderDocNo {
 			t.Errorf("订单单号 = %q，与回填的 %q 不一致", order.DocNo, got.SalesOrderDocNo)
+		}
+		// 一笔生意一个案号：订单沿用报价的案号，序号也一致（QT0n 转出必得 SO0n）。
+		if order.BaseNo == "" || order.BaseNo != q.BaseNo {
+			t.Errorf("订单案号 = %q，期望沿用报价单的 %q", order.BaseNo, q.BaseNo)
+		}
+		if _, seq, ok := model.ParseDealDocNo(q.DocNo, model.DocTypeQuotation); !ok {
+			t.Fatalf("报价单号不是案号格式: %q", q.DocNo)
+		} else if want := model.FormatDealDocNo(q.BaseNo, model.DocTypeSalesOrder, seq); order.DocNo != want {
+			t.Errorf("订单单号 = %q，期望 %q", order.DocNo, want)
 		}
 		if order.Status != model.DocumentStatusDraft {
 			t.Errorf("转出来的订单状态 = %d，期望草稿", order.Status)

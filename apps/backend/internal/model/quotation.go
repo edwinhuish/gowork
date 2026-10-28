@@ -20,6 +20,11 @@ type Quotation struct {
 	// 不用 parent_id：链式结构要递归才能取出全部版本，而"这份报价谈了几轮"是列表要用的。
 	RootID uint `gorm:"index;not null;default:0" json:"root_id"`
 
+	// BaseNo 是案号（DZ2603）：报价与它转出的订单共用同一个。
+	// **这一列不唯一**——"同一笔生意的两张单共用一个案号"正是它存在的理由。
+	// 存量数据（T-47 之前）为空，转单时由订单补发新案号，不回改这张单的 doc_no。
+	BaseNo string `gorm:"size:32;index" json:"base_no"`
+
 	PartnerID uint           `gorm:"index;not null" json:"partner_id"`
 	TradeTerm TradeTerm      `gorm:"size:8;not null" json:"trade_term"`
 	Status    DocumentStatus `gorm:"not null;index" json:"status"`

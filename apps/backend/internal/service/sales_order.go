@@ -36,7 +36,12 @@ type SalesOrderService interface {
 
 // QuotationOrderInput 是"按报价单生成订单"的入参：字段全部来自已确认的报价单。
 type QuotationOrderInput struct {
-	PartnerID    uint
+	PartnerID uint
+	// BaseNo 与 DealSeq 来自来源报价单：一笔生意一张案号，报价转订单沿用同一个，
+	// 序号也不变（QT03 转出必得 SO03）。
+	// 存量的报价单（T-47 之前）这两项为空，此时订单取一笔新生意。
+	BaseNo       string
+	DealSeq      uint
 	TradeTerm    model.TradeTerm
 	CurrencyCode string
 	ExchangeRate float64
@@ -108,7 +113,8 @@ func NewSalesOrderService(
 func (s *salesOrderService) Create(
 	ctx context.Context, in dto.SalesOrderInput,
 ) (*model.SalesOrder, error) {
-	if err := ensureCustomerRole(ctx, s.partners, in.PartnerID); err != nil {
+	partner, err := loadCustomer(ctx, s.partners, in.PartnerID)
+	if err != nil {
 		return nil, err
 	}
 	terms, err := s.buildTerms(ctx, in)
@@ -121,13 +127,19 @@ func (s *salesOrderService) Create(
 	}
 
 	// 取号放最后：前面任何一步失败都不该消耗一个单号。
-	docNo, err := s.docNos.Next(ctx, model.DocTypeSalesOrder)
+	// 手建订单就算一笔新生意——它没有报价单可以继承案号。
+	deal, err := s.docNos.NextDeal(ctx, DealKey{
+		PartnerID:   partner.ID,
+		PartnerCode: partner.Code,
+		Year:        s.clock().Year(),
+	}, model.DocTypeSalesOrder)
 	if err != nil {
 		return nil, err
 	}
 
 	o := &model.SalesOrder{
-		DocNo:           docNo,
+		DocNo:           deal.DocNo,
+		BaseNo:          deal.BaseNo,
 		PartnerID:       in.PartnerID,
 		TradeTerm:       terms.TradeTerm,
 		Status:          model.DocumentStatusDraft,
@@ -325,12 +337,29 @@ func (s *salesOrderService) CreateFromQuotation(
 		return nil, err
 	}
 
-	docNo, err := s.docNos.Next(ctx, model.DocTypeSalesOrder)
-	if err != nil {
-		return nil, err
+	baseNo, dealSeq := in.BaseNo, in.DealSeq
+	if baseNo == "" || dealSeq == 0 {
+		// 存量报价单没有案号（T-47 之前生成的）。不给它回填单号：那个号早就发给
+		// 客户了，改号等于换了身份。这张订单单独取一笔新生意，账面上会多一个案号，
+		// 但比"两个客户看到两个不同的报价单号"要好。
+		partner, err := s.partners.FindByID(ctx, in.PartnerID)
+		if err != nil {
+			return nil, err
+		}
+		deal, err := s.docNos.NextDeal(ctx, DealKey{
+			PartnerID:   partner.ID,
+			PartnerCode: partner.Code,
+			Year:        s.clock().Year(),
+		}, model.DocTypeSalesOrder)
+		if err != nil {
+			return nil, err
+		}
+		baseNo, dealSeq = deal.BaseNo, deal.Seq
 	}
+
 	o := &model.SalesOrder{
-		DocNo:           docNo,
+		DocNo:           model.FormatDealDocNo(baseNo, model.DocTypeSalesOrder, dealSeq),
+		BaseNo:          baseNo,
 		PartnerID:       in.PartnerID,
 		TradeTerm:       in.TradeTerm,
 		Status:          model.DocumentStatusDraft,

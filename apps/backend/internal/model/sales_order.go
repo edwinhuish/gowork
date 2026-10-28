@@ -13,6 +13,9 @@ import "time"
 type SalesOrder struct {
 	Base
 	DocNo string `gorm:"size:32;uniqueIndex;not null" json:"doc_no"`
+	// BaseNo 是案号（DZ2603）：从报价转来时沿用来源的案号与序号，
+	// 手建订单则取该客户本年下一笔生意。与报价单的那一列不是唯一键，也**不该**是。
+	BaseNo string `gorm:"size:32;index" json:"base_no"`
 	// PartnerID 是下单的客户（客户角色，由 service 校验）。
 	PartnerID uint           `gorm:"index;not null" json:"partner_id"`
 	TradeTerm TradeTerm      `gorm:"size:8;not null" json:"trade_term"`

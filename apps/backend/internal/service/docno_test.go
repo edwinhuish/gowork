@@ -38,7 +38,7 @@ func TestDocNoConcurrent(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			docNos[i], errsSeen[i] = svc.Next(context.Background(), model.DocTypeSalesOrder)
+			docNos[i], errsSeen[i] = svc.Next(context.Background(), model.DocTypePurchaseOrder)
 		}(i)
 	}
 	close(start)
@@ -64,39 +64,149 @@ func TestDocNoFormatAndRollover(t *testing.T) {
 	svc := newDocNoService(t, func() time.Time { return now })
 	ctx := context.Background()
 
-	first, err := svc.Next(ctx, model.DocTypeSalesOrder)
+	first, err := svc.Next(ctx, model.DocTypePurchaseOrder)
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if first != "SO-202610-0001" {
-		t.Errorf("首个单号 = %s，期望 SO-202610-0001", first)
+	if first != "PO-202610-0001" {
+		t.Errorf("首个单号 = %s，期望 PO-202610-0001", first)
 	}
 
-	second, err := svc.Next(ctx, model.DocTypeSalesOrder)
+	second, err := svc.Next(ctx, model.DocTypePurchaseOrder)
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if second != "SO-202610-0002" {
-		t.Errorf("第二个单号 = %s，期望 SO-202610-0002", second)
+	if second != "PO-202610-0002" {
+		t.Errorf("第二个单号 = %s，期望 PO-202610-0002", second)
 	}
 
 	// 类型不同就是不同的号段，互不影响。
-	quotation, err := svc.Next(ctx, model.DocTypeQuotation)
+	inbound, err := svc.Next(ctx, model.DocTypeStockIn)
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if quotation != "QT-202610-0001" {
-		t.Errorf("报价单号 = %s，期望 QT-202610-0001", quotation)
+	if inbound != "IN-202610-0001" {
+		t.Errorf("入库单号 = %s，期望 IN-202610-0001", inbound)
 	}
 
 	// 跨月重置：月初的单号从 0001 重新开始，而不是接着上个月。
 	now = time.Date(2026, 11, 1, 0, 5, 0, 0, time.Local)
-	nextMonth, err := svc.Next(ctx, model.DocTypeSalesOrder)
+	nextMonth, err := svc.Next(ctx, model.DocTypePurchaseOrder)
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if nextMonth != "SO-202611-0001" {
-		t.Errorf("跨月单号 = %s，期望 SO-202611-0001", nextMonth)
+	if nextMonth != "PO-202611-0001" {
+		t.Errorf("跨月单号 = %s，期望 PO-202611-0001", nextMonth)
+	}
+}
+
+// 报价与订单不许从月号段发号：两条发号路径同时存在，同一张表里迟早长出两种格式。
+func TestNextRejectsDealTypes(t *testing.T) {
+	svc := newDocNoService(t, time.Now)
+	for _, typ := range []model.DocType{model.DocTypeQuotation, model.DocTypeSalesOrder} {
+		if _, err := svc.Next(context.Background(), typ); err == nil {
+			t.Errorf("%s 应该被拒，改走 NextDeal", typ)
+		}
+	}
+}
+
+// 案号是「客户 + 年 + 第几笔生意」：同一客户次年从 01 重来，换客户各算各的。
+func TestDealNoFormat(t *testing.T) {
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	svc := newDocNoService(t, func() time.Time { return now })
+	ctx := context.Background()
+
+	key := DealKey{PartnerID: 7, PartnerCode: "DZ", Year: 2026}
+	first, err := svc.NextDeal(ctx, key, model.DocTypeQuotation)
+	if err != nil {
+		t.Fatalf("发案号失败: %v", err)
+	}
+	if first.BaseNo != "DZ2601" || first.DocNo != "DZ2601-QT01" || first.Seq != 1 {
+		t.Fatalf("首个案号 = %+v，期望 DZ2601 / DZ2601-QT01 / 1", first)
+	}
+
+	// 同一客户第二笔生意：案号加一，单号后缀跟着案号序号走。
+	second, err := svc.NextDeal(ctx, key, model.DocTypeQuotation)
+	if err != nil {
+		t.Fatalf("发案号失败: %v", err)
+	}
+	if second.DocNo != "DZ2602-QT02" {
+		t.Errorf("第二笔单号 = %s，期望 DZ2602-QT02", second.DocNo)
+	}
+
+	// 次年从 01 重来。
+	key.Year = 2027
+	nextYear, err := svc.NextDeal(ctx, key, model.DocTypeSalesOrder)
+	if err != nil {
+		t.Fatalf("发案号失败: %v", err)
+	}
+	if nextYear.BaseNo != "DZ2701" {
+		t.Errorf("次年案号 = %s，期望 DZ2701", nextYear.BaseNo)
+	}
+
+	// 换客户各算各的：号段键带 PartnerID。
+	other, err := svc.NextDeal(ctx, DealKey{PartnerID: 8, PartnerCode: "AB", Year: 2026},
+		model.DocTypeQuotation)
+	if err != nil {
+		t.Fatalf("发案号失败: %v", err)
+	}
+	if other.BaseNo != "AB2601" {
+		t.Errorf("另一客户的案号 = %s，期望 AB2601", other.BaseNo)
+	}
+}
+
+// 序号两位用尽就报错，不扩位：单号是印在纸上的分段格式，多一位就错位。
+func TestDealNoExhausted(t *testing.T) {
+	svc := newDocNoService(t, func() time.Time {
+		return time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	})
+	ctx := context.Background()
+	key := DealKey{PartnerID: 1, PartnerCode: "DZ", Year: 2026}
+
+	for i := 1; i <= dealSeqMax; i++ {
+		if _, err := svc.NextDeal(ctx, key, model.DocTypeQuotation); err != nil {
+			t.Fatalf("第 %d 次发案号失败: %v", i, err)
+		}
+	}
+	_, err := svc.NextDeal(ctx, key, model.DocTypeQuotation)
+	if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+		t.Fatalf("号段用尽期望 40901，实际 %v", err)
+	}
+}
+
+func TestDealNoRejectsOtherDocTypes(t *testing.T) {
+	svc := newDocNoService(t, time.Now)
+	_, err := svc.NextDeal(context.Background(),
+		DealKey{PartnerID: 1, PartnerCode: "DZ", Year: 2026}, model.DocTypePurchaseOrder)
+	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+		t.Fatalf("采购单发案号期望 40001，实际 %v", err)
+	}
+}
+
+// ParseDealDocNo 是转单时复制序号的入口：拆错了订单会拿到另一个序号，
+// 表现是「QT03 转出 SO04」，两张单再也不是同一笔生意的两面。
+func TestParseDealDocNo(t *testing.T) {
+	cases := []struct {
+		docNo  string
+		typ    model.DocType
+		base   string
+		seq    uint
+		wantOK bool
+	}{
+		{"DZ2603-QT01", model.DocTypeQuotation, "DZ2603", 1, true},
+		{"DZ-CO2603-QT12", model.DocTypeQuotation, "DZ-CO2603", 12, true},
+		// 类型不匹配：拿报价单号去解析订单序号必须失败，而不是"差不多就返回"。
+		{"DZ2603-QT01", model.DocTypeSalesOrder, "", 0, false},
+		// 旧格式（T-47 之前）没有案号，解析要老实失败，由调用方决定怎么补。
+		{"QT-202610-0001", model.DocTypeQuotation, "", 0, false},
+		{"DZ2603-QT00", model.DocTypeQuotation, "", 0, false},
+	}
+	for _, c := range cases {
+		base, seq, ok := model.ParseDealDocNo(c.docNo, c.typ)
+		if ok != c.wantOK || base != c.base || seq != c.seq {
+			t.Errorf("ParseDealDocNo(%q, %s) = (%q, %d, %v)，期望 (%q, %d, %v)",
+				c.docNo, c.typ, base, seq, ok, c.base, c.seq, c.wantOK)
+		}
 	}
 }
 
