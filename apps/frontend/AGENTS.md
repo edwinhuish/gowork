@@ -26,8 +26,8 @@
 ```
 apps/frontend/
 ├── index.html
-├── vite.config.ts          # 端口 5173；/api 代理到 http://127.0.0.1:8080
-├── tsconfig.json           # strict + noUnusedLocals/Parameters
+├── vite.config.ts          # 端口 5173；/api 代理到 :8080；resolve.alias 的 @ -> src
+├── tsconfig.json           # strict + noUnusedLocals/Parameters；paths 的 @/* -> src/*
 ├── package.json            # packageManager: pnpm@12.10.1；scripts: dev/build/typecheck/preview
 ├── pnpm-workspace.yaml     # pnpm 设置（allowBuilds 放行 esbuild），不是工作区划分
 ├── .npmrc                  # engine-strict 等 pnpm 侧配置
@@ -155,6 +155,11 @@ pnpm run dev
 
 - **请求只走 `api/client.ts`**，不在页面里 `fetch`。
 - **类型只写在 `types/index.ts`**，api 层与页面都从那里取。
+- **跨目录导入用 `@/` 前缀，同目录用 `./`**：`@/api/product`、`@/components/Modal`；
+  `./App`、`./client`、`./index.css` 这类同目录引用不必绕 alias。
+  别名在 `tsconfig.json` 的 `paths` 与 `vite.config.ts` 的 `resolve.alias` **两处**同时声明——
+  tsc 只读前者，vite/rollup 只读后者，缺一边就是「typecheck 过、build 报 Could not resolve」。
+  两处必须一起改，改完 `pnpm run build` 才能证明对齐。
 - **表单用受控组件**，`Field` 负责 label 与错误文案，错误状态存在页面 state 里。
 - **列表页一律用 `usePagedResource`**，不要各写一套 loading/error 逻辑。
 - **样式写在 `src/index.css`**，复用已有类名（见下），不在组件里堆 inline style。
@@ -171,7 +176,7 @@ pnpm run dev
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| 用 `@/xxx` 导入编译报错 | `tsconfig.json` 声明了 `paths: {"@/*": ["src/*"]}`，但 `vite.config.ts` **没有**对应的 `resolve.alias` | 目前全项目都用相对路径。真要用别名，必须同时给 vite 加 alias，否则 tsc 过、build 挂 |
+| 用 `@/xxx` 导入报 `Could not resolve` | 只改了 `tsconfig.json` 的 `paths` 或只改了 `vite.config.ts` 的 `resolve.alias` | 两处必须同时存在，见第 7 节「开发约定」的导入约定；改完跑 `pnpm run build` 验证 |
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；`client.ts` 已自动清令牌，检查后端 `cache.memory.persist` |
 | 列表每页 15 条，和后端默认 20 不一致 | `usePagedResource` 的 `PAGE_SIZE = 15` 显式传参 | 有意为之；改这里就同时看后端 `MaxPageSize=200` 上限 |
 | 快速翻页后显示的是旧数据 | 组件卸载/切换时旧请求后到 | `usePagedResource` 已用 `cancelled` 标记丢弃；自己写的请求同样要处理 |
