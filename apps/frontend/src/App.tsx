@@ -18,6 +18,7 @@ import {
   UserAddOutlined,
   SwapOutlined,
   TeamOutlined,
+  TransactionOutlined,
   WalletOutlined,
 } from '@ant-design/icons'
 import { Authenticated, Refine } from '@refinedev/core'
@@ -43,6 +44,7 @@ import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
 import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
 import { PayableCreate, PayableEdit, PayableList, PayableShow } from '@/pages/payables'
+import { PaymentCreate, PaymentEdit, PaymentList, PaymentShow } from '@/pages/payments'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
 import {
   QuotationCreate,
@@ -242,6 +244,14 @@ export default function App() {
                 meta: { label: '应付', icon: <WalletOutlined /> },
               },
               {
+                name: 'payments',
+                list: '/payments',
+                create: '/payments/create',
+                edit: '/payments/edit/:id',
+                show: '/payments/show/:id',
+                meta: { label: '收付款', icon: <TransactionOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -381,6 +391,13 @@ export default function App() {
                     <Route path="create" element={<PayableCreate />} />
                     <Route path="edit/:id" element={<PayableEdit />} />
                     <Route path="show/:id" element={<PayableShow />} />
+                  </Route>
+
+                  <Route path="payments">
+                    <Route index element={<PaymentList />} />
+                    <Route path="create" element={<PaymentCreate />} />
+                    <Route path="edit/:id" element={<PaymentEdit />} />
+                    <Route path="show/:id" element={<PaymentShow />} />
                   </Route>
 
                   <Route path="currencies">

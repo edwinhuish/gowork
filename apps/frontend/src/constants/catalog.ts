@@ -147,6 +147,45 @@ export function settlementSourceLabel(value?: number | null): string | undefined
   return SETTLEMENT_SOURCE_MAP.get(value) ?? `未知来源(${value})`
 }
 
+/**
+ * 收付款方向。取值与后端 model.PaymentDirection 一致。
+ *
+ * 方向不是文案差别：它决定这笔钱能核哪种单据——收款只核应收、付款只核应付，
+ * 由后端校验。一旦写反，账龄报表会把付出去的钱算成收回来。
+ */
+export const PAYMENT_DIRECTION_OPTIONS = [
+  { value: 10, label: '收款' },
+  { value: 20, label: '付款' },
+] as const
+
+const PAYMENT_DIRECTION_MAP = new Map<number, string>(
+  PAYMENT_DIRECTION_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+export function paymentDirectionLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return PAYMENT_DIRECTION_MAP.get(value) ?? `未知方向(${value})`
+}
+
+export function paymentDirectionColor(value?: number | null): string {
+  return value === 20 ? 'orange' : 'green'
+}
+
+/** 核销对象类型。取值与后端 model.SettlementTarget 一致。 */
+export const PAYMENT_TARGET_OPTIONS = [
+  { value: 10, label: '应收单' },
+  { value: 20, label: '应付单' },
+] as const
+
+const PAYMENT_TARGET_MAP = new Map<number, string>(
+  PAYMENT_TARGET_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+export function paymentTargetLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return PAYMENT_TARGET_MAP.get(value) ?? `未知核销对象(${value})`
+}
+
 /** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
 export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用' },
@@ -366,3 +405,9 @@ export const SETTLEMENT_METHOD_OPTIONS = [
   { value: 'DA', label: 'D/A 承兑交单' },
   { value: 'OA', label: 'O/A 赊销' },
 ]
+
+/** 结算方式的中文名；未知码原样透出，不吞数据。 */
+export function settlementMethodLabel(value?: string | null): string {
+  if (!value) return '—'
+  return SETTLEMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value
+}

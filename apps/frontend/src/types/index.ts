@@ -521,6 +521,57 @@ export type Receivable = Settlement
 export type Payable = Settlement
 
 /**
+ * 收付款核销行：这笔钱还的是哪张单、还多少。
+ *
+ * 只增不改：录错了删掉整张收付款单，目标的已核销金额随单一起回滚——
+ * 核销不是冲销，不在这一行上改负数。
+ */
+export interface PaymentAllocation {
+  id: number
+  payment_id: number
+  /** 10 应收单 / 20 应付单 */
+  target_type: number
+  target_id: number
+  /** 目标单号，摊平存一份，清单不必再 join 应收应付表。 */
+  target_doc_no: string
+  /** 核销的原币金额，币种跟随收付款单。 */
+  amount: number
+  /** 本币金额，按**收付款单的汇率**折——与目标单据锁定本币之差就是汇兑损益。 */
+  amount_base: number
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 收付款单：实际收到 / 付出的一笔钱。
+ *
+ * 汇率取**到账日**，不是应收单上锁的开单日：同一个 1000 美元，开票 7.1、到账 7.3，
+ * 差额才是汇兑损益。已核销金额 = 核销行之和，小于金额的部分是预收 / 预付。
+ */
+export interface Payment {
+  id: number
+  doc_no: string
+  /** 10 收款 / 20 付款。方向决定能核应收还是应付。 */
+  direction: number
+  partner_id: number
+  /** YYYY-MM-DD：钱动的那天，不是录入日。 */
+  pay_date: string
+  currency_code: string
+  exchange_rate: number
+  amount: number
+  amount_base: number
+  /** TT / LC / DP / DA / OA，与主体的默认结算方式同源。 */
+  method: string
+  /** 银行水单号，外部号：只记录、不参与发号与唯一性。 */
+  reference: string
+  remark: string
+  partner?: Partner | null
+  allocations?: PaymentAllocation[]
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 报关单：一票货的海关申报记录。
  *
  * **一票可以有多张**：不同 HS 编码要分票申报，被退单后改单重报也是新的一条，

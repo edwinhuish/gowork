@@ -73,6 +73,7 @@ apps/frontend/
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用两个面板）
         ├── settlements/      应收应付共用的 list / form-fields / show
         ├── receivables/ payables/  四页薄封装，只传 resource 与方向
+        ├── payments/         收付款 list / create / edit / show（+ 核销行编辑器，create 里自带）
         ├── stock/            只读当前库存 + 重算（没有 create / edit）
         ├── stock-movements/  流水列表 + 手工录入（没有 edit）
         ├── stock-documents/  出入库单 + items-editor + 确认
