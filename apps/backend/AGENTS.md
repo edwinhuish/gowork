@@ -59,7 +59,9 @@ apps/backend/
 ```
 
 测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、
-`repository/storage_test.go`、`migrate/legacy_merge_test.go`、`migrate/rename_legacy_test.go`。
+`repository/storage_test.go`、`migrate/legacy_merge_test.go`、`migrate/rename_legacy_test.go`，
+以及 `service/` 下 13 个 `*_test.go`——它们用 `service/testdb_test.go` 起的**真实 SQLite 临时库**，
+不 mock 仓储；`partner` / `product` / `dashboard` 等 7 个 service 还没有测试。
 
 **`migrate` 与 `database.AutoMigrate` 的分工别搞混**：AutoMigrate 只让表结构追上
 模型（加列、加索引），不搬数据、不改名、不建立表间对应关系。凡是要动已有数据，
@@ -101,7 +103,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | `infra/database` | 三驱动 dialector；sqlite 自动建目录、WAL、连接数收敛（单写者）；连接池按驱动给默认值 | 驱动差异只能出现在这里，不要外溢 |
 | `migrate` | 一次性数据迁移：`sys_migration` 记已执行项，幂等；每份迁移一个具名函数，事务内完成 | 只搬数据不改结构（结构归 AutoMigrate）；读旧表加 `Unscoped`；状态不明时中止而不是继续插 |
 | `infra/cache` | `Cache` 接口 7 个方法；redis 与 memory **语义对齐**（未命中 `ErrMiss`、`Incr` 滑动窗口、非数字返回 `ErrNotInteger`、ttl≤0 永不过期） | memory 有落盘：`Close()` 必须被调用，否则最后一段数据丢失 |
-| `repository` | 泛型 `Base[T]` 提供 Create / UpdateFields / DeleteByID / FindByID / Exists / Count / Paginate；查询条件用 `Scope` 解耦 | 新增实体嵌 `Base[T]` 复用，只写自己独有的查询；复杂查询用 `r.DB()` |
+| `repository` | 泛型 `Base[T]` 提供 Create / UpdateFields / DeleteByID / FindByID / Exists / Count / Paginate / PaginateOrdered / PaginateOrderedWithPreload，以及 `DB()` 与 `WithTx`；查询条件用 `Scope` 解耦 | 新增实体嵌 `Base[T]` 复用，只写自己独有的查询；复杂查询用 `r.DB()`；`WithTx` 目前没有调用点（接入计划见 T-42） |
 | `service` | 每个领域一个接口 + 私有实现，构造函数用 **Option 模式**注入 logger 等可选依赖 | 业务规则（唯一性、状态、金额）只写在这一层 |
 | `handler` | 只做 `ShouldBind*` + 调 service + `response.OK/Fail` | 不要在这里写 if 业务分支 |
 | `pkg/errs` | 错误码前三位对齐 HTTP 状态码；`Wrap` 保留底层错误用于日志 | 新增码沿用规则，`response.Fail` 自动映射状态码 |
