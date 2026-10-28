@@ -60,3 +60,26 @@ export const PARTNER_ROLE = {
   customer: 1,
   supplier: 2,
 } as const
+
+/**
+ * 商务条件字典。取值必须与后端 model.TradeTerm / model.SettlementMethod 一致。
+ *
+ * 贸易术语不是标签而是报价的组成部分：FOB 的海运费买方承担、CIF 卖方承担，
+ * 同一批货两个报价值差可以到 10%，所以界面上要能一眼看出报的是哪种。
+ */
+export const TRADE_TERM_OPTIONS = [
+  { value: 'EXW', label: 'EXW 工厂交货' },
+  { value: 'FOB', label: 'FOB 装运港交货' },
+  { value: 'CFR', label: 'CFR 成本加运费' },
+  { value: 'CIF', label: 'CIF 成本保险加运费' },
+  { value: 'DDP', label: 'DDP 完税后交货' },
+]
+
+/** 结算方式：决定账期与风险，也决定报价的价格基础。 */
+export const SETTLEMENT_METHOD_OPTIONS = [
+  { value: 'TT', label: 'T/T 电汇' },
+  { value: 'LC', label: 'L/C 信用证' },
+  { value: 'DP', label: 'D/P 付款交单' },
+  { value: 'DA', label: 'D/A 承兑交单' },
+  { value: 'OA', label: 'O/A 赊销' },
+]

@@ -55,6 +55,15 @@ export interface Partner {
   address: string
   status: number
   remark: string
+  /** 商务条件：主要对客户角色有意义，供应商留空。 */
+  trade_term: string
+  settlement_method: string
+  /** 账期天数，从出货或开票起算。0 表示款到发货。 */
+  credit_days: number
+  /** 信用额度，本币计。0 表示不限（不是「没有额度」）。 */
+  credit_limit: number
+  /** 默认结算币种，空表示按报价单或本币。 */
+  currency_code: string
   created_at: string
   updated_at: string
 }

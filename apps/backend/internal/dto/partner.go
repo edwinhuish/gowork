@@ -36,4 +36,15 @@ type PartnerInput struct {
 	Address     string                 `json:"address" binding:"max=255"`
 	Status      EnableStatusInput      `json:"status"`
 	Remark      string                 `json:"remark" binding:"max=255"`
+
+	// 商务条件全部用指针：nil 表示"这次不改"，与 Role / EntityType 同一套规则。
+	//
+	// 这一条不是洁癖：客户与供应商共用一行记录，供应商页面没有这些字段。
+	// 若把 nil 当成零值写库，在供应商页面保存一次就会把这家的贸易术语与账期
+	// 全部清空——而那个页面上根本没有可清空的输入框。
+	TradeTerm        *string  `json:"trade_term"`
+	SettlementMethod *string  `json:"settlement_method"`
+	CreditDays       *int     `json:"credit_days"`
+	CreditLimit      *float64 `json:"credit_limit"`
+	CurrencyCode     *string  `json:"currency_code"`
 }

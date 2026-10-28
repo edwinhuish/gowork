@@ -59,6 +59,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.Product{},
 			&model.Currency{},
 			&model.ExchangeRate{},
+			&model.DocSeq{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -98,7 +99,8 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithAuthLogger(log),
 	)
 	productSvc := service.NewProductService(productRepo, partnerRepo, service.WithProductLogger(log))
-	partnerSvc := service.NewPartnerService(partnerRepo, productRepo, service.WithPartnerLogger(log))
+	partnerSvc := service.NewPartnerService(
+		partnerRepo, productRepo, currencyRepo, service.WithPartnerLogger(log))
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
 	rateSvc := service.NewExchangeRateService(rateRepo, currencyRepo, service.WithExchangeRateLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))

@@ -128,6 +128,21 @@ type Partner struct {
 	// 不写 default，插入时总是带上实际值，由 service 负责 nil 的归一化。
 	Status EnableStatus `gorm:"not null;index" json:"status"`
 	Remark string       `gorm:"size:255" json:"remark"`
+
+	// 以下五项是商务条件，主要对客户角色有意义（供应商通常另有采购协议）。
+	//
+	// 放在主体上而不是每张订单上：它们是"这家客户一贯怎么结算"的默认值，
+	// 每张订单再各自覆盖。反过来（只存在订单上）会让新建订单的人每次都要重填，
+	// 而重填的账期与信用额度迟早会跟约定的不一致。
+	TradeTerm        TradeTerm        `gorm:"size:8" json:"trade_term"`
+	SettlementMethod SettlementMethod `gorm:"size:8" json:"settlement_method"`
+	// CreditDays 账期天数：从出货或开票起算，多少天内应当收到款。
+	CreditDays int `gorm:"not null;default:0" json:"credit_days"`
+	// CreditLimit 信用额度，用本币计。0 表示不限（不是"没有额度"）——
+	// 绝大多数客户不设额度，把 0 解读成"一分不给"会让系统默认拒绝一切订单。
+	CreditLimit float64 `gorm:"type:decimal(14,2);not null;default:0" json:"credit_limit"`
+	// CurrencyCode 默认结算币种，空表示按报价单或本币。
+	CurrencyCode string `gorm:"size:8" json:"currency_code"`
 }
 
 func (Partner) TableName() string { return "md_partner" }

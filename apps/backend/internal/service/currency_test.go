@@ -3,14 +3,10 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/infra/database"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/repository"
@@ -23,23 +19,7 @@ import (
 func newCurrencyTestService(t *testing.T) (CurrencyService, ExchangeRateService) {
 	t.Helper()
 
-	db, err := database.Open(config.Database{
-		Driver:      config.DriverSQLite,
-		DSN:         filepath.Join(t.TempDir(), "currency.db"),
-		MaxOpen:     5,
-		MaxIdle:     2,
-		MaxLifetime: 60,
-		LogLevel:    "error",
-	}, slog.New(slog.DiscardHandler))
-	if err != nil {
-		t.Fatalf("连接 sqlite 失败: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Close(db) })
-
-	if err := database.AutoMigrate(db, &model.Currency{}, &model.ExchangeRate{}); err != nil {
-		t.Fatalf("建表失败: %v", err)
-	}
-
+	db := openTestDB(t, &model.Currency{}, &model.ExchangeRate{})
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
 	return NewCurrencyService(currencyRepo, rateRepo), NewExchangeRateService(rateRepo, currencyRepo)
@@ -82,14 +62,13 @@ func TestConvert(t *testing.T) {
 	createRate(t, rateSvc, "EUR", 7.75, on)
 
 	cases := []struct {
-		name        string
-		amount      float64
-		from, to    string
-		want        float64
-		wantRate    float64
-		rateHasToBe bool
+		name     string
+		amount   float64
+		from, to string
+		want     float64
+		wantRate float64
 	}{
-		{name: "外币折本币", amount: 100, from: "USD", to: "CNY", want: 710, wantRate: 7.1, rateHasToBe: true},
+		{name: "外币折本币", amount: 100, from: "USD", to: "CNY", want: 710, wantRate: 7.1},
 		{name: "本币折外币", amount: 710, from: "CNY", to: "USD", want: 100, wantRate: 1 / 7.1},
 		{name: "两个外币走交叉汇率", amount: 100, from: "USD", to: "EUR", want: 91.61, wantRate: 7.1 / 7.75},
 		{name: "同币种原样返回", amount: 123.456, from: "USD", to: "USD", want: 123.456, wantRate: 1},

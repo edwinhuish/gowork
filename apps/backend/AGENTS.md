@@ -265,8 +265,14 @@ task backend:test:storage  # 三库两缓存一致性测试
   列表按角色筛选走 `model.RoleValuesContaining` 展开成 `IN`，不要直写位运算条件
   （PG 与 MySQL 上都用不了 btree 索引）。
 - **两类状态不要混**：主数据与账号用 `model.EnableStatus`（1 启用 / 0 停用）；
-  单据状态将来是 `DocumentStatus`，是另一个类型。两者取值都是小整数，
-  赋错了编译器不报，只会在筛选条件上出错。
+  单据状态是 `model.DocumentStatus`（10 草稿 / 20 已确认 / 30 备货中 / 40 已出货 /
+  50 已完成 / 90 已取消）。两者取值都是小整数，赋错了编译器不报，只会在筛选条件上出错。
+- **单据状态只能按 `CanTransitTo` 跳转**，校验统一走 `service.checkDocumentTransit`。
+  各模块自己写 if 的那一刻，状态机就有了第二份实现，分叉的表现是"同样一次取消，
+  报价单允许、订单拒绝"。已出货的单据不允许取消——货在海上，要冲出得走退货单。
+- **单号一律走 `DocNoService.Next`**（`SO-202610-0001`），不要在业务代码里拼
+  "前缀 + 时间 + 查最大号 + 1"：并发下两个请求会拿到同一个号，撞的是单据表的唯一索引，
+  表现为保存失败而不是重试。号段表是 `sys_doc_seq`（`sys_` 前缀，不嵌 `Base`）。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。

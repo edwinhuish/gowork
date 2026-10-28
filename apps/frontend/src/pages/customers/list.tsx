@@ -93,6 +93,20 @@ export function CustomerList() {
         <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
+        {/* 结算方式与账期直接影响"这单能不能赊"，放在列表里便于接单前先看一眼。 */}
+        <Table.Column
+          dataIndex="settlement_method"
+          title="结算方式"
+          width={110}
+          render={(v: string) => v || <Empty />}
+        />
+        <Table.Column
+          dataIndex="credit_days"
+          title="账期"
+          width={90}
+          align="right"
+          render={(v: number) => (v ? `${v} 天` : '款到发货')}
+        />
         <Table.Column
           dataIndex="status"
           title="状态"

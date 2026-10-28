@@ -1,9 +1,24 @@
-import { Form, Input, Radio, Select } from 'antd'
+import { useSelect } from '@refinedev/core'
+import { Form, Input, InputNumber, Radio, Select } from 'antd'
 
-import { ENABLE_STATUS_OPTIONS, PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
+import {
+  ENABLE_STATUS_OPTIONS,
+  PARTNER_ENTITY_TYPE_OPTIONS,
+  SETTLEMENT_METHOD_OPTIONS,
+  TRADE_TERM_OPTIONS,
+} from '@/constants/catalog'
+import type { Currency } from '@/types'
 
 /** 客户表单字段。新建与编辑共用。 */
 export function CustomerFormFields() {
+  // 默认结算币种从这里选。off 模式一次取满，币种只有几个，不必分页。
+  const { options: currencyOptions, query: currencyQuery } = useSelect<Currency>({
+    resource: 'currencies',
+    optionLabel: (item) => `${item.code} · ${item.name}`,
+    optionValue: 'code',
+    pagination: { mode: 'off' },
+  })
+
   return (
     <>
       <Form.Item
@@ -55,6 +70,51 @@ export function CustomerFormFields() {
         rules={[{ type: 'email', message: '邮箱格式不正确' }, { max: 128, message: '最多 128 个字符' }]}
       >
         <Input />
+      </Form.Item>
+
+      <Form.Item
+        name="trade_term"
+        label="贸易术语"
+        tooltip="决定运费与保险由谁承担，直接进报价的构成"
+      >
+        <Select placeholder="未指定" allowClear options={TRADE_TERM_OPTIONS} />
+      </Form.Item>
+
+      <Form.Item name="settlement_method" label="结算方式" tooltip="决定账期与风险，也决定报价的价格基础">
+        <Select placeholder="未指定" allowClear options={SETTLEMENT_METHOD_OPTIONS} />
+      </Form.Item>
+
+      <Form.Item
+        name="credit_days"
+        label="账期（天）"
+        initialValue={0}
+        tooltip="从出货或开票起算。0 表示款到发货"
+      >
+        <InputNumber style={{ width: '100%' }} min={0} max={365} precision={0} />
+      </Form.Item>
+
+      <Form.Item
+        name="credit_limit"
+        label="信用额度（本币）"
+        initialValue={0}
+        tooltip="0 表示不限，而不是一分不给"
+      >
+        <InputNumber style={{ width: '100%' }} min={0} step={1000} precision={2} placeholder="0.00" />
+      </Form.Item>
+
+      <Form.Item name="currency_code" label="默认结算币种" tooltip="留空表示按报价单，再退到本币">
+        <Select
+          placeholder="跟随报价单 / 本币"
+          allowClear
+          showSearch
+          options={currencyOptions}
+          loading={currencyQuery.isLoading}
+          filterOption={(input, option) =>
+            String(option?.label ?? '')
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
+        />
       </Form.Item>
 
       <Form.Item name="status" label="状态" initialValue={1}>

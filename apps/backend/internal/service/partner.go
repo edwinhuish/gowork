@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
@@ -14,6 +16,8 @@ import (
 var (
 	errInvalidPartnerRole = errs.BadRequest("role 不合法：1=客户，2=供应商，3=两者")
 	errInvalidEntityType  = errs.BadRequest("entity_type 不合法：0=公司，1=个人")
+	errInvalidTradeTerm   = errs.BadRequest("trade_term 不合法：EXW / FOB / CFR / CIF / DDP")
+	errInvalidSettlement  = errs.BadRequest("settlement_method 不合法：TT / LC / DP / DA / OA")
 )
 
 // PartnerService 管理商业伙伴（客户与供应商的统一主体）。
@@ -31,7 +35,11 @@ type PartnerService interface {
 type partnerService struct {
 	repo     repository.PartnerRepository
 	products repository.ProductRepository
-	log      *slog.Logger
+	// currencies 用来校验默认结算币种确实存在。
+	// 不校验的话，一个手误的 USD1 会安静地存进去，直到开单时才在折算处报错，
+	// 而那时已经在报价环节了。
+	currencies repository.CurrencyRepository
+	log        *slog.Logger
 }
 
 type PartnerOption func(*partnerService)
@@ -43,9 +51,15 @@ func WithPartnerLogger(l *slog.Logger) PartnerOption {
 func NewPartnerService(
 	repo repository.PartnerRepository,
 	products repository.ProductRepository,
+	currencies repository.CurrencyRepository,
 	opts ...PartnerOption,
 ) PartnerService {
-	s := &partnerService{repo: repo, products: products, log: slog.Default()}
+	s := &partnerService{
+		repo:       repo,
+		products:   products,
+		currencies: currencies,
+		log:        slog.Default(),
+	}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -79,19 +93,28 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 	if dup {
 		return nil, errs.ErrConflict.WithMsg("主体编码已存在：" + in.Code)
 	}
+	terms, err := s.normCommercialTerms(ctx, in)
+	if err != nil {
+		return nil, err
+	}
 
 	m := &model.Partner{
-		Code:        in.Code,
-		Name:        in.Name,
-		Role:        role,
-		EntityType:  entityType,
-		Country:     in.Country,
-		ContactName: in.ContactName,
-		Phone:       in.Phone,
-		Email:       in.Email,
-		Address:     in.Address,
-		Status:      status,
-		Remark:      in.Remark,
+		Code:             in.Code,
+		Name:             in.Name,
+		Role:             role,
+		EntityType:       entityType,
+		Country:          in.Country,
+		ContactName:      in.ContactName,
+		Phone:            in.Phone,
+		Email:            in.Email,
+		Address:          in.Address,
+		Status:           status,
+		Remark:           in.Remark,
+		TradeTerm:        terms.TradeTerm,
+		SettlementMethod: terms.SettlementMethod,
+		CreditDays:       terms.CreditDays,
+		CreditLimit:      terms.CreditLimit,
+		CurrencyCode:     terms.CurrencyCode,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -128,6 +151,28 @@ func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInpu
 		"address": in.Address,
 		"status":  status,
 		"remark":  in.Remark,
+	}
+
+	// 商务条件只在提交了对应字段时才写库（nil = 这次不改），
+	// 否则供应商页面保存一次就会把客户侧的账期清空。
+	terms, err := s.normCommercialTerms(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if in.TradeTerm != nil {
+		fields["trade_term"] = string(terms.TradeTerm)
+	}
+	if in.SettlementMethod != nil {
+		fields["settlement_method"] = string(terms.SettlementMethod)
+	}
+	if in.CreditDays != nil {
+		fields["credit_days"] = terms.CreditDays
+	}
+	if in.CreditLimit != nil {
+		fields["credit_limit"] = terms.CreditLimit
+	}
+	if in.CurrencyCode != nil {
+		fields["currency_code"] = terms.CurrencyCode
 	}
 
 	role, hasRole, err := normPartnerRole(in.Role)
@@ -206,6 +251,69 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// commercialTerms 是校验并归一化之后的商务条件。
+//
+// nil 入参在这里统一变成零值，由调用方决定"零值要不要写库"：
+// 新建时全部写入（零值就是默认值），编辑时只写真正提交过的字段。
+type commercialTerms struct {
+	TradeTerm        model.TradeTerm
+	SettlementMethod model.SettlementMethod
+	CreditDays       int
+	CreditLimit      float64
+	CurrencyCode     string
+}
+
+func (s *partnerService) normCommercialTerms(
+	ctx context.Context, in dto.PartnerInput,
+) (commercialTerms, error) {
+	var out commercialTerms
+
+	if in.TradeTerm != nil {
+		term := strings.ToUpper(strings.TrimSpace(*in.TradeTerm))
+		if term != "" && !model.TradeTerm(term).IsValid() {
+			return out, errInvalidTradeTerm
+		}
+		out.TradeTerm = model.TradeTerm(term)
+	}
+
+	if in.SettlementMethod != nil {
+		method := strings.ToUpper(strings.TrimSpace(*in.SettlementMethod))
+		if method != "" && !model.SettlementMethod(method).IsValid() {
+			return out, errInvalidSettlement
+		}
+		out.SettlementMethod = model.SettlementMethod(method)
+	}
+
+	if in.CreditDays != nil {
+		if *in.CreditDays < 0 {
+			return out, errs.BadRequest("账期天数不能为负")
+		}
+		out.CreditDays = *in.CreditDays
+	}
+
+	if in.CreditLimit != nil {
+		if *in.CreditLimit < 0 {
+			return out, errs.BadRequest("信用额度不能为负")
+		}
+		out.CreditLimit = *in.CreditLimit
+	}
+
+	if in.CurrencyCode != nil {
+		code := strings.ToUpper(strings.TrimSpace(*in.CurrencyCode))
+		if code != "" {
+			if _, err := s.currencies.FindByCode(ctx, code); err != nil {
+				if errors.Is(err, errs.ErrNotFound) {
+					return out, errs.BadRequest("默认结算币种不存在：" + code)
+				}
+				return out, err
+			}
+		}
+		out.CurrencyCode = code
+	}
+
+	return out, nil
 }
 
 // normPartnerRole 校验角色位。has 为 false 表示调用方没提交这个字段。
