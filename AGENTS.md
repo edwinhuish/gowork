@@ -24,8 +24,8 @@
 
 **当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
-采购订单）与出货批次。库存、报关物流、应收应付、报表**均未实现**，
-进度与下一步见 `docs/roadmap.md`，扩展套路见 `docs/architecture.md` 第六节。
+采购订单）、出货批次与库存流水快照。出入库单据、报关物流、应收应付、报表
+**均未实现**，进度与下一步见 `docs/roadmap.md`，扩展套路见 `docs/architecture.md` 第六节。
 
 **改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
 归哪个域、哪些词不许用——那里面每一条都是踩过的坑。
@@ -123,18 +123,19 @@ gin HTTP 层 (Go :8080)
 | sales-order | ERP · 交易 | `/api/v1/sales-orders` | 销售订单：合计只由明细汇总，状态走完整状态机 |
 | purchase-order | ERP · 交易 | `/api/v1/purchase-orders` | 采购订单：明细可挂销售订单行做以销定采 |
 | shipment | ERP · 供应链 | `/api/v1/shipments` | 出货批次：一票装哪些销售订单行、各多少；可出行的来源走 `/shipment-candidates` |
+| stock | ERP · 库存 | `/api/v1/stock-movements`、`/api/v1/stock-snapshots` | 流水是库存的唯一事实来源；快照只由流水推出来，接口只有读与重算 |
 
 **前端**（细节见 `apps/frontend/AGENTS.md`）：主数据、CRM、单据各自成模块，
 每个模块是 refine 的 `list / create / edit / show` 四页，新建与编辑共用
 `form-fields.tsx` 的字段定义；单据类另有明细 / 分配行编辑器。
 客户与供应商两个模块的类型都是 `Partner`，只是默认角色不同。
 
-**已实现**：`SalesOrder` / `PurchaseOrder` / `Shipment`（出货批次，含分配行），
-CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
+**已实现**：`SalesOrder` / `PurchaseOrder` / `Shipment`（出货批次，含分配行）、
+`StockMovement` / `StockSnapshot`（库存流水与快照），CRM 侧的
+`Contact` / `Activity` / `Opportunity` / `Lead`。
 
-**未实现但已定名的模块**（先看术语表再加，别另起名字）：`StockMovement` /
-`StockSnapshot` / `ShipmentCharge` / `CustomsDeclaration` / `Receivable` /
-`Payable` / `Payment` / `Contract`。
+**未实现但已定名的模块**（先看术语表再加，别另起名字）：`ShipmentCharge` /
+`CustomsDeclaration` / `Receivable` / `Payable` / `Payment` / `Contract`。
 
 ## 6. 跨层约定
 

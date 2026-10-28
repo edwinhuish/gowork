@@ -3,9 +3,11 @@ import {
   CommentOutlined,
   ContactsOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
   DollarOutlined,
   FileTextOutlined,
   FundOutlined,
+  HistoryOutlined,
   ProfileOutlined,
   SendOutlined,
   ShoppingCartOutlined,
@@ -55,6 +57,8 @@ import {
   ShipmentList,
   ShipmentShow,
 } from '@/pages/shipments'
+import { StockList } from '@/pages/stock'
+import { StockMovementCreate, StockMovementList } from '@/pages/stock-movements'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -175,6 +179,18 @@ export default function App() {
                 meta: { label: '出货单', icon: <SendOutlined /> },
               },
               {
+                // 库存只有读与重算：能改库存的只有流水，所以这里没有 create / edit。
+                name: 'stock-snapshots',
+                list: '/stock',
+                meta: { label: '库存', icon: <DatabaseOutlined /> },
+              },
+              {
+                name: 'stock-movements',
+                list: '/stock-movements',
+                create: '/stock-movements/create',
+                meta: { label: '库存流水', icon: <HistoryOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -277,6 +293,15 @@ export default function App() {
                     <Route path="create" element={<ShipmentCreate />} />
                     <Route path="edit/:id" element={<ShipmentEdit />} />
                     <Route path="show/:id" element={<ShipmentShow />} />
+                  </Route>
+
+                  <Route path="stock">
+                    <Route index element={<StockList />} />
+                  </Route>
+
+                  <Route path="stock-movements">
+                    <Route index element={<StockMovementList />} />
+                    <Route path="create" element={<StockMovementCreate />} />
                   </Route>
 
                   <Route path="currencies">

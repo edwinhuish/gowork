@@ -31,6 +31,7 @@ type Handlers struct {
 	SalesOrder *handler.SalesOrderHandler
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
+	Stock      *handler.StockHandler
 	Dashboard  *handler.DashboardHandler
 }
 
@@ -200,6 +201,17 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 
 		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
 		secured.GET("/shipment-candidates", h.Shipment.Candidates)
+
+		movements := secured.Group("/stock-movements")
+		movements.GET("", h.Stock.ListMovements)
+		movements.POST("", h.Stock.CreateMovement)
+		movements.GET("/:id", h.Stock.GetMovement)
+		movements.DELETE("/:id", h.Stock.DeleteMovement)
+
+		// 快照只读 + 重算。没有 PUT：能改库存的只有流水。
+		snapshots := secured.Group("/stock-snapshots")
+		snapshots.GET("", h.Stock.ListSnapshots)
+		snapshots.POST("/recalc", h.Stock.Recalc)
 	}
 
 	return engine

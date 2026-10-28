@@ -458,6 +458,58 @@ export interface ShipmentCandidate {
 }
 
 /**
+ * 库存流水：库存的唯一事实来源。
+ *
+ * qty 永远是正数，出入看 direction（1 入 / -1 出）；
+ * type 只说明"为什么动"，不决定方向——调拨与盘点都有两个方向。
+ */
+export interface StockMovement {
+  id: number
+  doc_no: string
+  product_id: number
+  /** 产品快照：产品改名后回看历史流水仍是当时的说法。 */
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  type: number
+  direction: number
+  qty: number
+  /** 业务发生日，不是录入时间。 */
+  occurred_at: string
+  source_type: string
+  source_id: number
+  source_doc_no: string
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 库存行（快照）。只读：库存只能由流水推出来，界面没有直接改它的入口。
+ */
+export interface StockSnapshotRow {
+  product_id: number
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  last_occurred_at?: string | null
+  updated_at: string
+}
+
+/** 重算结果：正常情况下 mismatched 为空，非空说明有人绕过流水改过快照。 */
+export interface StockRecalcResult {
+  recalculated: number
+  mismatched: {
+    product_id: number
+    snapshot_qty: number
+    movement_qty: number
+  }[]
+}
+
+/**
  * 采购明细行。
  *
  * sales_order_item_id 非空表示这一行是为某张销售订单的某一行采购的（以销定采）；

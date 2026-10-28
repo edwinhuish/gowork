@@ -157,6 +157,8 @@ api/client.ts
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId` |
+| `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |
+| `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
 
 ### 一个主数据模块的标准四件套
 

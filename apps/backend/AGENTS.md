@@ -160,6 +160,10 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
 | GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |
+| GET / POST | `/api/v1/stock-movements` | `Stock.ListMovements` / `.CreateMovement` | 单号 `MV-`；只能手工录期初 / 盘点盈亏 / 其它，采购入库与销售出库由单据产生（400） |
+| GET / DELETE | `/api/v1/stock-movements/:id` | `Stock.GetMovement` / `.DeleteMovement` | 删除同事务回滚快照；单据产生的流水改 409，请回来源单据处理 |
+| GET | `/api/v1/stock-snapshots` | `Stock.ListSnapshots` | 当前库存，只读；SKU / 品名由 join 产品取当前值 |
+| POST | `/api/v1/stock-snapshots/recalc` | `Stock.Recalc` | 用流水重算快照（`product_id` 可选），并报告重算前的不一致 |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -172,7 +176,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
 `country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`，
 报价单与销售订单另有 `partner_id` / `status`，采购订单另有 `supplier_id` / `status`，
-出货单另有 `status` / `sales_order_id`（查"这张订单出了几次货"）。
+出货单另有 `status` / `sales_order_id`（查"这张订单出了几次货"），
+库存流水另有 `product_id` / `type` / `from` / `to`（发生日区间，含两端）。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 
@@ -349,6 +354,12 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
   "把 100 改成 90"或"拆成两行各一半"都能绕过校验。
 - **取消的单据不许再占数量**：统计已占用数量时一律带 `status <> 已取消`，
   否则客户取消一票再补一票会永远报"超出未出数量"，而实际什么都没出。
+- **库存快照只能由流水推出来**：没有任何接口能直接写 `inv_stock_snapshot`。
+  写入流水与更新快照必须在同一事务里，快照的增量用 `ON CONFLICT` 原子加，
+  不要"先查再 insert/update"（两个人同时入库会撞唯一索引或互相吃掉增量）。
+  口径对不上时只做一件事：用 `Stock.Recalc` 按流水重算，并把重算前的差异报出来。
+- **流水的方向单独存**：`StockMovement.Qty` 永远为正，出入看 `Direction`（±1）。
+  允许存负数会让"两条 +5"和"一条 −10"同样合法，对账时分不清是录错了还是故意的。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。
@@ -373,6 +384,8 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
+| 入库之后库存列表里看不到那个产品 | 快照行被软删了，upsert 撞唯一索引更新到那条已删行上 | 快照永不软删：重算时写 `qty=0` 保留行（`ReplaceSnapshot` 的注释说了原因） |
+| 库存数与流水算出来的对不上 | 有人直接改了 `inv_stock_snapshot`，或某次写入没走同一事务 | 跑 `POST /stock-snapshots/recalc`，它会把差异报出来并按流水修正 |
 | 订单明明没出完，出货却总报"超出未出数量" | 统计已出数量时把已取消的出货也算进去了（或编辑时没排除本票） | 统计一律带 `biz_shipment.status <> 90`，编辑传 `excludeShipmentID` |
 | 出货单里的"来源订单"列全是空 | 只 Preload 了 `Allocations.SalesOrderItem`，没再 `Preload("Allocations.SalesOrderItem.SalesOrder")`，或没走 `annotateDocNo` 摊平 | 仓储三处 Preload 要齐；返回前调 `annotateDocNo`（`sales_order_doc_no` 是 `gorm:"-"` 投影） |
 | 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响） |

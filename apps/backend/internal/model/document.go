@@ -134,6 +134,9 @@ const (
 	DocTypePayable       DocType = "PY" // 应付单
 	DocTypePayment       DocType = "PM" // 收付款单
 	DocTypeCustoms       DocType = "CD" // 报关单
+	// 库存流水号。流水不是单据（没有状态），但手工录入的期初与盘盈亏
+	// 没有来源单据可引用，需要一个能在电话里报出来的标识。
+	DocTypeStockMovement DocType = "MV"
 )
 
 // IsValid 挡住手误拼出来的类型。
@@ -143,7 +146,8 @@ const (
 func (t DocType) IsValid() bool {
 	switch t {
 	case DocTypeQuotation, DocTypeSalesOrder, DocTypePurchaseOrder, DocTypeShipment,
-		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms:
+		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms,
+		DocTypeStockMovement:
 		return true
 	}
 	return false

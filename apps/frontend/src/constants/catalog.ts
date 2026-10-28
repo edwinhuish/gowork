@@ -179,6 +179,43 @@ export function orderStatusLabel(value?: number | null): string {
   return ORDER_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
 }
 
+/**
+ * 库存流水类型。取值与后端 `model.StockMovementType` 一致。
+ *
+ * 类型只说明"为什么动"，不决定方向：调拨有调入调出，盘点有盘盈盘亏。
+ */
+export const STOCK_MOVEMENT_OPTIONS = [
+  { value: 10, label: '期初' },
+  { value: 20, label: '采购入库' },
+  { value: 30, label: '销售出库' },
+  { value: 40, label: '调拨' },
+  { value: 50, label: '盘点盈亏' },
+  { value: 90, label: '其它' },
+]
+
+/**
+ * 可手工录入的类型。
+ *
+ * 采购入库与销售出库不在其中：它们必须挂在入库单 / 出库单上（T-16），
+ * 后端会拒（400）。给出来只会让人先选再被拒。
+ */
+export const MANUAL_STOCK_MOVEMENT_OPTIONS = [
+  { value: 10, label: '期初' },
+  { value: 50, label: '盘点盈亏' },
+  { value: 90, label: '其它' },
+]
+
+export function stockMovementLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return STOCK_MOVEMENT_OPTIONS.find((o) => o.value === value)?.label ?? `类型 ${value}`
+}
+
+/** 出入方向：1 入库 / -1 出库。 */
+export const STOCK_DIRECTION_OPTIONS = [
+  { value: 1, label: '入库' },
+  { value: -1, label: '出库' },
+]
+
 /** 贸易术语的中文名；未知码原样透出，不吞数据。 */
 export function tradeTermLabel(value?: string | null): string {
   if (!value) return '—'

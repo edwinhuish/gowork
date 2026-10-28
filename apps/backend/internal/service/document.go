@@ -26,6 +26,21 @@ func parseDateOnly(raw string) (time.Time, error) {
 	return model.DateOnly(d), nil
 }
 
+// parseOptionalDate 解析可留空的业务日期：空串返回 nil，表示"不限"。
+//
+// 列表筛选里 from / to 都是可选的，用 time.Time 的零值当"不限"会筛出空结果——
+// 零值是公元 1 年，任何记录都晚于它，"结束日期"那一侧就会全被过滤掉。
+func parseOptionalDate(raw string) (*time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	d, err := parseDateOnly(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
 // resolveCurrency 定下单据的币种、当日汇率与两侧金额小数位。
 //
 // 收在一处：报价单与订单都要"币种留空即本币、按当日汇率折本币、按各自小数位舍入"，

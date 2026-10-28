@@ -73,6 +73,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.PurchaseOrderItem{},
 			&model.Shipment{},
 			&model.ShipmentAllocation{},
+			&model.StockMovement{},
+			&model.StockSnapshot{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -108,6 +110,7 @@ func New(cfg *config.Config) (*App, error) {
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
+	stockRepo := repository.NewStockRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -152,6 +155,10 @@ func New(cfg *config.Config) (*App, error) {
 	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
 	shipmentSvc := service.NewShipmentService(
 		shipmentRepo, orderRepo, docNoSvc, service.WithShipmentLogger(log))
+	// 库存只依赖流水仓储与产品（取快照用的 SKU / 品名），不依赖任何单据服务：
+	// 单据产生流水的那一步由 T-16 的单据层调用，方向始终是"单据 → 流水"。
+	stockSvc := service.NewStockService(
+		stockRepo, productRepo, docNoSvc, service.WithStockLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -170,6 +177,7 @@ func New(cfg *config.Config) (*App, error) {
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Shipment:   handler.NewShipmentHandler(shipmentSvc),
+		Stock:      handler.NewStockHandler(stockSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
 	})
 
