@@ -69,7 +69,8 @@ apps/frontend/
         ├── suppliers/ customers/ forwarders/   同上（同一 `Partner` 模型的三种角色视图）
         ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
         ├── quotations/       同上 + show / preview（试算页）
-        ├── orders/ purchases/ shipments/   list / create / edit / show（+ 明细或分配行编辑器）
+        ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器）
+        ├── shipments/        同上（+ 分配行编辑器与费用面板 charge-panel）
         ├── stock/            只读当前库存 + 重算（没有 create / edit）
         ├── stock-movements/  流水列表 + 手工录入（没有 edit）
         ├── stock-documents/  出入库单 + items-editor + 确认

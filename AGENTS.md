@@ -123,6 +123,7 @@ gin HTTP 层 (Go :8080)
 | sales-order | ERP · 交易 | `/api/v1/sales-orders` | 销售订单：合计只由明细汇总，状态走完整状态机 |
 | purchase-order | ERP · 交易 | `/api/v1/purchase-orders` | 采购订单：明细可挂销售订单行做以销定采 |
 | shipment | ERP · 供应链 | `/api/v1/shipments` | 出货批次：一票装哪些销售订单行、各多少；可出行的来源走 `/shipment-candidates` |
+| shipment-charge | ERP · 供应链 | `/api/v1/shipment-charges` | 运费杂费：归集到一票货的成本，单票毛利的减项；合计走 `/shipment-charges-summary` |
 | stock | ERP · 库存 | `/api/v1/stock-movements`、`/api/v1/stock-snapshots` | 流水是库存的唯一事实来源；快照只由流水推出来，接口只有读与重算 |
 | stock-document | ERP · 库存 | `/api/v1/stock-documents` | 出入库单（采购入库 / 销售出库 / 盘点）：确认那一刻才生成流水 |
 
@@ -132,10 +133,10 @@ gin HTTP 层 (Go :8080)
 客户与供应商两个模块的类型都是 `Partner`，只是默认角色不同。
 
 **已实现**：`SalesOrder` / `PurchaseOrder` / `Shipment`（出货批次，含分配行）、
-`StockMovement` / `StockSnapshot` / `StockDocument`（库存流水、快照与出入库单），
-CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
+`ShipmentCharge`（运费杂费）、`StockMovement` / `StockSnapshot` / `StockDocument`
+（库存流水、快照与出入库单），CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
 
-**未实现但已定名的模块**（先看术语表再加，别另起名字）：`ShipmentCharge` /
+**未实现但已定名的模块**（先看术语表再加，别另起名字）：
 `CustomsDeclaration` / `Receivable` / `Payable` / `Payment` / `Contract`。
 
 ## 6. 跨层约定
