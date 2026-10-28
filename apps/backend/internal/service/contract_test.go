@@ -200,9 +200,9 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 	t.Run("表头与分期照抄来源单据并算出本币", func(t *testing.T) {
 		q := fx.confirmedQuotation(t)
 		c, err := fx.svc.Generate(ctx, input(q.ID, model.ContractTypePI,
-			dto.ContractTermInput{Name: "订金 30%", Amount: 300, DueDate: "2026-11-05"},
-			dto.ContractTermInput{Name: "发货前 30%", Amount: 300, DueDate: "2026-12-05"},
-			dto.ContractTermInput{Name: "尾款 40%", Amount: 400, Trigger: "见提单副本后 7 天"},
+			dto.ContractTermInput{Name: "订金 30%", Amount: money.MustParse("300"), DueDate: "2026-11-05"},
+			dto.ContractTermInput{Name: "发货前 30%", Amount: money.MustParse("300"), DueDate: "2026-12-05"},
+			dto.ContractTermInput{Name: "尾款 40%", Amount: money.MustParse("400"), Trigger: "见提单副本后 7 天"},
 		))
 		if err != nil {
 			t.Fatalf("生成合同失败: %v", err)
@@ -219,11 +219,12 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 				c.PartnerID, c.SourceDocNo, c.SourceID)
 		}
 		// 金额与汇率照抄报价单，不重取当日汇率。
-		if c.CurrencyCode != "USD" || !approx(c.ExchangeRate, 7.1) {
-			t.Errorf("币种/汇率 = %s/%v，期望 USD/7.1", c.CurrencyCode, c.ExchangeRate)
+		if c.CurrencyCode != "USD" || c.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+			t.Errorf("币种/汇率 = %s/%s，期望 USD/7.1", c.CurrencyCode, c.ExchangeRate)
 		}
-		if !approx(c.AmountTotal, 1000) || !approx(c.AmountBaseTotal, 7100) {
-			t.Errorf("金额 = %v / %v，期望 1000 / 7100", c.AmountTotal, c.AmountBaseTotal)
+		if c.AmountTotal.Cmp(money.MustParse("1000")) != 0 ||
+			c.AmountBaseTotal.Cmp(money.MustParse("7100")) != 0 {
+			t.Errorf("金额 = %s / %s，期望 1000 / 7100", c.AmountTotal, c.AmountBaseTotal)
 		}
 		// 报价单没有交期，合同也不该凭空编一个。
 		if c.DeliveryDate != nil {
@@ -233,28 +234,29 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 		if len(c.Terms) != 3 {
 			t.Fatalf("分期数 = %d，期望 3", len(c.Terms))
 		}
-		for i, want := range []float64{2130, 2130, 2840} {
+		for i, want := range []string{"2130", "2130", "2840"} {
 			if c.Terms[i].Seq != i+1 {
 				t.Errorf("第 %d 期 seq = %d，期望 %d", i+1, c.Terms[i].Seq, i+1)
 			}
-			if !approx(c.Terms[i].AmountBase, want) {
-				t.Errorf("第 %d 期本币 = %v，期望 %v", i+1, c.Terms[i].AmountBase, want)
+			if c.Terms[i].AmountBase.Cmp(money.MustParse(want)) != 0 {
+				t.Errorf("第 %d 期本币 = %s，期望 %s", i+1, c.Terms[i].AmountBase, want)
 			}
 		}
-		sum := 0.0
+		sum := money.Zero()
 		for _, term := range c.Terms {
-			sum += term.AmountBase
+			sum = sum.Add(term.AmountBase)
 		}
-		if !approx(sum, c.AmountBaseTotal) {
-			t.Errorf("分期本币合计 = %v，期望与合同本币总额 %v 一致", sum, c.AmountBaseTotal)
+		// 定点之后可以要求完全相等：差额并进最后一期的那段逻辑就是为了这一条。
+		if sum.Cmp(c.AmountBaseTotal) != 0 {
+			t.Errorf("分期本币合计 = %s，期望与合同本币总额 %s 一致", sum, c.AmountBaseTotal)
 		}
 	})
 
 	t.Run("分期合计不等于总额时拒绝", func(t *testing.T) {
 		q := fx.confirmedQuotation(t)
 		_, err := fx.svc.Generate(ctx, input(q.ID, model.ContractTypePI,
-			dto.ContractTermInput{Name: "订金", Amount: 300},
-			dto.ContractTermInput{Name: "尾款", Amount: 600},
+			dto.ContractTermInput{Name: "订金", Amount: money.MustParse("300")},
+			dto.ContractTermInput{Name: "尾款", Amount: money.MustParse("600")},
 		))
 		wantCode(t, err, errs.CodeInvalidParam, "分期合计 900 与总额 1000 不符")
 	})
@@ -262,18 +264,18 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 	t.Run("同一来源同一类型只能生成一次", func(t *testing.T) {
 		q := fx.confirmedQuotation(t)
 		if _, err := fx.svc.Generate(ctx, input(q.ID, model.ContractTypePI,
-			dto.ContractTermInput{Name: "全额", Amount: 1000},
+			dto.ContractTermInput{Name: "全额", Amount: money.MustParse("1000")},
 		)); err != nil {
 			t.Fatalf("首次生成失败: %v", err)
 		}
 		_, err := fx.svc.Generate(ctx, input(q.ID, model.ContractTypePI,
-			dto.ContractTermInput{Name: "全额", Amount: 1000},
+			dto.ContractTermInput{Name: "全额", Amount: money.MustParse("1000")},
 		))
 		wantCode(t, err, errs.CodeConflict, "重复生成 PI")
 
 		// PI 与销售合同是两条线：先收订金再签正式合同是正常流程。
 		c, err := fx.svc.Generate(ctx, input(q.ID, model.ContractTypeSales,
-			dto.ContractTermInput{Name: "全额", Amount: 1000},
+			dto.ContractTermInput{Name: "全额", Amount: money.MustParse("1000")},
 		))
 		if err != nil {
 			t.Fatalf("同来源生成销售合同失败: %v", err)
@@ -295,7 +297,7 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 			t.Fatalf("建报价单失败: %v", err)
 		}
 		_, err = fx.svc.Generate(ctx, input(q.ID, model.ContractTypePI,
-			dto.ContractTermInput{Name: "全额", Amount: 1000},
+			dto.ContractTermInput{Name: "全额", Amount: money.MustParse("1000")},
 		))
 		wantCode(t, err, errs.CodeConflict, "草稿报价单生成合同")
 	})
@@ -312,7 +314,7 @@ func TestContractOrderSourceAndTransitions(t *testing.T) {
 			SourceType: int8(model.ContractSourceSalesOrder),
 			SourceID:   orderID,
 			SignDate:   "2026-10-28",
-			Terms:      []dto.ContractTermInput{{Name: "全额", Amount: 1000}},
+			Terms:      []dto.ContractTermInput{{Name: "全额", Amount: money.MustParse("1000")}},
 		})
 	}
 
@@ -328,8 +330,8 @@ func TestContractOrderSourceAndTransitions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("生成合同失败: %v", err)
 		}
-		if c.PartnerID != fx.customerID || !approx(c.AmountTotal, 1000) {
-			t.Errorf("未照抄订单: partner=%d amount=%v", c.PartnerID, c.AmountTotal)
+		if c.PartnerID != fx.customerID || c.AmountTotal.Cmp(money.MustParse("1000")) != 0 {
+			t.Errorf("未照抄订单: partner=%d amount=%s", c.PartnerID, c.AmountTotal)
 		}
 		if c.DeliveryDate == nil || !c.DeliveryDate.Equal(delivery) {
 			t.Errorf("交期 = %v，期望沿用订单交期 %v", c.DeliveryDate, delivery)
@@ -337,15 +339,15 @@ func TestContractOrderSourceAndTransitions(t *testing.T) {
 
 		// 编辑：条款合计不符拒绝；改对之后交期可以清空，签订日保持原值。
 		_, err = fx.svc.Update(ctx, c.ID, dto.ContractUpdateInput{
-			Terms: []dto.ContractTermInput{{Name: "全额", Amount: 900}},
+			Terms: []dto.ContractTermInput{{Name: "全额", Amount: money.MustParse("900")}},
 		})
 		wantCode(t, err, errs.CodeInvalidParam, "编辑分期合计不符")
 
 		updated, err := fx.svc.Update(ctx, c.ID, dto.ContractUpdateInput{
 			Remark: "客户要求两期",
 			Terms: []dto.ContractTermInput{
-				{Name: "订金", Amount: 300},
-				{Name: "尾款", Amount: 700},
+				{Name: "订金", Amount: money.MustParse("300")},
+				{Name: "尾款", Amount: money.MustParse("700")},
 			},
 		})
 		if err != nil {
@@ -373,7 +375,7 @@ func TestContractOrderSourceAndTransitions(t *testing.T) {
 		}
 
 		_, err = fx.svc.Update(ctx, c.ID, dto.ContractUpdateInput{
-			Terms: []dto.ContractTermInput{{Name: "全额", Amount: 1000}},
+			Terms: []dto.ContractTermInput{{Name: "全额", Amount: money.MustParse("1000")}},
 		})
 		wantCode(t, err, errs.CodeConflict, "修改已确认合同")
 
@@ -405,7 +407,7 @@ func TestContractListFilters(t *testing.T) {
 		Type:       int8(model.ContractTypePI),
 		SourceType: int8(model.ContractSourceQuotation),
 		SourceID:   q.ID,
-		Terms:      []dto.ContractTermInput{{Name: "全额", Amount: 1000}},
+		Terms:      []dto.ContractTermInput{{Name: "全额", Amount: money.MustParse("1000")}},
 	}); err != nil {
 		t.Fatalf("生成合同失败: %v", err)
 	}

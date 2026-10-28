@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/pkg/pdf"
 )
 
@@ -113,8 +114,8 @@ func TestPDFContract(t *testing.T) {
 		SourceID:   q.ID,
 		SignDate:   "2026-10-28",
 		Terms: []dto.ContractTermInput{
-			{Name: "订金 30%", Amount: 300, DueDate: "2026-11-05"},
-			{Name: "尾款 70%", Amount: 700, Trigger: "见提单副本后 7 天"},
+			{Name: "订金 30%", Amount: money.MustParse("300"), DueDate: "2026-11-05"},
+			{Name: "尾款 70%", Amount: money.MustParse("700"), Trigger: "见提单副本后 7 天"},
 		},
 	})
 	if err != nil {

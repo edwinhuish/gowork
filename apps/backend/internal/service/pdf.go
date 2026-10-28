@@ -164,16 +164,16 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 	}
 
 	terms := make([]map[string]string, 0, len(c.Terms))
-	termsTotal := 0.0
+	termsTotal := money.Zero()
 	for i, t := range c.Terms {
 		terms = append(terms, map[string]string{
 			"no":       strconv.Itoa(i + 1),
 			"name":     t.Name,
 			"due_date": dateText(t.DueDate),
 			"trigger":  orDash(t.Trigger),
-			"amount":   moneyText(t.Amount, curDP),
+			"amount":   moneyTextD(t.Amount, curDP),
 		})
-		termsTotal += t.Amount
+		termsTotal = termsTotal.Add(t.Amount)
 	}
 
 	values := s.baseValues(baseCode)
@@ -189,10 +189,10 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 	// 而 PI 上缺了 FOB / CIF 就没法判断谁付运费、风险在哪一刻转移。
 	values["trade_term"] = orDash(tradeTerm)
 	values["currency_code"] = c.CurrencyCode
-	values["exchange_rate"] = rateText(c.ExchangeRate)
-	values["amount_total"] = moneyText(c.AmountTotal, curDP)
-	values["amount_base_total"] = moneyText(c.AmountBaseTotal, baseDP)
-	values["terms_total"] = moneyText(termsTotal, curDP)
+	values["exchange_rate"] = rateTextD(c.ExchangeRate)
+	values["amount_total"] = moneyTextD(c.AmountTotal, curDP)
+	values["amount_base_total"] = moneyTextD(c.AmountBaseTotal, baseDP)
+	values["terms_total"] = moneyTextD(termsTotal, curDP)
 	values["remark"] = orDash(c.Remark)
 	s.partnerValues(values, c.Partner)
 

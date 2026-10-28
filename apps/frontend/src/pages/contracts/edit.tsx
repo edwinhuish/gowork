@@ -21,7 +21,7 @@ export function ContractEdit() {
 
   // 这几个字段不在表单里渲染，但 initialValues 带着整条记录，useWatch 能读到。
   const status = Form.useWatch<number | undefined>('status', form)
-  const total = Form.useWatch<number | undefined>('amount_total', form)
+  const total = Form.useWatch<string | undefined>('amount_total', form)
   const currencyCode = Form.useWatch<string | undefined>('currency_code', form)
   const locked = status !== undefined && status !== 10
 

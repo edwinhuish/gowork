@@ -1,5 +1,7 @@
 package model
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 import (
 	"fmt"
 	"time"
@@ -92,10 +94,10 @@ type Contract struct {
 	DeliveryDate *time.Time `gorm:"type:date" json:"delivery_date"`
 
 	// 四件套：币种、汇率、原币总额、本币总额，全部来自来源单据的锁定值。
-	CurrencyCode    string  `gorm:"size:8;not null" json:"currency_code"`
-	ExchangeRate    float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
-	AmountTotal     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
-	AmountBaseTotal float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
+	CurrencyCode    string        `gorm:"size:8;not null" json:"currency_code"`
+	ExchangeRate    money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	AmountTotal     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
+	AmountBaseTotal money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
 
 	Remark string `gorm:"size:255" json:"remark"`
 
@@ -120,8 +122,8 @@ type ContractTerm struct {
 	Seq  int    `gorm:"not null;default:1" json:"seq"`
 	Name string `gorm:"size:64;not null" json:"name"`
 
-	Amount     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
-	AmountBase float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	Amount     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	AmountBase money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 
 	// DueDate 是约定付款日；Trigger 是"见提单副本后 7 天内"这类条件。
 	// 两者可同时存在：有具体日期就填，没有就把条件写清楚。

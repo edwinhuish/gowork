@@ -40,10 +40,12 @@ export function ContractShow() {
 
   const c = result
   const terms = c?.terms ?? []
-  const termsTotal = terms.reduce((acc, t) => acc + t.amount, 0)
-  const termsBaseTotal = terms.reduce((acc, t) => acc + t.amount_base, 0)
+  // 金额是定点字符串，这里的合计只用于「分期是否与总额相符」的显示判断；
+  // 服务端保存时已经按末位判过一次，前端不再要求逐位相等。
+  const termsTotal = terms.reduce((acc, t) => acc + Number(t.amount), 0)
+  const termsBaseTotal = terms.reduce((acc, t) => acc + Number(t.amount_base), 0)
   const matched =
-    c !== undefined && Math.abs(termsTotal - c.amount_total) < 0.005
+    c !== undefined && Math.abs(termsTotal - Number(c.amount_total)) < 0.005
 
   const refresh = () => invalidate({ resource: 'contracts', invalidates: ['detail', 'list'] })
 

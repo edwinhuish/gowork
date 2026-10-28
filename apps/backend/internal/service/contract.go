@@ -300,9 +300,9 @@ type contractSource struct {
 	docNo        string
 	partnerID    uint
 	currencyCode string
-	exchangeRate float64
-	amountTotal  float64
-	amountBase   float64
+	exchangeRate money.Decimal
+	amountTotal  money.Decimal
+	amountBase   money.Decimal
 	deliveryDate *time.Time
 }
 
@@ -335,11 +335,9 @@ func (s *contractService) loadSource(
 			docNo:        q.DocNo,
 			partnerID:    q.PartnerID,
 			currencyCode: q.CurrencyCode,
-			// 合同表的金额列还是 float64（T-37 第 4 片的最后一段），
-			// 这里显式转换一次；合同改造时删掉 .Float64()。
-			exchangeRate: q.ExchangeRate.Float64(),
-			amountTotal:  q.AmountTotal.Float64(),
-			amountBase:   q.AmountBaseTotal.Float64(),
+			exchangeRate: q.ExchangeRate,
+			amountTotal:  q.AmountTotal,
+			amountBase:   q.AmountBaseTotal,
 		}, nil
 
 	case model.ContractSourceSalesOrder:
@@ -362,9 +360,9 @@ func (s *contractService) loadSource(
 			docNo:        o.DocNo,
 			partnerID:    o.PartnerID,
 			currencyCode: o.CurrencyCode,
-			exchangeRate: o.ExchangeRate.Float64(),
-			amountTotal:  o.AmountTotal.Float64(),
-			amountBase:   o.AmountBaseTotal.Float64(),
+			exchangeRate: o.ExchangeRate,
+			amountTotal:  o.AmountTotal,
+			amountBase:   o.AmountBaseTotal,
 			deliveryDate: o.DeliveryDate,
 		}, nil
 	}
@@ -424,19 +422,19 @@ func (s *contractService) buildTerms(
 			return nil, errs.BadRequest(fmt.Sprintf("第 %d 期缺少名称", i+1))
 		}
 		// 负金额的分期在业务上等于"退款"，合同里没有这个语义，要退就作废重开。
-		if row.Amount < 0 {
+		if row.Amount.IsNegative() {
 			return nil, errs.BadRequest(fmt.Sprintf("第 %d 期金额不能为负", i+1))
 		}
 		due, err := parseOptionalDate(row.DueDate)
 		if err != nil {
 			return nil, err
 		}
-		amount := money.Round(row.Amount, billDP)
+		amount := row.Amount.Round(billDP)
 		terms = append(terms, model.ContractTerm{
 			Seq:        i + 1,
 			Name:       name,
 			Amount:     amount,
-			AmountBase: money.Round(amount*src.exchangeRate, baseDP),
+			AmountBase: amount.Mul(src.exchangeRate).Round(baseDP),
 			DueDate:    due,
 			Trigger:    strings.TrimSpace(row.Trigger),
 		})
@@ -453,22 +451,23 @@ func (s *contractService) buildTerms(
 	// 差一分钱没人查得动，而"合计少一分"会被当成漏了一期。
 	// 差额超过"期数 × 一个最小单位"时不吃掉——那说明来源单据的本币总额
 	// 与它锁定的汇率本身就不自洽，硬塞会把错误伪装成一次正常舍入。
-	wantBase := money.Round(src.amountBase, baseDP)
-	sumBase := 0.0
+	wantBase := src.amountBase.Round(baseDP)
+	sumBase := money.Zero()
 	for _, t := range terms {
-		sumBase += t.AmountBase
+		sumBase = sumBase.Add(t.AmountBase)
 	}
-	sumBase = money.Round(sumBase, baseDP)
-	diff := money.Round(wantBase-sumBase, baseDP)
-	if diff != 0 {
-		unit := math.Pow(10, float64(-baseDP))
-		if math.Abs(diff) > float64(len(terms))*unit {
+	sumBase = sumBase.Round(baseDP)
+	diff := wantBase.Sub(sumBase).Round(baseDP)
+	if !diff.IsZero() {
+		// 阈值是「期数 × 一个最小单位」，用定点算：10^-baseDP 就是 1e(6-baseDP) 个单位。
+		tolerance := unitOf(baseDP).MulInt(int64(len(terms)))
+		if diff.Abs().Cmp(tolerance) > 0 {
 			return nil, errs.ErrInternal.WithMsg(fmt.Sprintf(
-				"来源单据 %s 的本币合计 %.*f 与按合同汇率换算的 %.*f 不一致",
-				src.docNo, baseDP, wantBase, baseDP, sumBase))
+				"来源单据 %s 的本币合计 %s 与按合同汇率换算的 %s 不一致",
+				src.docNo, wantBase, sumBase))
 		}
 		last := &terms[len(terms)-1]
-		last.AmountBase = money.Round(last.AmountBase+diff, baseDP)
+		last.AmountBase = last.AmountBase.Add(diff).Round(baseDP)
 	}
 	return terms, nil
 }
@@ -496,20 +495,29 @@ func contractSourceOf(c *model.Contract) *contractSource {
 // "保存得过、确认不过"，而报错里看不出该改哪一边。
 // 判据取半个最小单位：两边都已在落库前按币种小数位舍入过，
 // 剩下的差异只可能是浮点表示误差，不可能是真的少了一期。
-func checkTermSum(terms []model.ContractTerm, total float64, decimalPlaces int) error {
+func checkTermSum(terms []model.ContractTerm, total money.Decimal, decimalPlaces int) error {
 	if len(terms) == 0 {
 		return errs.BadRequest("合同至少需要一个付款分期")
 	}
-	sum := 0.0
+	sum := money.Zero()
 	for _, t := range terms {
-		sum += t.Amount
+		sum = sum.Add(t.Amount)
 	}
-	unit := math.Pow(10, float64(-decimalPlaces))
-	if math.Abs(sum-total) >= unit/2 {
+	// 两侧都已按币种小数位舍入，可以要求完全相等。float 时代留半个最小单位的
+	// 容差是为了吸收二进制误差；定点之后还留容差，就等于允许合同少收一分钱。
+	if sum.Round(decimalPlaces).Cmp(total.Round(decimalPlaces)) != 0 {
 		return errs.BadRequest(fmt.Sprintf(
-			"分期合计 %.*f 与合同总额 %.*f 不一致", decimalPlaces, sum, decimalPlaces, total))
+			"分期合计 %s 与合同总额 %s 不一致", sum, total))
 	}
 	return nil
+}
+
+// unitOf 返回该小数位下的一个最小单位（如 2 位小数的 0.01）。
+func unitOf(dp int) money.Decimal {
+	if dp >= money.Scale {
+		return money.FromUnits(1)
+	}
+	return money.FromUnits(int64(math.Pow10(money.Scale - dp)))
 }
 
 // resolveContractDelivery 定下交期：入参优先，留空沿用来源单据的交期。

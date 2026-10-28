@@ -2,7 +2,8 @@ import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 
 export interface ContractTermRow {
   name?: string
-  amount?: number
+  /** 金额按字符串收发（后端 money.Decimal）。 */
+  amount?: string
   due_date?: string
   trigger?: string
 }
@@ -18,18 +19,20 @@ export function ContractTermsEditor({
   total,
   currencyCode,
 }: {
-  /** 合同总额（原币）；未知时不显示差额判定，只显示合计。 */
-  total?: number
+  /** 合同总额（原币，定点字符串）；未知时不显示差额判定，只显示合计。 */
+  total?: string
   currencyCode?: string
 }) {
   const form = Form.useFormInstance()
   const rows = Form.useWatch<ContractTermRow[]>('terms', form) ?? []
 
-  const sum = rows.reduce((acc, row) => acc + (row?.amount ?? 0), 0)
-  const diff = (total ?? 0) - sum
+  // 下面的合计与差额只用于提示，且只在显示这一层转 number：
+  // 真正的判据在服务端（合计必须等于总额，定点比到末位）。
+  const sum = rows.reduce((acc, row) => acc + Number(row?.amount ?? 0), 0)
+  const diff = Number(total ?? 0) - sum
   const matched = total !== undefined && Math.abs(diff) < 0.005
-  const money = (v: number) =>
-    v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const money = (v: number | string) =>
+    Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div>
@@ -78,6 +81,7 @@ export function ContractTermsEditor({
                       min={0}
                       step={0.01}
                       precision={4}
+                      stringMode
                       placeholder="0.00"
                     />
                   </Form.Item>
@@ -110,7 +114,7 @@ export function ContractTermsEditor({
 
             <Row gutter={8} align="middle" style={{ marginTop: 4 }}>
               <Col span={12}>
-                <Button type="dashed" block onClick={() => add({ amount: 0 })}>
+                <Button type="dashed" block onClick={() => add({ amount: '0' })}>
                   加一期
                 </Button>
               </Col>

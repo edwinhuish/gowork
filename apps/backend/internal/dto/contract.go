@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // ContractQuery 是合同列表的查询条件。
 //
 // 不提供"来源单号"筛选：那份单号的持有者是报价单或订单，
@@ -17,8 +19,9 @@ type ContractQuery struct {
 // 让前端同时提交两个币种，等于允许它们互相对不上；
 // 让前端决定序号，则"先订金后尾款"要靠界面保证，换个客户端就乱了。
 type ContractTermInput struct {
-	Name   string  `json:"name" binding:"required,max=64"`
-	Amount float64 `json:"amount" binding:"gte=0"`
+	Name string `json:"name" binding:"required,max=64"`
+	// Amount 按字符串收发（money.Decimal）；负数在服务层判。
+	Amount money.Decimal `json:"amount"`
 	// DueDate 约定付款日，可留空（"见提单副本后 7 天"这种没有具体日期的场景）。
 	DueDate string `json:"due_date"`
 	// Trigger 付款条件，与 DueDate 可同时存在。

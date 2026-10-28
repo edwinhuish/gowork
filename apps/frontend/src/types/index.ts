@@ -434,9 +434,10 @@ export interface Contract {
   sign_date: string
   delivery_date: string | null
   currency_code: string
-  exchange_rate: number
-  amount_total: number
-  amount_base_total: number
+  /** 金额与汇率是定点字符串：前端只展示，算术在服务端。 */
+  exchange_rate: string
+  amount_total: string
+  amount_base_total: string
   remark: string
   partner?: Partner | null
   /** 列表不带分期，只有详情带。 */
