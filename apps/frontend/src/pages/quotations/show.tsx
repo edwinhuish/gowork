@@ -16,6 +16,7 @@ import {
   Tag,
 } from 'antd'
 
+import { download } from '@/api/client'
 import { quotationApi } from '@/api/quotations'
 import { Empty, Mono, Money } from '@/components/fields'
 import { quotationStatusLabel, tradeTermLabel } from '@/constants/catalog'
@@ -41,6 +42,7 @@ export function QuotationShow() {
   const invalidate = useInvalidate()
   const navigate = useNavigate()
   const [acting, setActing] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)
   const [newValidUntil, setNewValidUntil] = useState('')
   const [convertOpen, setConvertOpen] = useState(false)
@@ -61,6 +63,19 @@ export function QuotationShow() {
       message.error(err instanceof Error ? err.message : '操作失败')
     } finally {
       setActing(false)
+    }
+  }
+
+  // 草稿也能打印：先发出去给对方看，再回来点确认是常态。
+  const printPDF = async () => {
+    if (!q) return
+    setPrinting(true)
+    try {
+      await download(`/quotations/${q.id}/pdf`, `${q.doc_no}.pdf`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '下载失败')
+    } finally {
+      setPrinting(false)
     }
   }
 
@@ -106,6 +121,9 @@ export function QuotationShow() {
       title={q ? `${q.doc_no} · v${q.version}` : '报价单详情'}
       headerButtons={
         <Space wrap>
+          <Button onClick={printPDF} loading={printing}>
+            打印 PDF
+          </Button>
           {q?.status === 10 && <EditButton resource="quotations" recordItemId={q.id} />}
           {q?.status === 10 && (
             <Button

@@ -4,6 +4,7 @@ import { useInvalidate, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Descriptions, Divider, message, Popconfirm, Space, Table, Tag } from 'antd'
 
+import { download } from '@/api/client'
 import { contractApi } from '@/api/contracts'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
@@ -35,6 +36,7 @@ export function ContractShow() {
   const invalidate = useInvalidate()
   const navigate = useNavigate()
   const [acting, setActing] = useState(false)
+  const [printing, setPrinting] = useState(false)
 
   const c = result
   const terms = c?.terms ?? []
@@ -68,12 +70,28 @@ export function ContractShow() {
     navigate(path)
   }
 
+  // 草稿也能打印：PI 常常是先发出去给对方确认，再回来点确认。
+  const printPDF = async () => {
+    if (!c) return
+    setPrinting(true)
+    try {
+      await download(`/contracts/${c.id}/pdf`, `${c.doc_no}.pdf`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '下载失败')
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   return (
     <Show
       isLoading={query.isLoading}
       title={c ? `${c.doc_no} · ${contractTypeLabel(c.type)}` : '合同详情'}
       headerButtons={
         <Space wrap>
+          <Button onClick={printPDF} loading={printing}>
+            打印 PDF
+          </Button>
           {c?.status === 10 && <EditButton resource="contracts" recordItemId={c.id} />}
           {c?.status === 10 && (
             <Popconfirm
