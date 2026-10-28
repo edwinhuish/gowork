@@ -51,15 +51,15 @@ func (s *customerService) Create(ctx context.Context, in dto.CustomerInput) (*mo
 	}
 
 	m := &model.Customer{
-		Code:    in.Code,
-		Name:    in.Name,
-		Country: in.Country,
-		Contact: in.Contact,
-		Phone:   in.Phone,
-		Email:   in.Email,
-		Address: in.Address,
-		Status:  status,
-		Remark:  in.Remark,
+		Code:        in.Code,
+		Name:        in.Name,
+		Country:     in.Country,
+		ContactName: in.ContactName,
+		Phone:       in.Phone,
+		Email:       in.Email,
+		Address:     in.Address,
+		Status:      status,
+		Remark:      in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (s *customerService) Update(ctx context.Context, id uint, in dto.CustomerIn
 		"code":    in.Code,
 		"name":    in.Name,
 		"country": in.Country,
-		"contact": in.Contact,
+		"contact": in.ContactName,
 		"phone":   in.Phone,
 		"email":   in.Email,
 		"address": in.Address,

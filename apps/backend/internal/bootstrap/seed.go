@@ -65,8 +65,8 @@ func (a *App) seedDemoData(
 	}
 
 	demoSuppliers := []model.Supplier{
-		{Code: "SUP001", Name: "永康市华信五金厂", Contact: "陈先生", Phone: "13800000001", Address: "浙江省金华市永康市", Status: model.EnableStatusOn},
-		{Code: "SUP002", Name: "揭阳铭泰不锈钢制品", Contact: "林小姐", Phone: "13800000002", Address: "广东省揭阳市", Status: model.EnableStatusOn},
+		{Code: "SUP001", Name: "永康市华信五金厂", ContactName: "陈先生", Phone: "13800000001", Address: "浙江省金华市永康市", Status: model.EnableStatusOn},
+		{Code: "SUP002", Name: "揭阳铭泰不锈钢制品", ContactName: "林小姐", Phone: "13800000002", Address: "广东省揭阳市", Status: model.EnableStatusOn},
 	}
 	for i := range demoSuppliers {
 		if err := suppliers.Create(ctx, &demoSuppliers[i]); err != nil {
@@ -75,7 +75,7 @@ func (a *App) seedDemoData(
 	}
 
 	demoCustomers := []model.Customer{
-		{Code: "CUS001", Name: "Ferreteria El Sol", Country: "Ecuador", Contact: "Carlos", Phone: "+593 9 0000 0001", Address: "Guayaquil", Status: model.EnableStatusOn},
+		{Code: "CUS001", Name: "Ferreteria El Sol", Country: "Ecuador", ContactName: "Carlos", Phone: "+593 9 0000 0001", Address: "Guayaquil", Status: model.EnableStatusOn},
 	}
 	for i := range demoCustomers {
 		if err := customers.Create(ctx, &demoCustomers[i]); err != nil {

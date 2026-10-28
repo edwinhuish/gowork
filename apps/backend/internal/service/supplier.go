@@ -51,14 +51,14 @@ func (s *supplierService) Create(ctx context.Context, in dto.SupplierInput) (*mo
 	}
 
 	m := &model.Supplier{
-		Code:    in.Code,
-		Name:    in.Name,
-		Contact: in.Contact,
-		Phone:   in.Phone,
-		Email:   in.Email,
-		Address: in.Address,
-		Status:  status,
-		Remark:  in.Remark,
+		Code:        in.Code,
+		Name:        in.Name,
+		ContactName: in.ContactName,
+		Phone:       in.Phone,
+		Email:       in.Email,
+		Address:     in.Address,
+		Status:      status,
+		Remark:      in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (s *supplierService) Update(ctx context.Context, id uint, in dto.SupplierIn
 	fields := map[string]any{
 		"code":    in.Code,
 		"name":    in.Name,
-		"contact": in.Contact,
+		"contact": in.ContactName,
 		"phone":   in.Phone,
 		"email":   in.Email,
 		"address": in.Address,
