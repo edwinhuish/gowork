@@ -33,6 +33,8 @@ type Handlers struct {
 	Shipment   *handler.ShipmentHandler
 	Charge     *handler.ShipmentChargeHandler
 	Customs    *handler.CustomsDeclarationHandler
+	Receivable *handler.ReceivableHandler
+	Payable    *handler.PayableHandler
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
@@ -234,6 +236,22 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		customs.GET("/:id", h.Customs.Get)
 		customs.PUT("/:id", h.Customs.Update)
 		customs.DELETE("/:id", h.Customs.Delete)
+
+		// 应收 / 应付：由订单生成，币种与汇率从来源单据锁定（蓝图 F3 的硬规则）。
+		// 一期一张单，核销（T-21）按单进行。
+		receivables := secured.Group("/receivables")
+		receivables.GET("", h.Receivable.List)
+		receivables.POST("", h.Receivable.Create)
+		receivables.GET("/:id", h.Receivable.Get)
+		receivables.PUT("/:id", h.Receivable.Update)
+		receivables.DELETE("/:id", h.Receivable.Delete)
+
+		payables := secured.Group("/payables")
+		payables.GET("", h.Payable.List)
+		payables.POST("", h.Payable.Create)
+		payables.GET("/:id", h.Payable.Get)
+		payables.PUT("/:id", h.Payable.Update)
+		payables.DELETE("/:id", h.Payable.Delete)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)
