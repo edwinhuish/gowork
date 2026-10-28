@@ -23,8 +23,9 @@
 
 **当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
-采购订单）、出货批次、库存流水快照与出入库单（采购入库 / 销售出库 / 盘点）。
-报关物流、应收应付、报表与仓间调拨**均未实现**，进度与下一步见 `docs/roadmap.md`，
+采购订单）、出货批次与报关单、库存流水快照与出入库单（采购入库 / 销售出库 / 盘点）、
+应收应付与收付款核销。
+账龄与汇兑损益报表、合同单据与仓间调拨**均未实现**，进度与下一步见 `docs/roadmap.md`，
 扩展套路见 `docs/architecture.md` 第六节。
 
 **改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
@@ -125,7 +126,8 @@ gin HTTP 层 (Go :8080)
 | shipment | ERP · 供应链 | `/api/v1/shipments` | 出货批次：一票装哪些销售订单行、各多少；可出行的来源走 `/shipment-candidates` |
 | shipment-charge | ERP · 供应链 | `/api/v1/shipment-charges` | 运费杂费：归集到一票货的成本，单票毛利的减项；合计走 `/shipment-charges-summary` |
 | customs-declaration | ERP · 供应链 | `/api/v1/customs-declarations` | 报关单：一票可多张（分票申报 / 退单重报）；物流节点走 `PUT /shipments/:id/logistics` |
-| receivable / payable | ERP · 财务 | `/api/v1/receivables`、`/api/v1/payables` | 应收应付：由订单生成、一期一张单、汇率随单据锁定；核销与账龄未做 |
+| receivable / payable | ERP · 财务 | `/api/v1/receivables`、`/api/v1/payables` | 应收应付：由订单生成、一期一张单、汇率随单据锁定；账龄未做 |
+| payment | ERP · 财务 | `/api/v1/payments` | 收付款单与核销行：收款核应收、付款核应付；汇率取到账日，差额是汇兑损益 |
 | stock | ERP · 库存 | `/api/v1/stock-movements`、`/api/v1/stock-snapshots` | 流水是库存的唯一事实来源；快照只由流水推出来，接口只有读与重算 |
 | stock-document | ERP · 库存 | `/api/v1/stock-documents` | 出入库单（采购入库 / 销售出库 / 盘点）：确认那一刻才生成流水 |
 
@@ -137,11 +139,12 @@ gin HTTP 层 (Go :8080)
 **已实现**：`SalesOrder` / `PurchaseOrder` / `Shipment`（出货批次，含分配行与物流节点）、
 `ShipmentCharge`（运费杂费）、`CustomsDeclaration`（报关单）、
 `Receivable` / `Payable`（应收应付，一期一张单）、
+`Payment` / `PaymentAllocation`（收付款与核销，核销行只增不改）、
 `StockMovement` / `StockSnapshot` / `StockDocument`（库存流水、快照与出入库单），
 CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
 
 **未实现但已定名的模块**（先看术语表再加，别另起名字）：
-`Payment` / `PaymentAllocation`（收付款与核销）/ `Contract`（PI 与合同）。
+`Contract`（PI 与合同）。
 
 ## 6. 跨层约定
 

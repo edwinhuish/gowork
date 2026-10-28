@@ -13,8 +13,9 @@
 数据库与缓存访问。
 
 **ERP 与 CRM 是这个服务的两个域，不是两个服务。** 已落地共享主数据、CRM（联系人 / 跟进 /
-线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）与供应链（出货、库存流水与快照、
-出入库单）；报关物流、应收应付、报表尚未开始，差距清单见 `docs/gap-analysis.md`。
+线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、供应链（出货、报关、库存流水与快照、
+出入库单）与财务（应收应付、收付款与核销）；账龄与报表尚未开始，
+差距清单见 `docs/gap-analysis.md`。
 域归属见 `docs/glossary.md` 第二节，判断标准是"这张表会不会被两个域
 同时写"——会，就放 `md_` 下。
 
@@ -25,7 +26,7 @@
 | 页面渲染、静态资源 | `apps/frontend` |
 | 权限矩阵、多租户 | 当前不做（见根 `AGENTS.md` 第 1 节） |
 | 库存 / 出入库单据 | **已实现**（`inv_` 前缀）：流水是事实、快照是缓存；调拨待仓库维度（T-16b）。差距见 `docs/gap-analysis.md` |
-| 报关、应收应付、报表 | 未实现；名称已在 `docs/glossary.md` 定好 |
+| 账龄、汇兑损益、报表 | 未实现；口径与名称已在 `docs/glossary.md`、`docs/roadmap.md` 定好 |
 
 单个进程、单二进制、无外部 RPC 依赖。启动即自检：配置不合法直接退出，不带病运行。
 
@@ -178,6 +179,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/receivables/:id` | `Receivable.Get` / `.Update` / `.Delete` | 有核销后不可改金额、不可删；手改状态只支持作废（90） |
 | GET / POST | `/api/v1/payables` | `Payable.List` / `.Create` | 由采购订单生成，规则同应收；采购汇率与销售汇率各锁一份 |
 | GET / PUT / DELETE | `/api/v1/payables/:id` | `Payable.Get` / `.Update` / `.Delete` | 同上 |
+| GET / POST | `/api/v1/payments` | `Payment.List` / `.Create` | 收付款单 + 核销行，单号 `PM-`；收款只核应收、付款只核应付；汇率取**到账日**（不是应收锁的）；超收在仓储事务内拒绝（400） |
+| GET / PUT / DELETE | `/api/v1/payments/:id` | `Payment.Get` / `.Update` / `.Delete` | 只能改日期 / 方式 / 水单号 / 备注；金额与核销明细不可改，删单时同事务回滚目标的已核销金额与状态 |
 | GET / POST | `/api/v1/stock-movements` | `Stock.ListMovements` / `.CreateMovement` | 单号 `MV-`；只能手工录期初 / 盘点盈亏 / 其它，采购入库与销售出库由单据产生（400） |
 | GET / DELETE | `/api/v1/stock-movements/:id` | `Stock.GetMovement` / `.DeleteMovement` | 删除同事务回滚快照；单据产生的流水改 409，请回来源单据处理 |
 | GET | `/api/v1/stock-snapshots` | `Stock.ListSnapshots` | 当前库存，只读；SKU / 品名由 join 产品取当前值 |

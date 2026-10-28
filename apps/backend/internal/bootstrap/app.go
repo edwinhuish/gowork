@@ -77,6 +77,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.CustomsDeclaration{},
 			&model.Receivable{},
 			&model.Payable{},
+			&model.Payment{},
+			&model.PaymentAllocation{},
 			&model.StockMovement{},
 			&model.StockSnapshot{},
 			&model.StockDocument{},
@@ -120,6 +122,7 @@ func New(cfg *config.Config) (*App, error) {
 	customsRepo := repository.NewCustomsDeclarationRepository(db)
 	receivableRepo := repository.NewReceivableRepository(db)
 	payableRepo := repository.NewPayableRepository(db)
+	paymentRepo := repository.NewPaymentRepository(db)
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
 
@@ -181,6 +184,11 @@ func New(cfg *config.Config) (*App, error) {
 	payableSvc := service.NewPayableService(
 		payableRepo, purchaseRepo, partnerRepo, docNoSvc,
 		service.WithPayableLogger(log))
+	// 收付款单读应收 / 应付仓储只为了填核销行与给出可读的错误，
+	// 真正的额度判定在仓储事务里做，所以这里依赖仓储而不是两个服务。
+	paymentSvc := service.NewPaymentService(
+		paymentRepo, receivableRepo, payableRepo, currencySvc, docNoSvc,
+		service.WithPaymentLogger(log))
 	// 库存只依赖流水仓储与产品（取快照用的 SKU / 品名），不依赖任何单据服务：
 	// 单据产生流水的那一步由 T-16 的单据层调用，方向始终是"单据 → 流水"。
 	stockSvc := service.NewStockService(
@@ -212,6 +220,7 @@ func New(cfg *config.Config) (*App, error) {
 		Customs:    handler.NewCustomsDeclarationHandler(customsSvc),
 		Receivable: handler.NewReceivableHandler(receivableSvc),
 		Payable:    handler.NewPayableHandler(payableSvc),
+		Payment:    handler.NewPaymentHandler(paymentSvc),
 		Stock:      handler.NewStockHandler(stockSvc),
 		StockDoc:   handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),

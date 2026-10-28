@@ -35,6 +35,7 @@ type Handlers struct {
 	Customs    *handler.CustomsDeclarationHandler
 	Receivable *handler.ReceivableHandler
 	Payable    *handler.PayableHandler
+	Payment    *handler.PaymentHandler
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
@@ -252,6 +253,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		payables.GET("/:id", h.Payable.Get)
 		payables.PUT("/:id", h.Payable.Update)
 		payables.DELETE("/:id", h.Payable.Delete)
+
+		// 收付款单：核销行随单创建、随单删除，所以没有单独的子资源路由。
+		// 方向（收 / 付）决定能核应收还是应付，汇率取到账日的。
+		payments := secured.Group("/payments")
+		payments.GET("", h.Payment.List)
+		payments.POST("", h.Payment.Create)
+		payments.GET("/:id", h.Payment.Get)
+		payments.PUT("/:id", h.Payment.Update)
+		payments.DELETE("/:id", h.Payment.Delete)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)

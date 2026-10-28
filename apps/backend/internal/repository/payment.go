@@ -1,0 +1,255 @@
+package repository
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"gorm.io/gorm"
+
+	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/errs"
+)
+
+// PaymentFilter 是收付款单的查询条件。
+type PaymentFilter struct {
+	Direction *model.PaymentDirection
+	PartnerID *uint
+}
+
+func (f PaymentFilter) scopes() []Scope {
+	scopes := make([]Scope, 0, 2)
+	if f.Direction != nil {
+		d := *f.Direction
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("direction = ?", d)
+		})
+	}
+	if f.PartnerID != nil {
+		pid := *f.PartnerID
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("partner_id = ?", pid)
+		})
+	}
+	return scopes
+}
+
+type PaymentRepository interface {
+	// Create 在一个事务里写入收付款单、核销行，并回写目标的已核销金额与状态。
+	//
+	// 校验之所以也在事务里：超收的判定依赖"当前已核销多少"，
+	// 在事务外读完再写，中间隔着另一个请求就会双写成功。
+	Create(ctx context.Context, p *model.Payment) error
+	// Delete 在一个事务里删除收付款单与核销行，并把目标的已核销金额减回去。
+	Delete(ctx context.Context, id uint) error
+	// Update 只改不涉及金额的字段（日期、方式、水单号、备注）。
+	Update(ctx context.Context, id uint, fields map[string]any) error
+	FindByID(ctx context.Context, id uint) (*model.Payment, error)
+	List(ctx context.Context, f PaymentFilter, p Pagination) ([]model.Payment, int64, error)
+}
+
+type paymentRepo struct {
+	*Base[model.Payment]
+}
+
+func NewPaymentRepository(db *gorm.DB) PaymentRepository {
+	return &paymentRepo{Base: NewBase[model.Payment](db)}
+}
+
+func (r *paymentRepo) Create(ctx context.Context, p *model.Payment) error {
+	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Omit 掉关联：gorm 默认会在 Create 时顺手把 Allocations 也插进去，
+		// 那样下面的循环会对着同一批行再插一次（主键冲突），而且拿不到
+		// 「逐行校验再回写目标」的机会——核销必须自己控制写入顺序。
+		if err := tx.Omit("Allocations").Create(p).Error; err != nil {
+			return fmt.Errorf("写入收付款单: %w", err)
+		}
+		for i := range p.Allocations {
+			a := &p.Allocations[i]
+			a.PaymentID = p.ID
+			if err := tx.Create(a).Error; err != nil {
+				return fmt.Errorf("写入核销行: %w", err)
+			}
+			if err := applyAllocation(tx, *a); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *paymentRepo) Delete(ctx context.Context, id uint) error {
+	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var p model.Payment
+		err := tx.Preload("Allocations").First(&p, id).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("查询收付款单 id=%d: %w", id, err)
+		}
+
+		for _, a := range p.Allocations {
+			// 回滚方向与核销相反：把已核销金额减回去，状态由新金额重算。
+			if err := reverseAllocation(tx, a); err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("payment_id = ?", id).Delete(&model.PaymentAllocation{}).Error; err != nil {
+			return fmt.Errorf("删除核销行: %w", err)
+		}
+		if err := tx.Delete(&model.Payment{}, id).Error; err != nil {
+			return fmt.Errorf("删除收付款单 id=%d: %w", id, err)
+		}
+		return nil
+	})
+}
+
+func (r *paymentRepo) Update(ctx context.Context, id uint, fields map[string]any) error {
+	return r.Base.UpdateFields(ctx, id, fields)
+}
+
+func (r *paymentRepo) FindByID(ctx context.Context, id uint) (*model.Payment, error) {
+	var m model.Payment
+	err := r.DB().WithContext(ctx).
+		Preload("Partner").
+		Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
+		First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询收付款单 id=%d: %w", id, err)
+	}
+	return &m, nil
+}
+
+// List 按到账日倒序：这张表是"最近的钱都在哪"，与应收应付的"哪天该收"是两种读法。
+func (r *paymentRepo) List(
+	ctx context.Context, f PaymentFilter, p Pagination,
+) ([]model.Payment, int64, error) {
+	scopes := append(f.scopes(), func(db *gorm.DB) *gorm.DB {
+		return db.Preload("Partner").
+			Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") })
+	})
+	return r.PaginateOrdered(ctx, p, "pay_date DESC, id DESC", scopes...)
+}
+
+// applyAllocation 校验一行核销并回写目标的已核销金额。
+//
+// 三条校验都在这里而不是 service：它们要读"目标当前的已核销金额"，
+// 而这个值就在同一个事务里被改。放到事务外做，检查与写入之间会开一个窗口。
+func applyAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
+	switch a.TargetType {
+	case model.SettlementTargetReceivable:
+		var m model.Receivable
+		err := tx.First(&m, a.TargetID).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.BadRequest(fmt.Sprintf("应收单 %d 不存在", a.TargetID))
+		}
+		if err != nil {
+			return fmt.Errorf("查询应收单 id=%d: %w", a.TargetID, err)
+		}
+		if m.Status == model.SettlementStatusVoid {
+			return errs.ErrConflict.WithMsg(fmt.Sprintf("应收单 %s 已作废，不能核销", m.DocNo))
+		}
+		if a.Amount <= 0 {
+			return errs.BadRequest("核销金额必须大于 0")
+		}
+		if remaining := m.Amount - m.SettledAmount; a.Amount > remaining+0.0001 {
+			return errs.BadRequest(fmt.Sprintf(
+				"应收单 %s 只剩 %s %.4f 未结清，不能核销 %.4f",
+				m.DocNo, m.CurrencyCode, remaining, a.Amount))
+		}
+		settled := m.SettledAmount + a.Amount
+		return tx.Model(&model.Receivable{}).Where("id = ?", m.ID).Updates(map[string]any{
+			"settled_amount":      settled,
+			"settled_amount_base": m.SettledAmountBase + a.AmountBase,
+			"status":              model.SettlementStatusFor(m.Amount, settled),
+		}).Error
+
+	case model.SettlementTargetPayable:
+		var m model.Payable
+		err := tx.First(&m, a.TargetID).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.BadRequest(fmt.Sprintf("应付单 %d 不存在", a.TargetID))
+		}
+		if err != nil {
+			return fmt.Errorf("查询应付单 id=%d: %w", a.TargetID, err)
+		}
+		if m.Status == model.SettlementStatusVoid {
+			return errs.ErrConflict.WithMsg(fmt.Sprintf("应付单 %s 已作废，不能核销", m.DocNo))
+		}
+		if a.Amount <= 0 {
+			return errs.BadRequest("核销金额必须大于 0")
+		}
+		if remaining := m.Amount - m.SettledAmount; a.Amount > remaining+0.0001 {
+			return errs.BadRequest(fmt.Sprintf(
+				"应付单 %s 只剩 %s %.4f 未结清，不能核销 %.4f",
+				m.DocNo, m.CurrencyCode, remaining, a.Amount))
+		}
+		settled := m.SettledAmount + a.Amount
+		return tx.Model(&model.Payable{}).Where("id = ?", m.ID).Updates(map[string]any{
+			"settled_amount":      settled,
+			"settled_amount_base": m.SettledAmountBase + a.AmountBase,
+			"status":              model.SettlementStatusFor(m.Amount, settled),
+		}).Error
+
+	default:
+		return errs.BadRequest("核销对象类型不合法：10=应收单，20=应付单")
+	}
+}
+
+// reverseAllocation 是 applyAllocation 的逆操作，删单时用。
+//
+// 减完不能是负数：负数只可能来自数据本身已经不一致，
+// 那时候先报错比把金额改成一个更离谱的值有用。
+func reverseAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
+	switch a.TargetType {
+	case model.SettlementTargetReceivable:
+		var m model.Receivable
+		if err := tx.First(&m, a.TargetID).Error; err != nil {
+			return fmt.Errorf("回滚时查询应收单 id=%d: %w", a.TargetID, err)
+		}
+		settled := m.SettledAmount - a.Amount
+		if settled < -0.0001 {
+			return fmt.Errorf("应收单 %s 的已核销金额不足以回滚", m.DocNo)
+		}
+		if settled < 0 {
+			settled = 0
+		}
+		return tx.Model(&model.Receivable{}).Where("id = ?", m.ID).Updates(map[string]any{
+			"settled_amount":      settled,
+			"settled_amount_base": maxFloat(m.SettledAmountBase-a.AmountBase, 0),
+			"status":              model.SettlementStatusFor(m.Amount, settled),
+		}).Error
+
+	case model.SettlementTargetPayable:
+		var m model.Payable
+		if err := tx.First(&m, a.TargetID).Error; err != nil {
+			return fmt.Errorf("回滚时查询应付单 id=%d: %w", a.TargetID, err)
+		}
+		settled := m.SettledAmount - a.Amount
+		if settled < -0.0001 {
+			return fmt.Errorf("应付单 %s 的已核销金额不足以回滚", m.DocNo)
+		}
+		if settled < 0 {
+			settled = 0
+		}
+		return tx.Model(&model.Payable{}).Where("id = ?", m.ID).Updates(map[string]any{
+			"settled_amount":      settled,
+			"settled_amount_base": maxFloat(m.SettledAmountBase-a.AmountBase, 0),
+			"status":              model.SettlementStatusFor(m.Amount, settled),
+		}).Error
+
+	default:
+		return fmt.Errorf("未知的核销对象类型 %d", a.TargetType)
+	}
+}
+
+func maxFloat(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
