@@ -150,23 +150,21 @@ CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
    `repository/dialect.go`。三库行为一致性由 `task test:storage` 保证。
 4. **前端只认 pnpm。** 锁文件只有 `pnpm-lock.yaml`；`npm install` 会被 `preinstall` 守卫拦掉。
 5. **新增业务模块照五步走**：model → repository → dto → service → handler+router，
-   最后在 `bootstrap/app.go` 装配一次。检查清单在 `docs/architecture.md` 第六节末尾。
+   最后在 `bootstrap/app.go` 装配一次。步骤与硬性规则见 `apps/backend/AGENTS.md` 第 8 节，
+   为什么这么排见 `docs/architecture.md` 第六节。
    **起名和定表前缀之前先查 `docs/glossary.md`**：未实现的模块名已经定好了，
    自己换一个叫法会让前后端和文档立刻分叉。
 
 ## 7. 运行
 
 ```bash
-task install      # 装依赖（go mod + pnpm install）
-task dev          # 并行起后端 :8080 与前端 :5173，Ctrl-C 一并退出
-task build        # 后端二进制 + 前端静态产物
-task test         # 后端单元测试
-task test:storage # 三库两缓存一致性测试（没起的服务自动跳过）
-task lint         # go vet + tsc --noEmit
+task dev     # 后端 :8080（air 热重载）+ 前端 :5173（Vite HMR）
+task test    # 后端单元测试
+task lint    # go vet + 前端 tsc --noEmit
 ```
 
-默认账号 `admin / admin123`，首次启动自动建表并写入演示数据。
-零依赖跑法：默认配置就是 SQLite + 内存缓存，不需要任何容器。
+默认账号 `admin / admin123`；默认配置是 SQLite + 内存缓存，零外部依赖。
+前置版本、完整命令表、存储切换（PostgreSQL / MySQL / Redis）见 `README.md`。
 
 ## 8. 文档地图
 

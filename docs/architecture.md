@@ -265,140 +265,40 @@ cache:
 
 ## 六、新增一个业务模块
 
-以"采购订单 `purchase_order`"为例，按顺序加五层，最后装配一次：
+**机械步骤见 `apps/backend/AGENTS.md` 第 8 节**（model → repository → dto → service →
+handler+router，最后在 `bootstrap/app.go` 装配一次），那节的「硬性规则」也是全项目唯一一份。
+本节只讲**为什么**按这个顺序，以及步骤里最容易做错的三处。
 
-### 1. model
+**为什么顺序不能反**：repository 不认识 dto、service 不认识 gin，这条约束让「换 HTTP 框架」
+与「换存储」互不牵连。反过来先写 handler，校验最终一定会落进 handler——因为它拿得到请求体，
+而 service 那时还不存在。
 
-```go
-// internal/model/purchase_order.go
-type PurchaseOrder struct {
-    Base
-    OrderNo    string  `gorm:"size:32;uniqueIndex;not null" json:"order_no"`
-    SupplierID uint    `gorm:"index;not null" json:"supplier_id"`
-    TotalAmount float64 `gorm:"type:decimal(14,2)" json:"total_amount"`
-    // 单据状态。与主数据的 EnableStatus 是两套语义，别复用那个类型：
-    // 主数据问"还能不能用"，单据问"走到哪一步了"。
-    Status DocumentStatus `gorm:"not null;default:10;index" json:"status"`
-}
+**三处最容易做错的地方**：
 
-func (PurchaseOrder) TableName() string { return "biz_purchase_order" }
-```
+| 位置 | 错法 | 后果 |
+|---|---|---|
+| model | 单据状态复用 `EnableStatus` | 两者都是小整数，编译器不拦，只在筛选条件上出错 |
+| model | 金额自创第二套表示 | 跨模块汇总时「同一笔钱两个精度」；统一口径与迁移计划见 T-37 |
+| repository | 把业务字段塞进泛型基类 | 基类不再通用，下一个模块要把这套逻辑再抄一遍 |
 
-`DocumentStatus` 是新增的枚举类型（`type DocumentStatus int8` + 各阶段常量），
-本次一并定义在 `model/` 下。**不要**直接拿 `EnableStatus` 顶上——两者取值都是
-小整数，编译器不会拦你，运行时才发现筛选条件查错了语义。
+表前缀、编码唯一性、分页上限、三库兼容、错误码一律以 `apps/backend/AGENTS.md` 第 8 节为准，
+本节不再抄一遍。
 
-金额这里沿用 `Product.CostPrice` 的 `float64` + `decimal` 列。这是已知隐患
-（外贸单据有累计与分账，0.01 的误差会放大），已排期为 `T-37`（见 `docs/roadmap.md`），
-且要求排在应收应付（T-20）之前；在那之前新模块保持一致，不要自创第二套金额表示。
+## 七、下一批模块的建模提醒
 
-在 `bootstrap/app.go` 的 `AutoMigrate` 列表里加上 `&model.PurchaseOrder{}`。
+已落地的模块（采购 / 销售订单、库存、出货、货源、联系人、跟进、商机）不再写"该怎么做"——
+照现有五层抄即可。还没开工的那几批，坑在 `docs/gap-analysis.md` 5.3（数据模型）与
+5.7（与外贸场景不匹配的六处），这里只留三条不与那里重复的：
 
-### 2. repository
-
-```go
-type PurchaseOrderRepository interface {
-    Create(ctx context.Context, m *model.PurchaseOrder) error
-    List(ctx context.Context, f PurchaseOrderFilter, p Pagination) ([]model.PurchaseOrder, int64, error)
-}
-
-type purchaseOrderRepo struct{ *Base[model.PurchaseOrder] }
-
-func NewPurchaseOrderRepository(db *gorm.DB) PurchaseOrderRepository {
-    return &purchaseOrderRepo{Base: NewBase[model.PurchaseOrder](db)}
-}
-```
-
-### 3. dto
-
-```go
-type PurchaseOrderQuery struct {
-    PageQuery
-    SupplierID *uint `form:"supplier_id"`
-}
-
-type PurchaseOrderInput struct {
-    OrderNo    string `json:"order_no" binding:"required,max=32"`
-    SupplierID uint   `json:"supplier_id" binding:"required"`
-}
-```
-
-### 4. service
-
-```go
-type PurchaseOrderService interface {
-    Create(ctx context.Context, in dto.PurchaseOrderInput) (*model.PurchaseOrder, error)
-    List(ctx context.Context, q dto.PurchaseOrderQuery) (*dto.PageResult[model.PurchaseOrder], error)
-}
-
-type purchaseOrderService struct {
-    repo repository.PurchaseOrderRepository
-    log  *slog.Logger
-}
-
-type PurchaseOrderOption func(*purchaseOrderService)
-
-func NewPurchaseOrderService(repo repository.PurchaseOrderRepository, opts ...PurchaseOrderOption) PurchaseOrderService {
-    s := &purchaseOrderService{repo: repo, log: slog.Default()}
-    for _, opt := range opts {
-        opt(s)
-    }
-    return s
-}
-```
-
-### 5. handler + router
-
-```go
-type PurchaseOrderHandler struct {
-    orders service.PurchaseOrderService
-}
-```
-
-在 `server/router.go` 的 `Handlers` 结构里加字段，在 `secured` 分组下注册路由；
-在 `bootstrap/app.go` 里 new 出 repo → service → handler 三件套。
-
-### 检查清单
-
-- [ ] 表名带域前缀（`sys_` / `md_` / `biz_` / `inv_` / `crm_`），前缀含义见 `docs/glossary.md` 第二节
-- [ ] 编码类字段加 `uniqueIndex`，service 里做前置查重
-- [ ] 列表接口统一走 `Pagination`，不要出现无上限的 `Find(&list)`
-- [ ] service 不 import gin；handler 不 import gorm
-- [ ] 新错误用 `errs` 里已有的码，确需新增时保持"前三位对齐 HTTP 状态码"的约定
-- [ ] 自定义 SQL 必须三库兼容：模糊匹配用 `likeAny`，不要写 `IFNULL` / `group_concat` 这类单库函数
-
-## 七、后续模块的扩展建议
-
-模块名与表前缀先查 `docs/glossary.md`，下面只讲建模上容易做错的地方。
-
-| 模块 | 关键点 |
-|---|---|
-| 采购订单 | 主表 + 明细表（`biz_purchase_order_item`），金额在 service 里汇总，不允许前端提交总额 |
-| 销售订单 | 同上；订单状态用 `DocumentStatus` 枚举 + 状态机，禁止任意跳转。**不要复用 `EnableStatus`** |
-| 库存 | 用「出入库流水 + 当前库存快照」两张表，快照可由流水重算，便于对账 |
-| 出货批次 | 出货单与订单是多对多（分批/合并），必须有分配表，不要试图把订单号编进编码 |
-| 产品货源 | 一个产品对多个供应商货号，单独建 `md_product_source`，不要往产品表塞 `supplier_id2`。产品上的 `supplier_id` 是**默认货源**，不是唯一货源 |
-| 联系人（CRM） | `crm_partner_contact`，一个主体多行。`md_partner` 上的 `contact` 列退化为"主联系人姓名"，不要在上面继续加字段 |
-| 跟进记录（CRM） | `crm_activity`。可能挂在往来单位或商机上，用 `subject_type` + `subject_id` 一张表，不要拆两张 |
-| 商机（CRM） | `crm_opportunity`，阶段用枚举 + 状态机；金额与赢单概率分列存，不要用阶段反推 |
-
-**CRM 模块最容易踩的一条**：想给往来单位加一个"最近跟进时间"字段图省事。
-那是派生数据，应该由 `crm_activity` 聚合出来（或加缓存），
-写进 `md_partner` 会让"这个值什么时候该更新"变成每处写主体代码都要记得的事。
+1. **应收应付不要各建一套汇率**：四件套与「汇率随单据锁定」已在 6 张表上验证过，照抄。
+2. **合同 / PI 不要做成订单的打印视图**：PI 常常先于订单成立，做成订单附属会在还没订单时无处安放。
+3. **附件与审计不要每个单据各做一遍**：先做 `sys_attachment` / `sys_audit_log` 两张通用表。
 
 ## 八、前端分层
 
-```
-pages/           页面：组装数据与交互（每个资源 list / create / edit / show 四页）
-  ↓
-@refinedev/antd  useTable / useForm / useShow 承接分页、筛选、表单、鉴权路由
-  ↓
-providers/       dataProvider（HTTP 契约翻译）+ authProvider（登录态）
-  ↓
-api/client.ts    统一 fetch：令牌注入、拆包、续期、401 清理
-  ↓
-types/           与后端 dto 对齐的类型定义（字段名保持 snake_case）
-```
+目录结构见 `apps/frontend/AGENTS.md` 第 2 节。这里只讲**为什么这么分**——
+调用链是 `pages → @refinedev/antd → providers → api/client.ts → types`，
+每一层只解决一类问题，不越界：
 
 各层只管自己的事：
 
@@ -416,19 +316,8 @@ types/           与后端 dto 对齐的类型定义（字段名保持 snake_cas
 `useTable` 承接，跨页面的登录态由 `authProvider` + TanStack Query 承接。
 这两层在 refine 改造前是手写的，改造后若继续留着，会形成两套并行的状态源。
 
-### 包管理：pnpm，且只有一个锁文件
+### 包管理：只认 pnpm
 
-前端从 npm 迁到 pnpm，理由不是快，是**依赖边界要能说话**：
-
-| 决策 | 原因 |
-|---|---|
-| 保留 pnpm 严格的 `node_modules`（不 `shamefully-hoist`） | npm 的扁平结构会把传上来的依赖摆到顶层，少声明一个包也能跑。这类问题只在换机器或 CI 才暴露，代价全在后期 |
-| `packageManager` 字段锁版本 | corepack、CI 都读同一处，避免"我这是 pnpm 10、CI 是 pnpm 12"导致的锁文件反复改写 |
-| 只留 `pnpm-lock.yaml` | 两份锁文件必然漂移，且 `npm ci` 会读到一份和 pnpm 不同的依赖图 |
-| CI 用 `--frozen-lockfile` | 锁文件与 `package.json` 不一致时红在安装步，而不是带着未审计的新版本跑构建 |
-| `preinstall` 守卫 | 团队里最贵的错误是"某人用 npm 装了一次"，把约定变成运行时拦截，比写在文档里管用 |
-
-一处与直觉相反的行为：pnpm 默认 `minimumReleaseAge=1440`（24 小时），刚发布的版本会被跳过。
-所以同样的 semver 范围，pnpm 解析出的版本可能比 npm 低一版。这是供应链侧的保护，
-不是锁文件损坏——`pnpm outdated` 也不会提示这些版本。真要用就显式加 `minimumReleaseAgeExclude`。
+规则表在 `README.md`「前端只认 pnpm」一节，这里只留一句**理由**：迁到 pnpm 不是为了快，
+是为了让依赖边界能说话——npm 的扁平结构会把没声明的依赖摆到顶层，问题只在换机器或 CI 暴露。
 

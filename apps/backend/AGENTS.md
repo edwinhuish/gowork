@@ -257,16 +257,14 @@ jti 不变意味着它们指向同一条会话，续期天然幂等；若每次�
 ## 7. 运行与配置
 
 ```bash
-task backend:dev        # 热重载启动（air），SQLite + 内存缓存（默认，零外部依赖），:8080
-task backend:dev:once   # 同上但不监听变更（调启动流程 / 没有 air 时用）
+task backend:dev        # 热重载启动（air），SQLite + 内存缓存（默认），:8080
 task backend:dev:pg     # PostgreSQL + Redis，:8081（需先 task infra:up）
 task backend:dev:mysql  # MySQL + Redis，:8082（需先 infra:up + compose --profile mysql）
-task backend:build      # 产出 bin/gowork-server
 task backend:test       # go test ./... -count=1
-task backend:test:storage  # 三库两缓存一致性测试
-task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 vars.AIR_VERSION）
 ```
 
+命令的真实来源是 `apps/backend/Taskfile.yml`（`task -d apps/backend -- --list`）；
+前置版本、`build` / `test:storage` / `tool:air` 与存储切换见 `README.md`。
 直接跑二进制：`./bin/gowork-server -config configs/config.yaml`（`-config` 是唯一启动参数）。
 
 ### 热重载（air）
@@ -301,14 +299,10 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
 升级 air 版本只改 `Taskfile.yml` 的 `AIR_VERSION` 并单独提交——行为变化表现为"重启时机变了"，
 混在功能提交里没人查得出来。
 
-### 配置文件与端口
+### 配置文件
 
-| 配置文件（均在 `configs/`） | 数据库 | 缓存 | 端口 |
-|---|---|---|---|
-| `config.yaml` | SQLite `data/gowork.db` | memory（落盘 `data/cache.snapshot`） | 8080 |
-| `config.postgres.yaml` | PostgreSQL | redis | 8081 |
-| `config.mysql.yaml` | MySQL | redis | 8082 |
-| `config.prod.yaml` | PostgreSQL | redis（`fallback_to_memory: false`） | 8080 |
+四个样例都在 `configs/`，各自的库 / 缓存 / 端口组合见 `README.md`「存储」一节。
+新增配置项时三件事一起做：结构体字段、`applyDefaults`、`applyEnv`，并在 `Validate` 里给启动期报错。
 
 配置优先级：**配置文件 < `GOWORK_*` 环境变量**。常用覆盖项：
 `GOWORK_HTTP_ADDR`、`GOWORK_DB_DRIVER`、`GOWORK_DB_DSN`、`GOWORK_DB_PASSWORD`、
