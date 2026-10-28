@@ -21,6 +21,9 @@ import (
 // 那时也应该由调用方决定缓存多久，而不是埋在聚合里。
 type ReportService interface {
 	Aging(ctx context.Context, q dto.AgingQuery) (*dto.AgingReport, error)
+	ShipmentProfits(
+		ctx context.Context, q dto.ShipmentProfitQuery,
+	) (*dto.PageResult[dto.ShipmentProfit], error)
 }
 
 type reportService struct {
@@ -90,6 +93,116 @@ func (s *reportService) Aging(
 	s.log.Debug("账龄报表", "direction", target.Label(), "as_of", report.AsOf,
 		"rows", len(rows), "total_base", report.GrandTotalBase)
 	return report, nil
+}
+
+// ShipmentProfits 按票算毛利：收入 − 采购成本 − 运杂费。
+//
+// 三次批量查询而不是逐票查：一页 20 票若各查三次，就是 60 次往返；
+// 而这三样（分配行、采购成本、运杂费）本来就能按 id 集合一次取回。
+func (s *reportService) ShipmentProfits(
+	ctx context.Context, q dto.ShipmentProfitQuery,
+) (*dto.PageResult[dto.ShipmentProfit], error) {
+	q.PageQuery.Normalize()
+	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
+
+	heads, total, err := s.repo.ListShipments(
+		ctx, repository.ShipmentProfitFilter{ShipmentID: q.ShipmentID}, page)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]uint, 0, len(heads))
+	for _, h := range heads {
+		ids = append(ids, h.ID)
+	}
+
+	lines, err := s.repo.ListShipmentLines(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byShipment := make(map[uint][]repository.ShipmentLine, len(heads))
+	itemIDs := make([]uint, 0, len(lines))
+	seen := make(map[uint]struct{}, len(lines))
+	for _, l := range lines {
+		byShipment[l.ShipmentID] = append(byShipment[l.ShipmentID], l)
+		if _, ok := seen[l.SalesOrderItemID]; !ok {
+			seen[l.SalesOrderItemID] = struct{}{}
+			itemIDs = append(itemIDs, l.SalesOrderItemID)
+		}
+	}
+
+	costs, err := s.repo.PurchaseCostBySalesItem(ctx, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	charges, err := s.repo.SumChargesByShipment(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]dto.ShipmentProfit, 0, len(heads))
+	for _, h := range heads {
+		list = append(list, buildShipmentProfit(h, byShipment[h.ID], costs, charges[h.ID]))
+	}
+
+	s.log.Debug("单票毛利", "shipments", len(list), "total", total)
+	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// buildShipmentProfit 把一票货的原料算成毛利。
+//
+// 两个分摊口径：
+//   - 收入：本票数量 ÷ 销售行数量 × 该行本币金额。用比例而不是单价×数量，
+//     是为了让折扣与行内舍入跟着分摊，各行之和与订单总额对得上；
+//   - 成本：该销售行累计采购的本币金额 ÷ 累计数量（加权单价）× 本票数量。
+//     按加权单价而不是按比例分摊采购总额，部分出货时才不会把整行的采购成本
+//     一次性压到第一票上。
+func buildShipmentProfit(
+	head repository.ShipmentHead,
+	lines []repository.ShipmentLine,
+	costs map[uint]repository.PurchaseCost,
+	charge float64,
+) dto.ShipmentProfit {
+	var revenue, cost float64
+	missing := false
+
+	for _, l := range lines {
+		if l.ItemQty > 0 {
+			revenue += l.ItemAmountBase * (l.Qty / l.ItemQty)
+		}
+
+		pc, ok := costs[l.SalesOrderItemID]
+		if !ok || pc.Qty <= 0 {
+			// 没有采购记录不等于成本为 0：这一行的毛利算不出来，
+			// 标出来比给一个漂亮的数字有用。
+			missing = true
+			continue
+		}
+		cost += l.Qty * (pc.AmountBase / pc.Qty)
+	}
+
+	revenue = money.Round(revenue, 4)
+	cost = money.Round(cost, 4)
+	charge = money.Round(charge, 4)
+	profit := money.Round(revenue-cost-charge, 4)
+
+	margin := 0.0
+	if revenue > 0 {
+		margin = money.Round(profit/revenue, 4)
+	}
+
+	return dto.ShipmentProfit{
+		ShipmentID:  head.ID,
+		DocNo:       head.DocNo,
+		ShipDate:    model.DateOnly(head.ShipDate).Format(rateDateLayout),
+		Status:      int8(head.Status),
+		Revenue:     revenue,
+		Cost:        cost,
+		Charge:      charge,
+		Profit:      profit,
+		Margin:      margin,
+		CostMissing: missing,
+	}
 }
 
 // agingTarget 把查询参数翻成核销对象：留空按应收（这张报表最常被问到的一面）。

@@ -20,6 +20,22 @@ func NewReportHandler(reports service.ReportService) *ReportHandler {
 	return &ReportHandler{reports: reports}
 }
 
+// ShipmentProfits GET /api/v1/reports/shipment-profits
+//
+// 参数：shipment_id（只取一票）、page / page_size。金额全是本币。
+func (h *ReportHandler) ShipmentProfits(c *gin.Context) {
+	var q dto.ShipmentProfitQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.ShipmentProfits(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Aging GET /api/v1/reports/aging
 //
 // 参数：direction=10|20（留空按应收）、partner_id、as_of=YYYY-MM-DD（留空取今天）。

@@ -268,6 +268,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		// 账龄按主体给出未核销金额的 30/60/90+ 分桶（T-22）。
 		reports := secured.Group("/reports")
 		reports.GET("/aging", h.Report.Aging)
+		// 单票毛利：收入 − 采购成本 − 运杂费（本币）。?shipment_id= 取单票，供详情页面板用。
+		reports.GET("/shipment-profits", h.Report.ShipmentProfits)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)

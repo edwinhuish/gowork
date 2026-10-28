@@ -77,3 +77,36 @@ type AgingReport struct {
 	TotalBase      AgingBuckets `json:"total_base"`
 	GrandTotalBase float64      `json:"grand_total_base"`
 }
+
+// ShipmentProfitQuery 是单票毛利的查询条件。
+type ShipmentProfitQuery struct {
+	PageQuery
+	// ShipmentID 只看一票：出货详情页的面板只需要这一票。
+	ShipmentID *uint `form:"shipment_id"`
+}
+
+// ShipmentProfit 是一票货的毛利。金额全部是**本币**：
+// 外币收入与人民币成本只有折到同一个币种才能相减。
+//
+// 口径：毛利 = 收入 − 采购成本 − 运杂费。**汇兑损益不在这里**——它由 T-23
+// 单独成行，混进毛利会让同一笔差额在两张报表里各出现一次。
+//
+// 收入按"本票数量 ÷ 销售行数量"分摊该行的本币金额；成本按该销售行累计采购的
+// 加权单价 × 本票数量。两者都取单据上锁定的汇率，不回头查汇率表。
+type ShipmentProfit struct {
+	ShipmentID uint   `json:"shipment_id"`
+	DocNo      string `json:"doc_no"`
+	ShipDate   string `json:"ship_date"`
+	Status     int8   `json:"status"`
+
+	Revenue float64 `json:"revenue"`
+	Cost    float64 `json:"cost"`
+	Charge  float64 `json:"charge"`
+	Profit  float64 `json:"profit"`
+	// Margin 是毛利率（0.2254 = 22.54%）。收入为 0 时给 0，不给 NaN。
+	Margin float64 `json:"margin"`
+
+	// CostMissing 表示这票里有销售行没有可用成本（没挂采购单，或采购单还是草稿）。
+	// 此时 Cost 与 Profit 都不完整——不标出来，就等于把"没录采购"报成"毛利极高"。
+	CostMissing bool `json:"cost_missing"`
+}
