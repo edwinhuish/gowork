@@ -161,7 +161,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
-| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `SH-`；分配挂销售订单**行**，数量不得超过未出数量（409） |
+| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `DN-`（T-47 前代码发 `SH-`）；分配挂销售订单**行**，数量不得超过未出数量（409） |
 | GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
 | GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |
@@ -343,9 +343,12 @@ task backend:test       # go test ./... -count=1
 - **单据状态只能按 `CanTransitTo` 跳转**，校验统一走 `service.checkDocumentTransit`。
   各模块自己写 if 的那一刻，状态机就有了第二份实现，分叉的表现是"同样一次取消，
   报价单允许、订单拒绝"。已出货的单据不允许取消——货在海上，要冲出得走退货单。
-- **单号一律走 `DocNoService.Next`**（`SO-202610-0001`），不要在业务代码里拼
-  "前缀 + 时间 + 查最大号 + 1"：并发下两个请求会拿到同一个号，撞的是单据表的唯一索引，
-  表现为保存失败而不是重试。号段表是 `sys_doc_seq`（`sys_` 前缀，不嵌 `Base`）。
+- **单号分两层，都走 `DocNoService`**，规则见 `docs/trade-erp-crm-blueprint.md` §五.4：
+  对外编号 `doc_no` = `{类型2字母}-{YYYYMM}-{4位流水}`（`SO-202610-0001`，唯一索引，所有单据都有）；
+  内部编号 `base_no` = `{主体编码}{YY}{NN}-{后缀}`（`DZ2603-SO`，报价与它转出的订单共用，不唯一，
+  只覆盖报价 / 销售订单 / 采购）。不要在业务代码里拼"前缀 + 时间 + 查最大号 + 1"：并发下两个请求
+  会拿到同一个号，撞的是唯一索引，表现为保存失败而不是重试。号段表是 `sys_doc_seq`（`sys_` 前缀，
+  不嵌 `Base`）。**代码现状只有对外编号层**，`base_no` 列与出货类型码 `DN` 待 T-47，在此之前以代码为准。
 - **商机阶段（`OpportunityStage`）不是单据状态**，不要复用 `DocumentStatus`：
   商机阶段可以回退（客户预算冻结时真实地退回去了），单据状态只能前进与取消。
   两者的"终态不可再改"是同一条规则，其余全不同。
