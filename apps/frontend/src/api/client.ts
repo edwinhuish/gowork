@@ -6,14 +6,6 @@ const BASE_URL = '/api/v1'
 // 服务端滑动续期时下发的响应头，与后端 middleware.RenewedTokenHeader 对应。
 const RENEWED_TOKEN_HEADER = 'X-Renewed-Token'
 
-/**
- * 登录态失效的广播事件名。
- *
- * client 不能直接 import store/auth：依赖链会是 client -> store -> api/auth -> client，
- * 形成循环。改成广播事件，由 AuthProvider 订阅后清空 user，路由守卫随即生效。
- */
-export const AUTH_EXPIRED_EVENT = 'gowork:auth-expired'
-
 export class ApiError extends Error {
   code: number
 
@@ -70,10 +62,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok || !body || body.code !== 0) {
     const message = body?.message || `请求失败 (${res.status})`
     const code = body?.code ?? res.status
-    // 令牌失效：清本地令牌并广播，由 AuthProvider 退出登录态、路由守卫送回登录页。
+    // 令牌失效：清掉本地令牌。跳转由 authProvider.onError 统一处理 ——
+    // 它在 dataProvider 的失败链路上由 refine 调用，这里不需要再广播事件。
     if (code === 40101 || code === 40102) {
       setToken(null)
-      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
     }
     throw new ApiError(message, code)
   }

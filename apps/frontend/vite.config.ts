@@ -20,6 +20,31 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // 引入 antd + refine 后单包体积接近 1.6MB，全塞进一个 chunk 会让首屏
+    // 必须等整个 vendor 下载完。按依赖族拆开：三者版本不同步，分开缓存后
+    // 升级其中一族不会让另外两族的缓存一起失效。
+    rollupOptions: {
+      output: {
+        // 用函数按来源归类，而不是列包名数组：antd 的依赖大量来自 rc-* 系列，
+        // 数组写法只能命中显式列出的包，rc-* 会被算进业务 chunk（实测混进 244KB）。
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('@refinedev')) return 'refine'
+          if (
+            id.includes('/antd/') ||
+            id.includes('/rc-') ||
+            id.includes('@ant-design') ||
+            id.includes('/dayjs/')
+          ) {
+            return 'antd'
+          }
+          if (id.includes('/react') || id.includes('/scheduler/')) return 'react'
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
