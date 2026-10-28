@@ -177,6 +177,7 @@ api/client.ts
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量 + 装箱数据） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId`；装箱数据（箱数 / 毛净重 / 尺寸）可留空，净重大于毛重由后端拒 |
+| `pages/products/code-panel.tsx` | 产品详情页的「其他编号」面板 | 行内表单录入（一次要补三五个号，弹窗比敲键盘还慢）；没有编辑，改写法就删掉重录；归一化与唯一性由服务端判 |
 | `components/attachment-panel.tsx` | 通用附件面板（上传 / 下载 / 删除） | 挂在任何详情页，传 `entityType` + `entityId`（取值见 `AttachmentEntity`）；上传走 `http.postForm`——multipart 的 `Content-Type` 必须由浏览器生成，手写会让服务端解析不出字段；已挂在出货详情与客户 / 供应商详情 |
 | `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |
 | `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
