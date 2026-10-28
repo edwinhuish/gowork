@@ -29,7 +29,8 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.ProductSource{}, &model.SalesOrder{}, &model.SalesOrderItem{},
-		&model.PurchaseOrder{}, &model.PurchaseOrderItem{}, &model.DocSeq{})
+		&model.PurchaseOrder{}, &model.PurchaseOrderItem{}, &model.DocSeq{},
+		&model.Shipment{}, &model.ShipmentAllocation{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -98,8 +99,8 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 			orderRepo, currencySvc, docNoSvc, WithPurchaseOrderClock(clock),
 		),
 		sales: NewSalesOrderService(
-			orderRepo, partnerRepo, productRepo, currencySvc, docNoSvc,
-			WithSalesOrderClock(clock),
+			orderRepo, partnerRepo, productRepo, repository.NewShipmentRepository(db),
+			currencySvc, docNoSvc, WithSalesOrderClock(clock),
 		),
 		now:        now,
 		supplierID: supplier.ID,

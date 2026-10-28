@@ -68,6 +68,12 @@ type SalesOrderItem struct {
 	// SalesOrder 只用于以销定采的挂接校验（采购单要知道这张销售单还能不能采），
 	// 不回吐给接口：明细里再套一张整单会让 payload 变成循环。
 	SalesOrder *SalesOrder `gorm:"foreignKey:SalesOrderID" json:"-"`
+
+	// 以下两项是只读投影，不落库（gorm:"-"）：由出货分配算出来，
+	// 只在按单取回时填充（详情 / 新建 / 编辑 / 改状态），列表接口不查——
+	// 否则一页 20 张单要跑几十次聚合，而列表并不显示这个数。
+	ShippedQty   float64 `gorm:"-" json:"shipped_qty"`
+	UnshippedQty float64 `gorm:"-" json:"unshipped_qty"`
 }
 
 func (SalesOrderItem) TableName() string { return "biz_sales_order_item" }

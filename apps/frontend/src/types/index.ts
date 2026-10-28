@@ -369,6 +369,10 @@ export interface SalesOrderItem {
   amount_base: number
   remark: string
   product?: Product | null
+  /** 已出数量，只在订单详情里由出货分配算出来；列表不带。 */
+  shipped_qty?: number
+  /** 未出数量 = qty - shipped_qty；列表不带。 */
+  unshipped_qty?: number
 }
 
 /**
@@ -396,6 +400,61 @@ export interface SalesOrder {
   items?: SalesOrderItem[]
   created_at: string
   updated_at: string
+}
+
+/**
+ * 出货分配行：这票货里有哪些销售订单行、各多少。
+ *
+ * 挂的是订单**行**而不是订单头：一张订单里两行可能是同一产品的不同包装，
+ * 按订单头分配就分不清出的到底是哪一种。
+ * sku_code / name_cn / spec / unit 是出货当时的产品快照。
+ */
+export interface ShipmentAllocation {
+  id: number
+  shipment_id: number
+  sales_order_item_id: number
+  /** 来源订单号，后端摊平后给出，省得前端顺着三层对象去翻。 */
+  sales_order_doc_no: string
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  remark: string
+}
+
+/**
+ * 出货批次：一次实际发运。
+ *
+ * 与订单是多对多——一张订单可以分几票走，一票也能装几张订单的货（拼柜）。
+ * 没有金额字段：出货本身不收钱也不付钱，费用归集在出货杂费（T-18）。
+ */
+export interface Shipment {
+  id: number
+  doc_no: string
+  status: number
+  /** 实际（或计划）出货日，决定它落在哪个统计月份。 */
+  ship_date: string
+  remark: string
+  allocations?: ShipmentAllocation[]
+  created_at: string
+  updated_at: string
+}
+
+/** 出货单新建页的选行来源：还能出货的销售订单行。 */
+export interface ShipmentCandidate {
+  sales_order_id: number
+  sales_order_doc_no: string
+  partner_name: string
+  sales_order_item_id: number
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  shipped_qty: number
+  unshipped_qty: number
+  delivery_date?: string
 }
 
 /**

@@ -23,3 +23,14 @@ export function formatPercent(value?: number | null, digits = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) return '—'
   return `${(value * 100).toFixed(digits)}%`
 }
+
+/**
+ * 数量按 3 位小数去掉尾零。
+ *
+ * 后端数量存 decimal(14,3)，直接显示会得到「800.000」，而仓库与货代看单时
+ * 会把它读成"有小数"；去掉尾零与后端报错提示里的写法也保持一致。
+ */
+export function formatQty(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  return value.toFixed(3).replace(/\.?0+$/, '')
+}

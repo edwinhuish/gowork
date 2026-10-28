@@ -21,8 +21,8 @@ ERP 侧的采购/库存/出货、CRM 侧的联系人/跟进/商机都在同一�
 |---|---|
 | 页面渲染、静态资源 | `apps/frontend` |
 | 权限矩阵、多租户 | 当前不做（见根 `AGENTS.md` 第 1 节） |
-| 订单 / 库存 / 出货业务 | 未实现；套路见第 8 节 |
-| CRM 跟进、商机 | 未实现；名称已在 `docs/glossary.md` 定好 |
+| 库存 / 出入库单据 | 未实现；套路见第 8 节 |
+| 报关、应收应付、报表 | 未实现；名称已在 `docs/glossary.md` 定好 |
 
 单个进程、单二进制、无外部 RPC 依赖。启动即自检：配置不合法直接退出，不带病运行。
 
@@ -156,6 +156,10 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
+| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `SH-`；分配挂销售订单**行**，数量不得超过未出数量（409） |
+| GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
+| PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
+| GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -167,7 +171,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
 产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
 `country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`，
-报价单与销售订单另有 `partner_id` / `status`，采购订单另有 `supplier_id` / `status`。
+报价单与销售订单另有 `partner_id` / `status`，采购订单另有 `supplier_id` / `status`，
+出货单另有 `status` / `sales_order_id`（查"这张订单出了几次货"）。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 
@@ -337,6 +342,13 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
 - **商机阶段（`OpportunityStage`）不是单据状态**，不要复用 `DocumentStatus`：
   商机阶段可以回退（客户预算冻结时真实地退回去了），单据状态只能前进与取消。
   两者的"终态不可再改"是同一条规则，其余全不同。
+- **占用数量的单据，可用量必须在服务端算**：出货分配行的上限是
+  `订单行数量 − 已占用数量`，它既不是订单行上的 qty，也不能由前端提交。
+  两条既有实现要遵守的细节：编辑时要排除自己那一票（`excludeShipmentID`），
+  同一次请求里同一行出现两遍要累计（`used` map）——少了任何一条，
+  "把 100 改成 90"或"拆成两行各一半"都能绕过校验。
+- **取消的单据不许再占数量**：统计已占用数量时一律带 `status <> 已取消`，
+  否则客户取消一票再补一票会永远报"超出未出数量"，而实际什么都没出。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。
@@ -361,6 +373,8 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
+| 订单明明没出完，出货却总报"超出未出数量" | 统计已出数量时把已取消的出货也算进去了（或编辑时没排除本票） | 统计一律带 `biz_shipment.status <> 90`，编辑传 `excludeShipmentID` |
+| 出货单里的"来源订单"列全是空 | 只 Preload 了 `Allocations.SalesOrderItem`，没再 `Preload("Allocations.SalesOrderItem.SalesOrder")`，或没走 `annotateDocNo` 摊平 | 仓储三处 Preload 要齐；返回前调 `annotateDocNo`（`sales_order_doc_no` 是 `gorm:"-"` 投影） |
 | 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响） |
 | 迁移后少了若干条旧数据 | 读旧表时漏了 `Unscoped`，软删除条件由目标 struct 的 schema 决定，`Table()` 指定表名也绕不过去 | `tx.Table("md_xxx").Unscoped().Find(&rows)`，`internal/migrate/legacy_merge_test.go` 有对应用例 |
 | 接口整批 500，`/auth/login` 却正常 | 跑着的是改表名前编译的旧二进制，仍按 `md_party` 查询已被改名的 `md_partner`；登录只碰 `sys_user` 所以不受影响 | 重启 dev 即可，不是代码缺陷。判断版本：`/partners` 404 + `/parties` 401 就是旧二进制。`response.Fail` 已把真实原因写进日志，先看日志再猜 |

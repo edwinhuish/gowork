@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FundOutlined,
   ProfileOutlined,
+  SendOutlined,
   ShoppingCartOutlined,
   ShopOutlined,
   UserAddOutlined,
@@ -48,6 +49,12 @@ import {
   PurchaseList,
   PurchaseShow,
 } from '@/pages/purchases'
+import {
+  ShipmentCreate,
+  ShipmentEdit,
+  ShipmentList,
+  ShipmentShow,
+} from '@/pages/shipments'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -159,6 +166,15 @@ export default function App() {
                 meta: { label: '采购订单', icon: <ShoppingCartOutlined /> },
               },
               {
+                // 出货批次：一票装哪些销售订单行。与订单是多对多（分批出、拼柜出）。
+                name: 'shipments',
+                list: '/shipments',
+                create: '/shipments/create',
+                edit: '/shipments/edit/:id',
+                show: '/shipments/show/:id',
+                meta: { label: '出货单', icon: <SendOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -254,6 +270,13 @@ export default function App() {
                     <Route path="create" element={<PurchaseCreate />} />
                     <Route path="edit/:id" element={<PurchaseEdit />} />
                     <Route path="show/:id" element={<PurchaseShow />} />
+                  </Route>
+
+                  <Route path="shipments">
+                    <Route index element={<ShipmentList />} />
+                    <Route path="create" element={<ShipmentCreate />} />
+                    <Route path="edit/:id" element={<ShipmentEdit />} />
+                    <Route path="show/:id" element={<ShipmentShow />} />
                   </Route>
 
                   <Route path="currencies">

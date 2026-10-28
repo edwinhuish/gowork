@@ -27,7 +27,8 @@ func newSalesOrderFixture(t *testing.T, now *time.Time) salesOrderFixture {
 
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
-		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{})
+		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
+		&model.Shipment{}, &model.ShipmentAllocation{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -83,7 +84,8 @@ func newSalesOrderFixture(t *testing.T, now *time.Time) salesOrderFixture {
 
 	return salesOrderFixture{
 		svc: NewSalesOrderService(
-			repository.NewSalesOrderRepository(db), partnerRepo, productRepo, currencySvc,
+			repository.NewSalesOrderRepository(db), partnerRepo, productRepo,
+			repository.NewShipmentRepository(db), currencySvc,
 			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
 			WithSalesOrderClock(clock),
 		),

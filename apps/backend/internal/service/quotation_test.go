@@ -31,7 +31,8 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.ProductSource{}, &model.Quotation{}, &model.QuotationItem{},
-		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{})
+		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
+		&model.Shipment{}, &model.ShipmentAllocation{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -105,7 +106,8 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 
 	docNoSvc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock))
 	orderSvc := NewSalesOrderService(
-		repository.NewSalesOrderRepository(db), partnerRepo, productRepo, currencySvc, docNoSvc,
+		repository.NewSalesOrderRepository(db), partnerRepo, productRepo,
+		repository.NewShipmentRepository(db), currencySvc, docNoSvc,
 		WithSalesOrderClock(clock),
 	)
 

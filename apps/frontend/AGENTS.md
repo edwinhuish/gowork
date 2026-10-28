@@ -155,6 +155,8 @@ api/client.ts
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态 | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
+| `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
+| `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId` |
 
 ### 一个主数据模块的标准四件套
 
@@ -167,6 +169,11 @@ pages/xxx/
 ├── form-fields.tsx   字段与校验规则（create/edit 共用）
 └── index.ts          对外只导四个页面组件
 ```
+
+**单据类模块比这多一层**：表头之外还有明细 / 分配行，行编辑器单独成文件
+（`line-items-editor.tsx`、`pages/shipments/allocation-editor.tsx`），
+并由 `create.tsx` 与 `edit.tsx` 共用。行的隐藏主键（`product_id`、`sales_order_item_id`）
+必须用 hidden 的 `Form.Item` 渲染出来——不渲染就提交，这一行到后端就是空的。
 
 ### 新增一个模块的完整步骤
 

@@ -58,6 +58,7 @@ type salesOrderService struct {
 	orders     repository.SalesOrderRepository
 	partners   repository.PartnerRepository
 	products   repository.ProductRepository
+	shipments  repository.ShipmentRepository
 	currencies CurrencyService
 	docNos     DocNoService
 	clock      func() time.Time
@@ -79,6 +80,7 @@ func NewSalesOrderService(
 	orders repository.SalesOrderRepository,
 	partners repository.PartnerRepository,
 	products repository.ProductRepository,
+	shipments repository.ShipmentRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
 	opts ...SalesOrderOption,
@@ -87,6 +89,7 @@ func NewSalesOrderService(
 		orders:     orders,
 		partners:   partners,
 		products:   products,
+		shipments:  shipments,
 		currencies: currencies,
 		docNos:     docNos,
 		clock:      time.Now,
@@ -137,7 +140,7 @@ func (s *salesOrderService) Create(
 	}
 	s.log.Info("新增销售订单", "id", o.ID, "doc_no", o.DocNo,
 		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal)
-	return s.orders.FindByID(ctx, o.ID)
+	return s.Get(ctx, o.ID)
 }
 
 func (s *salesOrderService) Update(
@@ -176,7 +179,7 @@ func (s *salesOrderService) Update(
 	if err := s.orders.UpdateWithItems(ctx, id, fields, items); err != nil {
 		return nil, err
 	}
-	return s.orders.FindByID(ctx, id)
+	return s.Get(ctx, id)
 }
 
 func (s *salesOrderService) Delete(ctx context.Context, id uint) error {
@@ -191,8 +194,29 @@ func (s *salesOrderService) Delete(ctx context.Context, id uint) error {
 	return s.orders.Delete(ctx, id)
 }
 
+// Get 在详情里补上每行的已出 / 未出数量。
+//
+// 这两个数只能由出货分配算出来，订单行上不存：一旦存了，出货单作废、
+// 改数量、软删除任一动作都要记得回写，漏一次就永久对不上。
+// 列表接口不填——一页 20 张单就是 20 次聚合，而列表并不显示这个数。
+//
+// 新建、编辑、改状态也都从这里返回：只填详情、别处返回零值的话，
+// 刚建的订单一出接口就显示「未出 0」，而实际还能出 100。
 func (s *salesOrderService) Get(ctx context.Context, id uint) (*model.SalesOrder, error) {
-	return s.orders.FindByID(ctx, id)
+	o, err := s.orders.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	shipped, err := s.shipments.ShippedQtyByOrder(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	for i := range o.Items {
+		qty := shipped[o.Items[i].ID]
+		o.Items[i].ShippedQty = qty
+		o.Items[i].UnshippedQty = money.Round(o.Items[i].Qty-qty, 3)
+	}
+	return o, nil
 }
 
 func (s *salesOrderService) List(
@@ -237,7 +261,7 @@ func (s *salesOrderService) UpdateStatus(
 		return nil, err
 	}
 	s.log.Info("销售订单状态变更", "id", id, "from", existing.Status, "to", next)
-	return s.orders.FindByID(ctx, id)
+	return s.Get(ctx, id)
 }
 
 func (s *salesOrderService) CreateFromQuotation(
@@ -307,7 +331,7 @@ func (s *salesOrderService) CreateFromQuotation(
 	}
 	s.log.Info("由报价单生成销售订单", "id", o.ID, "doc_no", o.DocNo,
 		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal)
-	return s.orders.FindByID(ctx, o.ID)
+	return s.Get(ctx, o.ID)
 }
 
 // salesOrderTerms 是校验并归一化之后的表头字段。

@@ -30,6 +30,7 @@ type Handlers struct {
 	Quotation  *handler.QuotationHandler
 	SalesOrder *handler.SalesOrderHandler
 	Purchase   *handler.PurchaseOrderHandler
+	Shipment   *handler.ShipmentHandler
 	Dashboard  *handler.DashboardHandler
 }
 
@@ -186,6 +187,19 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		purchases.PUT("/:id", h.Purchase.Update)
 		purchases.DELETE("/:id", h.Purchase.Delete)
 		purchases.PUT("/:id/status", h.Purchase.UpdateStatus)
+
+		// 出货批次：一票装哪些销售订单行、各多少。数量校验在服务端做
+		// （不得超过该行未出数量），界面上拦不住两个页面同时开着的情况。
+		shipments := secured.Group("/shipments")
+		shipments.GET("", h.Shipment.List)
+		shipments.POST("", h.Shipment.Create)
+		shipments.GET("/:id", h.Shipment.Get)
+		shipments.PUT("/:id", h.Shipment.Update)
+		shipments.DELETE("/:id", h.Shipment.Delete)
+		shipments.PUT("/:id/status", h.Shipment.UpdateStatus)
+
+		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
+		secured.GET("/shipment-candidates", h.Shipment.Candidates)
 	}
 
 	return engine

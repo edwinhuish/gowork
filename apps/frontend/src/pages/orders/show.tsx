@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useInvalidate, useShow } from '@refinedev/core'
+import { useInvalidate, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
 
@@ -7,7 +7,7 @@ import { salesOrderApi } from '@/api/sales-orders'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { SalesOrder, SalesOrderItem } from '@/types'
-import { formatDate, formatTime } from '@/utils/format'
+import { formatDate, formatQty, formatTime } from '@/utils/format'
 
 interface StatusAction {
   label: string
@@ -59,6 +59,7 @@ function statusColor(value: number): string {
 export function OrderShow() {
   const { result, query } = useShow<SalesOrder>({ resource: 'sales-orders' })
   const invalidate = useInvalidate()
+  const { create } = useNavigation()
   const [acting, setActing] = useState(false)
 
   const o = result
@@ -85,6 +86,10 @@ export function OrderShow() {
       headerButtons={
         <Space wrap>
           {o?.status === 10 && <EditButton resource="sales-orders" recordItemId={o.id} />}
+          {/* 已确认、备货中才谈得上出货：草稿还没对客户承诺，已出货的再出要新开一票。 */}
+          {(o?.status === 20 || o?.status === 30) && (
+            <Button onClick={() => create('shipments')}>按这张单出货</Button>
+          )}
           {actions.map((a) =>
             a.danger ? (
               <Popconfirm
@@ -209,6 +214,20 @@ export function OrderShow() {
             width={90}
             align="right"
             render={(value: number) => value.toLocaleString('zh-CN')}
+          />
+          <Table.Column
+            dataIndex="shipped_qty"
+            title="已出"
+            width={90}
+            align="right"
+            render={(value?: number) => (value === undefined ? <Empty /> : formatQty(value))}
+          />
+          <Table.Column
+            dataIndex="unshipped_qty"
+            title="未出"
+            width={90}
+            align="right"
+            render={(value?: number) => (value === undefined ? <Empty /> : formatQty(value))}
           />
           <Table.Column
             dataIndex="unit_price"

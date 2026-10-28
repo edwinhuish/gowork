@@ -71,6 +71,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.SalesOrderItem{},
 			&model.PurchaseOrder{},
 			&model.PurchaseOrderItem{},
+			&model.Shipment{},
+			&model.ShipmentAllocation{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -105,6 +107,7 @@ func New(cfg *config.Config) (*App, error) {
 	quotationRepo := repository.NewQuotationRepository(db)
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
+	shipmentRepo := repository.NewShipmentRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -136,7 +139,7 @@ func New(cfg *config.Config) (*App, error) {
 	docNoSvc := service.NewDocNoService(
 		repository.NewDocSeqRepository(db), service.WithDocNoLogger(log))
 	orderSvc := service.NewSalesOrderService(
-		orderRepo, partnerRepo, productRepo, currencySvc, docNoSvc,
+		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc,
 		service.WithSalesOrderLogger(log))
 	// 报价单要在转换时建订单，所以它依赖销售订单服务；顺序不能反。
 	quotationSvc := service.NewQuotationService(
@@ -145,6 +148,10 @@ func New(cfg *config.Config) (*App, error) {
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
+	// 出货批次管的是"订单行已经被出掉多少"，所以它依赖销售订单仓储（读行与状态），
+	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
+	shipmentSvc := service.NewShipmentService(
+		shipmentRepo, orderRepo, docNoSvc, service.WithShipmentLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -162,6 +169,7 @@ func New(cfg *config.Config) (*App, error) {
 		Quotation:  handler.NewQuotationHandler(quotationSvc),
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
+		Shipment:   handler.NewShipmentHandler(shipmentSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
 	})
 

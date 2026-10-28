@@ -22,9 +22,10 @@
 所以"既是客户又是供应商"的主体只有一条记录、一套联系方式。`/customers` 与
 `/suppliers` 是同一资源按角色切的入口，不是两套实现。
 
-**当前阶段：主数据。** 已实现鉴权、产品、往来单位、概览统计。
-ERP 侧的订单 / 采购 / 库存 / 出货、CRM 侧的联系人 / 跟进 / 商机**均未实现**，
-扩展套路见 `docs/architecture.md` 第六节。
+**当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
+币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
+采购订单）与出货批次。库存、报关物流、应收应付、报表**均未实现**，
+进度与下一步见 `docs/roadmap.md`，扩展套路见 `docs/architecture.md` 第六节。
 
 **改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
 归哪个域、哪些词不许用——那里面每一条都是踩过的坑。
@@ -110,19 +111,30 @@ gin HTTP 层 (Go :8080)
 | 模块 | 域 | 路由前缀 | 说明 |
 |---|---|---|---|
 | auth | 系统 | `/api/v1/auth` | 登录、当前用户、登出；登录失败限流 |
+| dashboard | 系统 | `/api/v1/dashboard` | 跨域聚合统计，结果缓存 30 秒 |
 | product | 共享主数据 | `/api/v1/products` | 产品，SKU 编码唯一 |
+| product-source | 共享主数据 | `/api/v1/product-sources` | 产品货源：某供应商处的货号、采购价、交期 |
 | partner | 共享主数据 | `/api/v1/partners` | 往来单位：客户与供应商的统一主体，角色用位掩码 |
 | partner（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers` | 同一份数据按角色切的入口，不是两套实现 |
-| dashboard | 系统 | `/api/v1/dashboard` | 跨域聚合统计，结果缓存 30 秒 |
+| currency / exchange-rate | 共享主数据 | `/api/v1/currencies`、`/api/v1/exchange-rates` | 币种与历史汇率；汇率不可改，录错删掉重录 |
+| contact / activity | CRM | `/api/v1/contacts`、`/api/v1/activities` | 联系人、跟进记录（`?due=1` 查已到期未跟进） |
+| lead / opportunity | CRM | `/api/v1/leads`、`/api/v1/opportunities` | 线索可转化为主体；商机带阶段机与加权预测 |
+| quotation | ERP · 交易 | `/api/v1/quotations` | 报价单：成本快照、版本、转订单（`/quotations-preview` 试算不落库） |
+| sales-order | ERP · 交易 | `/api/v1/sales-orders` | 销售订单：合计只由明细汇总，状态走完整状态机 |
+| purchase-order | ERP · 交易 | `/api/v1/purchase-orders` | 采购订单：明细可挂销售订单行做以销定采 |
+| shipment | ERP · 供应链 | `/api/v1/shipments` | 出货批次：一票装哪些销售订单行、各多少；可出行的来源走 `/shipment-candidates` |
 
-**前端**（细节见 `apps/frontend/AGENTS.md`）：登录页 + 概览 + 产品 / 供应商 / 客户
-三个模块。每个模块是 refine 的 `list / create / edit / show` 四页，
-新建与编辑共用 `form-fields.tsx` 里的字段定义。客户与供应商两个模块的类型都是
-`Partner`，只是默认角色不同。
+**前端**（细节见 `apps/frontend/AGENTS.md`）：主数据、CRM、单据各自成模块，
+每个模块是 refine 的 `list / create / edit / show` 四页，新建与编辑共用
+`form-fields.tsx` 的字段定义；单据类另有明细 / 分配行编辑器。
+客户与供应商两个模块的类型都是 `Partner`，只是默认角色不同。
 
-**未实现但已定名的模块**（先看术语表再加，别另起名字）：ERP 侧的
-`PurchaseOrder` / `SalesOrder` / `Shipment` / `StockMovement`，CRM 侧的
-`Contact` / `Activity` / `Opportunity`。
+**已实现**：`SalesOrder` / `PurchaseOrder` / `Shipment`（出货批次，含分配行），
+CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
+
+**未实现但已定名的模块**（先看术语表再加，别另起名字）：`StockMovement` /
+`StockSnapshot` / `ShipmentCharge` / `CustomsDeclaration` / `Receivable` /
+`Payable` / `Payment` / `Contract`。
 
 ## 6. 跨层约定
 
