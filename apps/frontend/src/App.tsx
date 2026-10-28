@@ -1,4 +1,5 @@
 import {
+  AccountBookOutlined,
   AppstoreOutlined,
   CommentOutlined,
   ContactsOutlined,
@@ -17,6 +18,7 @@ import {
   UserAddOutlined,
   SwapOutlined,
   TeamOutlined,
+  WalletOutlined,
 } from '@ant-design/icons'
 import { Authenticated, Refine } from '@refinedev/core'
 import routerProvider, {
@@ -40,6 +42,7 @@ import { ForwarderCreate, ForwarderEdit, ForwarderList, ForwarderShow } from '@/
 import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
 import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
+import { PayableCreate, PayableEdit, PayableList, PayableShow } from '@/pages/payables'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
 import {
   QuotationCreate,
@@ -48,6 +51,12 @@ import {
   QuotationShow,
 } from '@/pages/quotations'
 import { OrderCreate, OrderEdit, OrderList, OrderShow } from '@/pages/orders'
+import {
+  ReceivableCreate,
+  ReceivableEdit,
+  ReceivableList,
+  ReceivableShow,
+} from '@/pages/receivables'
 import {
   PurchaseCreate,
   PurchaseEdit,
@@ -217,6 +226,22 @@ export default function App() {
                 meta: { label: '库存流水', icon: <HistoryOutlined /> },
               },
               {
+                name: 'receivables',
+                list: '/receivables',
+                create: '/receivables/create',
+                edit: '/receivables/edit/:id',
+                show: '/receivables/show/:id',
+                meta: { label: '应收', icon: <AccountBookOutlined /> },
+              },
+              {
+                name: 'payables',
+                list: '/payables',
+                create: '/payables/create',
+                edit: '/payables/edit/:id',
+                show: '/payables/show/:id',
+                meta: { label: '应付', icon: <WalletOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -342,6 +367,20 @@ export default function App() {
                   <Route path="stock-movements">
                     <Route index element={<StockMovementList />} />
                     <Route path="create" element={<StockMovementCreate />} />
+                  </Route>
+
+                  <Route path="receivables">
+                    <Route index element={<ReceivableList />} />
+                    <Route path="create" element={<ReceivableCreate />} />
+                    <Route path="edit/:id" element={<ReceivableEdit />} />
+                    <Route path="show/:id" element={<ReceivableShow />} />
+                  </Route>
+
+                  <Route path="payables">
+                    <Route index element={<PayableList />} />
+                    <Route path="create" element={<PayableCreate />} />
+                    <Route path="edit/:id" element={<PayableEdit />} />
+                    <Route path="show/:id" element={<PayableShow />} />
                   </Route>
 
                   <Route path="currencies">

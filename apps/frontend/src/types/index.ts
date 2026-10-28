@@ -482,6 +482,45 @@ export interface Shipment {
 }
 
 /**
+ * 应收 / 应付共有结构。
+ *
+ * 后端两张表共用一组列（`model.Settlement`），前端也共用一个类型：
+ * 差别只有"对方是客户还是供应商"与"来源是哪张单据"，那两件事由字段值说明。
+ *
+ * 汇率是**开单时锁定**的，不随汇率表变动——否则同一张单在两天里会显示
+ * 两个本币金额，对账时无法解释。
+ */
+export interface Settlement {
+  id: number
+  doc_no: string
+  partner_id: number
+  /** 10 销售订单 / 20 出货批次 / 30 采购订单 */
+  source_type: number
+  source_id: number
+  /** 来源单号，摊平存一份，列表页不必再 join。 */
+  source_doc_no: string
+  currency_code: string
+  exchange_rate: number
+  amount: number
+  amount_base: number
+  /** 已核销金额，派生值：唯一维护方是核销（T-21）。 */
+  settled_amount: number
+  settled_amount_base: number
+  /** YYYY-MM-DD。账龄分桶的唯一依据，不可为空。 */
+  due_date: string
+  /** 10 未结清 / 20 部分结清 / 30 已结清 / 90 已作废 */
+  status: number
+  remark: string
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}
+
+/** 应收单与应付单结构相同，分开取名只为让调用处读得懂。 */
+export type Receivable = Settlement
+export type Payable = Settlement
+
+/**
  * 报关单：一票货的海关申报记录。
  *
  * **一票可以有多张**：不同 HS 编码要分票申报，被退单后改单重报也是新的一条，

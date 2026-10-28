@@ -97,6 +97,56 @@ export const SUPERVISION_MODE_OPTIONS = [
   { value: '1210', label: '1210 保税电商' },
 ] as const
 
+/**
+ * 应收 / 应付的结清状态。取值与后端 model.SettlementStatus 一致。
+ *
+ * 与单据状态分开：这里没有"备货中"，而「已作废」也不是取消——
+ * 开过票的钱作废要留痕，不能像草稿一样删。
+ */
+export const SETTLEMENT_STATUS_OPTIONS = [
+  { value: 10, label: '未结清' },
+  { value: 20, label: '部分结清' },
+  { value: 30, label: '已结清' },
+  { value: 90, label: '已作废' },
+] as const
+
+const SETTLEMENT_STATUS_MAP = new Map<number, string>(
+  SETTLEMENT_STATUS_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+export function settlementStatusLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return SETTLEMENT_STATUS_MAP.get(value) ?? `未知状态(${value})`
+}
+
+export function settlementStatusColor(value?: number | null): string {
+  if (value === 90) return 'default'
+  if (value === 30) return 'green'
+  if (value === 20) return 'orange'
+  return 'blue'
+}
+
+/**
+ * 结算单的来源单据类型。取值与后端 model.SettlementSource 一致。
+ *
+ * 应收只接受 10（销售订单），应付只接受 30（采购订单）——由后端校验，
+ * 这里列出全部是为了在详情页能把历史数据也翻译出来。
+ */
+export const SETTLEMENT_SOURCE_OPTIONS = [
+  { value: 10, label: '销售订单' },
+  { value: 20, label: '出货批次' },
+  { value: 30, label: '采购订单' },
+] as const
+
+const SETTLEMENT_SOURCE_MAP = new Map<number, string>(
+  SETTLEMENT_SOURCE_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+export function settlementSourceLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return SETTLEMENT_SOURCE_MAP.get(value) ?? `未知来源(${value})`
+}
+
 /** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
 export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用' },

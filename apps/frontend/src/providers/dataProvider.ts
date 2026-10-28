@@ -21,6 +21,7 @@ import type { PageResult } from '@/types'
  *   partner_id 仅联系人 / 跟进记录 / 产品货源（按主体看是 CRM 的主维度，货源侧是反向查）
  *   product_id 仅产品货源（产品详情页的货源面板按产品取数）
  *   shipment_id 仅运费杂费（出货详情页的费用面板按票取数）
+ *   source_type / source_id 仅应收应付（查"这张订单开了几张票"）
  *   due 仅跟进记录（=1 时只取已到期未跟进，判定在后端按整天算）
  *   type 库存流水（model.StockMovementType）与运费杂费（model.ShipmentChargeType）共用
  *
@@ -39,6 +40,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'partner_id',
   'product_id',
   'shipment_id',
+  'source_type',
+  'source_id',
   'due',
   'stage',
   'open_only',
