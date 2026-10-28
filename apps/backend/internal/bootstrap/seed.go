@@ -85,10 +85,10 @@ func (a *App) seedDemoData(
 
 	superID := demoSuppliers[0].ID
 	demoProducts := []model.Product{
-		{SkuCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 6.8, SalePrice: 9.9, Status: model.EnableStatusOn},
-		{SkuCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 3.2, SalePrice: 5.5, Status: model.EnableStatusOn},
-		{SkuCode: "LK01-0001-BK", NameCN: "球形门锁 黑色", NameEN: "Round Knob Lock BK", Category: "LK", Spec: "60 mm", Unit: "SET", SupplierID: &superID, CostPrice: 12.5, SalePrice: 18.0, Status: model.EnableStatusOn},
-		{SkuCode: "FS01-0001", NameCN: "自攻螺丝 4×30 十字", NameEN: "Self Tapping Screw 4×30", Category: "FS", Spec: "4×30 mm / 1000pcs", Unit: "BOX", SupplierID: &superID, CostPrice: 8.0, SalePrice: 12.0, Status: model.EnableStatusOn},
+		{SKUCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 6.8, SalePrice: 9.9, Status: model.EnableStatusOn},
+		{SKUCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 3.2, SalePrice: 5.5, Status: model.EnableStatusOn},
+		{SKUCode: "LK01-0001-BK", NameCN: "球形门锁 黑色", NameEN: "Round Knob Lock BK", Category: "LK", Spec: "60 mm", Unit: "SET", SupplierID: &superID, CostPrice: 12.5, SalePrice: 18.0, Status: model.EnableStatusOn},
+		{SKUCode: "FS01-0001", NameCN: "自攻螺丝 4×30 十字", NameEN: "Self Tapping Screw 4×30", Category: "FS", Spec: "4×30 mm / 1000pcs", Unit: "BOX", SupplierID: &superID, CostPrice: 8.0, SalePrice: 12.0, Status: model.EnableStatusOn},
 	}
 	for i := range demoProducts {
 		if err := products.Create(ctx, &demoProducts[i]); err != nil {

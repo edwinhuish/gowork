@@ -13,7 +13,7 @@ type ProductQuery struct {
 // 编辑走全量覆盖（PUT 语义）：前端表单本来就会提交全部可见字段，
 // 用同一套结构可以避免 Create/Update 两份几乎相同的校验规则各自漂移。
 type ProductInput struct {
-	SkuCode    string            `json:"sku_code" binding:"required,max=32"`
+	SKUCode    string            `json:"sku_code" binding:"required,max=32"`
 	NameCN     string            `json:"name_cn" binding:"required,max=128"`
 	NameEN     string            `json:"name_en" binding:"max=128"`
 	Category   string            `json:"category" binding:"max=32"`

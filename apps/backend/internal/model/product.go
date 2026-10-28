@@ -2,11 +2,11 @@ package model
 
 // Product 产品主数据。
 //
-// 编码约定参考「分类 + 流水」：SkuCode 全库唯一且永不复用，
+// 编码约定参考「分类 + 流水」：SKUCode 全库唯一且永不复用，
 // 价格、供应商、包装等易变信息放在独立字段里，不参与编码。
 type Product struct {
 	Base
-	SkuCode    string       `gorm:"size:32;uniqueIndex;not null" json:"sku_code"`
+	SKUCode    string       `gorm:"size:32;uniqueIndex;not null" json:"sku_code"`
 	NameCN     string       `gorm:"size:128;not null" json:"name_cn"`
 	NameEN     string       `gorm:"size:128" json:"name_en"`
 	Category   string       `gorm:"size:32;index" json:"category"`

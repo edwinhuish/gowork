@@ -44,16 +44,16 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 		return nil, err
 	}
 
-	dup, err := s.repo.ExistsByCode(ctx, in.SkuCode, 0)
+	dup, err := s.repo.ExistsBySKUCode(ctx, in.SKUCode, 0)
 	if err != nil {
 		return nil, err
 	}
 	if dup {
-		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SkuCode)
+		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
 	}
 
 	m := &model.Product{
-		SkuCode:    in.SkuCode,
+		SKUCode:    in.SKUCode,
 		NameCN:     in.NameCN,
 		NameEN:     in.NameEN,
 		Category:   in.Category,
@@ -69,7 +69,7 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 		return nil, err
 	}
 
-	s.log.Info("新增产品", "id", m.ID, "sku", m.SkuCode)
+	s.log.Info("新增产品", "id", m.ID, "sku", m.SKUCode)
 	return m, nil
 }
 
@@ -82,16 +82,16 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		return nil, err
 	}
 
-	dup, err := s.repo.ExistsByCode(ctx, in.SkuCode, id)
+	dup, err := s.repo.ExistsBySKUCode(ctx, in.SKUCode, id)
 	if err != nil {
 		return nil, err
 	}
 	if dup {
-		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SkuCode)
+		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
 	}
 
 	fields := map[string]any{
-		"sku_code":    in.SkuCode,
+		"sku_code":    in.SKUCode,
 		"name_cn":     in.NameCN,
 		"name_en":     in.NameEN,
 		"category":    in.Category,

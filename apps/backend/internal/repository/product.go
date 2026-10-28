@@ -51,7 +51,7 @@ type ProductRepository interface {
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Product, error)
-	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
+	ExistsBySKUCode(ctx context.Context, skuCode string, excludeID uint) (bool, error)
 	List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error)
 	Count(ctx context.Context) (int64, error)
 	CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error)
@@ -90,10 +90,13 @@ func (r *productRepo) FindByID(ctx context.Context, id uint) (*model.Product, er
 	return &m, nil
 }
 
-// ExistsByCode 用于 SkuCode 唯一性前置校验，excludeID 供编辑时排除自身。
-func (r *productRepo) ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error) {
+// ExistsBySKUCode 做 SKU 编码的唯一性前置校验，excludeID 供编辑时排除自身。
+//
+// 名字里必须带 SKU：客户与供应商的仓储也有一个查重方法，但查的是各自的
+// 业务编码 code。三个都叫 ExistsByCode 时，调用方只能靠记参数分辨。
+func (r *productRepo) ExistsBySKUCode(ctx context.Context, skuCode string, excludeID uint) (bool, error) {
 	return r.Exists(ctx, func(db *gorm.DB) *gorm.DB {
-		q := db.Where("sku_code = ?", code)
+		q := db.Where("sku_code = ?", skuCode)
 		if excludeID > 0 {
 			q = q.Where("id <> ?", excludeID)
 		}

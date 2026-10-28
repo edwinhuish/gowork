@@ -90,7 +90,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 
 	products := []*model.Product{
 		{
-			SkuCode:    mark + "-AbC",
+			SKUCode:    mark + "-AbC",
 			NameCN:     "不锈钢螺丝 M8",
 			NameEN:     "Stainless Screw",
 			Category:   "FS",
@@ -99,7 +99,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			Status:     model.EnableStatusOn,
 		},
 		{
-			SkuCode:    mark + "-002",
+			SKUCode:    mark + "-002",
 			NameCN:     "六角螺栓 M10",
 			Category:   "FS",
 			Unit:       "PCS",
@@ -109,7 +109,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	}
 	for _, p := range products {
 		if err := repo.Create(ctx, p); err != nil {
-			t.Fatalf("创建产品 %s: %v", p.SkuCode, err)
+			t.Fatalf("创建产品 %s: %v", p.SKUCode, err)
 		}
 	}
 
@@ -124,11 +124,11 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	})
 
 	t.Run("唯一编码校验", func(t *testing.T) {
-		exists, err := repo.ExistsByCode(ctx, products[0].SkuCode, 0)
+		exists, err := repo.ExistsBySKUCode(ctx, products[0].SKUCode, 0)
 		if err != nil || !exists {
 			t.Fatalf("应判定为已存在: %v, %v", exists, err)
 		}
-		if exists, err := repo.ExistsByCode(ctx, products[0].SkuCode, products[0].ID); err != nil || exists {
+		if exists, err := repo.ExistsBySKUCode(ctx, products[0].SKUCode, products[0].ID); err != nil || exists {
 			t.Fatalf("排除自身后不应命中: %v, %v", exists, err)
 		}
 	})
@@ -198,7 +198,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		if err != nil {
 			t.Fatalf("FindByID: %v", err)
 		}
-		if got.NameCN != "六角螺栓 M12" || got.SkuCode != products[1].SkuCode {
+		if got.NameCN != "六角螺栓 M12" || got.SKUCode != products[1].SKUCode {
 			t.Fatalf("字段更新异常: %+v", got)
 		}
 	})
