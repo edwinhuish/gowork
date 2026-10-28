@@ -317,3 +317,20 @@ types/       与后端 dto 对齐的类型定义
 - `components/` 只放无业务语义的通用件（Modal / Pagination / Field / StatusBadge）
 - `store/` 只放跨页面共享的状态（当前登录用户），页面级状态留在页面里
 - 所有请求走 `api/client.ts`，不在页面里直接 `fetch`——令牌注入和错误处理只应该有一处
+
+### 包管理：pnpm，且只有一个锁文件
+
+前端从 npm 迁到 pnpm，理由不是快，是**依赖边界要能说话**：
+
+| 决策 | 原因 |
+|---|---|
+| 保留 pnpm 严格的 `node_modules`（不 `shamefully-hoist`） | npm 的扁平结构会把传上来的依赖摆到顶层，少声明一个包也能跑。这类问题只在换机器或 CI 才暴露，代价全在后期 |
+| `packageManager` 字段锁版本 | corepack、CI 都读同一处，避免"我这是 pnpm 10、CI 是 pnpm 12"导致的锁文件反复改写 |
+| 只留 `pnpm-lock.yaml` | 两份锁文件必然漂移，且 `npm ci` 会读到一份和 pnpm 不同的依赖图 |
+| CI 用 `--frozen-lockfile` | 锁文件与 `package.json` 不一致时红在安装步，而不是带着未审计的新版本跑构建 |
+| `preinstall` 守卫 | 团队里最贵的错误是"某人用 npm 装了一次"，把约定变成运行时拦截，比写在文档里管用 |
+
+一处与直觉相反的行为：pnpm 默认 `minimumReleaseAge=1440`（24 小时），刚发布的版本会被跳过。
+所以同样的 semver 范围，pnpm 解析出的版本可能比 npm 低一版。这是供应链侧的保护，
+不是锁文件损坏——`pnpm outdated` 也不会提示这些版本。真要用就显式加 `minimumReleaseAgeExclude`。
+

@@ -25,14 +25,20 @@ GoWork/
 | 缓存 | go-redis v9 / 进程内实现（可落盘），配置切换 |
 | 鉴权 | JWT（HS256）+ 服务端会话，登出即失效 |
 | 日志 | 标准库 log/slog，结构化输出 |
-| 前端 | React 19 + TypeScript + Vite + react-router |
+| 前端 | React 19 + TypeScript + Vite + react-router（pnpm 管理依赖） |
 
 ## 快速开始
 
-前置：Go ≥ 1.24、Node ≥ 20。Taskfile 需要 `task`（安装见文末）。
+前置：Go ≥ 1.24、Node ≥ 20、pnpm ≥ 11。Taskfile 需要 `task`（安装见文末）。
+
+前端包管理器是 **pnpm**，用 corepack 一条命令对齐版本（版本锁在 `apps/frontend/package.json` 的 `packageManager`）：
 
 ```bash
-task install     # 装依赖（后端 go mod + 前端 npm install）
+corepack enable pnpm        # 之后 pnpm 命令会按 packageManager 自动取对应版本
+```
+
+```bash
+task install     # 装依赖（后端 go mod + 前端 pnpm install）
 task dev         # 并行起后端 :8080 与前端 :5173
 ```
 
@@ -43,9 +49,11 @@ task dev         # 并行起后端 :8080 与前端 :5173
 没有 `task` 时等价操作：
 
 ```bash
-cd apps/backend && go run ./cmd/server        # 后端
-cd apps/frontend && npm install && npm run dev # 前端
+cd apps/backend && go run ./cmd/server           # 后端
+cd apps/frontend && pnpm install && pnpm run dev # 前端
 ```
+
+用 npm / yarn 装前端依赖会被 `preinstall` 守卫直接拦下（报错退出，不会生成第二份锁文件）。
 
 ### 存储：默认零依赖，按环境切换
 
@@ -86,7 +94,8 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | 命令 | 作用 |
 |---|---|
 | `task` | 列出全部任务 |
-| `task install` | 安装前后端依赖 |
+| `task install` | 安装前后端依赖（前端 pnpm install） |
+| `task install:ci` | 按锁文件严格安装（前端 `--frozen-lockfile`，依赖与锁文件不一致直接失败） |
 | `task dev` | 并行启动前后端 |
 | `task build` | 构建后端二进制 + 前端静态产物 |
 | `task test` | 后端单元测试 |
@@ -97,6 +106,22 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | `task infra:up` / `infra:down` | 启停 PostgreSQL + Redis（MySQL 加 `--profile mysql`） |
 
 子目录也有各自的任务：`task -d apps/backend -- --list`、`task -d apps/frontend -- --list`。
+
+### 前端包管理：只认 pnpm
+
+| 事项 | 约定 |
+|---|---|
+| 包管理器版本 | `apps/frontend/package.json` 的 `packageManager: pnpm@12.10.1`，corepack / CI 都读它 |
+| 锁文件 | 只有 `pnpm-lock.yaml`；`package-lock.json`、`yarn.lock` 已列入 `.gitignore` |
+| 安装 | 开发 `pnpm install`（可更新锁文件）；CI / 发布 `pnpm install --frozen-lockfile` |
+| node_modules | 保留 pnpm 默认的符号链接结构，不开 `shamefully-hoist`：用了没声明的依赖当场报错 |
+| 依赖构建脚本 | `pnpm-workspace.yaml` 的 `allowBuilds` 白名单，目前只放行 `esbuild` |
+
+两条容易踩的：
+
+1. **pnpm 不会装太新的版本**。默认 `minimumReleaseAge=1440`（分钟），发不满一天的版本会被跳过。所以同样的 `^` 范围，pnpm 解析出的版本可能比 npm 旧一版——这是有意为之，不是锁文件坏了。要立刻装最新版得显式放行（`minimumReleaseAgeExclude`）或临时 `pnpm update --config.minimumReleaseAge=0`。
+2. **pnpm 12 的锁文件是两段 YAML**。第一段锁定 pnpm 自己的版本（`packageManagerDependencies`），第二段才是项目依赖。看到文件里出现两个 `importers:` 是正常的，别手改。
+
 
 ## API
 
