@@ -7,6 +7,7 @@ import { Field } from '@/components/Field'
 import { Modal } from '@/components/Modal'
 import { Pagination } from '@/components/Pagination'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { PAGE_SIZE, usePagedResource } from '@/hooks/usePagedResource'
 import type { Product, Supplier } from '@/types'
 
@@ -49,6 +50,9 @@ export function Products() {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // 新建态的内容只活在这个组件里，被登录态打断就彻底没了，所以单独存一份草稿。
+  const draft = useFormDraft('product:create', form, modalOpen && !editing)
+
   useEffect(() => {
     supplierApi
       .list({ page_size: 200 })
@@ -62,7 +66,7 @@ export function Products() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm(emptyForm)
+    setForm(draft.take() ?? emptyForm)
     setFormError('')
     setModalOpen(true)
   }
@@ -86,6 +90,13 @@ export function Products() {
     setModalOpen(true)
   }
 
+  // 取消或关闭视为主动放弃，草稿一并清掉。
+  // 被登录态打断时不会走到这里（组件直接卸载），草稿因此得以保留到下次新建。
+  const close = () => {
+    draft.clear()
+    setModalOpen(false)
+  }
+
   const save = async () => {
     if (!form.sku_code.trim() || !form.name_cn.trim()) {
       setFormError('SKU 编码与中文品名为必填项')
@@ -99,6 +110,7 @@ export function Products() {
       } else {
         await productApi.create(form)
       }
+      draft.clear()
       setModalOpen(false)
       list.reload()
     } catch (err) {
@@ -208,10 +220,10 @@ export function Products() {
       <Modal
         open={modalOpen}
         title={editing ? `编辑产品 · ${editing.sku_code}` : '新建产品'}
-        onClose={() => setModalOpen(false)}
+        onClose={close}
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setModalOpen(false)}>
+            <button type="button" className="btn" onClick={close}>
               取消
             </button>
             <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>

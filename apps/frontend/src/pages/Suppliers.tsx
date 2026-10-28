@@ -6,6 +6,7 @@ import { Field } from '@/components/Field'
 import { Modal } from '@/components/Modal'
 import { Pagination } from '@/components/Pagination'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { PAGE_SIZE, usePagedResource } from '@/hooks/usePagedResource'
 import type { Supplier } from '@/types'
 
@@ -30,13 +31,16 @@ export function Suppliers() {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // 新建态的内容只活在这个组件里，被登录态打断就彻底没了，所以单独存一份草稿。
+  const draft = useFormDraft('supplier:create', form, modalOpen && !editing)
+
   function setField<K extends keyof SupplierInput>(key: K, value: SupplierInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   const openCreate = () => {
     setEditing(null)
-    setForm(emptyForm)
+    setForm(draft.take() ?? emptyForm)
     setFormError('')
     setModalOpen(true)
   }
@@ -57,6 +61,13 @@ export function Suppliers() {
     setModalOpen(true)
   }
 
+  // 取消或关闭视为主动放弃，草稿一并清掉。
+  // 被登录态打断时不会走到这里（组件直接卸载），草稿因此得以保留到下次新建。
+  const close = () => {
+    draft.clear()
+    setModalOpen(false)
+  }
+
   const save = async () => {
     if (!form.code.trim() || !form.name.trim()) {
       setFormError('编码与名称为必填项')
@@ -70,6 +81,7 @@ export function Suppliers() {
       } else {
         await supplierApi.create(form)
       }
+      draft.clear()
       setModalOpen(false)
       list.reload()
     } catch (err) {
@@ -166,10 +178,10 @@ export function Suppliers() {
       <Modal
         open={modalOpen}
         title={editing ? `编辑供应商 · ${editing.code}` : '新建供应商'}
-        onClose={() => setModalOpen(false)}
+        onClose={close}
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setModalOpen(false)}>
+            <button type="button" className="btn" onClick={close}>
               取消
             </button>
             <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>

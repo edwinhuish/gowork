@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/store/auth'
 
 export function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // 从路由守卫带过来的来源地址：登录后回到被打断的那一页。
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/'
 
   // 预填演示账号，方便本地首次启动直接进入；生产环境请改掉默认密码。
   const [username, setUsername] = useState('admin')
@@ -20,7 +24,7 @@ export function Login() {
     setError('')
     try {
       await login(username.trim(), password)
-      navigate('/', { replace: true })
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败')
     } finally {
