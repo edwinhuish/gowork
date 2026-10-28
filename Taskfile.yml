@@ -43,6 +43,11 @@ tasks:
     cmds:
       - task: backend:test
 
+  test:storage:
+    desc: 存储一致性测试（PostgreSQL/MySQL/Redis 未启动的用例自动跳过）
+    cmds:
+      - task: backend:test:storage
+
   lint:
     desc: 后端 go vet + 前端类型检查
     cmds:
@@ -61,7 +66,7 @@ tasks:
       - task: frontend:clean
 
   infra:up:
-    desc: 启动 MySQL 与 Redis 容器
+    desc: 启动 PostgreSQL 与 Redis 容器（另需 MySQL 时加 -- --profile mysql up -d）
     dir: deployments
     cmds:
       - docker compose up -d

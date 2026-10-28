@@ -12,7 +12,7 @@ app:
   env: dev
 
 http:
-  addr: ":8081"
+  addr: ":8082"
   mode: debug
   cors_origins:
     - http://localhost:5173
@@ -23,7 +23,8 @@ database:
   host: 127.0.0.1
   port: 3306
   user: gowork
-  password: ""
+  # 与 compose 里的开发账号一致；生产务必置空并走 GOWORK_DB_PASSWORD。
+  password: gowork
   name: gowork
   params:
     charset: utf8mb4
@@ -40,7 +41,7 @@ cache:
   fallback_to_memory: true
   redis:
     addr: "127.0.0.1:6379"
-    db: 0
+    db: 2
   memory:
     persist: false
 

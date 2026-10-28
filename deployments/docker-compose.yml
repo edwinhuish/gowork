@@ -1,12 +1,41 @@
-# 本地基础设施：MySQL + Redis
-# 用法：在 deployments 目录执行 docker compose up -d
-# 然后以 GOWORK_DB_DSN / GOWORK_REDIS_ADDR 覆盖后端配置，或直接用 config.prod.yaml。
+# 本地基础设施：PostgreSQL + Redis（MySQL 用 profile 按需启动）
+#
+# 用法：
+#   docker compose up -d                 # postgres + redis
+#   docker compose --profile mysql up -d # 额外启动 mysql
+#   docker compose down                  # 停止并移除容器（数据卷保留）
+#
+# 开发默认不需要这些：config.yaml 走 SQLite + 内存缓存。
+# 这里起的服务是给「验证换库/换缓存」用的，配套：
+#   task backend:dev:pg    -> config.postgres.yaml
+#   task backend:dev:mysql -> config.mysql.yaml
 
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gowork-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gowork
+      POSTGRES_USER: gowork
+      POSTGRES_PASSWORD: gowork
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gowork -d gowork']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   mysql:
     image: mysql:8.4
     container_name: gowork-mysql
     restart: unless-stopped
+    profiles: ['mysql']
     environment:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: gowork
@@ -34,7 +63,13 @@ services:
       - '6379:6379'
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
+  pg-data:
   mysql-data:
   redis-data:

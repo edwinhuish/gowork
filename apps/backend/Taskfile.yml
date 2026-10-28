@@ -30,10 +30,20 @@ tasks:
       - go build -trimpath -ldflags "-s -w" -o {{.BIN_DIR}}/{{.APP_NAME}} ./cmd/server
 
   dev:
-    desc: 开发模式启动（直接 go run，改代码后重启生效）
+    desc: 开发模式启动（SQLite + 内存缓存，零外部依赖）
     cmds:
       - mkdir -p data
       - go run ./cmd/server -config {{.CONFIG_FILE}}
+
+  dev:pg:
+    desc: 以 PostgreSQL + Redis 启动，需先 task infra:up
+    cmds:
+      - go run ./cmd/server -config configs/config.postgres.yaml
+
+  dev:mysql:
+    desc: 以 MySQL + Redis 启动，需先 task infra:up AND docker compose --profile mysql up -d
+    cmds:
+      - go run ./cmd/server -config configs/config.mysql.yaml
 
   run:
     desc: 运行已编译的二进制
@@ -42,9 +52,18 @@ tasks:
       - ./{{.BIN_DIR}}/{{.APP_NAME}} -config {{.CONFIG_FILE}}
 
   test:
-    desc: 运行单元测试
+    desc: 运行单元测试（sqlite + memory 用例始终执行，外部依赖用例自动跳过）
     cmds:
       - go test ./... -count=1
+
+  test:storage:
+    desc: 存储一致性测试：同一套断言跑 SQLite/PostgreSQL/MySQL 与 memory/redis
+    env:
+      GOWORK_TEST_PG_DSN: '{{.PG_DSN | default "host=127.0.0.1 port=5432 user=gowork password=gowork dbname=gowork sslmode=disable"}}'
+      GOWORK_TEST_MYSQL_DSN: '{{.MYSQL_DSN | default "gowork:gowork@tcp(127.0.0.1:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local"}}'
+      GOWORK_TEST_REDIS_ADDR: '{{.REDIS_ADDR | default "127.0.0.1:6379"}}'
+    cmds:
+      - go test ./internal/... -count=1 -run 'TestStorage|TestCache' -v
 
   vet:
     desc: 静态检查

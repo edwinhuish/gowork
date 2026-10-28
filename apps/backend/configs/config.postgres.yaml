@@ -1,0 +1,52 @@
+# PostgreSQL + Redis 配置（本地容器联调用）。
+#
+# 与 config.prod.yaml 的区别：这里连的是 127.0.0.1 上的 compose 容器，
+# sslmode=disable，且开启自动迁移与种子数据，方便直接跑起来对比行为。
+#
+#   task infra:up
+#   task backend:dev:pg
+
+app:
+  name: gowork
+  env: dev
+
+http:
+  addr: ":8081"
+  mode: debug
+  cors_origins:
+    - http://localhost:5173
+  shutdown_timeout: 10
+
+database:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  user: gowork
+  password: gowork
+  name: gowork
+  params:
+    sslmode: disable
+    TimeZone: Asia/Shanghai
+  max_open: 50
+  max_idle: 10
+  auto_migrate: true
+  seed: true
+
+cache:
+  driver: redis
+  prefix: "gowork:"
+  fallback_to_memory: false
+  redis:
+    addr: "127.0.0.1:6379"
+    db: 1
+    dial_timeout: 2
+  memory:
+    persist: false
+
+jwt:
+  secret: "dev-only-secret-please-change-in-production-1a2b3c4d"
+  expire: 24
+
+log:
+  level: info
+  format: text
