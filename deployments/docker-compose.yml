@@ -1,0 +1,40 @@
+# 本地基础设施：MySQL + Redis
+# 用法：在 deployments 目录执行 docker compose up -d
+# 然后以 GOWORK_DB_DSN / GOWORK_REDIS_ADDR 覆盖后端配置，或直接用 config.prod.yaml。
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: gowork-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: gowork
+      MYSQL_USER: gowork
+      MYSQL_PASSWORD: gowork
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-pgowork']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: gowork-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mysql-data:
+  redis-data:

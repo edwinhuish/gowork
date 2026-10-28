@@ -1,0 +1,62 @@
+version: '3'
+
+vars:
+  BIN_DIR: bin
+  APP_NAME: gowork-server
+  CONFIG_FILE: configs/config.yaml
+
+tasks:
+  default:
+    desc: 列出后端可用任务
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: 下载 Go 依赖并整理 go.mod
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  tidy:
+    desc: 仅整理 go.mod / go.sum
+    cmds:
+      - go mod tidy
+
+  build:
+    desc: 编译到 bin/
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -trimpath -ldflags "-s -w" -o {{.BIN_DIR}}/{{.APP_NAME}} ./cmd/server
+
+  dev:
+    desc: 开发模式启动（直接 go run，改代码后重启生效）
+    cmds:
+      - mkdir -p data
+      - go run ./cmd/server -config {{.CONFIG_FILE}}
+
+  run:
+    desc: 运行已编译的二进制
+    deps: [build]
+    cmds:
+      - ./{{.BIN_DIR}}/{{.APP_NAME}} -config {{.CONFIG_FILE}}
+
+  test:
+    desc: 运行单元测试
+    cmds:
+      - go test ./... -count=1
+
+  vet:
+    desc: 静态检查
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: 格式化代码
+    cmds:
+      - gofmt -w .
+
+  clean:
+    desc: 清理编译产物
+    cmds:
+      - rm -rf {{.BIN_DIR}}

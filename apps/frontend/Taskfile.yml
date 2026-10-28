@@ -1,0 +1,39 @@
+version: '3'
+
+tasks:
+  default:
+    desc: 列出前端可用任务
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: 安装前端依赖
+    cmds:
+      - npm install
+
+  dev:
+    desc: 启动 Vite 开发服务器（:5173，/api 代理到 :8080）
+    cmds:
+      - npm run dev
+
+  build:
+    desc: 类型检查并打包
+    cmds:
+      - npm run build
+
+  typecheck:
+    desc: 仅做 TypeScript 类型检查
+    cmds:
+      - npm run typecheck
+
+  preview:
+    desc: 预览打包结果
+    deps: [build]
+    cmds:
+      - npm run preview
+
+  clean:
+    desc: 清理构建产物
+    cmds:
+      - rm -rf dist
