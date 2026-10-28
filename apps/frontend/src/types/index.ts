@@ -499,6 +499,49 @@ export interface StockSnapshotRow {
   updated_at: string
 }
 
+/**
+ * 出入库单明细。
+ *
+ * qty 的含义看单据类型：入库 / 出库是数量，盘点是**实盘数**。
+ * book_qty 只在盘点单确认时写入（当时的账面），差异 = qty − book_qty。
+ */
+export interface StockDocumentItem {
+  id: number
+  document_id: number
+  product_id: number
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  book_qty?: number | null
+  remark: string
+}
+
+/**
+ * 出入库单。
+ *
+ * 草稿不动库存；确认那一刻才按类型生成流水。确认之后不可改不可删，
+ * 要纠正就做一张反向单。
+ */
+export interface StockDocument {
+  id: number
+  doc_no: string
+  /** 10 采购入库 / 20 销售出库 / 40 盘点（30 调拨预留，尚未实现）。 */
+  type: number
+  status: number
+  doc_date: string
+  partner_id?: number | null
+  partner?: Partner | null
+  /** 来源单号（PO-… / SH-…），仅追溯。 */
+  source_doc_no: string
+  remark: string
+  posted_at?: string | null
+  items?: StockDocumentItem[]
+  created_at: string
+  updated_at: string
+}
+
 /** 重算结果：正常情况下 mismatched 为空，非空说明有人绕过流水改过快照。 */
 export interface StockRecalcResult {
   recalculated: number

@@ -129,7 +129,7 @@ func (s *stockService) CreateMovement(
 		return nil, errs.BadRequest("数量必须大于 0；方向由入库 / 出库决定，不要用负数表示出库")
 	}
 
-	occurredAt, err := s.parseOccurredAt(in.OccurredAt)
+	occurredAt, err := parseDateOrDefault(in.OccurredAt, s.clock())
 	if err != nil {
 		return nil, err
 	}
@@ -265,12 +265,4 @@ func (s *stockService) Recalc(
 			"products", len(result.Mismatched), "recalculated", result.Recalculated)
 	}
 	return result, nil
-}
-
-// parseOccurredAt 解析业务发生日，留空取今天。
-func (s *stockService) parseOccurredAt(raw string) (time.Time, error) {
-	if strings.TrimSpace(raw) == "" {
-		return model.DateOnly(s.clock()), nil
-	}
-	return parseDateOnly(raw)
 }

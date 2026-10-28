@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   FundOutlined,
   HistoryOutlined,
+  ImportOutlined,
   ProfileOutlined,
   SendOutlined,
   ShoppingCartOutlined,
@@ -58,6 +59,12 @@ import {
   ShipmentShow,
 } from '@/pages/shipments'
 import { StockList } from '@/pages/stock'
+import {
+  StockDocumentCreate,
+  StockDocumentEdit,
+  StockDocumentList,
+  StockDocumentShow,
+} from '@/pages/stock-documents'
 import { StockMovementCreate, StockMovementList } from '@/pages/stock-movements'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
@@ -185,6 +192,15 @@ export default function App() {
                 meta: { label: '库存', icon: <DatabaseOutlined /> },
               },
               {
+                // 出入库单：草稿不动库存，确认那一刻才生成流水。
+                name: 'stock-documents',
+                list: '/stock-documents',
+                create: '/stock-documents/create',
+                edit: '/stock-documents/edit/:id',
+                show: '/stock-documents/show/:id',
+                meta: { label: '出入库单', icon: <ImportOutlined /> },
+              },
+              {
                 name: 'stock-movements',
                 list: '/stock-movements',
                 create: '/stock-movements/create',
@@ -297,6 +313,13 @@ export default function App() {
 
                   <Route path="stock">
                     <Route index element={<StockList />} />
+                  </Route>
+
+                  <Route path="stock-documents">
+                    <Route index element={<StockDocumentList />} />
+                    <Route path="create" element={<StockDocumentCreate />} />
+                    <Route path="edit/:id" element={<StockDocumentEdit />} />
+                    <Route path="show/:id" element={<StockDocumentShow />} />
                   </Route>
 
                   <Route path="stock-movements">

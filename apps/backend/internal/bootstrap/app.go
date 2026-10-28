@@ -75,6 +75,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.ShipmentAllocation{},
 			&model.StockMovement{},
 			&model.StockSnapshot{},
+			&model.StockDocument{},
+			&model.StockDocumentItem{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -111,6 +113,7 @@ func New(cfg *config.Config) (*App, error) {
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
 	stockRepo := repository.NewStockRepository(db)
+	stockDocRepo := repository.NewStockDocumentRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -159,6 +162,11 @@ func New(cfg *config.Config) (*App, error) {
 	// 单据产生流水的那一步由 T-16 的单据层调用，方向始终是"单据 → 流水"。
 	stockSvc := service.NewStockService(
 		stockRepo, productRepo, docNoSvc, service.WithStockLogger(log))
+	// 出入库单确认时自己写流水（走 StockDocumentRepository 的一个事务），
+	// 不依赖 StockService：那会让"单据 → 流水"绕一圈变成服务间互调。
+	stockDocSvc := service.NewStockDocumentService(
+		stockDocRepo, productRepo, partnerRepo, docNoSvc,
+		service.WithStockDocumentLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -178,6 +186,7 @@ func New(cfg *config.Config) (*App, error) {
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Shipment:   handler.NewShipmentHandler(shipmentSvc),
 		Stock:      handler.NewStockHandler(stockSvc),
+		StockDoc:   handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
 	})
 

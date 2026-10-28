@@ -41,6 +41,17 @@ func parseOptionalDate(raw string) (*time.Time, error) {
 	return &d, nil
 }
 
+// parseDateOrDefault 解析可留空的业务日期，留空取 now 当天。
+//
+// 单据日期、流水发生日都是"留空即今天"，且都只取日期部分——
+// 三处各写一遍的话，总有一处会忘了截时间，于是同一天的单据落在两个统计月份。
+func parseDateOrDefault(raw string, now time.Time) (time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return model.DateOnly(now), nil
+	}
+	return parseDateOnly(raw)
+}
+
 // resolveCurrency 定下单据的币种、当日汇率与两侧金额小数位。
 //
 // 收在一处：报价单与订单都要"币种留空即本币、按当日汇率折本币、按各自小数位舍入"，

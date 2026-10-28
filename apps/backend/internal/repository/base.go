@@ -127,6 +127,36 @@ func (r *Base[T]) Paginate(ctx context.Context, p Pagination, scopes ...Scope) (
 	return r.PaginateOrdered(ctx, p, "id DESC", scopes...)
 }
 
+// PaginateOrderedWithPreload 与 PaginateOrdered 相同，额外地预加载关联。
+//
+// 单据类列表要带明细一起回吐（列表上要显示"几行、共多少数量"）；
+// 逐条再查一次明细，会让一页 20 张单变成 21 次往返。
+func (r *Base[T]) PaginateOrderedWithPreload(
+	ctx context.Context, p Pagination, order string, preloads []string, scopes ...Scope,
+) ([]T, int64, error) {
+	p = p.normalize()
+
+	var total int64
+	if err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("统计记录: %w", err)
+	}
+	if total == 0 {
+		return []T{}, 0, nil
+	}
+
+	q := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...)
+	for _, name := range preloads {
+		q = q.Preload(name)
+	}
+
+	var list []T
+	err := q.Order(order).Offset(p.Offset()).Limit(p.PageSize).Find(&list).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询记录: %w", err)
+	}
+	return list, total, nil
+}
+
 // PaginateOrdered 与 Paginate 相同，但由调用方指定排序。
 //
 // 排序必须在这里传，不能写进 scope：gorm 合并 ORDER BY 时后写的会覆盖前面的，

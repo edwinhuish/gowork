@@ -159,6 +159,7 @@ api/client.ts
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId` |
 | `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |
 | `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
+| `pages/stock-documents/` | 出入库单（列表 / 新建 / 编辑 / 详情 + 确认） | 类型切换会换往来单位的下拉源（供应商 / 客户）；盘点明细填实盘数，账面由后端确认时取 |
 
 ### 一个主数据模块的标准四件套
 

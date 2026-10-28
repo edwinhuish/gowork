@@ -96,6 +96,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 采购订单 | `PurchaseOrder` | `biz_purchase_order`（明细 `biz_purchase_order_item`） | 向供应商下达的订单，可挂到销售订单行上 |
 | 出货批次 | `Shipment` | `biz_shipment`（分配 `biz_shipment_allocation`） | 一次实际发运。与订单是多对多（分批出货、合并出货） |
 | 库存流水 | `StockMovement` | `inv_stock_movement` | 每一次出入库记录，库存的权威来源 |
+| 出入库单 | `StockDocument` | `inv_stock_document`（明细 `inv_stock_document_item`） | 采购入库 / 销售出库 / 盘点三类共用一张表，用 `type` 区分；**确认才产生流水** |
 | 库存快照 | `StockSnapshot` | `inv_stock_snapshot` | 当前库存，只能由流水重算，用于对账与性能 |
 | 应收单 | `Receivable` | `biz_receivable` | 应向客户收取的一笔款项，由订单或出货生成 |
 | 应付单 | `Payable` | `biz_payable` | 应向供应商支付的一笔款项 |

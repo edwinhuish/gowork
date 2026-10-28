@@ -164,6 +164,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / DELETE | `/api/v1/stock-movements/:id` | `Stock.GetMovement` / `.DeleteMovement` | 删除同事务回滚快照；单据产生的流水改 409，请回来源单据处理 |
 | GET | `/api/v1/stock-snapshots` | `Stock.ListSnapshots` | 当前库存，只读；SKU / 品名由 join 产品取当前值 |
 | POST | `/api/v1/stock-snapshots/recalc` | `Stock.Recalc` | 用流水重算快照（`product_id` 可选），并报告重算前的不一致 |
+| GET / POST | `/api/v1/stock-documents` | `StockDoc.List` / `.Create` | 出入库单：单号前缀 `IN-` / `OUT-` / `CT-`；草稿不动库存 |
+| GET / PUT / DELETE | `/api/v1/stock-documents/:id` | `StockDoc.Get` / `.Update` / `.Delete` | 只有草稿可改可删；类型建好后不可改 |
+| POST | `/api/v1/stock-documents/:id/confirm` | `StockDoc.Confirm` | 生成流水 + 更新快照（一个事务）；重复确认 409 |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -360,6 +363,11 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
   口径对不上时只做一件事：用 `Stock.Recalc` 按流水重算，并把重算前的差异报出来。
 - **流水的方向单独存**：`StockMovement.Qty` 永远为正，出入看 `Direction`（±1）。
   允许存负数会让"两条 +5"和"一条 −10"同样合法，对账时分不清是录错了还是故意的。
+- **出入库单确认才产生流水**：草稿改多少次都不动库存。确认要在一个事务里做完
+  「改状态 + 回写账面数 + 插流水 + 更新快照」，中间任何一步单独提交都会留下
+  "单据已确认但库存没动"的状态，而它只能靠人工对账发现。
+- **已确认的库存单据不撤销**：不可改、不可删、不可取消，要纠正就做反向单。
+  取消一张已确认的入库单会让流水凭空消失，而"消失"这件事在账上没有任何痕迹。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。
@@ -384,6 +392,8 @@ task backend:tool:air   # 安装 air（一次性，版本锁在 Taskfile 的 var
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
+| 盘点单的差异跟心里算的不一样 | 账面数取的是**建单时**的库存，而不是确认时的 | `resolvePosting` 里现查 `CurrentQty`；盘点单搁了半天，中途别的单据动过货 |
+| 确认了入库单，库存没变 | 单据与流水没在同一个事务里，或确认时漏了 `addToSnapshot` | 走 `StockDocumentRepository.Post`，它是「状态 + 账面 + 流水 + 快照」的唯一入口 |
 | 入库之后库存列表里看不到那个产品 | 快照行被软删了，upsert 撞唯一索引更新到那条已删行上 | 快照永不软删：重算时写 `qty=0` 保留行（`ReplaceSnapshot` 的注释说了原因） |
 | 库存数与流水算出来的对不上 | 有人直接改了 `inv_stock_snapshot`，或某次写入没走同一事务 | 跑 `POST /stock-snapshots/recalc`，它会把差异报出来并按流水修正 |
 | 订单明明没出完，出货却总报"超出未出数量" | 统计已出数量时把已取消的出货也算进去了（或编辑时没排除本票） | 统计一律带 `biz_shipment.status <> 90`，编辑传 `excludeShipmentID` |

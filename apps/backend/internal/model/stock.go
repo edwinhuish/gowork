@@ -89,6 +89,11 @@ func (d StockDirection) Label() string {
 	return "入库"
 }
 
+// 流水的来源单据类型。手工录入的流水不带来源（三个字段皆空）。
+const (
+	StockSourceStockDocument = "stock_document"
+)
+
 // StockMovement 是库存变动的唯一事实来源。
 //
 // 每条记录都带产品快照（SKU / 品名 / 规格 / 单位）：流水是历史，

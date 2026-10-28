@@ -137,6 +137,11 @@ const (
 	// 库存流水号。流水不是单据（没有状态），但手工录入的期初与盘盈亏
 	// 没有来源单据可引用，需要一个能在电话里报出来的标识。
 	DocTypeStockMovement DocType = "MV"
+	// 出入库单号。按单据类型分前缀：入库单与出库单分开，
+	// 单号本身就是"这批货往哪个方向走"，不必再去看类型列。
+	DocTypeStockIn    DocType = "IN"
+	DocTypeStockOut   DocType = "OUT"
+	DocTypeStockCount DocType = "CT"
 )
 
 // IsValid 挡住手误拼出来的类型。
@@ -147,7 +152,7 @@ func (t DocType) IsValid() bool {
 	switch t {
 	case DocTypeQuotation, DocTypeSalesOrder, DocTypePurchaseOrder, DocTypeShipment,
 		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms,
-		DocTypeStockMovement:
+		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount:
 		return true
 	}
 	return false

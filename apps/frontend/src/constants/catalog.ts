@@ -216,6 +216,25 @@ export const STOCK_DIRECTION_OPTIONS = [
   { value: -1, label: '出库' },
 ]
 
+/**
+ * 出入库单类型。与后端 `model.StockDocType` 一致。
+ *
+ * 调拨（30）不在这里：它需要仓库维度才能成立，后端会拒（400）。
+ */
+export const STOCK_DOC_TYPE_OPTIONS = [
+  { value: 10, label: '采购入库' },
+  { value: 20, label: '销售出库' },
+  { value: 40, label: '盘点' },
+]
+
+export function stockDocTypeLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return STOCK_DOC_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? `类型 ${value}`
+}
+
+/** 盘点单：明细填的是实盘数，账面数在确认时取快照。 */
+export const STOCK_DOC_COUNT = 40
+
 /** 贸易术语的中文名；未知码原样透出，不吞数据。 */
 export function tradeTermLabel(value?: string | null): string {
   if (!value) return '—'

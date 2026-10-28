@@ -32,6 +32,7 @@ type Handlers struct {
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
 	Stock      *handler.StockHandler
+	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
 }
 
@@ -212,6 +213,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		snapshots := secured.Group("/stock-snapshots")
 		snapshots.GET("", h.Stock.ListSnapshots)
 		snapshots.POST("/recalc", h.Stock.Recalc)
+
+		// 出入库单：确认才产生流水，所以状态推进单独一个动作路由。
+		stockDocs := secured.Group("/stock-documents")
+		stockDocs.GET("", h.StockDoc.List)
+		stockDocs.POST("", h.StockDoc.Create)
+		stockDocs.GET("/:id", h.StockDoc.Get)
+		stockDocs.PUT("/:id", h.StockDoc.Update)
+		stockDocs.DELETE("/:id", h.StockDoc.Delete)
+		stockDocs.POST("/:id/confirm", h.StockDoc.Confirm)
 	}
 
 	return engine
