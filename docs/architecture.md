@@ -131,6 +131,10 @@ ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/pr
 库存扣减规则）。那时按域拆才有收益——拆的应该是"变化频率不同的东西"，
 不是"名字不同但改动同步的东西"。
 
+**现状与本条的裁决**：CRM 侧已有 contact / activity / lead / opportunity 四个模块，
+条件按其自身标准已满足。但对「现在拆不拆」的结论是**暂不拆目录、改用 import 约束**，
+理由与真正的触发条件写在 `docs/gap-analysis.md` 5.2，本节不重复。
+
 ### 9. 客户与供应商合成一张表，角色用位掩码
 
 `md_customer` 与 `md_supplier` 字段几乎相同（客户只多一个 `country`）。分开建的
@@ -280,8 +284,8 @@ func (PurchaseOrder) TableName() string { return "biz_purchase_order" }
 小整数，编译器不会拦你，运行时才发现筛选条件查错了语义。
 
 金额这里沿用 `Product.CostPrice` 的 `float64` + `decimal` 列。这是已知隐患
-（外贸单据有累计与分账，0.01 的误差会放大），但改它要动全部金额字段与前端，
-单独排期；在那之前新模块保持一致，不要自创第二套金额表示。
+（外贸单据有累计与分账，0.01 的误差会放大），已排期为 `T-37`（见 `docs/roadmap.md`），
+且要求排在应收应付（T-20）之前；在那之前新模块保持一致，不要自创第二套金额表示。
 
 在 `bootstrap/app.go` 的 `AutoMigrate` 列表里加上 `&model.PurchaseOrder{}`。
 

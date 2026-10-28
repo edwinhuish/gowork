@@ -7,13 +7,13 @@
 
 ## 1. 职责边界
 
-**负责**：登录、概览、产品 / 供应商 / 客户的增删改查界面、列表分页与筛选、
-登录态维持、主题与布局。
+**负责**：登录、概览，以及全部业务模块的界面——共享主数据（产品 / 货源 / 往来单位 /
+币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、
+供应链（出货 / 库存 / 出入库单）。列表分页与筛选、登录态维持、主题与布局也在这里。
 
-**当前只有共享主数据的界面。** 系统定位是 ERP + CRM 集成，但 ERP 侧的
-订单/库存/出货、CRM 侧的跟进/商机都还没有页面。加的时候不需要新建导航表——
+**界面跟着后端模块走，不自己造概念。** 加一个模块不需要新建导航表——
 在 `resources` 里加一条就出现在侧栏（见第 3 节）。业务对象叫什么名、
-字段中文怎么写，先查 `docs/glossary.md`。
+字段中文怎么写，先查 `docs/glossary.md`；哪些模块已实现，见 `docs/roadmap.md` 的进度表。
 
 **不负责**：
 
@@ -52,23 +52,27 @@ apps/frontend/
     │   └── authProvider.ts 登录/登出/身份缓存/401 处理
     ├── api/
     │   ├── client.ts       统一 fetch：令牌注入、拆包、ApiError、续期令牌替换
-    │   └── auth.ts  dashboard.ts      （CRUD 已改由 dataProvider 直连，不再逐个写 xxxApi）
+    │   └── auth / dashboard / leads / opportunities / product-sources /
+    │       purchase-orders / quotations / sales-orders / shipments /
+    │       stock / stock-documents   单个资源的非 CRUD 动作（转单、确认、重算…）
     ├── components/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
-    │   └── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
+    │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
+    │   └── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
     ├── constants/catalog.ts 产品类别字典、启用状态、主体类型选项、角色位常量
     ├── utils/format.ts      时间格式化
     └── pages/
-        ├── login/index.tsx
-        ├── dashboard/index.tsx
-        ├── products/        list / create / edit / show / form-fields / index
-        ├── suppliers/       同上
-        ├── customers/       同上
-        ├── contacts/        list / create / edit / form-fields / index（编辑时主体只读）
-        ├── activities/      同上（时间线列表，"只看已到期"走 `due=1`）
-        ├── opportunities/   list / create / edit / form-fields / index（汇总走 api/opportunities.ts）
-        ├── currencies/      list / create / edit / form-fields / index（代码编辑时只读）
-        └── exchange-rates/  list / create / form-fields / index（没有 edit）
+        ├── login/  dashboard/
+        ├── products/         list / create / edit / show / form-fields / source-panel
+        ├── suppliers/ customers/   同上（同一 `Partner` 模型的两种角色视图）
+        ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
+        ├── quotations/       同上 + show / preview（试算页）
+        ├── orders/ purchases/ shipments/   list / create / edit / show（+ 明细或分配行编辑器）
+        ├── stock/            只读当前库存 + 重算（没有 create / edit）
+        ├── stock-movements/  流水列表 + 手工录入（没有 edit）
+        ├── stock-documents/  出入库单 + items-editor + 确认
+        ├── currencies/       list / create / edit / form-fields（代码编辑时只读）
+        └── exchange-rates/   list / create / form-fields（没有 edit）
 ```
 
 **`suppliers/` 与 `customers/` 是同一个数据模型的两种角色视图**，类型都是 `Partner`。
@@ -119,10 +123,15 @@ api/client.ts
 后端 /api/v1/*（dev 经 Vite proxy，生产由反代接管）
 ```
 
-**筛选走白名单**：`dataProvider` 只翻译 `keyword` / `category` / `supplier_id` / `status` /
-`country` / `role` / `entity_type` / `currency_code` / `partner_id` / `due` / `stage` / `open_only`，
-其余条件直接丢弃。后端没有对应参数时
-**不要**把它拼进 URL —— 后端会静默忽略，表现成「点了查询没反应」，比报错难查得多。
+**筛选走白名单**：`dataProvider` 的 `PASSTHROUGH_FILTERS` 只翻译 `keyword` / `category` /
+`supplier_id` / `status` / `country` / `role` / `entity_type` / `currency_code` / `partner_id` /
+`product_id` / `due` / `stage` / `open_only` / `source` / `type`，其余条件直接丢弃。
+后端没有对应参数时**不要**把它拼进 URL —— 后端会静默忽略，表现成「点了查询没反应」，
+比报错难查得多。
+
+**已知缺口**：后端支持而白名单里还没有的是 `from` / `to`（库存流水发生日区间）与
+`sales_order_id`（出货按订单筛），所以这两个筛选在界面上暂时用不了，修法是加进白名单
+（`docs/roadmap.md` T-43）。
 
 **错误只有一条路径**：`client.ts` 抛 `ApiError`（带 `code`），refine 捕获后调 `authProvider.onError`；
 非 401 错误交回页面，由表单/表格的局部状态展示。页面里不写 `try/catch` 兜底空实现。
