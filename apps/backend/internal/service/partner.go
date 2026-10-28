@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	errInvalidPartnerRole = errs.BadRequest("role 不合法：1=客户，2=供应商，3=两者")
+	errInvalidPartnerRole = errs.BadRequest("role 不合法：按位组合，1=客户，2=供应商，4=货代")
 	errInvalidEntityType  = errs.BadRequest("entity_type 不合法：0=公司，1=个人")
 	errInvalidTradeTerm   = errs.BadRequest("trade_term 不合法：EXW / FOB / CFR / CIF / DDP")
 	errInvalidSettlement  = errs.BadRequest("settlement_method 不合法：TT / LC / DP / DA / OA")
 )
 
-// PartnerService 管理商业伙伴（客户与供应商的统一主体）。
+// PartnerService 管理商业伙伴（客户、供应商与货代的统一主体）。
 //
 // 它同时依赖产品仓储，因为"能不能删这个供应商"不能只看主体表：
 // 角色与引用是两处状态，摘角色和删主体都必须先确认没有产品还挂着它。
@@ -73,7 +73,7 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 	}
 	if !hasRole {
 		// 角色决定这个主体出现在哪个业务的候选列表里，没角色的记录建出来就找不到了。
-		return nil, errs.BadRequest("新建主体必须指定 role：1=客户，2=供应商，3=两者")
+		return nil, errs.BadRequest("新建主体必须指定 role：1=客户，2=供应商，4=货代，可叠加")
 	}
 	entityType, hasEntityType, err := normEntityType(in.EntityType)
 	if err != nil {

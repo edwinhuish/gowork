@@ -86,12 +86,13 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		partners.PUT("/:id", h.Partner.Update(nil))
 		partners.DELETE("/:id", h.Partner.Delete(nil))
 
-		// 兼容入口。客户与供应商已经合成一张表，但前端页面按 resource 名拼 URL，
-		// 且外部可能存着 /customers/12 这类链接。这两组路由把同一份数据
+		// 角色切片入口。客户、供应商与货代已经合成一张表，但前端页面按 resource
+		// 名拼 URL，且外部可能存着 /customers/12 这类链接。这三组路由把同一份数据
 		// 按角色切开暴露，行为与合并前一致。
 		// 常量不能取地址，先落成变量再传指针。
 		customerRole := model.PartnerRoleCustomer
 		supplierRole := model.PartnerRoleSupplier
+		forwarderRole := model.PartnerRoleForwarder
 		customers := secured.Group("/customers")
 		customers.GET("", h.Partner.List(&customerRole))
 		customers.POST("", h.Partner.Create(&customerRole))
@@ -105,6 +106,13 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		suppliers.GET("/:id", h.Partner.Get(&supplierRole))
 		suppliers.PUT("/:id", h.Partner.Update(&supplierRole))
 		suppliers.DELETE("/:id", h.Partner.Delete(&supplierRole))
+
+		forwarders := secured.Group("/forwarders")
+		forwarders.GET("", h.Partner.List(&forwarderRole))
+		forwarders.POST("", h.Partner.Create(&forwarderRole))
+		forwarders.GET("/:id", h.Partner.Get(&forwarderRole))
+		forwarders.PUT("/:id", h.Partner.Update(&forwarderRole))
+		forwarders.DELETE("/:id", h.Partner.Delete(&forwarderRole))
 
 		// 币种与汇率：后面每张单据都引用它们（币种代码 + 当日汇率）。
 		currencies := secured.Group("/currencies")

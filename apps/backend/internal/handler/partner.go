@@ -10,11 +10,12 @@ import (
 	"github.com/edwinhuish/gowork/internal/service"
 )
 
-// PartnerHandler 同时服务三个路由前缀：
+// PartnerHandler 同时服务四个路由前缀：
 //
 //	/partners   统一主体，可跨角色操作
 //	/customers  等价于只看客户角色，兼容改造前的页面与链接
 //	/suppliers  等价于只看供应商角色
+//	/forwarders 等价于只看货代角色
 //
 // 每个方法都接收一个 scope：非 nil 时，该入口只能看到、只能创建该角色的主体。
 // 用参数而不是复制三套 handler，是因为逻辑完全一致，唯一的差别就是这个过滤。

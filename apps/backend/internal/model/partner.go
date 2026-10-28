@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // PartnerRole 是商业伙伴在业务中承担的角色，按位定义。
 //
@@ -15,11 +18,30 @@ const (
 	PartnerRoleCustomer PartnerRole = 1 << iota // 1
 	// PartnerRoleSupplier 供应商：向我方供货的主体。
 	PartnerRoleSupplier // 2
+	// PartnerRoleForwarder 货代 / 报关行：替我方向承运人订舱、报关的主体。
+	//
+	// 它复用的是同一张 md_partner，而不是新建货代表：货代的联系方式、国家、
+	// 联系人字段与供应商几乎一样，唯一差别是它不参与采购与报价。
+	// 这也是当初选位掩码的直接收益 —— 连续枚举下这里要把 3 插成 7。
+	PartnerRoleForwarder // 4
 )
 
 // AllPartnerRoles 是已定义角色的位全集。新增角色时只改这一行，
 // 合法性校验与查询展开都会跟着覆盖。
-const AllPartnerRoles = PartnerRoleCustomer | PartnerRoleSupplier
+const AllPartnerRoles = PartnerRoleCustomer | PartnerRoleSupplier | PartnerRoleForwarder
+
+// roleNames 是各角色位的展示名，按位从低到高排列。
+//
+// 单独列表而不是在 String 里写 switch：switch 需要枚举"客户+供应商"这类组合，
+// 三位角色就有 7 种，加第四位是 15 种；按位拼接只需要给新角色补一行。
+var roleNames = []struct {
+	bit  PartnerRole
+	name string
+}{
+	{PartnerRoleCustomer, "customer"},
+	{PartnerRoleSupplier, "supplier"},
+	{PartnerRoleForwarder, "forwarder"},
+}
 
 // Has 报告角色集合是否包含目标的全部位。
 // target 传单个角色时等价于"是否具备该角色"。
@@ -36,17 +58,21 @@ func (r PartnerRole) IsValid() bool {
 }
 
 // String 让日志和错误信息里能直接看到角色名，而不是一个裸数字。
+//
+// 零值与含未定义位的值都退化成数字：前者是脏数据，后者说明有人写进了
+// 一个还没在这里登记的角色位，打印出 role(8) 比打印 "customer" 更容易定位。
 func (r PartnerRole) String() string {
-	switch r {
-	case PartnerRoleCustomer:
-		return "customer"
-	case PartnerRoleSupplier:
-		return "supplier"
-	case PartnerRoleCustomer | PartnerRoleSupplier:
-		return "customer+supplier"
-	default:
+	if r == 0 || r&^AllPartnerRoles != 0 {
 		return fmt.Sprintf("role(%d)", int8(r))
 	}
+
+	parts := make([]string, 0, len(roleNames))
+	for _, n := range roleNames {
+		if r.Has(n.bit) {
+			parts = append(parts, n.name)
+		}
+	}
+	return strings.Join(parts, "+")
 }
 
 // RoleValuesContaining 列出所有包含目标角色的取值，供 `role IN (...)` 查询。
