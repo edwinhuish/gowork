@@ -61,8 +61,10 @@ type salesOrderService struct {
 	shipments  repository.ShipmentRepository
 	currencies CurrencyService
 	docNos     DocNoService
-	clock      func() time.Time
-	log        *slog.Logger
+	// credits 在确认时校验客户额度（T-39）。草稿不占额度，所以 Create 不调它。
+	credits CreditService
+	clock   func() time.Time
+	log     *slog.Logger
 }
 
 type SalesOrderOption func(*salesOrderService)
@@ -83,6 +85,7 @@ func NewSalesOrderService(
 	shipments repository.ShipmentRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
+	credits CreditService,
 	opts ...SalesOrderOption,
 ) SalesOrderService {
 	s := &salesOrderService{
@@ -92,6 +95,7 @@ func NewSalesOrderService(
 		shipments:  shipments,
 		currencies: currencies,
 		docNos:     docNos,
+		credits:    credits,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -256,6 +260,18 @@ func (s *salesOrderService) UpdateStatus(
 	}
 	if err := checkDocumentTransit(existing.Status, next); err != nil {
 		return nil, err
+	}
+	// 只有"确认"这一步占额度：草稿可改可删，先放行；确认之后这单就是对客户的承诺，
+	// 从这一刻起它和它的应收一起算进敞口，所以校验也放在这一刻。
+	if next == model.DocumentStatusConfirmed {
+		if err := s.credits.CheckConfirm(ctx, CreditCheck{
+			PartnerID:  existing.PartnerID,
+			DocNo:      existing.DocNo,
+			AmountBase: existing.AmountBaseTotal,
+			Force:      in.ForceCredit,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.orders.Update(ctx, id, map[string]any{"status": next}); err != nil {
 		return nil, err

@@ -72,6 +72,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 	docNoSvc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock))
 	orderSvc := NewSalesOrderService(
 		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc,
+		NewCreditService(repository.NewCreditRepository(db), partnerRepo),
 		WithSalesOrderClock(clock),
 	)
 

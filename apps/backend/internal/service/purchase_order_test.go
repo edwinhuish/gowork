@@ -100,7 +100,9 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 		),
 		sales: NewSalesOrderService(
 			orderRepo, partnerRepo, productRepo, repository.NewShipmentRepository(db),
-			currencySvc, docNoSvc, WithSalesOrderClock(clock),
+			currencySvc, docNoSvc,
+			NewCreditService(repository.NewCreditRepository(db), partnerRepo),
+			WithSalesOrderClock(clock),
 		),
 		now:        now,
 		supplierID: supplier.ID,

@@ -51,6 +51,9 @@ func Auth(auth service.AuthService) gin.HandlerFunc {
 			c.Header(RenewedTokenHeader, p.RenewedToken)
 		}
 		WithPrincipal(c, p)
+		// 同时挂到 request context：service 层做"谁能强制放行"这类判断时，
+		// 拿不到 gin.Context，只能从这里取。
+		c.Request = c.Request.WithContext(service.WithActor(c.Request.Context(), p))
 		c.Next()
 	}
 }

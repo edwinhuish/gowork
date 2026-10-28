@@ -24,10 +24,30 @@ import (
 // 后端先合表、前端后改菜单，中间这段时间旧页面必须照常工作。
 type PartnerHandler struct {
 	partners service.PartnerService
+	// credits 挂在主体上：信用额度是 A5 商务条件里的一个字段，
+	// 读它的入口跟着主体走，不另开一个 /credit-limits 资源。
+	credits service.CreditService
 }
 
-func NewPartnerHandler(partners service.PartnerService) *PartnerHandler {
-	return &PartnerHandler{partners: partners}
+func NewPartnerHandler(partners service.PartnerService, credits service.CreditService) *PartnerHandler {
+	return &PartnerHandler{partners: partners, credits: credits}
+}
+
+// Credit GET /partners/:id/credit
+//
+// 返回额度、未结清应收、未开票订单与敞口。下单页选中客户后调它做提示，
+// 真正的拦截在订单确认时由 service 做——这里只负责显示。
+func (h *PartnerHandler) Credit(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	res, err := h.credits.Summary(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
 }
 
 // List GET /partners | /customers | /suppliers

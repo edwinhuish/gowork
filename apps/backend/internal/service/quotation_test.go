@@ -108,6 +108,7 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 	orderSvc := NewSalesOrderService(
 		repository.NewSalesOrderRepository(db), partnerRepo, productRepo,
 		repository.NewShipmentRepository(db), currencySvc, docNoSvc,
+		NewCreditService(repository.NewCreditRepository(db), partnerRepo),
 		WithSalesOrderClock(clock),
 	)
 

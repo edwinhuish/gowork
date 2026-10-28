@@ -35,4 +35,9 @@ type SalesOrderInput struct {
 // SalesOrderStatusInput 走完整的单据状态机，具体能不能跳由 service 判定。
 type SalesOrderStatusInput struct {
 	Status int8 `json:"status" binding:"required"`
+	// ForceCredit 在确认（10→20）时强制越过客户信用额度。
+	//
+	// 只有 admin 能用：service 会看请求上下文里的身份，非 admin 传了返回 403，
+	// 放行时落一条 warn 日志留痕。它不改变订单的任何金额。
+	ForceCredit bool `json:"force_credit"`
 }

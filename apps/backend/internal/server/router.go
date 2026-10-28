@@ -91,6 +91,9 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		partners.GET("/:id", h.Partner.Get(nil))
 		partners.PUT("/:id", h.Partner.Update(nil))
 		partners.DELETE("/:id", h.Partner.Delete(nil))
+		// 信用额度是主体上的商务条件（A5），读它的入口跟着主体走。
+		// 只读：额度本身通过 PUT /partners/:id 改。
+		partners.GET("/:id/credit", h.Partner.Credit)
 
 		// 角色切片入口。客户、供应商与货代已经合成一张表，但前端页面按 resource
 		// 名拼 URL，且外部可能存着 /customers/12 这类链接。这三组路由把同一份数据

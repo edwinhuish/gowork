@@ -87,6 +87,7 @@ func newSalesOrderFixture(t *testing.T, now *time.Time) salesOrderFixture {
 			repository.NewSalesOrderRepository(db), partnerRepo, productRepo,
 			repository.NewShipmentRepository(db), currencySvc,
 			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
+			NewCreditService(repository.NewCreditRepository(db), partnerRepo),
 			WithSalesOrderClock(clock),
 		),
 		now:        now,

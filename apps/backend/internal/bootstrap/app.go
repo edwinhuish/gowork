@@ -156,8 +156,12 @@ func New(cfg *config.Config) (*App, error) {
 	// 单号服务在这里落地：T-10 是第一张真正需要 DocNo 的单据。
 	docNoSvc := service.NewDocNoService(
 		repository.NewDocSeqRepository(db), service.WithDocNoLogger(log))
+	// 信用额度读订单与应收两张表算敞口（T-39）：它只被订单确认用到，
+	// 但要先于订单服务建好。
+	creditSvc := service.NewCreditService(
+		repository.NewCreditRepository(db), partnerRepo, service.WithCreditLogger(log))
 	orderSvc := service.NewSalesOrderService(
-		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc,
+		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc, creditSvc,
 		service.WithSalesOrderLogger(log))
 	// 报价单要在转换时建订单，所以它依赖销售订单服务；顺序不能反。
 	quotationSvc := service.NewQuotationService(
@@ -207,7 +211,7 @@ func New(cfg *config.Config) (*App, error) {
 	engine := server.New(cfg, log, authSvc, server.Handlers{
 		Auth:       handler.NewAuthHandler(authSvc),
 		Product:    handler.NewProductHandler(productSvc),
-		Partner:    handler.NewPartnerHandler(partnerSvc),
+		Partner:    handler.NewPartnerHandler(partnerSvc, creditSvc),
 		Currency:   handler.NewCurrencyHandler(currencySvc),
 		Rate:       handler.NewExchangeRateHandler(rateSvc),
 		Contact:    handler.NewContactHandler(contactSvc),
