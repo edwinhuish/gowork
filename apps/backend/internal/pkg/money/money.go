@@ -3,12 +3,16 @@
 // 单独成包而不是散在 service 里，是因为"保留几位、怎么舍入"必须全局只有一套答案：
 // 报价单算出的毛利、订单汇总的总额、应收单的本币金额如果各自 math.Round，
 // 同一笔生意在三张单上会差几分钱，对账时无法解释。
+//
+// 包里有两套表示：本文件是旧的 float64 版本，decimal.go 是定点版本（T-37 起新增）。
+// **新代码一律用 Decimal**；float 版只留给尚未改造的模型字段，改造完就只剩 Round
+// 用于显示层。两者的小数位与舍入规则一致（四舍五入、负数对称），切换不会改变口径。
 package money
 
 import "math"
 
-// 允许的小数位范围。上限不给到 8 位以上：本项目金额用 float64 承载
-// （见 docs/architecture.md 第六节），超过 6 位后二进制误差已经大于末位本身。
+// 允许的小数位范围。上限不给到 8 位以上：Decimal 以 1e-6 为最小单位
+// （见 decimal.go 的 Scale），超过 6 位就得再降一档 int64 的表示范围。
 const (
 	MinDecimalPlaces = 0
 	MaxDecimalPlaces = 6
