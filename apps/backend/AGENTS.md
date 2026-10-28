@@ -171,6 +171,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/shipment-charges` | `Charge.List` / `.Create` | 运费杂费挂到一票货；**不校验出货状态**（账单晚于出货到达）；外币按当日汇率折本币 |
 | GET / PUT / DELETE | `/api/v1/shipment-charges/:id` | `Charge.Get` / `.Update` / `.Delete` | 不能改挂到另一票货；有费用的批次拒绝删除（409） |
 | GET | `/api/v1/shipment-charges-summary` | `Charge.Summary` | 一票的本币费用合计；独立前缀避免与 `/:id` 抢路径 |
+| PUT | `/api/v1/shipments/:id/logistics` | `Shipment.UpdateLogistics` | 提单号 / 船名航次 / ETD / ETA；**任何状态都能改**（船期订舱后才有）；ETA 早于 ETD 拒绝 |
+| GET / POST | `/api/v1/customs-declarations` | `Customs.List` / `.Create` | 报关单，一票可多张；报关单号可为空（待申报）；不做状态机 |
+| GET / PUT / DELETE | `/api/v1/customs-declarations/:id` | `Customs.Get` / `.Update` / `.Delete` | 不能改挂到另一票货；有报关单的批次拒绝删除（409） |
 | GET / POST | `/api/v1/stock-movements` | `Stock.ListMovements` / `.CreateMovement` | 单号 `MV-`；只能手工录期初 / 盘点盈亏 / 其它，采购入库与销售出库由单据产生（400） |
 | GET / DELETE | `/api/v1/stock-movements/:id` | `Stock.GetMovement` / `.DeleteMovement` | 删除同事务回滚快照；单据产生的流水改 409，请回来源单据处理 |
 | GET | `/api/v1/stock-snapshots` | `Stock.ListSnapshots` | 当前库存，只读；SKU / 品名由 join 产品取当前值 |
