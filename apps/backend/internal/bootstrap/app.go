@@ -58,6 +58,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.User{},
 			&model.Partner{},
 			&model.Product{},
+			&model.ProductCode{},
 			&model.Currency{},
 			&model.ExchangeRate{},
 			&model.ProductSource{},
@@ -113,6 +114,7 @@ func New(cfg *config.Config) (*App, error) {
 	userRepo := repository.NewUserRepository(db)
 	partnerRepo := repository.NewPartnerRepository(db)
 	productRepo := repository.NewProductRepository(db)
+	productCodeRepo := repository.NewProductCodeRepository(db)
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
 	sourceRepo := repository.NewProductSourceRepository(db)
@@ -147,7 +149,11 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithAuthLogger(log),
 	)
 	productSvc := service.NewProductService(
-		productRepo, partnerRepo, sourceRepo, service.WithProductLogger(log))
+		productRepo, partnerRepo, sourceRepo, productCodeRepo, service.WithProductLogger(log))
+	// 编号自己一套读写：它是产品的别名，不是产品的一个字段，
+	// 前端在产品详情页当成一个面板用，产品表单不参与。
+	productCodeSvc := service.NewProductCodeService(
+		productCodeRepo, productRepo, service.WithProductCodeLogger(log))
 	partnerSvc := service.NewPartnerService(
 		partnerRepo, productRepo, currencyRepo, service.WithPartnerLogger(log))
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
@@ -231,7 +237,8 @@ func New(cfg *config.Config) (*App, error) {
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, server.Handlers{
 		Auth:       handler.NewAuthHandler(authSvc),
-		Product:    handler.NewProductHandler(productSvc),
+		Product:     handler.NewProductHandler(productSvc),
+		ProductCode: handler.NewProductCodeHandler(productCodeSvc),
 		Partner:    handler.NewPartnerHandler(partnerSvc, creditSvc),
 		Currency:   handler.NewCurrencyHandler(currencySvc),
 		Rate:       handler.NewExchangeRateHandler(rateSvc),

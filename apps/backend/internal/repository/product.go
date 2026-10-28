@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/model"
+	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
@@ -23,7 +25,7 @@ func (f ProductFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 4)
 
 	if f.Keyword != "" {
-		scopes = append(scopes, likeAny(f.Keyword, "sku_code", "name_cn", "name_en"))
+		scopes = append(scopes, keywordScope(f.Keyword))
 	}
 	if f.Category != "" {
 		cat := f.Category
@@ -44,6 +46,37 @@ func (f ProductFilter) scopes() []Scope {
 		})
 	}
 	return scopes
+}
+
+// keywordScope 是产品列表的关键词条件：SKU、中英文品名，以及**任何编号**（旧 SKU、
+// 客户物料号、供应商货号）。
+//
+// 编号走子查询而不是 JOIN：一个产品可能同时命中多个编号，JOIN 会让它在一页里出现
+// 好几行，count 也跟着变大——用户看到的是「搜一个词，同一条货出现三遍」。
+//
+// 编号那一路的关键词要先归一化（去分隔符、转大写），与 md_product_code.code_norm
+// 用同一个函数：两边口径不同就会出现"有，但搜不到"。
+func keywordScope(keyword string) Scope {
+	norm := codenorm.Normalize(keyword)
+
+	return func(db *gorm.DB) *gorm.DB {
+		parts := []string{
+			likeClause(db, "sku_code"),
+			likeClause(db, "name_cn"),
+			likeClause(db, "name_en"),
+		}
+		args := []any{likePattern(keyword), likePattern(keyword), likePattern(keyword)}
+
+		// 关键词里全是分隔符时归一化结果是空串：此时不能去查编号，
+		// 否则 LIKE '%%' 会把所有有编号的产品都带出来。
+		if norm != "" {
+			parts = append(parts,
+				"id IN (SELECT product_id FROM md_product_code WHERE "+
+					likeClause(db, "code_norm")+")")
+			args = append(args, likePattern(norm))
+		}
+		return db.Where(strings.Join(parts, " OR "), args...)
+	}
 }
 
 type ProductRepository interface {

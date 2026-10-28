@@ -184,7 +184,7 @@ func TestAttachmentUploadRejects(t *testing.T) {
 		},
 		{
 			name: "目标记录不存在", file: "提单.pdf",
-			input: dto.AttachmentInput{EntityType: model.AttachPartner, EntityID: 9999},
+			input:   dto.AttachmentInput{EntityType: model.AttachPartner, EntityID: 9999},
 			content: pdfBytes("x"),
 		},
 		{

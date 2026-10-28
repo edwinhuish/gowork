@@ -17,32 +17,34 @@ import (
 
 // Handlers 汇总所有 HTTP handler，由 bootstrap 注入。
 type Handlers struct {
-	Auth       *handler.AuthHandler
-	Product    *handler.ProductHandler
-	Partner    *handler.PartnerHandler
-	Currency   *handler.CurrencyHandler
-	Rate       *handler.ExchangeRateHandler
-	Contact    *handler.ContactHandler
-	Activity   *handler.ActivityHandler
-	Oppty      *handler.OpportunityHandler
-	Lead       *handler.LeadHandler
-	Source     *handler.ProductSourceHandler
-	Quotation  *handler.QuotationHandler
-	Contract   *handler.ContractHandler
-	PDF        *handler.PDFHandler
-	SalesOrder *handler.SalesOrderHandler
-	Purchase   *handler.PurchaseOrderHandler
-	Shipment   *handler.ShipmentHandler
-	Charge     *handler.ShipmentChargeHandler
-	Customs    *handler.CustomsDeclarationHandler
-	Receivable *handler.ReceivableHandler
-	Payable    *handler.PayableHandler
-	Payment    *handler.PaymentHandler
-	Report     *handler.ReportHandler
-	Stock      *handler.StockHandler
-	StockDoc   *handler.StockDocumentHandler
-	Dashboard  *handler.DashboardHandler
-	Attachment *handler.AttachmentHandler
+	Auth    *handler.AuthHandler
+	Product *handler.ProductHandler
+	// ProductCode 是产品别名编号（旧 SKU / 客户号 / 供应商货号）。
+	ProductCode *handler.ProductCodeHandler
+	Partner     *handler.PartnerHandler
+	Currency    *handler.CurrencyHandler
+	Rate        *handler.ExchangeRateHandler
+	Contact     *handler.ContactHandler
+	Activity    *handler.ActivityHandler
+	Oppty       *handler.OpportunityHandler
+	Lead        *handler.LeadHandler
+	Source      *handler.ProductSourceHandler
+	Quotation   *handler.QuotationHandler
+	Contract    *handler.ContractHandler
+	PDF         *handler.PDFHandler
+	SalesOrder  *handler.SalesOrderHandler
+	Purchase    *handler.PurchaseOrderHandler
+	Shipment    *handler.ShipmentHandler
+	Charge      *handler.ShipmentChargeHandler
+	Customs     *handler.CustomsDeclarationHandler
+	Receivable  *handler.ReceivableHandler
+	Payable     *handler.PayableHandler
+	Payment     *handler.PaymentHandler
+	Report      *handler.ReportHandler
+	Stock       *handler.StockHandler
+	StockDoc    *handler.StockDocumentHandler
+	Dashboard   *handler.DashboardHandler
+	Attachment  *handler.AttachmentHandler
 }
 
 // New 构建 gin 引擎。
@@ -78,6 +80,14 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		products.GET("/:id", h.Product.Get)
 		products.PUT("/:id", h.Product.Update)
 		products.DELETE("/:id", h.Product.Delete)
+
+		// 产品编号：SKU 之外的那些号（旧 SKU、客户物料号、供应商货号、工厂号）。
+		// 独立前缀而不是 /products/:id/codes：与货源一致，用 ?product_id= 过滤，
+		// 前端按面板取数，不需要为了加一个编号去动产品表单。
+		codes := secured.Group("/product-codes")
+		codes.GET("", h.ProductCode.List)
+		codes.POST("", h.ProductCode.Create)
+		codes.DELETE("/:id", h.ProductCode.Delete)
 
 		// 产品货源：一个产品对多个供应商的货号与采购价，报价单的成本从这里取。
 		// 用 ?product_id= 过滤，与产品详情页的货源面板一一对应。

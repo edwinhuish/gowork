@@ -40,6 +40,12 @@ type Product struct {
 	Remark string       `gorm:"size:255" json:"remark"`
 
 	Supplier *Partner `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
+
+	// MatchedCodes 回填「这次搜索命中了哪些编号」，供列表提示用。
+	//
+	// 不落库也不进详情：它是某一次查询的结果，不是产品的一个字段。
+	// 没有它，搜旧编号虽然能搜到，但用户看不出这条为什么会出现在结果里。
+	MatchedCodes []string `gorm:"-" json:"matched_codes,omitempty"`
 }
 
 func (Product) TableName() string { return "md_product" }

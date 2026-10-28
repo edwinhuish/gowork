@@ -21,22 +21,34 @@ const likeEscape = '!'
 //   - 通配符：用户输入里的 % _ ! 一律转义，避免搜 "M8" 把 "M8x" 以外的行也带出来；
 //   - 转义符：统一 ESCAPE '!'，不依赖各驱动对反斜杠的不同解释。
 func likeAny(keyword string, columns ...string) Scope {
-	pattern := "%" + escapeLike(keyword) + "%"
+	pattern := likePattern(keyword)
 
 	return func(db *gorm.DB) *gorm.DB {
-		op := "LIKE"
-		if db.Dialector.Name() == dialect.Postgres {
-			op = "ILIKE"
-		}
-
 		parts := make([]string, len(columns))
 		args := make([]any, len(columns))
 		for i, col := range columns {
-			parts[i] = col + " " + op + " ? ESCAPE '" + string(likeEscape) + "'"
+			parts[i] = likeClause(db, col)
 			args[i] = pattern
 		}
 		return db.Where(strings.Join(parts, " OR "), args...)
 	}
+}
+
+// likeClause 生成「某一列模糊匹配一个占位符」的子句（含方言与转义符）。
+//
+// 单独暴露是因为有些条件要把 LIKE 与子查询用 OR 串起来（产品要同时命中编号表），
+// likeAny 只能处理"若干列的 OR"，表达不了子查询。
+func likeClause(db *gorm.DB, col string) string {
+	op := "LIKE"
+	if db.Dialector.Name() == dialect.Postgres {
+		op = "ILIKE"
+	}
+	return col + " " + op + " ? ESCAPE '" + string(likeEscape) + "'"
+}
+
+// likePattern 把关键词包成 %...%，并转义其中的通配符。
+func likePattern(keyword string) string {
+	return "%" + escapeLike(keyword) + "%"
 }
 
 // escapeLike 转义 LIKE 的特殊字符，顺序很重要：先转义符本身。

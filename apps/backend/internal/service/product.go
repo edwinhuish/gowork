@@ -7,6 +7,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
@@ -27,7 +28,10 @@ type productService struct {
 	// sources 只在删除前判断有没有货源挂着这个产品。
 	// 产品的 supplier_id / cost_price 是默认货源的冗余，真货源在 md_product_source。
 	sources repository.ProductSourceRepository
-	log     *slog.Logger
+	// codes 是产品的别名编号（旧 SKU、客户号、供应商货号）：
+	// 改 SKU 时要沉淀旧码，新建与改 SKU 时要拦住「SKU 撞上别人用过的编号」。
+	codes repository.ProductCodeRepository
+	log   *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -41,9 +45,12 @@ func NewProductService(
 	repo repository.ProductRepository,
 	partners repository.PartnerRepository,
 	sources repository.ProductSourceRepository,
+	codes repository.ProductCodeRepository,
 	opts ...ProductOption,
 ) ProductService {
-	s := &productService{repo: repo, partners: partners, sources: sources, log: slog.Default()}
+	s := &productService{
+		repo: repo, partners: partners, sources: sources, codes: codes, log: slog.Default(),
+	}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -62,6 +69,9 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 	}
 	if dup {
 		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
+	}
+	if err := s.checkSKUNotUsedAsCode(ctx, in.SKUCode, 0); err != nil {
+		return nil, err
 	}
 	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
 		return nil, err
@@ -97,7 +107,8 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 }
 
 func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInput) (*model.Product, error) {
-	if _, err := s.repo.FindByID(ctx, id); err != nil {
+	existing, err := s.repo.FindByID(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
@@ -111,6 +122,12 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	}
 	if dup {
 		return nil, errs.ErrConflict.WithMsg("产品编码已存在：" + in.SKUCode)
+	}
+	skuChanged := existing.SKUCode != in.SKUCode
+	if skuChanged {
+		if err := s.checkSKUNotUsedAsCode(ctx, in.SKUCode, id); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
 		return nil, err
@@ -139,6 +156,14 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
+	}
+	if skuChanged {
+		// 归档放在更新之后：先改成功再说。反过来的话，更新失败时旧 SKU 已经在
+		// 编号表里躺着，列表上会出现「命中编号 ABC」而 SKU 也还是 ABC 的重复提示。
+		// 两步目前不在同一个事务里，等跨仓储事务边界（T-42）落地后再合并。
+		if err := s.archiveOldSKU(ctx, id, existing.SKUCode); err != nil {
+			return nil, err
+		}
 	}
 	return s.repo.FindByID(ctx, id)
 }
@@ -182,7 +207,69 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 	if err != nil {
 		return nil, err
 	}
+
+	// 命中编号只在这一页上回填：搜旧 SKU 时能看到"原来是这个号"，
+	// 否则用户只知道这条出现了，不知道为什么。
+	if q.Keyword != "" && len(list) > 0 {
+		ids := make([]uint, 0, len(list))
+		for _, p := range list {
+			ids = append(ids, p.ID)
+		}
+		hits, err := s.codes.MatchByKeyword(ctx, ids, q.Keyword)
+		if err != nil {
+			return nil, err
+		}
+		for i := range list {
+			list[i].MatchedCodes = hits[list[i].ID]
+		}
+	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// checkSKUNotUsedAsCode 拦住「新 SKU 等于某个产品用过的编号」。
+//
+// 编号会被搜到，SKU 也会被搜到：两者同值时，搜索结果里会出现两条看上去一样的货，
+// 用户没法判断该点哪一条。excludeProductID 排除自己——自己的旧码不是冲突。
+func (s *productService) checkSKUNotUsedAsCode(
+	ctx context.Context, sku string, excludeProductID uint,
+) error {
+	norm := codenorm.Normalize(sku)
+	if norm == "" {
+		return nil
+	}
+	dup, err := s.codes.ExistsNormAnywhere(ctx, norm, excludeProductID)
+	if err != nil {
+		return err
+	}
+	if dup {
+		return errs.ErrConflict.WithMsg(
+			"这个编码已被用作其他产品的编号（旧 SKU / 客户号 / 供应商货号），请换一个 SKU")
+	}
+	return nil
+}
+
+// archiveOldSKU 把用过的 SKU 沉淀成一条编号。
+//
+// 客户手里还拿着旧 SKU 的报价单与邮件，改完 SKU 之后按旧号搜不到货，
+// 这单在系统里就再也对不上了。旧码只增不改，SKU 可以继续改。
+func (s *productService) archiveOldSKU(ctx context.Context, productID uint, oldSKU string) error {
+	norm := codenorm.Normalize(oldSKU)
+	if norm == "" {
+		return nil
+	}
+	exists, err := s.codes.ExistsNorm(ctx, productID, norm, 0)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return s.codes.Create(ctx, &model.ProductCode{
+		ProductID: productID,
+		Code:      oldSKU,
+		CodeNorm:  norm,
+		Source:    model.ProductCodeSourceSKU,
+	})
 }
 
 func defaultUnit(unit string) string {

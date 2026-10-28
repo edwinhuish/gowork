@@ -87,7 +87,9 @@ func newSourceFixture(t *testing.T, now time.Time) sourceFixture {
 			sourceRepo, productRepo, partnerRepo, currencySvc,
 			WithProductSourceClock(clock),
 		),
-		products:   NewProductService(productRepo, partnerRepo, sourceRepo),
+		products: NewProductService(
+			productRepo, partnerRepo, sourceRepo, repository.NewProductCodeRepository(db),
+		),
 		productID:  p1.ID,
 		product2ID: p2.ID,
 		supplierID: supplier.ID,
