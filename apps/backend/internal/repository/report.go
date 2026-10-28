@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -60,6 +61,43 @@ type ReportRepository interface {
 	PurchaseCostBySalesItem(ctx context.Context, salesItemIDs []uint) (map[uint]PurchaseCost, error)
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
 	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]float64, error)
+
+	// ListExchangeGains 列出每一笔核销产生的汇兑差额原料（T-23）。
+	//
+	// 一行 = 一次核销：收付款单上锁的到账汇率 vs 目标单据上锁的开单汇率。
+	// 损益本身不在 SQL 里算：符号要看核销对象是应收还是应付，
+	// 而这个方向语义属于业务口径，放在 service 才能被一条测试钉住。
+	ListExchangeGains(ctx context.Context, f ExchangeGainFilter) ([]ExchangeGainLine, error)
+}
+
+// ExchangeGainFilter 是汇兑损益的筛选条件。
+//
+// 只按到账日筛：损益发生在钱动的那天，不是单据开的那天。
+type ExchangeGainFilter struct {
+	PartnerID    *uint
+	CurrencyCode string
+	From, To     *time.Time
+}
+
+// ExchangeGainLine 是一笔核销的原料：核销多少原币、按什么汇率折的本币、
+// 目标单据当时锁的是什么汇率。
+type ExchangeGainLine struct {
+	PaymentID    uint
+	PaymentDocNo string
+	PayDate      time.Time
+	Direction    model.PaymentDirection
+	PartnerID    uint
+	PartnerCode  string
+	PartnerName  string
+	CurrencyCode string
+	// PaymentRate 是到账日汇率；DocumentRate 是目标单据锁定汇率。
+	PaymentRate  float64
+	DocumentRate float64
+	TargetType   model.SettlementTarget
+	TargetDocNo  string
+	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。
+	Amount     float64
+	AmountBase float64
 }
 
 // ShipmentProfitFilter 是单票毛利的筛选条件。
@@ -255,6 +293,78 @@ func (r *reportRepo) SumChargesByShipment(
 		out[row.ShipmentID] = row.AmountBase
 	}
 	return out, nil
+}
+
+func (r *reportRepo) ListExchangeGains(
+	ctx context.Context, f ExchangeGainFilter,
+) ([]ExchangeGainLine, error) {
+	// 应收与应付分两次查：两边的目标表不同，用 UNION 也能写，
+	// 但两段 SQL 合起来会多出十几个参数、报错时也看不出是哪一半出的问题。
+	targets := []struct {
+		table string
+		kind  model.SettlementTarget
+	}{
+		{"biz_receivable", model.SettlementTargetReceivable},
+		{"biz_payable", model.SettlementTargetPayable},
+	}
+
+	lines := make([]ExchangeGainLine, 0, 64)
+	for _, t := range targets {
+		q := r.DB().WithContext(ctx).
+			Table("biz_payment_allocation AS a").
+			Select(`p.id AS payment_id,
+				p.doc_no AS payment_doc_no,
+				p.pay_date,
+				p.direction,
+				p.partner_id,
+				COALESCE(pt.code, '') AS partner_code,
+				COALESCE(pt.name, '') AS partner_name,
+				p.currency_code,
+				p.exchange_rate AS payment_rate,
+				d.exchange_rate AS document_rate,
+				a.target_type,
+				a.target_doc_no,
+				a.amount,
+				a.amount_base`).
+			Joins("JOIN biz_payment AS p ON p.id = a.payment_id AND p.deleted_at IS NULL").
+			Joins("JOIN "+t.table+" AS d ON d.id = a.target_id AND d.deleted_at IS NULL").
+			Joins("LEFT JOIN md_partner AS pt ON pt.id = p.partner_id AND pt.deleted_at IS NULL").
+			Where("a.deleted_at IS NULL").
+			Where("a.target_type = ?", t.kind)
+
+		if f.PartnerID != nil {
+			q = q.Where("p.partner_id = ?", *f.PartnerID)
+		}
+		if f.CurrencyCode != "" {
+			q = q.Where("p.currency_code = ?", f.CurrencyCode)
+		}
+		// 日期用闭区间：报表问的是"这段时间里到账的钱"，两头都该算进来。
+		if f.From != nil {
+			q = q.Where("p.pay_date >= ?", *f.From)
+		}
+		if f.To != nil {
+			q = q.Where("p.pay_date <= ?", *f.To)
+		}
+
+		var batch []ExchangeGainLine
+		if err := q.Order("p.pay_date DESC, p.id DESC, a.id DESC").Find(&batch).Error; err != nil {
+			return nil, fmt.Errorf("查询汇兑损益(%s): %w", t.table, err)
+		}
+		lines = append(lines, batch...)
+	}
+
+	// 两批合起来再排一次：否则会出现"应收一段、应付一段"，
+	// 而读这张表的人关心的是"这个月哪几笔钱产生了差额"。
+	sort.SliceStable(lines, func(i, j int) bool {
+		if !lines[i].PayDate.Equal(lines[j].PayDate) {
+			return lines[i].PayDate.After(lines[j].PayDate)
+		}
+		if lines[i].PaymentID != lines[j].PaymentID {
+			return lines[i].PaymentID > lines[j].PaymentID
+		}
+		return lines[i].TargetDocNo < lines[j].TargetDocNo
+	})
+	return lines, nil
 }
 
 // settlementTable 把核销对象翻译成表名。非法取值在入口就拒掉：

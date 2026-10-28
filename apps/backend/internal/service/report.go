@@ -24,6 +24,10 @@ type ReportService interface {
 	ShipmentProfits(
 		ctx context.Context, q dto.ShipmentProfitQuery,
 	) (*dto.PageResult[dto.ShipmentProfit], error)
+	// ExchangeGains 逐笔给出汇兑损益（T-23）：到账汇率与单据锁定汇率之差。
+	ExchangeGains(
+		ctx context.Context, q dto.ExchangeGainQuery,
+	) (*dto.ExchangeGainReport, error)
 }
 
 type reportService struct {
@@ -147,6 +151,125 @@ func (s *reportService) ShipmentProfits(
 
 	s.log.Debug("单票毛利", "shipments", len(list), "total", total)
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// ExchangeGains 逐笔算汇兑损益。
+//
+// 符号由核销对象决定，不由金额正负决定：
+//   - 应收：到账汇率高说明同样的美元换回更多人民币 → 收益（正）；
+//   - 应付：付款汇率高说明同样的美元多付了人民币 → 损失（负）。
+//
+// 两个方向都算作"到账本币 − 单据本币"，只差一个负号。把它写反了，
+// 整张表的损益会整体变号，而数字看起来很"正常"——所以两个方向各有一条测试。
+func (s *reportService) ExchangeGains(
+	ctx context.Context, q dto.ExchangeGainQuery,
+) (*dto.ExchangeGainReport, error) {
+	filter, from, to, err := buildExchangeGainFilter(q)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := s.repo.ListExchangeGains(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	report := &dto.ExchangeGainReport{
+		From:  from,
+		To:    to,
+		Lines: make([]dto.ExchangeGainLine, 0, len(raw)),
+	}
+
+	subtotals := make(map[string]*dto.ExchangeGainSubtotal, 4)
+	for _, l := range raw {
+		documentBase := money.Round(l.Amount*l.DocumentRate, 4)
+		gain := money.Round(l.AmountBase-documentBase, 4)
+		// 应付方向取反：多付出去的钱是损失。
+		if l.TargetType == model.SettlementTargetPayable {
+			gain = -gain
+		}
+
+		report.Lines = append(report.Lines, dto.ExchangeGainLine{
+			PaymentID:    l.PaymentID,
+			PaymentDocNo: l.PaymentDocNo,
+			PayDate:      model.DateOnly(l.PayDate).Format(rateDateLayout),
+			Direction:    int8(l.Direction),
+			PartnerID:    l.PartnerID,
+			PartnerCode:  l.PartnerCode,
+			PartnerName:  l.PartnerName,
+			CurrencyCode: l.CurrencyCode,
+			TargetType:   int8(l.TargetType),
+			TargetDocNo:  l.TargetDocNo,
+			Amount:       money.Round(l.Amount, 4),
+			AmountBase:   money.Round(l.AmountBase, 4),
+			PaymentRate:  l.PaymentRate,
+			DocumentRate: l.DocumentRate,
+			DocumentBase: documentBase,
+			GainBase:     gain,
+		})
+
+		sub, ok := subtotals[l.CurrencyCode]
+		if !ok {
+			sub = &dto.ExchangeGainSubtotal{CurrencyCode: l.CurrencyCode}
+			subtotals[l.CurrencyCode] = sub
+		}
+		sub.Amount += l.Amount
+		sub.GainBase += gain
+		report.TotalGainBase += gain
+	}
+
+	// 小计按币种编码排序：map 的遍历顺序每次都不同，直接输出会让同一张表两次刷新换序。
+	codes := make([]string, 0, len(subtotals))
+	for code := range subtotals {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	report.Subtotals = make([]dto.ExchangeGainSubtotal, 0, len(codes))
+	for _, code := range codes {
+		sub := subtotals[code]
+		report.Subtotals = append(report.Subtotals, dto.ExchangeGainSubtotal{
+			CurrencyCode: sub.CurrencyCode,
+			Amount:       money.Round(sub.Amount, 4),
+			GainBase:     money.Round(sub.GainBase, 4),
+		})
+	}
+	report.TotalGainBase = money.Round(report.TotalGainBase, 4)
+
+	s.log.Debug("汇兑损益", "from", report.From, "to", report.To,
+		"lines", len(report.Lines), "total_base", report.TotalGainBase)
+	return report, nil
+}
+
+// buildExchangeGainFilter 解析日期区间。留空表示不限，不是"今天"——
+// 一张损益表默认看全部，比默认看空白的今天更符合"先看总量再筛"的用法。
+func buildExchangeGainFilter(
+	q dto.ExchangeGainQuery,
+) (repository.ExchangeGainFilter, string, string, error) {
+	filter := repository.ExchangeGainFilter{
+		PartnerID:    q.PartnerID,
+		CurrencyCode: strings.TrimSpace(q.CurrencyCode),
+	}
+	fromText := strings.TrimSpace(q.From)
+	toText := strings.TrimSpace(q.To)
+
+	if fromText != "" {
+		from, err := parseDateOnly(fromText)
+		if err != nil {
+			return filter, "", "", err
+		}
+		filter.From = &from
+	}
+	if toText != "" {
+		to, err := parseDateOnly(toText)
+		if err != nil {
+			return filter, "", "", err
+		}
+		filter.To = &to
+	}
+	if filter.From != nil && filter.To != nil && filter.From.After(*filter.To) {
+		return filter, "", "", errs.BadRequest("起始日不能晚于截止日")
+	}
+	return filter, fromText, toText, nil
 }
 
 // buildShipmentProfit 把一票货的原料算成毛利。

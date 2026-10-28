@@ -20,6 +20,22 @@ func NewReportHandler(reports service.ReportService) *ReportHandler {
 	return &ReportHandler{reports: reports}
 }
 
+// ExchangeGains GET /api/v1/reports/exchange-gains
+//
+// 参数：from / to（按到账日，闭区间，留空不限）、partner_id、currency_code。
+func (h *ReportHandler) ExchangeGains(c *gin.Context) {
+	var q dto.ExchangeGainQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.ExchangeGains(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // ShipmentProfits GET /api/v1/reports/shipment-profits
 //
 // 参数：shipment_id（只取一票）、page / page_size。金额全是本币。

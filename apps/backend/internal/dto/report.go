@@ -110,3 +110,59 @@ type ShipmentProfit struct {
 	// 此时 Cost 与 Profit 都不完整——不标出来，就等于把"没录采购"报成"毛利极高"。
 	CostMissing bool `json:"cost_missing"`
 }
+
+// ExchangeGainQuery 是汇兑损益的查询条件。日期按**到账日**筛：
+// 损益发生在钱动的那天，不是单据开的那天。
+type ExchangeGainQuery struct {
+	From         string `form:"from"`
+	To           string `form:"to"`
+	PartnerID    *uint  `form:"partner_id"`
+	CurrencyCode string `form:"currency_code" binding:"max=8"`
+}
+
+// ExchangeGainLine 是一笔核销产生的汇兑损益。
+//
+// 一行 = 收付款单上的核销行：到账汇率与目标单据的开单汇率不同，
+// 同一笔原币折出来的本币就不同。
+type ExchangeGainLine struct {
+	PaymentID    uint   `json:"payment_id"`
+	PaymentDocNo string `json:"payment_doc_no"`
+	PayDate      string `json:"pay_date"`
+	Direction    int8   `json:"direction"`
+	PartnerID    uint   `json:"partner_id"`
+	PartnerCode  string `json:"partner_code"`
+	PartnerName  string `json:"partner_name"`
+	CurrencyCode string `json:"currency_code"`
+	// TargetType 10 应收单 / 20 应付单。
+	TargetType  int8   `json:"target_type"`
+	TargetDocNo string `json:"target_doc_no"`
+
+	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。
+	Amount     float64 `json:"amount"`
+	AmountBase float64 `json:"amount_base"`
+	// PaymentRate 是到账汇率，DocumentRate 是目标单据锁定的汇率。
+	PaymentRate  float64 `json:"payment_rate"`
+	DocumentRate float64 `json:"document_rate"`
+	// DocumentBase 是按单据汇率折出来的同一笔原币，GainBase = ±(AmountBase − DocumentBase)。
+	DocumentBase float64 `json:"document_base"`
+	// GainBase 正数是收益、负数是损失，单位本币。
+	GainBase float64 `json:"gain_base"`
+}
+
+// ExchangeGainSubtotal 是按币种的小计。原币只有同币种能加，本币可以跨币种加，
+// 所以两边各给一份：原币小计用来看"这个币种动了多少"，本币总计才是账上的数。
+type ExchangeGainSubtotal struct {
+	CurrencyCode string  `json:"currency_code"`
+	Amount       float64 `json:"amount"`
+	GainBase     float64 `json:"gain_base"`
+}
+
+// ExchangeGainReport 是汇兑损益报表。
+type ExchangeGainReport struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	// Lines 逐笔可核对；Subtotals 按币种；TotalGainBase 是全部折本币后的合计。
+	Lines         []ExchangeGainLine     `json:"lines"`
+	Subtotals     []ExchangeGainSubtotal `json:"subtotals"`
+	TotalGainBase float64                `json:"total_gain_base"`
+}
