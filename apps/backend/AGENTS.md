@@ -46,7 +46,7 @@ apps/backend/
         └── response/            统一响应体
 ```
 
-测试与实现同目录：`config_test.go`、`infra/cache/cache_test.go`、`repository/storage_test.go`。
+测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、`repository/storage_test.go`。
 
 ## 3. 依赖方向（编译期约束）
 
@@ -161,7 +161,7 @@ task backend:test:storage  # 三库两缓存一致性测试
 
 直接跑二进制：`./bin/gowork-server -config configs/config.yaml`（`-config` 是唯一启动参数）。
 
-| 配置文件 | 数据库 | 缓存 | 端口 |
+| 配置文件（均在 `configs/`） | 数据库 | 缓存 | 端口 |
 |---|---|---|---|
 | `config.yaml` | SQLite `data/gowork.db` | memory（落盘 `data/cache.snapshot`） | 8080 |
 | `config.postgres.yaml` | PostgreSQL | redis | 8081 |
