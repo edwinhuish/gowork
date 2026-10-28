@@ -4,6 +4,11 @@ dist/
 node_modules/
 .vite/
 *.exe
+.pnpm-debug.log*
+
+# 只认 pnpm：锁文件是 pnpm-lock.yaml，其它包管理器的锁文件不该出现
+package-lock.json
+yarn.lock
 
 # local database files
 data/

@@ -3,7 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=11"
+  },
   "scripts": {
+    "preinstall": "node -e \"const ua=process.env.npm_config_user_agent||'';if(!ua.startsWith('pnpm/')){console.error('[gowork-frontend] 本项目使用 pnpm，请执行 pnpm install（见根目录 README）');process.exit(1)}\"",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
