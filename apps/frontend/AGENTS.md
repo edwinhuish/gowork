@@ -1,7 +1,9 @@
 # apps/frontend —— React 管理端（面向 AI 协作者）
 
-范围：**只讲前端**。项目整体目标见根 `AGENTS.md`，后端机制见 `apps/backend/AGENTS.md`。
-本文讲"页面怎么组织、数据怎么流动、加模块照什么套路"。
+**职责**：前端手册——页面怎么组织、数据怎么流动、加模块照什么套路。
+**不管**：业务规则与接口契约（`apps/backend/AGENTS.md`）、项目整体目标（根 `AGENTS.md`）、
+取舍理由（`docs/architecture.md`）、业务对象命名（`docs/glossary.md`）。
+**相关**：`README.md`（命令与 pnpm 约定）、`docs/roadmap.md`（已实现哪些模块）。
 
 ---
 

@@ -3,9 +3,10 @@
 外贸采购代理的 **ERP + CRM 集成系统**：Go 后端 + React 管理端，Taskfile 统一管理指令。
 一套主数据（产品 / 往来单位）供 ERP 与 CRM 两侧共用，客户与供应商靠 `role` 位掩码合并在同一张表。
 
-**本文只讲「怎么跑起来」。** 目标、架构与模块划分见 [`AGENTS.md`](AGENTS.md)；
-业务对象叫什么见 [`docs/glossary.md`](docs/glossary.md)；已实现到哪一步见
-[`docs/roadmap.md`](docs/roadmap.md) 的进度表。
+**职责**：怎么跑起来——前置版本、命令、默认账号、存储切换。
+**不管**：目标与架构（[`AGENTS.md`](AGENTS.md)）、分层与接口（`apps/*/AGENTS.md`）、
+术语（[`docs/glossary.md`](docs/glossary.md)）、进度（[`docs/roadmap.md`](docs/roadmap.md)）。
+**相关**：`Taskfile.yml` 与 `apps/*/Taskfile.yml` 是命令的真实来源，本文只是索引。
 
 ## 前置
 
