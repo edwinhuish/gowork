@@ -1,0 +1,28 @@
+# dependencies / build output
+bin/
+dist/
+node_modules/
+.vite/
+*.exe
+
+# local database files
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# env & secrets
+.env
+.env.*
+!.env.example
+configs/config.local.yaml
+
+# logs
+logs/
+*.log
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
