@@ -10,7 +10,7 @@
 ## 1. 职责边界
 
 **负责**：登录、概览，以及全部业务模块的界面——共享主数据（产品 / 货源 / 往来单位 /
-币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、
+币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价 / 合同 / 销售订单 / 采购订单）、
 供应链（出货 / 库存 / 出入库单）。列表分页与筛选、登录态维持、主题与布局也在这里。
 
 **界面跟着后端模块走，不自己造概念。** 加一个模块不需要新建导航表——
@@ -69,6 +69,7 @@ apps/frontend/
         ├── suppliers/ customers/ forwarders/   同上（同一 `Partner` 模型的三种角色视图）
         ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
         ├── quotations/       同上 + show / preview（试算页）
+        ├── contracts/        list / create（只能从来源单据生成）/ edit / show + terms-editor
         ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示与 admin 强制放行）
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板）
         ├── settlements/      应收应付共用的 list / form-fields / show
@@ -178,6 +179,7 @@ api/client.ts
 | `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |
 | `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
 | `pages/stock-documents/` | 出入库单（列表 / 新建 / 编辑 / 详情 + 确认） | 类型切换会换往来单位的下拉源（供应商 / 客户）；盘点明细填实盘数，账面由后端确认时取 |
+| `pages/contracts/` | 合同（PI / 销售合同）+ `terms-editor.tsx` 付款分期 | 新建页只能"从来源单据生成"：选了来源后用它的总额预填一期全额；金额与汇率没有输入框，改金额请改来源单据 |
 
 ### 一个主数据模块的标准四件套
 
