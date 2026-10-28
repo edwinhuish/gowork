@@ -132,7 +132,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 |---|---|---|---|
 | 形式发票 / 销售合同 | `Contract` | `biz_contract` | PI 与销售合同同一张表，用 `type` 区分。**先于订单成立**：客户凭它付定金或开信用证 |
 | 合同付款条款 | `ContractTerm` | `biz_contract_term` | 合同的付款分期（30% 订金 / 70% 见提单副本），合计须等于合同总额 |
-| 附件 | `Attachment` | `sys_attachment` | 挂在主体或单据上的文件：提单、报关单、验货报告。与业务无关，故用 `sys_` |
+| 附件 | `Attachment` | `sys_attachment`（内容 `sys_attachment_content`） | 挂在主体或单据上的文件：提单、报关单、验货报告。与业务无关，故用 `sys_`。用 `entity_type` + `entity_id` 指向目标，取值见 `model.Attach*`；内容与元数据**分表**存，列表接口因此不可能顺手拖出字节。删除是软删，内容保留 |
 | 审计日志 | `AuditLog` | `sys_audit_log` | 谁在什么时候把哪张单改成了什么。只追加，不提供修改与删除接口 |
 
 「PI」是 Proforma Invoice 的日常叫法，文档与代码里统一写 **形式发票 `Contract(type=PI)`**，
