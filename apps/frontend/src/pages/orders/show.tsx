@@ -151,6 +151,12 @@ export function OrderShow() {
         items={[
           { key: 'doc_no', label: '单号', children: <span className="cell-mono">{o?.doc_no}</span> },
           {
+            key: 'base_no',
+            label: '案号',
+            // 与来源报价共用：同一笔生意在两张单上看到的是同一个号。
+            children: o?.base_no ? <span className="cell-mono">{o.base_no}</span> : <Empty />,
+          },
+          {
             key: 'status',
             label: '状态',
             children: o ? (

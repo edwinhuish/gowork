@@ -200,6 +200,12 @@ export function QuotationShow() {
         size="middle"
         items={[
           { key: 'doc_no', label: '单号', children: <span className="cell-mono">{q?.doc_no}</span> },
+          {
+            key: 'base_no',
+            label: '案号',
+            // 转出的订单印的是同一个案号：客户报「DZ2603」时，两边说的是同一笔生意。
+            children: q?.base_no ? <span className="cell-mono">{q.base_no}</span> : <Empty />,
+          },
           { key: 'version', label: '版本', children: q ? `v${q.version}` : <Empty /> },
           {
             key: 'status',

@@ -348,6 +348,8 @@ export interface QuotationItem {
 export interface Quotation {
   id: number
   doc_no: string
+  /** 案号（DZ2603）：报价与它转出的订单共用，一笔生意一个。 */
+  base_no: string
   version: number
   /** 第 1 版的 id；第 1 版自身为 0。 */
   root_id: number
@@ -472,6 +474,8 @@ export interface SalesOrderItem {
 export interface SalesOrder {
   id: number
   doc_no: string
+  /** 案号（DZ2603）：从报价转来时沿用来源的案号，手建则取新的一笔。 */
+  base_no: string
   partner_id: number
   trade_term: string
   status: number
