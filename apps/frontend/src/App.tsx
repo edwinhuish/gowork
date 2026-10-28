@@ -4,6 +4,7 @@ import {
   ContactsOutlined,
   DashboardOutlined,
   DollarOutlined,
+  FundOutlined,
   ShopOutlined,
   SwapOutlined,
   TeamOutlined,
@@ -27,6 +28,7 @@ import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/page
 import { DashboardPage } from '@/pages/dashboard'
 import { ExchangeRateCreate, ExchangeRateList } from '@/pages/exchange-rates'
 import { LoginPage } from '@/pages/login'
+import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
@@ -98,6 +100,13 @@ export default function App() {
                 meta: { label: '跟进记录', icon: <CommentOutlined /> },
               },
               {
+                name: 'opportunities',
+                list: '/opportunities',
+                create: '/opportunities/create',
+                edit: '/opportunities/edit/:id',
+                meta: { label: '商机', icon: <FundOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -160,6 +169,12 @@ export default function App() {
                     <Route index element={<ActivityList />} />
                     <Route path="create" element={<ActivityCreate />} />
                     <Route path="edit/:id" element={<ActivityEdit />} />
+                  </Route>
+
+                  <Route path="opportunities">
+                    <Route index element={<OpportunityList />} />
+                    <Route path="create" element={<OpportunityCreate />} />
+                    <Route path="edit/:id" element={<OpportunityEdit />} />
                   </Route>
 
                   <Route path="currencies">

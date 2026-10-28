@@ -35,6 +35,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'currency_code',
   'partner_id',
   'due',
+  'stage',
+  'open_only',
 ])
 
 function buildListQuery({ pagination, filters }: GetListParams): Record<string, unknown> {

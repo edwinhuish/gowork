@@ -95,6 +95,31 @@ export function activityTypeLabel(value?: string | null): string {
   return ACTIVITY_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value
 }
 
+/**
+ * 商机阶段。取值必须与后端 model.OpportunityStage 一致。
+ *
+ * probability 是默认赢单率，不是固定值：同一个"已报价"，老客户 70%、新客户 30%，
+ * 按阶段反推概率会把这两种情况算成一个数。
+ */
+export const OPPORTUNITY_STAGE_OPTIONS = [
+  { value: 10, label: '初步接洽', probability: 10 },
+  { value: 20, label: '需求确认', probability: 30 },
+  { value: 30, label: '已报价', probability: 50 },
+  { value: 40, label: '谈判中', probability: 70 },
+  { value: 50, label: '赢单', probability: 100 },
+  { value: 60, label: '输单', probability: 0 },
+]
+
+export function opportunityStageLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知阶段'
+  return OPPORTUNITY_STAGE_OPTIONS.find((o) => o.value === value)?.label ?? `阶段 ${value}`
+}
+
+/** 终态之外的阶段都算"在谈"。 */
+export function isOpenStage(value?: number | null): boolean {
+  return value !== 50 && value !== 60
+}
+
 /** 结算方式：决定账期与风险，也决定报价的价格基础。 */
 export const SETTLEMENT_METHOD_OPTIONS = [
   { value: 'TT', label: 'T/T 电汇' },

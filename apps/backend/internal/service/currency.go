@@ -29,6 +29,10 @@ type CurrencyService interface {
 	// Convert 把 amount 从 from 折算成 to，汇率取 on 当日生效的那条。
 	// 返回的 rate 要一并写进单据：事后汇率表怎么变，都不该影响已成交的单子。
 	Convert(ctx context.Context, amount float64, from, to string, on time.Time) (converted, rate float64, err error)
+	// ToBase 折算到本币，供"只知道原币、不关心本币是哪个"的调用方使用。
+	ToBase(ctx context.Context, amount float64, currencyCode string, on time.Time) (base, rate float64, err error)
+	// BaseCode 返回本币代码。币种留空表示"用本币"时，需要它来落字段。
+	BaseCode(ctx context.Context) (string, error)
 }
 
 type currencyService struct {
@@ -211,11 +215,22 @@ func (s *currencyService) Convert(
 		}
 		return 0, 0, err
 	}
+	// 两个币种都要先确认存在。"币种不存在"与"没录那天的汇率"是两回事：
+	// 前者要新增币种，后者要补一条汇率。混成一句话，用户会去补一条永远补不上的汇率。
+	for _, code := range []string{fromCode, toCode} {
+		if code == base.Code {
+			continue
+		}
+		if _, err := s.repo.FindByCode(ctx, code); err != nil {
+			if errors.Is(err, errs.ErrNotFound) {
+				return 0, 0, errs.BadRequest("币种不存在：" + code)
+			}
+			return 0, 0, err
+		}
+	}
+
 	target, err := s.repo.FindByCode(ctx, toCode)
 	if err != nil {
-		if errors.Is(err, errs.ErrNotFound) {
-			return 0, 0, errs.BadRequest("币种不存在：" + toCode)
-		}
 		return 0, 0, err
 	}
 
@@ -232,6 +247,27 @@ func (s *currencyService) Convert(
 	// 直接除以 toRate 而不是"先折本币再折目标币"，少一次舍入。
 	rate := fromRate / toRate
 	return money.Round(amount*rate, target.DecimalPlaces), rate, nil
+}
+
+func (s *currencyService) ToBase(
+	ctx context.Context, amount float64, currencyCode string, on time.Time,
+) (float64, float64, error) {
+	baseCode, err := s.BaseCode(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	return s.Convert(ctx, amount, currencyCode, baseCode, on)
+}
+
+func (s *currencyService) BaseCode(ctx context.Context) (string, error) {
+	base, err := s.repo.FindBase(ctx)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return "", errs.BadRequest("尚未设置本币，无法折算")
+		}
+		return "", err
+	}
+	return base.Code, nil
 }
 
 // rateOn 取某币种相对本币在 on 当日的折算率，本币自身恒为 1。

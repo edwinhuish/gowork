@@ -24,6 +24,7 @@ type Handlers struct {
 	Rate      *handler.ExchangeRateHandler
 	Contact   *handler.ContactHandler
 	Activity  *handler.ActivityHandler
+	Oppty     *handler.OpportunityHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -118,6 +119,16 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		activities.GET("/:id", h.Activity.Get)
 		activities.PUT("/:id", h.Activity.Update)
 		activities.DELETE("/:id", h.Activity.Delete)
+
+		// 商机：列表按预计成交日升序；汇总走独立前缀，避免与 :id 抢路径。
+		opportunities := secured.Group("/opportunities")
+		opportunities.GET("", h.Oppty.List)
+		opportunities.POST("", h.Oppty.Create)
+		opportunities.GET("/:id", h.Oppty.Get)
+		opportunities.PUT("/:id", h.Oppty.Update)
+		opportunities.DELETE("/:id", h.Oppty.Delete)
+
+		secured.GET("/opportunities-summary", h.Oppty.Summary)
 	}
 
 	return engine

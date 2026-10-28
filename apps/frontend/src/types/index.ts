@@ -118,6 +118,48 @@ export interface Activity {
 }
 
 /**
+ * 商机（CRM）。
+ *
+ * 阶段与单据状态是两套东西：商机阶段可以回退（客户预算冻结时真实地退回去了），
+ * 赢单/输单是终态，要重启就新建一条。
+ *
+ * 金额四件套：amount（原币）+ amount_base（本币）+ exchange_rate + currency_code。
+ * 商机是预计值，金额变更时按当日汇率重算；报价单与订单在那边锁定汇率。
+ */
+export interface Opportunity {
+  id: number
+  partner_id: number
+  subject: string
+  /** 10 接洽 / 20 需求确认 / 30 已报价 / 40 谈判中 / 50 赢单 / 60 输单 */
+  stage: number
+  amount: number
+  currency_code: string
+  amount_base: number
+  exchange_rate: number
+  /** 赢单恒 100、输单恒 0，由后端强制。 */
+  probability: number
+  expected_close_date: string
+  remark: string
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}
+
+export interface OpportunityStageSummary {
+  stage: number
+  count: number
+  amount_base: number
+  weighted: number
+}
+
+export interface OpportunitySummary {
+  stages: OpportunityStageSummary[]
+  total_count: number
+  total_amount_base: number
+  total_weighted: number
+}
+
+/**
  * 币种。三位 ISO 4217 代码是业务身份，单据上存的就是它，所以创建后不可修改。
  *
  * is_base 标记本币：全库有且只有一个，是折算的基准。

@@ -136,6 +136,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/contacts/:id` | `Contact.Get` / `.Update` / `.Delete` | 同名方法（不能改 partner_id） |
 | GET / POST | `/api/v1/activities` | `Activity.List` / `.Create` | `ActivityService.List` / `.Create`（`?due=1` 查已到期未跟进） |
 | GET / PUT / DELETE | `/api/v1/activities/:id` | `Activity.Get` / `.Update` / `.Delete` | 同名方法（按 occurred_at 倒序，不可改 partner_id） |
+| GET / POST | `/api/v1/opportunities` | `Oppty.List` / `.Create` | `OpportunityService.List` / `.Create`（按预计成交日升序） |
+| GET / PUT / DELETE | `/api/v1/opportunities/:id` | `Oppty.Get` / `.Update` / `.Delete` | 同名方法，阶段变更走商机状态机 |
+| GET | `/api/v1/opportunities-summary` | `Oppty.Summary` | 按阶段汇总；独立前缀，避免与 `/:id` 抢路径 |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -277,6 +280,9 @@ task backend:test:storage  # 三库两缓存一致性测试
 - **单号一律走 `DocNoService.Next`**（`SO-202610-0001`），不要在业务代码里拼
   "前缀 + 时间 + 查最大号 + 1"：并发下两个请求会拿到同一个号，撞的是单据表的唯一索引，
   表现为保存失败而不是重试。号段表是 `sys_doc_seq`（`sys_` 前缀，不嵌 `Base`）。
+- **商机阶段（`OpportunityStage`）不是单据状态**，不要复用 `DocumentStatus`：
+  商机阶段可以回退（客户预算冻结时真实地退回去了），单据状态只能前进与取消。
+  两者的"终态不可再改"是同一条规则，其余全不同。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。

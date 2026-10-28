@@ -66,6 +66,7 @@ apps/frontend/
         ├── customers/       同上
         ├── contacts/        list / create / edit / form-fields / index（编辑时主体只读）
         ├── activities/      同上（时间线列表，"只看已到期"走 `due=1`）
+        ├── opportunities/   list / create / edit / form-fields / index（汇总走 api/opportunities.ts）
         ├── currencies/      list / create / edit / form-fields / index（代码编辑时只读）
         └── exchange-rates/  list / create / form-fields / index（没有 edit）
 ```
@@ -119,7 +120,8 @@ api/client.ts
 ```
 
 **筛选走白名单**：`dataProvider` 只翻译 `keyword` / `category` / `supplier_id` / `status` /
-`country` / `role` / `entity_type` / `currency_code` / `partner_id` / `due`，其余条件直接丢弃。后端没有对应参数时
+`country` / `role` / `entity_type` / `currency_code` / `partner_id` / `due` / `stage` / `open_only`，
+其余条件直接丢弃。后端没有对应参数时
 **不要**把它拼进 URL —— 后端会静默忽略，表现成「点了查询没反应」，比报错难查得多。
 
 **错误只有一条路径**：`client.ts` 抛 `ApiError`（带 `code`），refine 捕获后调 `authProvider.onError`；
