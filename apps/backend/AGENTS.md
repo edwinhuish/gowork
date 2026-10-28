@@ -14,8 +14,8 @@
 
 **ERP 与 CRM 是这个服务的两个域，不是两个服务。** 已落地共享主数据、CRM（联系人 / 跟进 /
 线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、供应链（出货、报关、库存流水与快照、
-出入库单）与财务（应收应付、收付款与核销）；账龄与报表尚未开始，
-差距清单见 `docs/gap-analysis.md`。
+出入库单）与财务（应收应付、收付款与核销）、报表（账龄、单票毛利）；
+汇兑损益与销售看板等报表尚未开始，差距清单见 `docs/gap-analysis.md`。
 域归属见 `docs/glossary.md` 第二节，判断标准是"这张表会不会被两个域
 同时写"——会，就放 `md_` 下。
 
@@ -130,6 +130,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/auth/profile` | `Auth.Profile` | 取中间件注入的 `Principal` |
 | POST | `/api/v1/auth/logout` | `Auth.Logout` | `AuthService.Logout` |
 | GET | `/api/v1/dashboard/summary` | `Dashboard.Summary` | `DashboardService.Summary`（缓存 30s） |
+| GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
+| GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法 |
 | GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |
