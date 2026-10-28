@@ -72,7 +72,7 @@ apps/frontend/
         ├── contracts/        list / create（只能从来源单据生成）/ edit / show + terms-editor
         ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示与 admin 强制放行）
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板；
-        │                      详情页可下载商业发票与装箱单，只能改证重开、不能另开一票）
+        │                      详情页可下载商业发票 / 装箱单 / 箱唛，只能改证重开、不能另开一票）
         ├── settlements/      应收应付共用的 list / form-fields / show
         ├── receivables/ payables/  四页薄封装，只传 resource 与方向
         ├── payments/         收付款 list / create / edit / show（+ 核销行编辑器，create 里自带）
