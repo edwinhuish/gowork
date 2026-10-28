@@ -110,7 +110,7 @@ api/client.ts
 | `authApi.profile` | `GET /auth/profile` | `UserInfo` |
 | `authApi.logout` | `POST /auth/logout` | — |
 | `dashboardApi.summary` | `GET /dashboard/summary` | `DashboardSummary` |
-| `productApi.list / get / create / update / remove` | `GET|POST /products`、`GET|PUT|DELETE /products/:id` | `PageResult<Product>` / `Product` |
+| `productApi.list / get / create / update / remove` | `GET`+`POST` `/products`；`GET`+`PUT`+`DELETE` `/products/:id` | `PageResult<Product>` / `Product` |
 | `supplierApi.list / create / update / remove` | `/suppliers` 同构（**没有 get**，列表数据够用） | `PageResult<Supplier>` / `Supplier` |
 | `customerApi.list / create / update / remove` | `/customers` 同构（同样没有 get） | `PageResult<Customer>` / `Customer` |
 
