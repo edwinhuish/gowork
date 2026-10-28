@@ -968,6 +968,28 @@ export interface QuotationPreviewItem {
   source_name: string
 }
 
+/**
+ * 附件：挂在主体或单据上的文件元数据（提单、报关单扫描件、验货报告）。
+ *
+ * 没有内容字段：列表与详情只看元数据，下载走 `/attachments/:id/download`。
+ * entity_type 的取值与后端 model.Attach* 常量一致，拼错的表现是 404。
+ */
+export interface Attachment {
+  id: number
+  entity_type: string
+  entity_id: number
+  file_name: string
+  /** 服务端嗅探出来的类型，不是上传时声明的。 */
+  mime_type: string
+  size: number
+  sha256: string
+  /** 上传人 id；内部任务上传时为 0。 */
+  uploaded_by: number
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
 /** 报价试算结果：口径与保存后完全一致（同一个折算函数）。 */
 export interface QuotationPreview {
   currency_code: string

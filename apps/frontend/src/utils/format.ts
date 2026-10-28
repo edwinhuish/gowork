@@ -34,3 +34,16 @@ export function formatQty(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(value)) return '—'
   return value.toFixed(3).replace(/\.?0+$/, '')
 }
+
+/**
+ * 文件大小（字节 → KB / MB）。
+ *
+ * 附件列表要知道"那份扫描件多大"。用 1024 进制并保留一位小数：
+ * 这里要的是量级，10MB 与 10.4MB 的差别没有意义。
+ */
+export function formatBytes(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value) || value < 0) return '—'
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+  return `${(value / 1024 / 1024).toFixed(1)} MB`
+}

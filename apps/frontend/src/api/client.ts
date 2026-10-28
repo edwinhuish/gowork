@@ -36,7 +36,11 @@ interface ApiBody<T> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
-  headers.set('Content-Type', 'application/json')
+  // multipart 的 Content-Type 必须由浏览器生成（它要带 boundary），
+  // 手写 application/json 会让服务端解析不出任何表单字段。
+  if (!(init?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+  }
 
   const token = getToken()
   if (token) {
@@ -109,9 +113,21 @@ export async function download(path: string, fallbackName: string): Promise<void
   }
 
   // 文件名优先用服务端给的：单号在服务端才算得出来，前端只能猜。
+  // 优先取 RFC 5987 的 filename*：中文名只有它带得回来，
+  // filename="..." 那份是给老客户端的 ASCII 兜底（中文全被换成 _）。
   const disposition = res.headers.get('Content-Disposition') ?? ''
-  const matched = /filename="?([^";]+)"?/i.exec(disposition)
-  const filename = matched?.[1] || fallbackName
+  const extended = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)
+  let filename = fallbackName
+  if (extended) {
+    try {
+      filename = decodeURIComponent(extended[1])
+    } catch {
+      filename = plain?.[1] || fallbackName
+    }
+  } else if (plain) {
+    filename = plain[1]
+  }
 
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
@@ -131,6 +147,14 @@ export const http = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /**
+   * 上传文件（multipart/form-data）。
+   *
+   * 单独一个方法而不是复用 post：FormData 的 Content-Type 里带 boundary，
+   * 只能由浏览器生成；行为上它与 post 一致（同一套令牌注入与错误拆包）。
+   */
+  postForm: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: 'POST', body: form }),
 }
 
 // toQuery 把对象拼成查询串，自动跳过空值。

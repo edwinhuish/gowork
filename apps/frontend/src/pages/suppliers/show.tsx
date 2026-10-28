@@ -2,6 +2,7 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -34,6 +35,11 @@ export function SupplierShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 供应商侧常见的是 ISO 证书、质检报告、营业执照：同样是长期有效的文件。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="partner" entityId={result.id} title="资质与证件" />
+      ) : null}
     </Show>
   )
 }

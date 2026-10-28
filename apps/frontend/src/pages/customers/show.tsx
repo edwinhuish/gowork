@@ -2,6 +2,7 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -48,6 +49,12 @@ export function CustomerShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 主体上的附件是长期有效的那类：营业执照、开户信息、验厂报告。
+          与出货单证不同，它们不跟着某一票货走。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="partner" entityId={result.id} title="资质与证件" />
+      ) : null}
     </Show>
   )
 }

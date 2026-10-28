@@ -5,6 +5,7 @@ import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } fr
 
 import { download } from '@/api/client'
 import { shipmentApi } from '@/api/shipments'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono } from '@/components/fields'
 import { orderStatusLabel } from '@/constants/catalog'
 import type { Shipment, ShipmentAllocation } from '@/types'
@@ -357,6 +358,12 @@ export function ShipmentShow() {
 
       {/* 毛利放在费用面板之后：先看完费用怎么来的，再看它把毛利压掉多少。 */}
       {s?.id ? <ProfitCard shipmentId={s.id} status={s.status} /> : null}
+
+      {/* 单证附件：提单、报关单、验货报告的扫描件。它们只在"这一票"的语境里
+          才有意义，所以不做成独立菜单。 */}
+      {s?.id ? (
+        <AttachmentPanel entityType="shipment" entityId={s.id} title="单证附件" />
+      ) : null}
     </Show>
   )
 }
