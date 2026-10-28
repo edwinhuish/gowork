@@ -7,7 +7,13 @@
 
 ## 1. 职责边界
 
-**负责**：HTTP API、鉴权、主数据（产品 / 供应商 / 客户）、统计聚合、数据库与缓存访问。
+**负责**：HTTP API、鉴权、共享主数据（产品 / 供应商 / 客户）、统计聚合、
+数据库与缓存访问。
+
+**ERP 与 CRM 是这个服务的两个域，不是两个服务。** 当前只落地了共享主数据层，
+ERP 侧的采购/库存/出货、CRM 侧的联系人/跟进/商机都在同一个进程里按同一套分层
+往后加。域归属见 `docs/glossary.md` 第二节，判断标准是"这张表会不会被两个域
+同时写"——会，就放 `md_` 下。
 
 **不负责**：
 
@@ -16,6 +22,7 @@
 | 页面渲染、静态资源 | `apps/frontend` |
 | 权限矩阵、多租户 | 当前不做（见根 `AGENTS.md` 第 1 节） |
 | 订单 / 库存 / 出货业务 | 未实现；套路见第 8 节 |
+| CRM 跟进、商机 | 未实现；名称已在 `docs/glossary.md` 定好 |
 
 单个进程、单二进制、无外部 RPC 依赖。启动即自检：配置不合法直接退出，不带病运行。
 
@@ -91,6 +98,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 ## 5. 接口清单
 
 统一前缀 `/api/v1`。除 `POST /auth/login` 与 `/healthz` 外都要 `Authorization: Bearer <token>`。
+
+域归属见 `docs/glossary.md` 第三节：`products` 与 `customers` 会被 ERP、CRM 两侧引用，
+`suppliers` 只属 ERP。新增接口时先确认它落在哪个域，再决定表前缀。
 
 | 方法 | 路径 | handler | service |
 |---|---|---|---|
@@ -210,8 +220,8 @@ task backend:test:storage  # 三库两缓存一致性测试
 
 ### 新增一个业务模块（五步）
 
-1. `internal/model/xxx.go`：嵌 `Base`，写 `TableName()`（前缀 `sys_` / `md_` / `biz_` / `inv_`），
-   在 `bootstrap.New` 的 `AutoMigrate` 列表里加一行。
+1. `internal/model/xxx.go`：嵌 `Base`，写 `TableName()`（域前缀 `sys_` / `md_` / `biz_` / `inv_` / `crm_`，
+   含义见 `docs/glossary.md` 第二节），在 `bootstrap.New` 的 `AutoMigrate` 列表里加一行。
 2. `internal/repository/xxx.go`：定义 `XxxFilter` + `XxxRepository` 接口，实现嵌 `Base[model.Xxx]`；
    模糊搜索用 `likeAny`，不要自己拼 `LIKE`。
 3. `internal/dto/xxx.go`：`XxxQuery` 嵌 `PageQuery`；`XxxInput` 做全量入参（新增与编辑共用一套校验）。
@@ -222,6 +232,11 @@ task backend:test:storage  # 三库两缓存一致性测试
 ### 硬性规则
 
 - **编码字段**（`sku_code` / `code`）必须 `uniqueIndex`，service 层做前置查重，冲突返回 `40901`。
+  查重方法名要带列语义：产品的叫 `ExistsBySKUCode`，客户/供应商的叫 `ExistsByCode`——
+  三个都叫 `ExistsByCode` 时，调用方只能靠记参数分辨查的是哪一列。
+- **两类状态不要混**：主数据与账号用 `model.EnableStatus`（1 启用 / 0 停用）；
+  单据状态将来是 `DocumentStatus`，是另一个类型。两者取值都是小整数，
+  赋错了编译器不报，只会在筛选条件上出错。
 - **更新用 `UpdateFields(map)`**，不要 `Updates(struct)`：零值会被当成"未提交"而被忽略。
 - **删除是软删除**（`gorm.DeletedAt`）。查重、统计都要意识到已删数据仍占行。
 - **分页必须走 `Pagination`**，禁止无上限的 `Find(&list)`。
@@ -242,3 +257,5 @@ task backend:test:storage  # 三库两缓存一致性测试
 | 重启后登录态全没了 | memory 缓存没落盘 | `cache.memory.persist: true` 且 `Close()` 被调用（`main` 里靠 defer 保证） |
 | 生产误用了内存缓存 | `cache.driver` 配错 | 生产 `fallback_to_memory: false`，连不上 Redis 直接启动失败 |
 | 第 3 节的自检命令计数不为 0 | 新代码引入了反向依赖 | 按分层把逻辑挪回对应层 |
+| 改了结构体字段名之后那一列数据全变空 | 没写 `gorm:"column:..."`，gorm 按新字段名建了新列，旧数据留在旧列里 | 列名与字段名不一致时必须显式写 `column:`，例：`model.Customer.ContactName` 绑的是 `contact` 列 |
+| 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |

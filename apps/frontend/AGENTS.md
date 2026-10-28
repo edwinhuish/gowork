@@ -7,7 +7,13 @@
 
 ## 1. 职责边界
 
-**负责**：登录、概览、产品 / 供应商 / 客户的增删改查界面、列表分页与筛选、登录态维持、主题与布局。
+**负责**：登录、概览、产品 / 供应商 / 客户的增删改查界面、列表分页与筛选、
+登录态维持、主题与布局。
+
+**当前只有共享主数据的界面。** 系统定位是 ERP + CRM 集成，但 ERP 侧的
+订单/库存/出货、CRM 侧的跟进/商机都还没有页面。加的时候不需要新建导航表——
+在 `resources` 里加一条就出现在侧栏（见第 3 节）。业务对象叫什么名、
+字段中文怎么写，先查 `docs/glossary.md`。
 
 **不负责**：
 
@@ -16,6 +22,7 @@
 | 业务规则（唯一性、状态流转、金额计算） | 后端 service 层；前端只做必填与格式校验 |
 | 权限判断 | 后端；前端最多按 `user.role` 隐藏入口 |
 | 服务端会话 | 后端；前端只持有令牌 |
+| 业务术语的定义 | `docs/glossary.md`；前端只引用，不改写 |
 
 技术栈：React 19 + TypeScript 5.9（`strict`）+ Vite 6 + **refine 5**（`@refinedev/core` / `@refinedev/antd` / `@refinedev/react-router`）+ **Ant Design 5** + TanStack Query 5，包管理 pnpm 12。
 
@@ -47,9 +54,9 @@ apps/frontend/
     │   ├── client.ts       统一 fetch：令牌注入、拆包、ApiError、续期令牌替换
     │   └── auth.ts  dashboard.ts      （CRUD 已改由 dataProvider 直连，不再逐个写 xxxApi）
     ├── components/
-    │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块 + 顶栏
+    │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
     │   └── fields.tsx       StatusTag / Money / CategoryTag / Mono / Empty
-    ├── constants/catalog.ts 产品类别字典、状态选项
+    ├── constants/catalog.ts 产品类别字典（PRODUCT_CATEGORIES）、启用状态下拉（ENABLE_STATUS_OPTIONS）
     ├── utils/format.ts      时间格式化
     └── pages/
         ├── login/index.tsx
@@ -135,6 +142,7 @@ api/client.ts
 | `providers/dataProvider.ts` | 分页与筛选翻译、白名单 | 后端加查询参数时同步 `PASSTHROUGH_FILTERS` |
 | `providers/authProvider.ts` | 登录/登出/check/onError/identity | `check` 里别再直接打接口，先看 identity 缓存 |
 | `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render |
+| `constants/catalog.ts` | 字典类枚举：产品类别、启用状态 | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 
@@ -217,4 +225,5 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 续期在生产不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 暴露 | 见后端 `AGENTS.md`「令牌续期」；开发期同源复现不出来 |
 | 每个页面跳转都多一次 `/auth/profile` | `authProvider.check` 里的 identity 缓存被清掉了 | 检查 `login` / `check` / `onError` 三处对 `identity` 的赋值 |
 | `npm install` 报 `[gowork-frontend] 本项目使用 pnpm` | `package.json` 的 `preinstall` 守卫 | 用 pnpm；`package-lock.json` 被忽略，删掉即可 |
+| 某个下拉的选项和后端对不上 | 页面里自己写了一份 options，没走 `constants/catalog.ts` | 字典只留在 catalog.ts 一处，页面 import 它 |
 | 改了 `pnpm-workspace.yaml` 不生效 | pnpm 设置只能放这里 | 见根 `README.md`「前端包管理」 |
