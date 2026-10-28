@@ -22,6 +22,7 @@ type Handlers struct {
 	Partner   *handler.PartnerHandler
 	Currency  *handler.CurrencyHandler
 	Rate      *handler.ExchangeRateHandler
+	Contact   *handler.ContactHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -100,6 +101,14 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		rates.POST("", h.Rate.Create)
 		rates.GET("/:id", h.Rate.Get)
 		rates.DELETE("/:id", h.Rate.Delete)
+
+		// CRM 侧第一个模块。联系人挂在往来单位下，用 partner_id 过滤。
+		contacts := secured.Group("/contacts")
+		contacts.GET("", h.Contact.List)
+		contacts.POST("", h.Contact.Create)
+		contacts.GET("/:id", h.Contact.Get)
+		contacts.PUT("/:id", h.Contact.Update)
+		contacts.DELETE("/:id", h.Contact.Delete)
 	}
 
 	return engine

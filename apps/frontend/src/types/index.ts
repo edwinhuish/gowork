@@ -69,6 +69,32 @@ export interface Partner {
 }
 
 /**
+ * 往来单位下的具体自然人（CRM）。
+ *
+ * 一个主体可有多个联系人，各自有电话、邮箱、职位、语言。
+ * md_partner.contact 只是主联系人姓名的冗余，不是这个实体。
+ * is_primary 每个主体最多一个，由后端在事务里保证。
+ */
+export interface Contact {
+  id: number
+  partner_id: number
+  name: string
+  title: string
+  phone: string
+  email: string
+  /** 决定谁去跟这个客户。 */
+  language: string
+  /** 偏好联系渠道：发错渠道等于没联系。 */
+  channel: string
+  is_primary: boolean
+  status: number
+  remark: string
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 币种。三位 ISO 4217 代码是业务身份，单据上存的就是它，所以创建后不可修改。
  *
  * is_base 标记本币：全库有且只有一个，是折算的基准。

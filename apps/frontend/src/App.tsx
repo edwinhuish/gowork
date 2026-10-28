@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  ContactsOutlined,
   DashboardOutlined,
   DollarOutlined,
   ShopOutlined,
@@ -18,6 +19,7 @@ import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
 import { AppLayout } from '@/components/layout/AppLayout'
+import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
 import { DashboardPage } from '@/pages/dashboard'
@@ -80,6 +82,13 @@ export default function App() {
                 meta: { label: '客户', icon: <TeamOutlined /> },
               },
               {
+                name: 'contacts',
+                list: '/contacts',
+                create: '/contacts/create',
+                edit: '/contacts/edit/:id',
+                meta: { label: '联系人', icon: <ContactsOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -130,6 +139,12 @@ export default function App() {
                     <Route path="create" element={<CustomerCreate />} />
                     <Route path="edit/:id" element={<CustomerEdit />} />
                     <Route path="show/:id" element={<CustomerShow />} />
+                  </Route>
+
+                  <Route path="contacts">
+                    <Route index element={<ContactList />} />
+                    <Route path="create" element={<ContactCreate />} />
+                    <Route path="edit/:id" element={<ContactEdit />} />
                   </Route>
 
                   <Route path="currencies">
