@@ -15,8 +15,19 @@ type Shipment struct {
 	ShipDate time.Time `gorm:"type:date;not null;index" json:"ship_date"`
 	Remark   string    `gorm:"size:255" json:"remark"`
 
-	// 报关单号、ETD/ETA、提单号属于 T-19，加在这一层会把两张单据的生命周期绑死。
-	Allocations []ShipmentAllocation `gorm:"foreignKey:ShipmentID" json:"allocations,omitempty"`
+	// 物流节点。这四个值是**订舱之后**才知道的，而出货单在草稿阶段就把数量定死了，
+	// 所以它们不跟 ShipmentInput 走：走 `PUT /shipments/:id/logistics`，
+	// 任何状态都能改。这与"数量只能在草稿改"是两条相反的规则，理由不同：
+	// 数量一变，仓库与货代手里的单就白做了；船期一变，只是把实际情况记下来。
+	//
+	// BLNo 提单号、Vessel 船名航次由承运人给，是**外部号**：只记录，不参与发号与唯一性。
+	BLNo   string     `gorm:"size:64" json:"bl_no"`
+	Vessel string     `gorm:"size:128" json:"vessel"`
+	ETD    *time.Time `gorm:"type:date" json:"etd"`
+	ETA    *time.Time `gorm:"type:date" json:"eta"`
+
+	Allocations  []ShipmentAllocation `gorm:"foreignKey:ShipmentID" json:"allocations,omitempty"`
+	Declarations []CustomsDeclaration `gorm:"foreignKey:ShipmentID" json:"declarations,omitempty"`
 }
 
 func (Shipment) TableName() string { return "biz_shipment" }

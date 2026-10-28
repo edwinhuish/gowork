@@ -132,3 +132,23 @@ func (h *ShipmentHandler) UpdateStatus(c *gin.Context) {
 	}
 	response.OK(c, m)
 }
+
+// UpdateLogistics PUT /api/v1/shipments/:id/logistics
+//
+// 独立入口：提单号与船期是订舱之后才知道的，那时出货单早已确认、不可再改。
+func (h *ShipmentHandler) UpdateLogistics(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.ShipmentLogisticsInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	m, err := h.shipments.UpdateLogistics(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}

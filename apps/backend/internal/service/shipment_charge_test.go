@@ -27,7 +27,8 @@ func newChargeFixture(t *testing.T, now time.Time) chargeFixture {
 
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{},
-		&model.Shipment{}, &model.ShipmentAllocation{}, &model.ShipmentCharge{})
+		&model.Shipment{}, &model.ShipmentAllocation{},
+		&model.ShipmentCharge{}, &model.CustomsDeclaration{})
 
 	clock := func() time.Time { return now }
 	currencyRepo := repository.NewCurrencyRepository(db)
@@ -85,6 +86,7 @@ func newChargeFixture(t *testing.T, now time.Time) chargeFixture {
 		),
 		shipments: NewShipmentService(
 			shipmentRepo, repository.NewSalesOrderRepository(db), chargeRepo,
+			repository.NewCustomsDeclarationRepository(db),
 			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
 			WithShipmentClock(clock),
 		),

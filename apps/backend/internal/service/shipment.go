@@ -27,6 +27,10 @@ type ShipmentService interface {
 	Get(ctx context.Context, id uint) (*model.Shipment, error)
 	List(ctx context.Context, q dto.ShipmentQuery) (*dto.PageResult[model.Shipment], error)
 	UpdateStatus(ctx context.Context, id uint, in dto.ShipmentStatusInput) (*model.Shipment, error)
+	// UpdateLogistics 只改提单号、船名航次与 ETD / ETA，任何状态都能改。
+	UpdateLogistics(
+		ctx context.Context, id uint, in dto.ShipmentLogisticsInput,
+	) (*model.Shipment, error)
 	// Candidates 列出还能出货的销售订单行，供出货单选行。
 	// excludeShipmentID 传当前正在编辑的那一票，好把它自己占的数量还给它。
 	Candidates(ctx context.Context, keyword string, excludeShipmentID uint) ([]dto.ShipmentCandidate, error)
@@ -43,8 +47,10 @@ const candidateLimit = 200
 type shipmentService struct {
 	shipments repository.ShipmentRepository
 	salesOrds repository.SalesOrderRepository
-	// charges 只在删除前一票时用：删掉批次会让它下面的费用变成查不到来源的孤儿行。
+	// charges 与 customs 只在删除前一票时用：删掉批次会让它下面的费用与报关记录
+	// 变成查不到来源的孤儿行。
 	charges repository.ShipmentChargeRepository
+	customs repository.CustomsDeclarationRepository
 	docNos  DocNoService
 	clock   func() time.Time
 	log     *slog.Logger
@@ -65,6 +71,7 @@ func NewShipmentService(
 	shipments repository.ShipmentRepository,
 	salesOrds repository.SalesOrderRepository,
 	charges repository.ShipmentChargeRepository,
+	customs repository.CustomsDeclarationRepository,
 	docNos DocNoService,
 	opts ...ShipmentOption,
 ) ShipmentService {
@@ -72,6 +79,7 @@ func NewShipmentService(
 		shipments: shipments,
 		salesOrds: salesOrds,
 		charges:   charges,
+		customs:   customs,
 		docNos:    docNos,
 		clock:     time.Now,
 		log:       slog.Default(),
@@ -159,6 +167,14 @@ func (s *shipmentService) Delete(ctx context.Context, id uint) error {
 	if n > 0 {
 		return errs.ErrConflict.WithMsg(
 			fmt.Sprintf("该出货批次还有 %d 条运费杂费，请先删除费用", n))
+	}
+	m, err := s.customs.CountByShipmentID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if m > 0 {
+		return errs.ErrConflict.WithMsg(
+			fmt.Sprintf("该出货批次还有 %d 张报关单，请先删除报关记录", m))
 	}
 	return s.shipments.Delete(ctx, id)
 }
@@ -272,6 +288,45 @@ func (s *shipmentService) UpdateStatus(
 	}
 	s.log.Info("出货批次状态变更", "id", id, "from", existing.Status, "to", next)
 	return s.shipments.FindByID(ctx, id)
+}
+
+// UpdateLogistics 只改物流节点，任何状态都能改。
+//
+// 与 Update 分开：出货单的数量在草稿阶段就定稿了，改它要让仓库与货代重做一遍；
+// 而提单号、船名航次、ETD / ETA 本来就是订舱之后才有的，那时单子早已确认。
+// 把两件事捆在同一个入口，结果是"想记一个提单号，得先有权改整张单"。
+func (s *shipmentService) UpdateLogistics(
+	ctx context.Context, id uint, in dto.ShipmentLogisticsInput,
+) (*model.Shipment, error) {
+	if _, err := s.shipments.FindByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	etd, err := parseOptionalDateOnly(in.ETD)
+	if err != nil {
+		return nil, errs.BadRequest("ETD 格式应为 YYYY-MM-DD")
+	}
+	eta, err := parseOptionalDateOnly(in.ETA)
+	if err != nil {
+		return nil, errs.BadRequest("ETA 格式应为 YYYY-MM-DD")
+	}
+	// 到港早于开船一定是录错了。不拦的话它会安静地存在，
+	// 直到有人按这两个日期排提货，才发现货"在昨天就已经到港"。
+	if etd != nil && eta != nil && eta.Before(*etd) {
+		return nil, errs.BadRequest("ETA 不能早于 ETD")
+	}
+
+	fields := map[string]any{
+		"bl_no":  strings.TrimSpace(in.BLNo),
+		"vessel": strings.TrimSpace(in.Vessel),
+		"etd":    etd,
+		"eta":    eta,
+	}
+	if err := s.shipments.Update(ctx, id, fields); err != nil {
+		return nil, err
+	}
+	s.log.Info("更新物流节点", "id", id, "bl_no", in.BLNo, "vessel", in.Vessel)
+	return s.load(ctx, id)
 }
 
 func (s *shipmentService) parseShipDate(raw string) (time.Time, error) {

@@ -33,6 +33,20 @@ type ShipmentStatusInput struct {
 	Status int8 `json:"status" binding:"required"`
 }
 
+// ShipmentLogisticsInput 只改物流节点，与出货单本身的编辑解耦。
+//
+// 单独一个入口而不是塞进 ShipmentInput：出货单只有草稿能改，
+// 而船名航次与 ETD / ETA 是订舱之后才知道的——那时单子早已确认。
+// 把它们塞进 ShipmentInput 的代价是"想记一个提单号，得先有权限改整张单"。
+type ShipmentLogisticsInput struct {
+	// BLNo 提单号，承运人给的外部号，只记录、不参与发号与唯一性。
+	BLNo   string `json:"bl_no" binding:"max=64"`
+	Vessel string `json:"vessel" binding:"max=128"`
+	// ETD / ETA 用 YYYY-MM-DD，留空表示未定（会把已填的值清掉）。
+	ETD string `json:"etd"`
+	ETA string `json:"eta"`
+}
+
 // ShipmentCandidate 是"还能出货的销售订单行"，出货单选行时用。
 //
 // 只回状态为已确认 / 备货中、且还有未出数量的行：把已出完的、草稿的、已取消的

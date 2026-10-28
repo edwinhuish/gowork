@@ -32,6 +32,7 @@ type Handlers struct {
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
 	Charge     *handler.ShipmentChargeHandler
+	Customs    *handler.CustomsDeclarationHandler
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
@@ -208,6 +209,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		shipments.PUT("/:id", h.Shipment.Update)
 		shipments.DELETE("/:id", h.Shipment.Delete)
 		shipments.PUT("/:id/status", h.Shipment.UpdateStatus)
+		// 物流节点单独一个入口：提单号与船期订舱后才有，那时单子已经不可改了。
+		shipments.PUT("/:id/logistics", h.Shipment.UpdateLogistics)
 
 		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
 		secured.GET("/shipment-candidates", h.Shipment.Candidates)
@@ -222,6 +225,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 
 		// 一票货的费用合计。独立前缀，理由同上。
 		secured.GET("/shipment-charges-summary", h.Charge.Summary)
+
+		// 报关单：一票货可以有多张（分票申报、改单重报）。
+		// 报关单号与提单号都是外部号，只记录、不参与发号与唯一性。
+		customs := secured.Group("/customs-declarations")
+		customs.GET("", h.Customs.List)
+		customs.POST("", h.Customs.Create)
+		customs.GET("/:id", h.Customs.Get)
+		customs.PUT("/:id", h.Customs.Update)
+		customs.DELETE("/:id", h.Customs.Delete)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)
