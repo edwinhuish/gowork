@@ -3,6 +3,9 @@
 const TOKEN_KEY = 'gowork_token'
 const BASE_URL = '/api/v1'
 
+// 服务端滑动续期时下发的响应头，与后端 middleware.RenewedTokenHeader 对应。
+const RENEWED_TOKEN_HEADER = 'X-Renewed-Token'
+
 /**
  * 登录态失效的广播事件名。
  *
@@ -53,6 +56,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   } catch {
     throw new ApiError('网络异常，请检查后端服务是否已启动', -1)
+  }
+
+  // 令牌剩余有效期不足一半时服务端会自动续期，新令牌放在响应头里。
+  // 这一步放在解析响应体之前：body 解析失败也不该丢掉刚拿到的新令牌。
+  const renewed = res.headers.get(RENEWED_TOKEN_HEADER)
+  if (renewed) {
+    setToken(renewed)
   }
 
   const body = (await res.json().catch(() => null)) as ApiBody<T> | null

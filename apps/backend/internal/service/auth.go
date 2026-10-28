@@ -40,6 +40,10 @@ type Principal struct {
 	Role      string
 	TokenID   string
 	ExpiresAt time.Time
+
+	// RenewedToken 非空表示本次请求触发了滑动续期。
+	// 中间件应把它写进 X-Renewed-Token 响应头，由客户端替换本地令牌。
+	RenewedToken string
 }
 
 func (p *Principal) IsAdmin() bool { return p.Role == model.RoleAdmin }
@@ -197,7 +201,40 @@ func (s *authService) Verify(ctx context.Context, token string) (*Principal, err
 	if claims.ExpiresAt != nil {
 		p.ExpiresAt = claims.ExpiresAt.Time
 	}
+	s.renew(ctx, &claims, p)
 	return p, nil
+}
+
+// renew 实现滑动续期：剩余有效期不足一半时重签令牌并重置会话 TTL。
+//
+// 关键点是复用原 jti。并发请求各自换出的令牌字符串不同，但都指向同一条 session，
+// 所以续期天然幂等，不会因为一次页面加载的多个并发请求把会话记录写膨胀。
+// 如果每次续期都换新 jti，就得额外做去重，否则 session 条数随请求数增长。
+//
+// 续期失败只放弃本次续期，不影响当前请求：此刻手上的令牌还没过期。
+// 顺序上必须先重置 session 成功再下发新令牌，否则新令牌的 exp 会超出会话寿命，
+// 客户端拿着一个看似有效、实际已被会话吊销的令牌反复重试。
+func (s *authService) renew(ctx context.Context, claims *tokenClaims, p *Principal) {
+	if claims.ExpiresAt == nil || time.Until(claims.ExpiresAt.Time) > s.cfg.Expire/2 {
+		return
+	}
+
+	expireAt := time.Now().Add(s.cfg.Expire)
+	claims.ExpiresAt = jwt.NewNumericDate(expireAt)
+
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(s.cfg.Secret))
+	if err != nil {
+		s.log.Warn("续签令牌失败", "token_id", claims.ID, "err", err)
+		return
+	}
+	uid := strconv.FormatUint(uint64(claims.UserID), 10)
+	if err := s.sessions.Set(ctx, sessionKeyPrefix+claims.ID, uid, s.cfg.Expire); err != nil {
+		s.log.Warn("重置会话有效期失败", "token_id", claims.ID, "err", err)
+		return
+	}
+
+	p.RenewedToken = signed
+	p.ExpiresAt = expireAt
 }
 
 func (s *authService) failCount(ctx context.Context, key string) (int64, error) {

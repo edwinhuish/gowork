@@ -27,7 +27,9 @@ func CORS(origins []string) gin.HandlerFunc {
 		}
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin,Content-Type,Authorization,X-Request-ID")
-		c.Header("Access-Control-Expose-Headers", "X-Request-ID")
+		// 跨域时自定义响应头默认对 JS 不可见，续期令牌必须显式暴露，
+		// 否则前端 res.headers.get 恒为 null，滑动续期在跨域部署下会静默失效。
+		c.Header("Access-Control-Expose-Headers", "X-Request-ID,"+RenewedTokenHeader)
 		c.Header("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == http.MethodOptions {

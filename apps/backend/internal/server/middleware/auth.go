@@ -11,6 +11,12 @@ import (
 
 const principalKey = "principal"
 
+// RenewedTokenHeader 承载滑动续期后的新令牌。
+//
+// 走响应头而不是塞进响应体：{code,message,data} 是全局统一契约，
+// 为一个横切的副作用去改每个接口的 data 结构不划算。
+const RenewedTokenHeader = "X-Renewed-Token"
+
 // WithPrincipal 把当前登录身份写入请求上下文。
 func WithPrincipal(c *gin.Context, p *service.Principal) {
 	c.Set(principalKey, p)
@@ -41,6 +47,9 @@ func Auth(auth service.AuthService) gin.HandlerFunc {
 			return
 		}
 
+		if p.RenewedToken != "" {
+			c.Header(RenewedTokenHeader, p.RenewedToken)
+		}
 		WithPrincipal(c, p)
 		c.Next()
 	}
