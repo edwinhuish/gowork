@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 
 import { authApi } from '@/api/auth'
-import { getToken, setToken } from '@/api/client'
+import { AUTH_EXPIRED_EVENT, getToken, setToken } from '@/api/client'
 import type { UserInfo } from '@/types'
 
 interface AuthContextValue {
@@ -29,6 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(setUser)
       .catch(() => setToken(null))
       .finally(() => setLoading(false))
+  }, [])
+
+  // 任意请求收到 401 都会广播该事件：清空 user 让路由守卫立刻把人送回登录页。
+  // 令牌本身已由 client 清掉，这里只负责内存状态的同步。
+  useEffect(() => {
+    const onExpired = () => setUser(null)
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
   }, [])
 
   const login = useCallback(async (username: string, password: string) => {
