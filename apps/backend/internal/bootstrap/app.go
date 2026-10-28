@@ -67,6 +67,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.Lead{},
 			&model.Quotation{},
 			&model.QuotationItem{},
+			&model.Contract{},
+			&model.ContractTerm{},
 			&model.SalesOrder{},
 			&model.SalesOrderItem{},
 			&model.PurchaseOrder{},
@@ -115,6 +117,7 @@ func New(cfg *config.Config) (*App, error) {
 	opptyRepo := repository.NewOpportunityRepository(db)
 	leadRepo := repository.NewLeadRepository(db)
 	quotationRepo := repository.NewQuotationRepository(db)
+	contractRepo := repository.NewContractRepository(db)
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
@@ -167,6 +170,11 @@ func New(cfg *config.Config) (*App, error) {
 	quotationSvc := service.NewQuotationService(
 		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc, orderSvc,
 		service.WithQuotationLogger(log))
+	// 合同只从报价单或订单抄快照，读的是两边仓储而不是两个服务：
+	// 它要的是"那张单现在是什么状态、金额多少"，不是"能不能改"。
+	contractSvc := service.NewContractService(
+		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc,
+		service.WithContractLogger(log))
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
@@ -220,6 +228,7 @@ func New(cfg *config.Config) (*App, error) {
 		Lead:       handler.NewLeadHandler(leadSvc),
 		Source:     handler.NewProductSourceHandler(sourceSvc),
 		Quotation:  handler.NewQuotationHandler(quotationSvc),
+		Contract:   handler.NewContractHandler(contractSvc),
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
 		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Shipment:   handler.NewShipmentHandler(shipmentSvc),

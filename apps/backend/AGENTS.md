@@ -61,8 +61,8 @@ apps/backend/
 
 测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、
 `repository/storage_test.go`、`migrate/legacy_merge_test.go`、`migrate/rename_legacy_test.go`，
-以及 `service/` 下 13 个 `*_test.go`——它们用 `service/testdb_test.go` 起的**真实 SQLite 临时库**，
-不 mock 仓储；`partner` / `product` / `dashboard` 等 7 个 service 还没有测试。
+以及 `service/` 下的 `*_test.go`——它们用 `service/testdb_test.go` 起的**真实 SQLite 临时库**，
+不 mock 仓储；`partner` / `product` / `dashboard` 等 service 还没有测试。
 
 **`migrate` 与 `database.AutoMigrate` 的分工别搞混**：AutoMigrate 只让表结构追上
 模型（加列、加索引），不搬数据、不改名、不建立表间对应关系。凡是要动已有数据，
@@ -163,6 +163,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | POST | `/api/v1/quotations/:id/versions` | `Quotation.NewVersion` | 同单号、版本 +1、回到草稿；过期时须给新有效期 |
 | POST | `/api/v1/quotations/:id/convert` | `Quotation.Convert` | 生成销售订单草稿并回填 `sales_order_id`；重复转换 409，条件更新保证幂等 |
 | POST | `/api/v1/quotations-preview` | `Quotation.Preview` | 试算金额/成本/毛利，不落库；独立前缀避免与 `/:id` 抢路径 |
+| GET / POST | `/api/v1/contracts` | `Contract.List` / `.Generate` | 合同（PI / 销售合同共用一张表）：**只能从报价单或订单生成**，无空白新建；客户、币种、汇率、总额照抄来源；单号 `PI-` / `SC-`；分期合计必须等于总额（400），同来源同类型重复生成 409 |
+| GET / PUT / DELETE | `/api/v1/contracts/:id` | `Contract.Get` / `.Update` / `.Delete` | 只有草稿可改可删；来源、客户与金额不在可改字段里，要改就改来源单据后重新生成 |
+| PUT | `/api/v1/contracts/:id/status` | `Contract.UpdateStatus` | 只放行已确认 / 已取消（400）；确认前复核来源单据未取消、分期合计与总额相符 |
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |

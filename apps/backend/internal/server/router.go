@@ -28,6 +28,7 @@ type Handlers struct {
 	Lead       *handler.LeadHandler
 	Source     *handler.ProductSourceHandler
 	Quotation  *handler.QuotationHandler
+	Contract   *handler.ContractHandler
 	SalesOrder *handler.SalesOrderHandler
 	Purchase   *handler.PurchaseOrderHandler
 	Shipment   *handler.ShipmentHandler
@@ -188,6 +189,17 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 
 		// 试算独立前缀：与 /:id 同级会抢路径（同 opportunities-summary 的处理）。
 		secured.POST("/quotations-preview", h.Quotation.Preview)
+
+		// 合同：形式发票（PI）与销售合同共用一张表，只能从报价单或订单生成。
+		// 没有「空白新建」——金额、币种、汇率、客户全部照抄来源单据，
+		// 分段付款的条款随单提交，合计必须等于来源单据的总额。
+		contracts := secured.Group("/contracts")
+		contracts.GET("", h.Contract.List)
+		contracts.POST("", h.Contract.Generate)
+		contracts.GET("/:id", h.Contract.Get)
+		contracts.PUT("/:id", h.Contract.Update)
+		contracts.DELETE("/:id", h.Contract.Delete)
+		contracts.PUT("/:id/status", h.Contract.UpdateStatus)
 
 		// 销售订单：报价谈成后的出货凭证。总额只由明细汇总，状态走完整状态机。
 		orders := secured.Group("/sales-orders")
