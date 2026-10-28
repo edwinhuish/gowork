@@ -134,6 +134,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / DELETE | `/api/v1/exchange-rates/:id` | `Rate.Get` / `.Delete` | 同名方法（汇率不可编辑） |
 | GET / POST | `/api/v1/contacts` | `Contact.List` / `.Create` | `ContactService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/contacts/:id` | `Contact.Get` / `.Update` / `.Delete` | 同名方法（不能改 partner_id） |
+| GET / POST | `/api/v1/activities` | `Activity.List` / `.Create` | `ActivityService.List` / `.Create`（`?due=1` 查已到期未跟进） |
+| GET / PUT / DELETE | `/api/v1/activities/:id` | `Activity.Get` / `.Update` / `.Delete` | 同名方法（按 occurred_at 倒序，不可改 partner_id） |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。

@@ -124,6 +124,17 @@ func (r *Base[T]) Count(ctx context.Context, scopes ...Scope) (int64, error) {
 // Paginate 返回当前页数据与总数。
 // 计数与取数分别构建查询：复用同一个 *gorm.DB 会让 Count 的 statement 残留到 Find 上。
 func (r *Base[T]) Paginate(ctx context.Context, p Pagination, scopes ...Scope) ([]T, int64, error) {
+	return r.PaginateOrdered(ctx, p, "id DESC", scopes...)
+}
+
+// PaginateOrdered 与 Paginate 相同，但由调用方指定排序。
+//
+// 排序必须在这里传，不能写进 scope：gorm 合并 ORDER BY 时后写的会覆盖前面的，
+// 而 Paginate 内部的 Order 在 scopes 之后执行——写在 scope 里的排序会被静默吃掉，
+// 表现是"列表看着没排序"，但不是每次都看得出来（id 恰好与业务顺序接近时会像是对的）。
+func (r *Base[T]) PaginateOrdered(
+	ctx context.Context, p Pagination, order string, scopes ...Scope,
+) ([]T, int64, error) {
 	p = p.normalize()
 
 	var total int64
@@ -136,7 +147,7 @@ func (r *Base[T]) Paginate(ctx context.Context, p Pagination, scopes ...Scope) (
 
 	var list []T
 	err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).
-		Order("id DESC").
+		Order(order).
 		Offset(p.Offset()).
 		Limit(p.PageSize).
 		Find(&list).Error

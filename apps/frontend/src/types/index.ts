@@ -95,6 +95,29 @@ export interface Contact {
 }
 
 /**
+ * 跟进记录（CRM）。挂在主体上，可选指向某个联系人。
+ *
+ * occurred_at 与 created_at 是两件事：补录上周的电话时，
+ * 录入时间是今天，但「最近一次跟进」是上周。
+ */
+export interface Activity {
+  id: number
+  partner_id: number
+  contact_id: number | null
+  /** CALL / EMAIL / VISIT / QUOTE / OTHER */
+  type: string
+  subject: string
+  content: string
+  occurred_at: string
+  /** 为空表示不需要再跟；早于今天即算「已到期」。 */
+  next_follow_at: string | null
+  partner?: Partner | null
+  contact?: Contact | null
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 币种。三位 ISO 4217 代码是业务身份，单据上存的就是它，所以创建后不可修改。
  *
  * is_base 标记本币：全库有且只有一个，是折算的基准。

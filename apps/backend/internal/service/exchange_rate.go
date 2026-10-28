@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
@@ -61,7 +60,7 @@ func (s *exchangeRateService) Create(
 	if in.Rate <= 0 {
 		return nil, errs.BadRequest("汇率必须大于 0")
 	}
-	date, err := parseRateDate(in.EffectiveDate)
+	date, err := parseDateOnly(in.EffectiveDate)
 	if err != nil {
 		return nil, err
 	}
@@ -134,17 +133,4 @@ func (s *exchangeRateService) List(
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
-}
-
-// parseRateDate 只取日期部分，顺手兼容前端可能带上来的完整时间串。
-func parseRateDate(raw string) (time.Time, error) {
-	s := strings.TrimSpace(raw)
-	if len(s) > len(rateDateLayout) {
-		s = s[:len(rateDateLayout)]
-	}
-	d, err := time.Parse(rateDateLayout, s)
-	if err != nil {
-		return time.Time{}, errs.BadRequest("生效日期格式应为 YYYY-MM-DD")
-	}
-	return model.DateOnly(d), nil
 }

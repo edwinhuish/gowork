@@ -75,6 +75,26 @@ export const TRADE_TERM_OPTIONS = [
   { value: 'DDP', label: 'DDP 完税后交货' },
 ]
 
+/**
+ * 跟进方式。取值与后端 model.ActivityType 一致。
+ *
+ * 分类型不是为了好看：报价后又沉默三天，和报价后客户回了"价格太高"，
+ * 是完全不同的处境，光看一条文字记录分不出来。
+ */
+export const ACTIVITY_TYPE_OPTIONS = [
+  { value: 'CALL', label: '电话' },
+  { value: 'EMAIL', label: '邮件' },
+  { value: 'VISIT', label: '拜访' },
+  { value: 'QUOTE', label: '报价' },
+  { value: 'OTHER', label: '其它' },
+]
+
+/** 未知码原样透出，不吞数据。 */
+export function activityTypeLabel(value?: string | null): string {
+  if (!value) return '其它'
+  return ACTIVITY_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value
+}
+
 /** 结算方式：决定账期与风险，也决定报价的价格基础。 */
 export const SETTLEMENT_METHOD_OPTIONS = [
   { value: 'TT', label: 'T/T 电汇' },

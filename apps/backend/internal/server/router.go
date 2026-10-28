@@ -23,6 +23,7 @@ type Handlers struct {
 	Currency  *handler.CurrencyHandler
 	Rate      *handler.ExchangeRateHandler
 	Contact   *handler.ContactHandler
+	Activity  *handler.ActivityHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -109,6 +110,14 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		contacts.GET("/:id", h.Contact.Get)
 		contacts.PUT("/:id", h.Contact.Update)
 		contacts.DELETE("/:id", h.Contact.Delete)
+
+		// 跟进记录：时间线按 occurred_at 倒序，?due=1 查已到期未跟进。
+		activities := secured.Group("/activities")
+		activities.GET("", h.Activity.List)
+		activities.POST("", h.Activity.Create)
+		activities.GET("/:id", h.Activity.Get)
+		activities.PUT("/:id", h.Activity.Update)
+		activities.DELETE("/:id", h.Activity.Delete)
 	}
 
 	return engine

@@ -2,10 +2,28 @@ package service
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
+
+// parseDateOnly 解析业务日期，只认 YYYY-MM-DD，顺手容忍前端带上来的完整时间串。
+//
+// 业务日期（汇率生效日、跟进发生日）不是时间点，统一截到 UTC 零点存，
+// 见 model.DateOnly。三处各写一遍解析，迟早有一处忘了截时间。
+func parseDateOnly(raw string) (time.Time, error) {
+	s := strings.TrimSpace(raw)
+	if len(s) > len(rateDateLayout) {
+		s = s[:len(rateDateLayout)]
+	}
+	d, err := time.Parse(rateDateLayout, s)
+	if err != nil {
+		return time.Time{}, errs.BadRequest("日期格式应为 YYYY-MM-DD")
+	}
+	return model.DateOnly(d), nil
+}
 
 // checkDocumentTransit 校验单据状态跳转。
 //

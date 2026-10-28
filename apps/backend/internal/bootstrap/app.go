@@ -61,6 +61,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.ExchangeRate{},
 			&model.DocSeq{},
 			&model.Contact{},
+			&model.Activity{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -88,6 +89,7 @@ func New(cfg *config.Config) (*App, error) {
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
 	contactRepo := repository.NewContactRepository(db)
+	activityRepo := repository.NewActivityRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -106,6 +108,8 @@ func New(cfg *config.Config) (*App, error) {
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
 	rateSvc := service.NewExchangeRateService(rateRepo, currencyRepo, service.WithExchangeRateLogger(log))
 	contactSvc := service.NewContactService(contactRepo, partnerRepo, service.WithContactLogger(log))
+	activitySvc := service.NewActivityService(
+		activityRepo, partnerRepo, contactRepo, service.WithActivityLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -116,6 +120,7 @@ func New(cfg *config.Config) (*App, error) {
 		Currency:  handler.NewCurrencyHandler(currencySvc),
 		Rate:      handler.NewExchangeRateHandler(rateSvc),
 		Contact:   handler.NewContactHandler(contactSvc),
+		Activity:  handler.NewActivityHandler(activitySvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 

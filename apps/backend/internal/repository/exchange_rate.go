@@ -83,13 +83,13 @@ func (r *exchangeRateRepo) ExistsByPair(
 }
 
 // List 按生效日倒序：看汇率时关心的永远是"最新那条"。
+//
+// 排序走 PaginateOrdered 而不是塞进 scope：Paginate 内部还会 Order("id DESC")，
+// 后写的会覆盖前面的，写在 scope 里的排序会被静默吃掉。
 func (r *exchangeRateRepo) List(
 	ctx context.Context, f ExchangeRateFilter, p Pagination,
 ) ([]model.ExchangeRate, int64, error) {
-	scopes := append(f.scopes(), func(db *gorm.DB) *gorm.DB {
-		return db.Order("effective_date DESC")
-	})
-	return r.Paginate(ctx, p, scopes...)
+	return r.PaginateOrdered(ctx, p, "effective_date DESC, id DESC", f.scopes()...)
 }
 
 func (r *exchangeRateRepo) CountByCurrencyCode(ctx context.Context, currencyCode string) (int64, error) {

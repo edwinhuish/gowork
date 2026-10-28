@@ -18,7 +18,8 @@ import type { PageResult } from '@/types'
  *   category+supplier_id+status 仅产品
  *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
  *   currency_code 仅汇率；币种本身只用 status + keyword
- *   partner_id 仅联系人（按主体看联系人是 CRM 的主维度）
+ *   partner_id 仅联系人 / 跟进记录（按主体看是 CRM 的主维度）
+ *   due 仅跟进记录（=1 时只取已到期未跟进，判定在后端按整天算）
  *
  * refine 用 CrudFilters 表达筛选条件，这里翻译成后端认可的同名查询参数。
  * 白名单是有意的：不认识的条件直接丢弃，而不是拼进 URL 让后端静默忽略——
@@ -33,6 +34,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'entity_type',
   'currency_code',
   'partner_id',
+  'due',
 ])
 
 function buildListQuery({ pagination, filters }: GetListParams): Record<string, unknown> {
