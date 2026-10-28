@@ -80,7 +80,7 @@ gin HTTP 层 (Go :8080)
 | HTTP | gin v1.12 | 生态成熟，中间件与分组路由够用，不需要更重的框架 |
 | ORM | gorm v1.31 + postgres/mysql/glebarez-sqlite | 三种驱动统一 API；sqlite 用纯 Go 实现，免 cgo，交叉编译和容器都省事 |
 | 缓存 | go-redis v9 / 进程内实现（可落盘） | 开发不想拉 Redis；两套实现语义对齐后可按环境换 |
-| 鉴权 | JWT HS256 + 服务端会话 | 只有签名不够——登出要能立即失效，所以会话必须落在缓存里 |
+| 鉴权 | JWT HS256 + 服务端会话，滑动续期 | 只有签名不够——登出要能立即失效，所以会话必须落在缓存里；剩余有效期不足一半时自动换发新令牌 |
 | 配置 | yaml + `GOWORK_*` 环境变量 | 12-factor；敏感值走环境变量，不进仓库 |
 | 日志 | 标准库 `log/slog` | 结构化日志不需要第三方库 |
 | 前端 | React 19 + TypeScript + Vite 6 + react-router 7 | 无状态管理库、无 UI 库：当前页面量级自己写更省心 |

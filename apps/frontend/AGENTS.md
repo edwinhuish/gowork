@@ -37,10 +37,11 @@ apps/frontend/
     ├── index.css           全部样式（一个文件，525 行）
     ├── types/index.ts      与后端 dto 对齐的类型（PageResult / UserInfo / Product / ...）
     ├── api/
-    │   ├── client.ts       统一 fetch：令牌注入、响应拆包、ApiError、401 清理
+    │   ├── client.ts       统一 fetch：令牌注入、响应拆包、ApiError、401 广播、续期令牌替换
     │   ├── auth.ts  product.ts  supplier.ts  customer.ts  dashboard.ts
     ├── hooks/
-    │   └── usePagedResource.ts   列表页通用状态机（分页/搜索/加载/错误/竞态）
+    │   ├── usePagedResource.ts   列表页通用状态机（分页/搜索/加载/错误/竞态）
+    │   └── useFormDraft.ts       新建表单草稿（sessionStorage，被打断后可找回）
     ├── store/
     │   └── auth.tsx        AuthContext：当前用户 + login/logout，刷新时用令牌换身份
     ├── components/
@@ -68,7 +69,8 @@ api/product.ts
 api/client.ts
    │ 5  统一加 Content-Type、从 localStorage 取令牌加 Authorization
    │ 6  fetch('/api/v1' + path)
-   │ 7  拆包 {code,message,data}：code!==0 → 抛 ApiError；40101/40102 → 清令牌
+   │ 7  响应头带 X-Renewed-Token 就替换本地令牌（服务端滑动续期）
+   │ 8  拆包 {code,message,data}：code!==0 → 抛 ApiError；40101/40102 → 清令牌 + 广播 AUTH_EXPIRED_EVENT
    ▼
 后端 /api/v1/*（dev 时经 Vite 代理，生产由反代接管）
 ```
@@ -76,25 +78,53 @@ api/client.ts
 **错误处理只有一条路径**：任何失败都变成 `ApiError`（带 `code`），由页面 catch 后写入
 `usePagedResource` 的 `error` 或表单的局部错误展示。页面里不出现 `try/catch` 的兜底空实现。
 
+### 登录态失效时发生什么
+
+```
+任意请求返回 401
+   │
+   ├─ client.ts 清 localStorage 的令牌
+   ├─ client.ts 广播 window 事件 gowork:auth-expired
+   ▼
+store/auth.tsx 订阅该事件 → setUser(null)
+   ▼
+App.tsx RequireAuth 看到 user 为空 → <Navigate to="/login" state={{from}}>
+   ▼
+Login 登录成功 → navigate(from) 回到被打断的那一页
+   ▼
+新建弹窗里的草稿由 useFormDraft 从 sessionStorage 取回
+```
+
+**为什么用事件而不是直接 import**：`client -> store -> api/auth -> client` 会形成循环依赖，
+所以清理动作走广播。**注意必须同时清 localStorage 和内存里的 `user`**——
+只清前者时 `RequireAuth` 判的还是 `user`，用户会卡在页面上反复报错，直到手动刷新。
+这是曾经的真实 bug，改动这一块时先看 `store/auth.tsx` 里那个订阅。
+
+**令牌续期不需要前端做什么**：剩余有效期不足一半时服务端自动换发，前端只是在
+`client.ts` 里把响应头里的新令牌写回 localStorage。
+
 **登录态**（`store/auth.tsx`）：
 
 ```
 首次挂载 → 有令牌？ → 调 authApi.profile() 换身份
                       ├─ 成功 → setUser
                       └─ 失败 → setToken(null)（静默清除，等守卫送回登录页）
-登录成功 → setToken(token) + setUser(user)
+登录成功 → setToken(token) + setUser(user) + navigate(from)
 登出     → 调 /auth/logout（失败也不阻塞）+ 清本地令牌 + setUser(null)
+收到 AUTH_EXPIRED_EVENT → setUser(null)（令牌已被 client 清掉）
 ```
 
-`RequireAuth` 在 `loading` 期间显示占位，避免刷新时先闪一下登录页。
+`RequireAuth` 在 `loading` 期间显示占位，避免刷新时先闪一下登录页；
+未登录时跳 `/login` 并带上 `state.from`，登录后原路返回。
 
 ## 4. 核心模块
 
 | 模块 | 关键点 | 改动注意 |
 |---|---|---|
-| `api/client.ts` | `BASE_URL = '/api/v1'`；令牌键 `gowork_token`；`toQuery` 自动跳过空值 | 所有请求必须走这里。页面里直接 `fetch` 会漏掉令牌注入与 401 清理 |
+| `api/client.ts` | `BASE_URL = '/api/v1'`；令牌键 `gowork_token`；`toQuery` 自动跳过空值 | 所有请求必须走这里。页面里直接 `fetch` 会漏掉令牌注入、续期替换与 401 广播 |
 | `api/*.ts` | 每个领域一个对象（`productApi` 等），方法与后端路由一一对应 | 返回值类型必须来自 `types/index.ts`，不要就地写匿名类型 |
 | `hooks/usePagedResource.ts` | 分页（`PAGE_SIZE = 15`）、关键字、`reload()`、竞态保护 | 额外筛选条件放进各页面自己的 `fetchPage` 闭包，不要改 hook 签名 |
+| `hooks/useFormDraft.ts` | 新建表单实时写 sessionStorage；`take()` 取回、`clear()` 清掉 | 只在新建态挂载（`modalOpen && !editing`）；主动关闭要调 `clear()`，否则下次新建会冒出旧内容 |
 | `store/auth.tsx` | Context + `useMemo`，只放跨页面共享的登录态 | 页面级状态不要塞进来 |
 | `components/` | `Modal`（受控显隐）、`Field`（label + 控件 + 错误文案）、`Pagination`、`StatusBadge` | 保持无业务语义；出现"产品专用"逻辑就该留在 page 里 |
 | `pages/` | 三个列表页结构一致：筛选区 + 表格 + 分页 + 弹窗表单 | 新增页面照 `Products.tsx` 抄骨架最快 |
@@ -178,6 +208,9 @@ pnpm run dev
 |---|---|---|
 | 用 `@/xxx` 导入报 `Could not resolve` | 只改了 `tsconfig.json` 的 `paths` 或只改了 `vite.config.ts` 的 `resolve.alias` | 两处必须同时存在，见第 7 节「开发约定」的导入约定；改完跑 `pnpm run build` 验证 |
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；`client.ts` 已自动清令牌，检查后端 `cache.memory.persist` |
+| 401 后页面还在，只是每条请求都报错 | 只清了 localStorage 没清内存里的 `user`，`RequireAuth` 判的还是 `user` | 检查 `store/auth.tsx` 里对 `AUTH_EXPIRED_EVENT` 的订阅是否还在 |
+| 续期在生产环境不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 里暴露，JS 读不到 | 见后端 `AGENTS.md`「令牌续期」；开发期走 vite proxy 同源，复现不出来 |
+| 新建弹窗里冒出上次没提交的旧内容 | 上次是主动关闭，但没调 `draft.clear()` | 关闭/取消统一走页面里的 `close()`；只有被登录态打断时才该保留草稿 |
 | 列表每页 15 条，和后端默认 20 不一致 | `usePagedResource` 的 `PAGE_SIZE = 15` 显式传参 | 有意为之；改这里就同时看后端 `MaxPageSize=200` 上限 |
 | 快速翻页后显示的是旧数据 | 组件卸载/切换时旧请求后到 | `usePagedResource` 已用 `cancelled` 标记丢弃；自己写的请求同样要处理 |
 | `npm install` 报 `[gowork-frontend] 本项目使用 pnpm` | `package.json` 的 `preinstall` 守卫 | 用 pnpm；npm 已生成的 `package-lock.json` 被 `.gitignore` 忽略，删掉即可 |

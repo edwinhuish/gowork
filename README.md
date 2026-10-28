@@ -28,7 +28,7 @@ GoWork/
 | HTTP | gin v1 |
 | ORM | gorm（PostgreSQL / MySQL / SQLite 三驱动，配置切换） |
 | 缓存 | go-redis v9 / 进程内实现（可落盘），配置切换 |
-| 鉴权 | JWT（HS256）+ 服务端会话，登出即失效 |
+| 鉴权 | JWT（HS256）+ 服务端会话，登出即失效、滑动续期 |
 | 日志 | 标准库 log/slog，结构化输出 |
 | 前端 | React 19 + TypeScript + Vite + react-router（pnpm 管理依赖） |
 
