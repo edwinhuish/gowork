@@ -72,7 +72,13 @@ func (c *redisCache) Incr(ctx context.Context, key string, ttl time.Duration) (i
 	pipe := c.client.TxPipeline()
 	incr := pipe.Incr(ctx, fullKey)
 	if ttl > 0 {
-		pipe.Expire(ctx, fullKey, ttl)
+		// 用 PEXPIRE 而不是 EXPIRE：后者的精度是秒，亚秒 TTL 会被向上取整到 1s，
+		// 与 memory 实现（纳秒精度）就不一致了。PEXPIRE 保留毫秒，够用于限流窗口。
+		ms := ttl.Milliseconds()
+		if ms < 1 {
+			ms = 1
+		}
+		pipe.PExpire(ctx, fullKey, time.Duration(ms)*time.Millisecond)
 	}
 	if _, err := pipe.Exec(ctx); err != nil {
 		if strings.Contains(err.Error(), "not an integer") {
