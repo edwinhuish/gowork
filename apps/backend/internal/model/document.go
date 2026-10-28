@@ -142,6 +142,10 @@ const (
 	DocTypeStockIn    DocType = "IN"
 	DocTypeStockOut   DocType = "OUT"
 	DocTypeStockCount DocType = "CT"
+	// 形式发票与销售合同共用一张表、各自一条序列：单号一眼能看出是哪种，
+	// 而"同一份东西两个名字"的问题只存在于类型命名，不存在于号段。
+	DocTypeProformaInvoice DocType = "PI"
+	DocTypeSalesContract   DocType = "SC"
 )
 
 // IsValid 挡住手误拼出来的类型。
@@ -152,7 +156,8 @@ func (t DocType) IsValid() bool {
 	switch t {
 	case DocTypeQuotation, DocTypeSalesOrder, DocTypePurchaseOrder, DocTypeShipment,
 		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms,
-		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount:
+		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount,
+		DocTypeProformaInvoice, DocTypeSalesContract:
 		return true
 	}
 	return false
