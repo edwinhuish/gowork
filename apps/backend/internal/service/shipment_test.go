@@ -23,6 +23,8 @@ type shipmentFixture struct {
 	orderB *model.SalesOrder
 	// draftOrder 停在草稿状态，用来验证"草稿订单不能出货"。
 	draftOrder *model.SalesOrder
+	// orderC 属于第二个客户，用来验证一票不能装两个客户的货。
+	orderC *model.SalesOrder
 }
 
 func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
@@ -76,9 +78,9 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		WithSalesOrderClock(clock),
 	)
 
-	createOrder := func(productID uint, qty float64) *model.SalesOrder {
+	createOrder := func(partnerID, productID uint, qty float64) *model.SalesOrder {
 		o, err := orderSvc.Create(ctx, dto.SalesOrderInput{
-			PartnerID:    customer.ID,
+			PartnerID:    partnerID,
 			TradeTerm:    "FOB",
 			OrderDate:    now.Format("2006-01-02"),
 			CurrencyCode: "CNY",
@@ -101,9 +103,19 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		return confirmed
 	}
 
-	orderA := confirm(createOrder(p1.ID, 100))
-	orderB := confirm(createOrder(p2.ID, 20))
-	draftOrder := createOrder(p1.ID, 50)
+	orderA := confirm(createOrder(customer.ID, p1.ID, 100))
+	orderB := confirm(createOrder(customer.ID, p2.ID, 20))
+	draftOrder := createOrder(customer.ID, p1.ID, 50)
+
+	// 第二个客户：验证"一票只能装同一个客户的货"。
+	customer2 := &model.Partner{
+		Code: "C002", Name: "Comercial Andina", Role: model.PartnerRoleCustomer,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	if err := partnerRepo.Create(ctx, customer2); err != nil {
+		t.Fatalf("建第二个客户失败: %v", err)
+	}
+	orderC := confirm(createOrder(customer2.ID, p1.ID, 30))
 
 	return shipmentFixture{
 		shipments: NewShipmentService(
@@ -119,6 +131,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		orderA:     orderA,
 		orderB:     orderB,
 		draftOrder: draftOrder,
+		orderC:     orderC,
 	}
 }
 
@@ -147,9 +160,10 @@ func TestShipmentCandidates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("查可出货行失败: %v", err)
 		}
-		// orderA 100 + orderB 20；draftOrder 还在草稿，不该出现。
-		if len(list) != 2 {
-			t.Fatalf("可出货行数 = %d，期望 2（草稿订单不进候选）", len(list))
+		// orderA 100 + orderB 20 + 另一个客户的 orderC 30；draftOrder 还在草稿，不该出现。
+		// 候选不按客户分组：跨客户合并是在提交时才拒绝的，候选列表按单行平铺。
+		if len(list) != 3 {
+			t.Fatalf("可出货行数 = %d，期望 3（草稿订单不进候选）", len(list))
 		}
 		c, ok := findA(t)
 		if !ok {
@@ -247,8 +261,8 @@ func TestShipmentRules(t *testing.T) {
 		}
 		first = s
 
-		if s.DocNo != "SH-202610-0001" {
-			t.Errorf("doc_no = %q，期望 SH-202610-0001", s.DocNo)
+		if s.DocNo != "DN-2610-001" {
+			t.Errorf("doc_no = %q，期望 DN-2610-001", s.DocNo)
 		}
 		if s.Status != model.DocumentStatusDraft {
 			t.Errorf("新出货单状态 = %d，期望草稿", s.Status)
@@ -304,8 +318,8 @@ func TestShipmentRules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("恰好等于剩余量应允许，实际 %v", err)
 		}
-		if s.DocNo != "SH-202610-0002" {
-			t.Errorf("doc_no = %q，期望 SH-202610-0002", s.DocNo)
+		if s.DocNo != "DN-2610-002" {
+			t.Errorf("doc_no = %q，期望 DN-2610-002", s.DocNo)
 		}
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 1}},
@@ -430,4 +444,34 @@ func TestShipmentRules(t *testing.T) {
 			t.Errorf("单号被复用: %q", next.DocNo)
 		}
 	})
+}
+
+// 一票货只能装同一个客户的订单：货代可以拼柜，单据不能拼。
+// 送货单、商业发票、装箱单上只有一个收货人，合并之后发票开给谁？
+func TestShipmentRejectsCrossCustomer(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+
+	_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
+			{SalesOrderItemID: fx.orderC.Items[0].ID, Qty: 1},
+		},
+	})
+	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+		t.Fatalf("跨客户合并一票期望 40001，实际 %v", err)
+	}
+
+	// 同一个客户的两张订单并一票是合法的（拼柜的常态），不能顺手拦掉。
+	if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 1},
+		},
+	}); err != nil {
+		t.Fatalf("同客户合并一票应允许，实际 %v", err)
+	}
 }

@@ -136,8 +136,8 @@ func TestPurchaseOrderRules(t *testing.T) {
 		}
 		created = o
 
-		if o.DocNo != "PO-202610-0001" {
-			t.Errorf("doc_no = %q，期望 PO-202610-0001", o.DocNo)
+		if o.DocNo != "PO-2610-001" {
+			t.Errorf("doc_no = %q，期望 PO-2610-001", o.DocNo)
 		}
 		if o.Status != model.DocumentStatusDraft {
 			t.Errorf("状态 = %d，期望草稿", o.Status)

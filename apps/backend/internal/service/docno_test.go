@@ -68,16 +68,16 @@ func TestDocNoFormatAndRollover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if first != "PO-202610-0001" {
-		t.Errorf("首个单号 = %s，期望 PO-202610-0001", first)
+	if first != "PO-2610-001" {
+		t.Errorf("首个单号 = %s，期望 PO-2610-001", first)
 	}
 
 	second, err := svc.Next(ctx, model.DocTypePurchaseOrder)
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if second != "PO-202610-0002" {
-		t.Errorf("第二个单号 = %s，期望 PO-202610-0002", second)
+	if second != "PO-2610-002" {
+		t.Errorf("第二个单号 = %s，期望 PO-2610-002", second)
 	}
 
 	// 类型不同就是不同的号段，互不影响。
@@ -95,8 +95,8 @@ func TestDocNoFormatAndRollover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("取号失败: %v", err)
 	}
-	if nextMonth != "PO-202611-0001" {
-		t.Errorf("跨月单号 = %s，期望 PO-202611-0001", nextMonth)
+	if nextMonth != "PO-2611-001" {
+		t.Errorf("跨月单号 = %s，期望 PO-2611-001", nextMonth)
 	}
 }
 
@@ -260,5 +260,24 @@ func TestCheckDocumentTransit(t *testing.T) {
 	err = checkDocumentTransit(model.DocumentStatusDraft, model.DocumentStatus(99))
 	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
 		t.Fatalf("未知状态期望 40001，实际 %v", err)
+	}
+}
+
+// 三位号段（PO / DN）用尽要报错而不进位：多一位会让印在纸上的分段错位。
+func TestDocNoExhausted(t *testing.T) {
+	db := openTestDB(t, &model.DocSeq{})
+	if err := db.Create(&model.DocSeq{
+		DocType: model.DocTypePurchaseOrder, Period: "202610", Seq: 999,
+	}).Error; err != nil {
+		t.Fatalf("预置号段失败: %v", err)
+	}
+	svc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(func() time.Time {
+		return time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	}))
+
+	if _, err := svc.Next(context.Background(), model.DocTypePurchaseOrder); err == nil {
+		t.Fatal("号段用尽应该报错")
+	} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+		t.Fatalf("期望 40901，实际 %v", err)
 	}
 }

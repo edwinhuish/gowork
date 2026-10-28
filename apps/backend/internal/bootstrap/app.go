@@ -70,6 +70,7 @@ func New(cfg *config.Config) (*App, error) {
 			&model.QuotationItem{},
 			&model.Contract{},
 			&model.ContractTerm{},
+			&model.DocNoRename{},
 			&model.SalesOrder{},
 			&model.SalesOrderItem{},
 			&model.PurchaseOrder{},

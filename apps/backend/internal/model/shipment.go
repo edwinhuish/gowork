@@ -15,6 +15,12 @@ type Shipment struct {
 	ShipDate time.Time `gorm:"type:date;not null;index" json:"ship_date"`
 	Remark   string    `gorm:"size:255" json:"remark"`
 
+	// InvoiceRevision 是这一票商票的改证次数：0 是首版，改一次加一。
+	//
+	// 改证**不换套号**：报关、提单与客户账上都认这个号，换号等于换了一票货。
+	// 版本只体现在文件名与打印件上（`-CI-R1`），这样"客户手上是哪一版"能说清楚。
+	InvoiceRevision int `gorm:"not null;default:0" json:"invoice_revision"`
+
 	// 物流节点。这四个值是**订舱之后**才知道的，而出货单在草稿阶段就把数量定死了，
 	// 所以它们不跟 ShipmentInput 走：走 `PUT /shipments/:id/logistics`，
 	// 任何状态都能改。这与"数量只能在草稿改"是两条相反的规则，理由不同：

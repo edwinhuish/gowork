@@ -346,6 +346,9 @@ func (s *shipmentService) buildAllocations(
 	rows := make([]model.ShipmentAllocation, 0, len(in))
 	// used 记录本次请求里已经给每一行分配了多少，用于捕获同请求内的重复行。
 	used := make(map[uint]float64, len(in))
+	// dealPartnerID 记住这票货的客户：一票只能装同一个客户的订单。
+	// 货代可以拼柜，单据不能拼——送货单、商业发票、装箱单上只有一个收货人。
+	var dealPartnerID uint
 
 	for _, row := range in {
 		if row.Qty <= 0 {
@@ -360,6 +363,15 @@ func (s *shipmentService) buildAllocations(
 		}
 		if err := checkOrderShippable(item); err != nil {
 			return nil, err
+		}
+
+		// 跨客户合并一票：报错而不是悄悄合并。合并之后这票的商业发票开给谁？
+		// 拆成两票各开一张才是对的，而"拆"必须是用户的选择。
+		if dealPartnerID == 0 {
+			dealPartnerID = item.SalesOrder.PartnerID
+		} else if item.SalesOrder.PartnerID != dealPartnerID {
+			return nil, errs.BadRequest(fmt.Sprintf(
+				"一票货只能装同一个客户的订单：%s 属于另一个客户", item.SalesOrder.DocNo))
 		}
 
 		allocated, err := s.shipments.AllocatedQty(ctx, item.ID, excludeShipmentID)

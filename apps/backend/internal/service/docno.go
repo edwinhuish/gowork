@@ -90,6 +90,12 @@ func (s *docNoService) Next(ctx context.Context, docType model.DocType) (string,
 	if err != nil {
 		return "", err
 	}
+	// 序号位数是格式的一部分（PO-2610-001 是三位），用尽必须停下报错。
+	if max := model.MaxSeq(docType); seq > max {
+		return "", errs.ErrConflict.WithMsg(fmt.Sprintf(
+			"%s 在 %s 的号段已用尽（%d 张），请等下个月或改用其它单据类型",
+			docType, period, max))
+	}
 	return model.FormatDocNo(docType, period, seq), nil
 }
 

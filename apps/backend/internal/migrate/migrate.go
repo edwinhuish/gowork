@@ -35,6 +35,9 @@ func Run(db *gorm.DB, log *slog.Logger) error {
 	if err := MergeLegacyCustomersAndSuppliers(db, log); err != nil {
 		return err
 	}
+	if err := RenameShipmentDocNos(db, log); err != nil {
+		return err
+	}
 	return nil
 }
 

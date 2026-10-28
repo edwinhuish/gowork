@@ -95,7 +95,7 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	purchase := &model.PurchaseOrder{
-		DocNo: "PO-202610-0001", SupplierID: supplier.ID, TradeTerm: model.TradeTermEXW,
+		DocNo: "PO-2610-001", SupplierID: supplier.ID, TradeTerm: model.TradeTermEXW,
 		Status: model.DocumentStatusConfirmed, OrderDate: model.DateOnly(now),
 		CurrencyCode: "CNY", ExchangeRate: 1,
 		AmountTotal: 3000, AmountBaseTotal: 3000,

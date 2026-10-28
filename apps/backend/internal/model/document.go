@@ -131,11 +131,14 @@ const (
 	DocTypeQuotation     DocType = "QT" // 报价单
 	DocTypeSalesOrder    DocType = "SO" // 销售订单
 	DocTypePurchaseOrder DocType = "PO" // 采购订单
-	DocTypeShipment      DocType = "SH" // 出货批次
-	DocTypeReceivable    DocType = "RC" // 应收单
-	DocTypePayable       DocType = "PY" // 应付单
-	DocTypePayment       DocType = "PM" // 收付款单
-	DocTypeCustoms       DocType = "CD" // 报关单
+	// DocTypeShipment 送货单（一票货）。它同时是这一票的**套号**：
+	// 商业发票与装箱单共用这个号，只在文件名与打印件上加 -CI / -PL 区分。
+	// 旧前缀 `SH-` 已由 migrate 重编为 `DN-`，并留下新旧对照表。
+	DocTypeShipment   DocType = "DN"
+	DocTypeReceivable DocType = "RC" // 应收单
+	DocTypePayable    DocType = "PY" // 应付单
+	DocTypePayment    DocType = "PM" // 收付款单
+	DocTypeCustoms    DocType = "CD" // 报关单
 	// 库存流水号。流水不是单据（没有状态），但手工录入的期初与盘盈亏
 	// 没有来源单据可引用，需要一个能在电话里报出来的标识。
 	DocTypeStockMovement DocType = "MV"
@@ -176,11 +179,43 @@ func DocNoPeriod(t time.Time) string {
 	return t.Format("200601")
 }
 
-// FormatDocNo 拼出业务单号：类型(2)-年月(6)-流水(4)，如 PO-202610-0001。
+// docNoStyle 返回该类型单号的序号位数与年段宽度。
 //
-// 报价单与销售订单不走这里：它们的号由案号派生（见 FormatDealDocNo）。
+// 采购与送货单是 `PO-2610-001` 这种三段式：月内 999 张够用，单号也短，
+// 写在箱唛与手写单上不容易抄错。其余类型仍是 4 位序号、6 位年段。
+func docNoStyle(t DocType) (seqWidth, yearWidth int) {
+	switch t {
+	case DocTypePurchaseOrder, DocTypeShipment:
+		return 3, 2
+	}
+	return 4, 6
+}
+
+// MaxSeq 返回该类型单号序号的上限：三位 999、四位 9999。
+//
+// 用尽要报错而不能进位：多一位会让所有按列宽核对单号的表格错位，
+// 也让「类型-年月-序号」的分段变得不可切分。
+func MaxSeq(t DocType) uint {
+	seqWidth, _ := docNoStyle(t)
+	switch seqWidth {
+	case 3:
+		return 999
+	default:
+		return 9999
+	}
+}
+
+// FormatDocNo 拼出业务单号：`PO-2610-001` 或 `IN-202610-0001`（按类型）。
+//
+// period 一律传 4 位年的 YYYYMM：跨世纪才不会把 2100 与 2026 挤成同一行，
+// 只在展示时截掉前两位。报价单与销售订单不走这里（见 FormatDealDocNo）。
 func FormatDocNo(t DocType, period string, seq uint) string {
-	return fmt.Sprintf("%s-%s-%04d", t, period, seq)
+	seqWidth, yearWidth := docNoStyle(t)
+	p := period
+	if yearWidth == 2 && len(period) == 6 {
+		p = period[2:]
+	}
+	return fmt.Sprintf("%s-%s-%0*d", t, p, seqWidth, seq)
 }
 
 // DealBaseNo 拼案号：{客户编码}{YY}{NN}，如 DZ2603，读作「DZ 客户 2026 年第 3 笔生意」。
