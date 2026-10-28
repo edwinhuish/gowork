@@ -10,7 +10,7 @@ import (
 
 type SupplierFilter struct {
 	Keyword string
-	Status  *int8
+	Status  *model.EnableStatus
 }
 
 func (f SupplierFilter) scopes() []Scope {

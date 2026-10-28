@@ -38,7 +38,7 @@ func NewCustomerService(repo repository.CustomerRepository, opts ...CustomerOpti
 }
 
 func (s *customerService) Create(ctx context.Context, in dto.CustomerInput) (*model.Customer, error) {
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (s *customerService) Update(ctx context.Context, id uint, in dto.CustomerIn
 	if _, err := s.repo.FindByID(ctx, id); err != nil {
 		return nil, err
 	}
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *customerService) Get(ctx context.Context, id uint) (*model.Customer, er
 func (s *customerService) List(ctx context.Context, q dto.CustomerQuery) (*dto.PageResult[model.Customer], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.CustomerFilter{Keyword: q.Keyword, Country: q.Country, Status: q.Status}
+	filter := repository.CustomerFilter{Keyword: q.Keyword, Country: q.Country, Status: enableStatusPtr(q.Status)}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 
 	list, total, err := s.repo.List(ctx, filter, page)

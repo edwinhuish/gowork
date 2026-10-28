@@ -43,7 +43,7 @@ func (a *App) seedAdmin(ctx context.Context, auth service.AuthService, users rep
 		Password: hash,
 		Nickname: "管理员",
 		Role:     model.RoleAdmin,
-		Status:   model.StatusEnabled,
+		Status:   model.EnableStatusOn,
 	}); err != nil {
 		return err
 	}
@@ -65,8 +65,8 @@ func (a *App) seedDemoData(
 	}
 
 	demoSuppliers := []model.Supplier{
-		{Code: "SUP001", Name: "永康市华信五金厂", Contact: "陈先生", Phone: "13800000001", Address: "浙江省金华市永康市", Status: model.StatusEnabled},
-		{Code: "SUP002", Name: "揭阳铭泰不锈钢制品", Contact: "林小姐", Phone: "13800000002", Address: "广东省揭阳市", Status: model.StatusEnabled},
+		{Code: "SUP001", Name: "永康市华信五金厂", Contact: "陈先生", Phone: "13800000001", Address: "浙江省金华市永康市", Status: model.EnableStatusOn},
+		{Code: "SUP002", Name: "揭阳铭泰不锈钢制品", Contact: "林小姐", Phone: "13800000002", Address: "广东省揭阳市", Status: model.EnableStatusOn},
 	}
 	for i := range demoSuppliers {
 		if err := suppliers.Create(ctx, &demoSuppliers[i]); err != nil {
@@ -75,7 +75,7 @@ func (a *App) seedDemoData(
 	}
 
 	demoCustomers := []model.Customer{
-		{Code: "CUS001", Name: "Ferreteria El Sol", Country: "Ecuador", Contact: "Carlos", Phone: "+593 9 0000 0001", Address: "Guayaquil", Status: model.StatusEnabled},
+		{Code: "CUS001", Name: "Ferreteria El Sol", Country: "Ecuador", Contact: "Carlos", Phone: "+593 9 0000 0001", Address: "Guayaquil", Status: model.EnableStatusOn},
 	}
 	for i := range demoCustomers {
 		if err := customers.Create(ctx, &demoCustomers[i]); err != nil {
@@ -85,10 +85,10 @@ func (a *App) seedDemoData(
 
 	superID := demoSuppliers[0].ID
 	demoProducts := []model.Product{
-		{SkuCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 6.8, SalePrice: 9.9, Status: model.StatusEnabled},
-		{SkuCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 3.2, SalePrice: 5.5, Status: model.StatusEnabled},
-		{SkuCode: "LK01-0001-BK", NameCN: "球形门锁 黑色", NameEN: "Round Knob Lock BK", Category: "LK", Spec: "60 mm", Unit: "SET", SupplierID: &superID, CostPrice: 12.5, SalePrice: 18.0, Status: model.StatusEnabled},
-		{SkuCode: "FS01-0001", NameCN: "自攻螺丝 4×30 十字", NameEN: "Self Tapping Screw 4×30", Category: "FS", Spec: "4×30 mm / 1000pcs", Unit: "BOX", SupplierID: &superID, CostPrice: 8.0, SalePrice: 12.0, Status: model.StatusEnabled},
+		{SkuCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 6.8, SalePrice: 9.9, Status: model.EnableStatusOn},
+		{SkuCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &superID, CostPrice: 3.2, SalePrice: 5.5, Status: model.EnableStatusOn},
+		{SkuCode: "LK01-0001-BK", NameCN: "球形门锁 黑色", NameEN: "Round Knob Lock BK", Category: "LK", Spec: "60 mm", Unit: "SET", SupplierID: &superID, CostPrice: 12.5, SalePrice: 18.0, Status: model.EnableStatusOn},
+		{SkuCode: "FS01-0001", NameCN: "自攻螺丝 4×30 十字", NameEN: "Self Tapping Screw 4×30", Category: "FS", Spec: "4×30 mm / 1000pcs", Unit: "BOX", SupplierID: &superID, CostPrice: 8.0, SalePrice: 12.0, Status: model.EnableStatusOn},
 	}
 	for i := range demoProducts {
 		if err := products.Create(ctx, &demoProducts[i]); err != nil {

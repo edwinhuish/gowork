@@ -8,6 +8,13 @@ const (
 	MaxPageSize     = 200
 )
 
+// EnableStatusInput 是启用状态的可选入参：1 启用 / 0 停用。
+//
+// 用 nil 表示"未提交"，由 service 按各模块默认值补齐。
+// 不能拿 0 当"没填"——那样就分不清"显式停用"和"没传这个字段"。
+// 取值合法性不在这里校验，交给 service 的 normEnableStatus。
+type EnableStatusInput = *int8
+
 // PageQuery 是通用分页参数，各业务查询结构体嵌入它即可。
 type PageQuery struct {
 	Page     int    `form:"page"`

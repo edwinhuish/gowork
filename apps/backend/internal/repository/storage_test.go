@@ -79,7 +79,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 
 	// 每次跑用独立供应商圈定数据集，避免和库里已有的演示数据混在一起。
 	supplierRepo := NewSupplierRepository(db)
-	supplier := &model.Supplier{Code: "SUP-" + mark, Name: "测试供应商", Status: model.StatusEnabled}
+	supplier := &model.Supplier{Code: "SUP-" + mark, Name: "测试供应商", Status: model.EnableStatusOn}
 	if err := supplierRepo.Create(ctx, supplier); err != nil {
 		t.Fatalf("创建供应商: %v", err)
 	}
@@ -96,7 +96,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			Category:   "FS",
 			Unit:       "PCS",
 			SupplierID: &supplier.ID,
-			Status:     model.StatusEnabled,
+			Status:     model.EnableStatusOn,
 		},
 		{
 			SkuCode:    mark + "-002",
@@ -104,7 +104,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			Category:   "FS",
 			Unit:       "PCS",
 			SupplierID: &supplier.ID,
-			Status:     model.StatusEnabled,
+			Status:     model.EnableStatusOn,
 		},
 	}
 	for _, p := range products {

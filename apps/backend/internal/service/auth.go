@@ -103,7 +103,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Log
 		// 用户不存在与密码错误返回同一文案，避免账号枚举。
 		return nil, errs.New(errs.CodeUnauthorized, "用户名或密码错误")
 	}
-	if !user.IsActive() {
+	if !user.IsEnabled() {
 		return nil, errs.New(errs.CodeForbidden, "账号已被禁用")
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {

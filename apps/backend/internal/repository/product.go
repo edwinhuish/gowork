@@ -16,7 +16,7 @@ type ProductFilter struct {
 	Keyword    string
 	Category   string
 	SupplierID *uint
-	Status     *int8
+	Status     *model.EnableStatus
 }
 
 func (f ProductFilter) scopes() []Scope {
@@ -54,7 +54,7 @@ type ProductRepository interface {
 	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
 	List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error)
 	Count(ctx context.Context) (int64, error)
-	CountByStatus(ctx context.Context, status int8) (int64, error)
+	CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error)
 }
 
 type productRepo struct {
@@ -114,7 +114,7 @@ func (r *productRepo) Count(ctx context.Context) (int64, error) {
 	return r.Base.Count(ctx)
 }
 
-func (r *productRepo) CountByStatus(ctx context.Context, status int8) (int64, error) {
+func (r *productRepo) CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error) {
 	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
 		return db.Where("status = ?", status)
 	})

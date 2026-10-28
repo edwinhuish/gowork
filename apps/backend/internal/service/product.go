@@ -39,7 +39,7 @@ func NewProductService(repo repository.ProductRepository, opts ...ProductOption)
 }
 
 func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*model.Product, error) {
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	if _, err := s.repo.FindByID(ctx, id); err != nil {
 		return nil, err
 	}
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 		Keyword:    q.Keyword,
 		Category:   q.Category,
 		SupplierID: q.SupplierID,
-		Status:     q.Status,
+		Status:     enableStatusPtr(q.Status),
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 

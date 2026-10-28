@@ -38,7 +38,7 @@ func NewSupplierService(repo repository.SupplierRepository, opts ...SupplierOpti
 }
 
 func (s *supplierService) Create(ctx context.Context, in dto.SupplierInput) (*model.Supplier, error) {
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *supplierService) Update(ctx context.Context, id uint, in dto.SupplierIn
 	if _, err := s.repo.FindByID(ctx, id); err != nil {
 		return nil, err
 	}
-	status, err := normStatus(in.Status, model.StatusEnabled)
+	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *supplierService) Get(ctx context.Context, id uint) (*model.Supplier, er
 func (s *supplierService) List(ctx context.Context, q dto.SupplierQuery) (*dto.PageResult[model.Supplier], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.SupplierFilter{Keyword: q.Keyword, Status: q.Status}
+	filter := repository.SupplierFilter{Keyword: q.Keyword, Status: enableStatusPtr(q.Status)}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 
 	list, total, err := s.repo.List(ctx, filter, page)

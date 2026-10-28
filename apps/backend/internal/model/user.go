@@ -11,12 +11,15 @@ type User struct {
 	Base
 	Username string `gorm:"size:64;uniqueIndex;not null" json:"username"`
 	// Password 存 bcrypt 摘要，任何情况下都不出口。
-	Password string `gorm:"size:128;not null" json:"-"`
-	Nickname string `gorm:"size:64" json:"nickname"`
-	Role     string `gorm:"size:32;not null;default:staff;index" json:"role"`
-	Status   int8   `gorm:"not null;default:1;index" json:"status"`
+	Password string       `gorm:"size:128;not null" json:"-"`
+	Nickname string       `gorm:"size:64" json:"nickname"`
+	Role     string       `gorm:"size:32;not null;default:staff;index" json:"role"`
+	Status   EnableStatus `gorm:"not null;default:1;index" json:"status"`
 }
 
 func (User) TableName() string { return "sys_user" }
 
-func (u *User) IsActive() bool { return u.Status == StatusEnabled }
+// IsEnabled 报告账号是否可用。命名不叫 IsActive：Active 在本项目里
+// 已被概览指标用过（在售/在用），与启用状态是同一件事的两种说法，
+// 留着会让人以为是两个不同判断。
+func (u *User) IsEnabled() bool { return u.Status == EnableStatusOn }

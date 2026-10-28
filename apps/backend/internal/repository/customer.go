@@ -11,7 +11,7 @@ import (
 type CustomerFilter struct {
 	Keyword string
 	Country string
-	Status  *int8
+	Status  *model.EnableStatus
 }
 
 func (f CustomerFilter) scopes() []Scope {
