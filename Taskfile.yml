@@ -21,10 +21,16 @@ tasks:
       - task --list-all
 
   install:
-    desc: 安装后端与前端依赖
+    desc: 安装后端与前端依赖（前端走 pnpm）
     cmds:
       - task: backend:install
       - task: frontend:install
+
+  install:ci:
+    desc: 按锁文件严格安装（CI / 发布用；前端锁文件与 package.json 不一致会直接失败）
+    cmds:
+      - task: backend:install
+      - task: frontend:install:ci
 
   dev:
     desc: 并行启动后端(:8080)与前端(:5173)，Ctrl-C 一并退出
