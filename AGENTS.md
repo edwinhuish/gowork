@@ -161,6 +161,8 @@ task lint         # go vet + tsc --noEmit
 |---|---|---|
 | `AGENTS.md`（本文） | 目标、架构、技术栈、模块划分 | 第一次接触项目 |
 | `docs/glossary.md` | **术语表**：业务对象叫什么、归哪个域、哪些词不许用、命名规则 | 写任何新代码或文档之前 |
+| `docs/trade-erp-crm-blueprint.md` | **功能蓝图**：六大能力组的目标、关键能力、优先级判定 | 决定"做什么、先做哪个"时 |
+| `docs/roadmap.md` | **实施路线**：任务编号、交付物、验收标准、依赖与进度 | 每开一个新任务之前 |
 | `apps/backend/AGENTS.md` | 后端分层、核心模块、接口清单、数据流、约定 | 改 Go 代码 |
 | `apps/frontend/AGENTS.md` | 前端分层、数据流、页面套路、约定 | 改 React 代码 |
 | `docs/architecture.md` | 取舍的**理由**、存储可替换性、扩展指引 | 要动架构或质疑某个设计 |
