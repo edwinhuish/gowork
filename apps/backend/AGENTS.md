@@ -62,7 +62,8 @@ apps/backend/
 ```
 
 测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、
-`repository/storage_test.go`、`migrate/legacy_merge_test.go`、`migrate/rename_legacy_test.go`，
+`repository/storage_test.go`、`migrate/legacy_merge_test.go`、`migrate/rename_legacy_test.go`、
+`migrate/rename_shipment_docno_test.go`，
 以及 `service/` 下的 `*_test.go`——它们用 `service/testdb_test.go` 起的**真实 SQLite 临时库**，
 不 mock 仓储；`partner` / `product` / `dashboard` 等 service 还没有测试。
 
@@ -172,10 +173,10 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段）；单号 `{案号}-SO{NN}`，从报价转来时沿用来源的案号与序号 |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
-| GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
+| GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-{YYMM}-{NNN}`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
-| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `SH-`（目标 `DN-{YYMM}-{NNN}` 套号，见 T-47）；分配挂销售订单**行**，数量不得超过未出数量（409） |
+| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `DN-{YYMM}-{NNN}`，同时是这一票的套号；分配挂销售订单**行**，数量不得超过未出数量（409）；一票只能装同一客户的订单（400） |
 | GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
 | GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |
@@ -360,7 +361,17 @@ task backend:test       # go test ./... -count=1
 | 形态 | 用于 | 例子 | 发号入口 |
 |---|---|---|---|
 | `{案号}-{类型}{NN}` | 报价单、销售订单 | `DZ2603-QT01` / `DZ2603-SO01` | `DocNoService.NextDeal` |
-| `{类型}-{YYYYMM}-{NNNN}` | 其余全部 | `PO-202610-0001` | `DocNoService.Next` |
+| `{类型}-{YYMM}-{NNN}` | 采购订单、送货单 | `PO-2610-001` / `DN-2610-001` | `DocNoService.Next` |
+| `{类型}-{YYYYMM}-{NNNN}` | 其余（应收 / 应付 / 收付款 / 报关 / 库存 / 合同） | `PM-202610-0001` | `DocNoService.Next` |
+
+后两种的差别只在 `docNoStyle`：三段式短一号（月内 999 用尽报 409，不进位）。
+号段表里 `period` 一律存 **4 位年的 YYYYMM**，只有单号上才截成两位——否则 2100 年
+会与 2026 年落到同一行。
+
+送货单号同时是**套号**：商业发票与装箱单共用它，只在文件名与打印件后缀上区分
+（`-DN` / `-CI` / `-PL`）；改证重开升 `invoice_revision`，不换号——报关、提单与
+客户账上认的都是这个号。存量 `SH-` 已由 `migrate.RenameShipmentDocNos` 重编为
+`DN-`，新旧对照留在 `sys_doc_no_rename`，客户拿旧号来问时查得到。
 
 案号 = `{客户编码}{YY}{NN}`，标的是「一笔生意」：报价与它转出的订单共用同一个，
 序号也不变（QT03 转出必得 SO03）。`Next` 会明确拒绝报价与销售订单——留两条路径，
