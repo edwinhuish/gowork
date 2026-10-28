@@ -84,14 +84,18 @@ type Scope = func(*gorm.DB) *gorm.DB
 
 `Base.Paginate` 里 `Count` 和 `Find` 各自重新构建 `*gorm.DB`。复用同一个实例会让 Count 的 statement（select count(*)）残留到 Find 上，这是 gorm 最常见的坑之一。
 
-### 4. 缓存不可用时降级，而不是启动失败
+### 4. 缓存与数据库都靠配置选实现，代码里没有分支
 
-`infra/cache.New` 先 ping Redis，失败时按 `redis.fallback_to_memory` 决定：
+`infra/cache.New` 和 `infra/database.Open` 都只做一件事：读 `driver` 字段，返回对应实现。
 
-- `true`（开发默认）：降级为进程内实现，服务照常启动
-- `false`（生产）：直接返回错误，宁可起不来也不要带着错误假设运行
+- `cache.driver`：`memory`（默认，零依赖）/ `redis`
+- `database.driver`：`sqlite`（默认，零依赖）/ `postgres` / `mysql`
 
-上层的 `Cache` 接口不变，业务代码不需要知道自己连的是哪种实现。
+**不采用"连不上就悄悄降级"的隐式规则。** 只有显式把 `cache.fallback_to_memory` 打开时才降级，
+且生产配置里它是 `false` —— 多实例部署下退回进程内缓存，症状是"数据时有时无"，
+这种错误不会在启动时暴露，只会在业务对不上账时才被发现。
+
+详细矩阵见第五节。
 
 ### 5. Option 模式注入可选依赖
 
@@ -112,7 +116,89 @@ service.NewProductService(repo, service.WithProductLogger(log))
 
 所有模型嵌入 `gorm.DeletedAt`。ERP 里删除客户或产品不能真的删——历史订单、对账、追溯都还引用着它。删除只置位，查询自动过滤。
 
-## 五、新增一个业务模块
+## 五、存储可替换性：三库 + 两缓存
+
+### 1. 组合矩阵
+
+| 场景 | `database.driver` | `cache.driver` | 外部依赖 |
+|---|---|---|---|
+| 本地开发（默认 `config.yaml`） | `sqlite` | `memory` + 落盘 | 无 |
+| 本地换库验证（`config.postgres.yaml` / `config.mysql.yaml`） | `postgres` / `mysql` | `redis` | compose |
+| 生产（`config.prod.yaml`） | `postgres` | `redis` | 有 |
+
+切换只改配置，不改一行 Go 代码：
+
+```bash
+GOWORK_DB_DRIVER=postgres \
+GOWORK_DB_HOST=10.0.0.5 GOWORK_DB_USER=gowork GOWORK_DB_PASSWORD=*** GOWORK_DB_NAME=gowork \
+GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=10.0.0.6:6379 \
+task backend:run
+```
+
+### 2. 数据库：连接串可以整段给，也可以拆开给
+
+```yaml
+database:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  user: gowork
+  password: ""            # 走 GOWORK_DB_PASSWORD
+  name: gowork
+  params: {sslmode: disable, TimeZone: Asia/Shanghai}
+```
+
+`postgres` 与 `mysql` **共用同一组键名**，所以换库时只有 `driver` 和 `params` 的写法要变：
+postgres 的 params 是 `key=value`，mysql 的是 query string。想完全掌控连接串就直接写 `dsn`，此时其余字段被忽略。
+
+驱动差异全部收敛在 `infra/database`：
+
+| 关注点 | 处理方式 |
+|---|---|
+| 驱动选择 | `postgres.Open` / `mysql.Open` / `sqlite.Open`，返回同一个 `*gorm.DB` |
+| 连接数 | sqlite 收敛到 ≤8（单写者模型），Server 型按配置 |
+| 目录 | sqlite 的父目录不存在时自动创建 |
+| 事务包装 | sqlite 关闭 gorm 默认事务，缩短写锁持有时间 |
+| 日志 | `database.log_level` 统一控制 gorm 日志 |
+
+### 3. 行为一致性：仓库层只写一次 SQL
+
+| 语义 | 三库差异 | 统一做法 |
+|---|---|---|
+| 关键字搜索大小写 | pg 的 `LIKE` 区分大小写 | `likeAny` 在 pg 上用 `ILIKE` |
+| 用户输入含 `%` `_` | 各库转义符不同 | 统一转义并 `ESCAPE '!'`（避开反斜杠在 mysql 字符串里的二次转义） |
+| 时间 | pg/pgx、mysql parseTime、sqlite 文本 | 驱动层统一 `parseTime=True&loc=Local` |
+| 软删除 | 一致 | `gorm.DeletedAt` |
+| 自增主键 | bigserial / auto_increment / rowid | 统一 `uint` 主键，业务层不关心 |
+
+`internal/repository/storage_test.go` 用同一套断言跑三种库（`task test:storage`），
+任何一条方言差异导致的行为漂移都会在这里暴露。
+
+### 4. 内存缓存的持久化边界
+
+```yaml
+cache:
+  driver: memory
+  memory:
+    persist: true
+    path: data/cache.snapshot
+    save_interval: 30
+```
+
+机制：JSON 快照 → 同目录临时文件 → `fsync` → `rename` 原子替换；启动时加载并丢弃过期键；
+写操作只置脏标记，由后台按 `save_interval` 合并落盘，`Close()` 再补一次。
+
+必须清楚的四点：
+
+1. **不是数据库。** 它只是让"重启后登录态还在"这件事成立，不能当成持久化存储来设计业务。
+2. **有丢失窗口。** 进程被 `SIGKILL` 或掉电时，最后一次落盘之后的数据会丢（最多一个 `save_interval`）。
+3. **单进程。** 两个实例各写各的快照文件，不共享、会互相覆盖。
+4. **损坏不阻塞启动。** 快照解析失败会被改名成 `.corrupt` 并留日志，服务以空缓存启动。
+
+`fallback_to_memory` 只影响 `driver=redis`：开发环境打开可以"没起 Redis 也能跑"，
+生产必须关闭——降级后多实例之间的会话不再共享。
+
+## 六、新增一个业务模块
 
 以"采购订单 `purchase_order`"为例，按顺序加五层，最后装配一次：
 
@@ -204,8 +290,9 @@ type PurchaseOrderHandler struct {
 - [ ] 列表接口统一走 `Pagination`，不要出现无上限的 `Find(&list)`
 - [ ] service 不 import gin；handler 不 import gorm
 - [ ] 新错误用 `errs` 里已有的码，确需新增时保持"前三位对齐 HTTP 状态码"的约定
+- [ ] 自定义 SQL 必须三库兼容：模糊匹配用 `likeAny`，不要写 `IFNULL` / `group_concat` 这类单库函数
 
-## 六、后续模块的扩展建议
+## 七、后续模块的扩展建议
 
 | 模块 | 关键点 |
 |---|---|
@@ -215,7 +302,7 @@ type PurchaseOrderHandler struct {
 | 出货批次 | 出货单与订单是多对多（分批/合并），必须有分配表，不要试图把订单号编进编码 |
 | SKU 货源 | 一个产品对多个供应商货号，单独建 `md_product_source`，不要往产品表塞 `supplier_id2` |
 
-## 七、前端分层
+## 八、前端分层
 
 ```
 pages/       页面：组装数据与交互

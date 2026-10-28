@@ -11,9 +11,9 @@ GoWork/
 │   ├── backend/              # Go 服务
 │   └── frontend/             # React 应用
 ├── deployments/
-│   └── docker-compose.yml    # MySQL + Redis
+│   └── docker-compose.yml    # PostgreSQL + Redis（MySQL 走 profile）
 └── docs/
-    └── architecture.md       # 分层约定与扩展指引
+    └── architecture.md       # 分层约定、存储可替换性、扩展指引
 ```
 
 ## 技术栈
@@ -21,8 +21,8 @@ GoWork/
 | 层 | 选型 |
 |---|---|
 | HTTP | gin v1 |
-| ORM | gorm（MySQL / SQLite 双驱动） |
-| 缓存 | go-redis v9，未配置时自动降级为进程内缓存 |
+| ORM | gorm（PostgreSQL / MySQL / SQLite 三驱动，配置切换） |
+| 缓存 | go-redis v9 / 进程内实现（可落盘），配置切换 |
 | 鉴权 | JWT（HS256）+ 服务端会话，登出即失效 |
 | 日志 | 标准库 log/slog，结构化输出 |
 | 前端 | React 19 + TypeScript + Vite + react-router |
@@ -47,22 +47,37 @@ cd apps/backend && go run ./cmd/server        # 后端
 cd apps/frontend && npm install && npm run dev # 前端
 ```
 
-### 默认零依赖启动
+### 存储：默认零依赖，按环境切换
 
-`configs/config.yaml` 默认用 **SQLite + 进程内缓存**，不需要先装数据库就能跑。
-`data/gowork.db` 是本地库文件，已在 `.gitignore` 中忽略。
+开发默认 **SQLite + 内存缓存**，不装任何数据库就能跑：
 
-要切到 MySQL + Redis：
+- `data/gowork.db` 本地库文件（WAL 模式）
+- `data/cache.snapshot` 内存缓存的落盘快照，重启后登录态和限流计数还在
+
+两者都在 `.gitignore` 里。三种组合都已实测（见下表），切换只改配置：
+
+| 想跑的组合 | 执行 |
+|---|---|
+| SQLite + 内存（默认） | `task backend:dev` |
+| PostgreSQL + Redis | `task infra:up` 然后 `task backend:dev:pg` |
+| MySQL + Redis | `task infra:up` + `docker compose --profile mysql up -d`，再 `task backend:dev:mysql` |
+
+也可以完全用环境变量覆盖，不碰配置文件：
 
 ```bash
-task infra:up                                        # 起容器
-export GOWORK_DB_DRIVER=mysql
-export GOWORK_DB_DSN='gowork:gowork@tcp(127.0.0.1:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local'
-export GOWORK_REDIS_ADDR=127.0.0.1:6379
-cd apps/backend && go run ./cmd/server
+GOWORK_DB_DRIVER=postgres GOWORK_DB_HOST=127.0.0.1 GOWORK_DB_USER=gowork \
+GOWORK_DB_PASSWORD=gowork GOWORK_DB_NAME=gowork \
+GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=127.0.0.1:6379 \
+task backend:run
 ```
 
-配置优先级：`configs/config.yaml` < `GOWORK_*` 环境变量。生产模板见 `configs/config.prod.yaml`。
+配置优先级：配置文件 < `GOWORK_*` 环境变量。生产模板见 `configs/config.prod.yaml`。
+
+一致性验证（同一套断言跑三库两缓存）：
+
+```bash
+task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳过
+```
 
 ## Taskfile 命令
 
@@ -75,10 +90,11 @@ cd apps/backend && go run ./cmd/server
 | `task dev` | 并行启动前后端 |
 | `task build` | 构建后端二进制 + 前端静态产物 |
 | `task test` | 后端单元测试 |
+| `task test:storage` | 三库两缓存的一致性测试（未启动的服务自动跳过） |
 | `task lint` | `go vet` + 前端类型检查 |
 | `task fmt` | gofmt |
 | `task clean` | 清理 `bin/` 与 `dist/` |
-| `task infra:up` / `infra:down` | 启停 MySQL + Redis |
+| `task infra:up` / `infra:down` | 启停 PostgreSQL + Redis（MySQL 加 `--profile mysql`） |
 
 子目录也有各自的任务：`task -d apps/backend -- --list`、`task -d apps/frontend -- --list`。
 
