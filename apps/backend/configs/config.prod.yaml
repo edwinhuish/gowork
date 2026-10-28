@@ -1,0 +1,37 @@
+# 生产配置模板：MySQL + Redis。
+# 密码一律通过环境变量注入，不要写进仓库：
+#   GOWORK_DB_DSN、GOWORK_REDIS_PASSWORD、GOWORK_JWT_SECRET
+app:
+  name: gowork
+  env: prod
+
+http:
+  addr: ":8080"
+  mode: release
+  cors_origins:
+    - https://erp.example.com
+  shutdown_timeout: 15
+
+database:
+  driver: mysql
+  dsn: "gowork:gowork@tcp(mysql:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local"
+  max_open: 100
+  max_idle: 20
+  max_lifetime: 3600
+  auto_migrate: false
+  seed: false
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  prefix: "gowork:"
+  fallback_to_memory: false
+
+jwt:
+  secret: ""
+  expire: 12
+
+log:
+  level: info
+  format: json

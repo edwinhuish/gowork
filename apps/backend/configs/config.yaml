@@ -1,0 +1,38 @@
+# 本地开发默认配置：SQLite + 进程内缓存，缺省零外部依赖即可启动。
+# 需要 MySQL / Redis 时改用 config.prod.yaml，或用 GOWORK_* 环境变量覆盖。
+app:
+  name: gowork
+  env: dev
+
+http:
+  addr: ":8080"
+  mode: debug
+  cors_origins:
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+  shutdown_timeout: 10
+
+database:
+  driver: sqlite
+  dsn: "file:./data/gowork.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+  max_open: 20
+  max_idle: 5
+  auto_migrate: true
+  seed: true
+
+redis:
+  # 留空表示不连 Redis，直接使用进程内缓存。
+  # 填 "localhost:6379" 即可启用，连不上时会按 fallback_to_memory 决定是否降级。
+  addr: ""
+  password: ""
+  db: 0
+  prefix: "gowork:"
+  fallback_to_memory: true
+
+jwt:
+  secret: "dev-only-secret-please-change-in-production-1a2b3c4d"
+  expire: 24
+
+log:
+  level: info
+  format: text
