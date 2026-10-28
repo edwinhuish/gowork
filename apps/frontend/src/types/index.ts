@@ -466,8 +466,41 @@ export interface Shipment {
   status: number
   /** 实际（或计划）出货日，决定它落在哪个统计月份。 */
   ship_date: string
+  /**
+   * 物流节点。它们是订舱之后才知道的，所以不走编辑页：
+   * 用 `shipmentApi.updateLogistics` 单独保存，任何状态都能改。
+   */
+  bl_no: string
+  vessel: string
+  /** YYYY-MM-DD，可能为 null（未定）。 */
+  etd: string | null
+  eta: string | null
   remark: string
   allocations?: ShipmentAllocation[]
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 报关单：一票货的海关申报记录。
+ *
+ * **一票可以有多张**：不同 HS 编码要分票申报，被退单后改单重报也是新的一条，
+ * 旧的留着——「海关退回过什么」只在旧单还在的时候才回答得了。
+ *
+ * 不复用 DocumentsStatus：报关单没有「备货中」「已出货」，
+ * 而它的「退单」也不等于作废，改完还要重新申报。
+ */
+export interface CustomsDeclaration {
+  id: number
+  shipment_id: number
+  /** 10 待申报 / 20 已申报 / 30 已放行 / 90 已退单 */
+  status: number
+  /** 海关给的 18 位号，外部号：只记录、不参与发号与唯一性。可为空（待申报时还没有）。 */
+  decl_no: string
+  decl_date: string | null
+  /** 监管方式代码，如 0110 一般贸易 / 0615 进料对口 / 1039 市场采购。 */
+  supervision_mode: string
+  remark: string
   created_at: string
   updated_at: string
 }

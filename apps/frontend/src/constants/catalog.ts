@@ -55,6 +55,48 @@ export function shipmentChargeLabel(value?: number | null): string | undefined {
   return SHIPMENT_CHARGE_MAP.get(value) ?? `未知类型(${value})`
 }
 
+/**
+ * 报关单状态。取值与后端 model.CustomsStatus 一致。
+ *
+ * 独立于单据状态机：报关单没有「备货中」「已出货」，
+ * 而「已退单」是海关退回要求修改，改完还要重新申报，不是作废。
+ */
+export const CUSTOMS_STATUS_OPTIONS = [
+  { value: 10, label: '待申报' },
+  { value: 20, label: '已申报' },
+  { value: 30, label: '已放行' },
+  { value: 90, label: '已退单' },
+] as const
+
+const CUSTOMS_STATUS_MAP = new Map<number, string>(
+  CUSTOMS_STATUS_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+export function customsStatusLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return CUSTOMS_STATUS_MAP.get(value) ?? `未知状态(${value})`
+}
+
+/** 「已退单」要用告警色，其余是进度色。 */
+export function customsStatusColor(value?: number | null): string {
+  if (value === 90) return 'red'
+  if (value === 30) return 'green'
+  if (value === 20) return 'blue'
+  return 'default'
+}
+
+/**
+ * 常用监管方式。做成可自由输入的候选而不是封闭枚举：
+ * 海关的监管方式有几十种且会调整，封闭下拉会把人挡在门外。
+ */
+export const SUPERVISION_MODE_OPTIONS = [
+  { value: '0110', label: '0110 一般贸易' },
+  { value: '0615', label: '0615 进料对口' },
+  { value: '1039', label: '1039 市场采购' },
+  { value: '9610', label: '9610 跨境电商' },
+  { value: '1210', label: '1210 保税电商' },
+] as const
+
 /** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
 export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用' },

@@ -20,6 +20,19 @@ export interface ShipmentInput {
   allocations: ShipmentAllocationInput[]
 }
 
+/**
+ * 物流节点。单独一个入口：提单号与船期订舱后才有，
+ * 那时出货单早已确认、走不了 edit。
+ */
+export interface ShipmentLogisticsInput {
+  /** 承运人给的提单号，外部号，只记录。 */
+  bl_no: string
+  vessel: string
+  /** YYYY-MM-DD，留空表示未定（会把已填的值清掉）。 */
+  etd?: string
+  eta?: string
+}
+
 export const shipmentApi = {
   create: (body: ShipmentInput) => http.post<Shipment>('/shipments', body),
 
@@ -30,6 +43,10 @@ export const shipmentApi = {
   /** 状态流转走服务端状态机，跳步会被拒（409）。 */
   updateStatus: (id: number, status: number) =>
     http.put<Shipment>(`/shipments/${id}/status`, { status }),
+
+  /** 只改物流节点，任何状态都能改。ETA 早于 ETD 会被拒（400）。 */
+  updateLogistics: (id: number, body: ShipmentLogisticsInput) =>
+    http.put<Shipment>(`/shipments/${id}/logistics`, body),
 
   /**
    * 还能出货的销售订单行。独立前缀而不是 /shipments/candidates：
