@@ -24,7 +24,7 @@ handler  →  service  →  repository  →  model
 | `cmd/server` | 解析参数、启动、优雅退出 | 业务代码 |
 | `internal/config` | 读配置、默认值、环境变量覆盖、启动期校验 | 业务逻辑 |
 | `internal/bootstrap` | 依赖装配（DB/缓存/仓储/服务/handler 串联） | 业务逻辑 |
-| `internal/model` | 表结构、表名、状态常量 | 查询、校验 |
+| `internal/model` | 表结构、表名、状态枚举 | 查询、校验 |
 | `internal/dto` | 请求体、查询条件、分页结果 | 数据库字段映射 |
 | `internal/repository` | 查询构造、事务、软删除 | 业务规则、HTTP 概念 |
 | `internal/service` | 业务规则、唯一性校验、编排多个仓储 | SQL、gin.Context |
@@ -115,6 +115,21 @@ service.NewProductService(repo, service.WithProductLogger(log))
 ### 7. 软删除
 
 所有模型嵌入 `gorm.DeletedAt`。ERP 里删除客户或产品不能真的删——历史订单、对账、追溯都还引用着它。删除只置位，查询自动过滤。
+
+### 8. 按层分包，不按域分包
+
+ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/product.go` 不放进
+`internal/service/erp/` 下。
+
+理由是当前规模：ERP 侧只有 product 与 supplier，CRM 侧只有 customer。按域分会产生
+两个各自只有一两个文件、却要多一层 import 路径的目录。域归属靠术语表与表前缀
+（`md_` / `biz_` / `crm_`）表达，已经够清楚。
+
+新增模块时也不用先判断"这属于哪个域"：五个文件走同一条路径，按第六节走一遍就行。
+
+**什么时候该切**：CRM 侧模块超过三个，或出现只属于一侧的复杂逻辑（订单状态机、
+库存扣减规则）。那时按域拆才有收益——拆的应该是"变化频率不同的东西"，
+不是"名字不同但改动同步的东西"。
 
 ## 五、存储可替换性：三库 + 两缓存
 
@@ -211,11 +226,21 @@ type PurchaseOrder struct {
     OrderNo    string  `gorm:"size:32;uniqueIndex;not null" json:"order_no"`
     SupplierID uint    `gorm:"index;not null" json:"supplier_id"`
     TotalAmount float64 `gorm:"type:decimal(14,2)" json:"total_amount"`
-    Status     int8    `gorm:"not null;default:1;index" json:"status"`
+    // 单据状态。与主数据的 EnableStatus 是两套语义，别复用那个类型：
+    // 主数据问"还能不能用"，单据问"走到哪一步了"。
+    Status DocumentStatus `gorm:"not null;default:10;index" json:"status"`
 }
 
 func (PurchaseOrder) TableName() string { return "biz_purchase_order" }
 ```
+
+`DocumentStatus` 是新增的枚举类型（`type DocumentStatus int8` + 各阶段常量），
+本次一并定义在 `model/` 下。**不要**直接拿 `EnableStatus` 顶上——两者取值都是
+小整数，编译器不会拦你，运行时才发现筛选条件查错了语义。
+
+金额这里沿用 `Product.CostPrice` 的 `float64` + `decimal` 列。这是已知隐患
+（外贸单据有累计与分账，0.01 的误差会放大），但改它要动全部金额字段与前端，
+单独排期；在那之前新模块保持一致，不要自创第二套金额表示。
 
 在 `bootstrap/app.go` 的 `AutoMigrate` 列表里加上 `&model.PurchaseOrder{}`。
 
@@ -285,7 +310,7 @@ type PurchaseOrderHandler struct {
 
 ### 检查清单
 
-- [ ] 表名带模块前缀（`sys_` / `md_` / `biz_` / `inv_`），避免后续命名打架
+- [ ] 表名带域前缀（`sys_` / `md_` / `biz_` / `inv_` / `crm_`），前缀含义见 `docs/glossary.md` 第二节
 - [ ] 编码类字段加 `uniqueIndex`，service 里做前置查重
 - [ ] 列表接口统一走 `Pagination`，不要出现无上限的 `Find(&list)`
 - [ ] service 不 import gin；handler 不 import gorm
@@ -294,29 +319,52 @@ type PurchaseOrderHandler struct {
 
 ## 七、后续模块的扩展建议
 
+模块名与表前缀先查 `docs/glossary.md`，下面只讲建模上容易做错的地方。
+
 | 模块 | 关键点 |
 |---|---|
 | 采购订单 | 主表 + 明细表（`biz_purchase_order_item`），金额在 service 里汇总，不允许前端提交总额 |
-| 销售订单 | 同上；订单状态用枚举 + 状态机，禁止任意跳转 |
+| 销售订单 | 同上；订单状态用 `DocumentStatus` 枚举 + 状态机，禁止任意跳转。**不要复用 `EnableStatus`** |
 | 库存 | 用「出入库流水 + 当前库存快照」两张表，快照可由流水重算，便于对账 |
 | 出货批次 | 出货单与订单是多对多（分批/合并），必须有分配表，不要试图把订单号编进编码 |
-| SKU 货源 | 一个产品对多个供应商货号，单独建 `md_product_source`，不要往产品表塞 `supplier_id2` |
+| 产品货源 | 一个产品对多个供应商货号，单独建 `md_product_source`，不要往产品表塞 `supplier_id2`。产品上的 `supplier_id` 是**默认货源**，不是唯一货源 |
+| 联系人（CRM） | `crm_customer_contact`，一个客户多行。客户表上的 `contact` 列退化为"主联系人姓名"，不要在上面继续加字段 |
+| 跟进记录（CRM） | `crm_activity`。可能挂在客户或商机上，用 `subject_type` + `subject_id` 一张表，不要拆两张 |
+| 商机（CRM） | `crm_opportunity`，阶段用枚举 + 状态机；金额与赢单概率分列存，不要用阶段反推 |
+
+**CRM 模块最容易踩的一条**：想给客户加一个"最近跟进时间"字段图省事。
+那是派生数据，应该由 `crm_activity` 聚合出来（或加缓存），
+写进 `md_customer` 会让"这个值什么时候该更新"变成每处写客户代码都要记得的事。
 
 ## 八、前端分层
 
 ```
-pages/       页面：组装数据与交互
+pages/           页面：组装数据与交互（每个资源 list / create / edit / show 四页）
   ↓
-hooks/       列表页状态机（分页 / 关键字 / 加载 / 错误 / 竞态）
+@refinedev/antd  useTable / useForm / useShow 承接分页、筛选、表单、鉴权路由
   ↓
-api/         接口封装 + 统一 fetch 客户端（令牌注入、错误拆包、401 清理）
+providers/       dataProvider（HTTP 契约翻译）+ authProvider（登录态）
   ↓
-types/       与后端 dto 对齐的类型定义
+api/client.ts    统一 fetch：令牌注入、拆包、续期、401 清理
+  ↓
+types/           与后端 dto 对齐的类型定义（字段名保持 snake_case）
 ```
 
-- `components/` 只放无业务语义的通用件（Modal / Pagination / Field / StatusBadge）
-- `store/` 只放跨页面共享的状态（当前登录用户），页面级状态留在页面里
-- 所有请求走 `api/client.ts`，不在页面里直接 `fetch`——令牌注入和错误处理只应该有一处
+各层只管自己的事：
+
+- **`pages/`**：字段怎么展示、前端能拦的校验（必填、格式）。不发请求、不拼 URL——
+  那是 provider 的活。
+- **`providers/dataProvider.ts`**：唯一把 refine 的抽象翻译成后端实际接口的地方。
+  分页参数名（`page` / `page_size`）、筛选白名单、`{code,message,data}` 拆包都在这里。
+  后端加查询参数时改它，页面不用动。
+- **`api/client.ts`**：唯一的 fetch 出口。令牌注入、滑动续期、401 清令牌因此只写一次，
+  任何绕过它的请求都会静默缺掉这些横切行为。
+- **`components/`**：只放无业务语义的展示件（`fields.tsx` 的 StatusTag / Money）
+  与布局外壳，不放数据获取。
+
+**不再有 `hooks/` 与 `store/`。** 列表状态机（分页 / 关键字 / 加载 / 错误 / 竞态）由
+`useTable` 承接，跨页面的登录态由 `authProvider` + TanStack Query 承接。
+这两层在 refine 改造前是手写的，改造后若继续留着，会形成两套并行的状态源。
 
 ### 包管理：pnpm，且只有一个锁文件
 
