@@ -6,8 +6,9 @@
 name: CI
 
 on:
+  # 不按分支名过滤：本仓库主干是 master，一旦改名或换成 main，
+  # 写成 branches: [main] 会静默不触发，比"多跑几个分支"麻烦得多。
   push:
-    branches: [main]
   pull_request:
 
 # 同一分支连续提交时取消上一次运行，省 runner 也避免旧结果误导
