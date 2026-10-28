@@ -170,13 +170,14 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/contracts/:id` | `Contract.Get` / `.Update` / `.Delete` | 只有草稿可改可删；来源、客户与金额不在可改字段里，要改就改来源单据后重新生成 |
 | PUT | `/api/v1/contracts/:id/status` | `Contract.UpdateStatus` | 只放行已确认 / 已取消（400）；确认前复核来源单据未取消、分期合计与总额相符 |
 | GET | `/api/v1/quotations/:id/pdf`、`/api/v1/contracts/:id/pdf` | `PDF.Quotation` / `.Contract` | 返回 `application/pdf` 附件，**不走统一响应体**（失败仍走）；版式在 `internal/pkg/pdf/templates/*.json`，改版式不改代码；中文需 `pdf.font_path` 指向同时含拉丁与汉字的 `.ttf`，缺字体时打印不可用但服务照常启动 |
+| GET | `/api/v1/shipments/:id/invoice`、`/api/v1/shipments/:id/packing-list` | `PDF.Invoice` / `.PackingList` | 商业发票与装箱单：内部编号取送货单的套号（`doc_no`），改证后带 `-R{n}`，文件名 `{套号}-CI.pdf` / `-PL.pdf`，**不单独发号**；明细来自分配行（发票金额按出货数量 × 订单单价） |
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段）；单号 `{案号}-SO{NN}`，从报价转来时沿用来源的案号与序号 |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-{YYMM}-{NNN}`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
-| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `DN-{YYMM}-{NNN}`，同时是这一票的套号；分配挂销售订单**行**，数量不得超过未出数量（409）；一票只能装同一客户的订单（400） |
+| GET / POST | `/api/v1/shipments` | `Shipment.List` / `.Create` | 单号 `DN-{YYMM}-{NNN}`，同时是这一票的套号；分配挂销售订单**行**，数量不得超过未出数量（409）；一票只能装同一客户、同一币种的订单（400）；分配行可带装箱数据（`cartons` / `gross_weight` / `net_weight` / `measurement`，可留空，只拦负值与净重 > 毛重） |
 | GET / PUT / DELETE | `/api/v1/shipments/:id` | `Shipment.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/shipments/:id/status` | `Shipment.UpdateStatus` | 与其它单据共用状态机；取消即把数量还给订单行 |
 | GET | `/api/v1/shipment-candidates` | `Shipment.Candidates` | 可出货的订单行（已确认 / 备货中且未出 > 0）；编辑页传 `exclude_shipment_id` 把本票占的数量还回来 |

@@ -18,6 +18,10 @@ type shipmentFixture struct {
 	shipments ShipmentService
 	orders    SalesOrderService
 	now       *time.Time
+	// 打印相关的测试要直接用仓储与币种服务装配 PDF 服务，不另造一套夹具。
+	shipmentRepo repository.ShipmentRepository
+	orderRepo    repository.SalesOrderRepository
+	currencySvc  CurrencyService
 	// orderA 一行 100 件，orderB 一行 20 件，两张单都已确认（草稿不能出货）。
 	orderA *model.SalesOrder
 	orderB *model.SalesOrder
@@ -126,12 +130,15 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 			WithShipmentClock(clock),
 			WithShipmentLogger(slog.New(slog.DiscardHandler)),
 		),
-		orders:     orderSvc,
-		now:        now,
-		orderA:     orderA,
-		orderB:     orderB,
-		draftOrder: draftOrder,
-		orderC:     orderC,
+		orders:       orderSvc,
+		now:          now,
+		shipmentRepo: shipmentRepo,
+		orderRepo:    orderRepo,
+		currencySvc:  currencySvc,
+		orderA:       orderA,
+		orderB:       orderB,
+		draftOrder:   draftOrder,
+		orderC:       orderC,
 	}
 }
 

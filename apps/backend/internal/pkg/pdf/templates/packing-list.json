@@ -1,0 +1,56 @@
+{
+  "title": "PACKING LIST",
+  "subtitle": "Set No. {set_no}",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    { "label": "Invoice No.", "value": "{doc_no}" },
+    { "label": "Delivery Note No.", "value": "{set_no}" },
+    { "label": "Date", "value": "{ship_date}" }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "SHIPMENT",
+      "lines": [
+        "Your Order No.: {order_nos}",
+        "Vessel: {vessel}",
+        "B/L No.: {bl_no}",
+        "ETD: {etd}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      { "title": "No.", "key": "no", "width": 8, "align": "left" },
+      { "title": "Description", "key": "description", "width": 62, "align": "left" },
+      { "title": "Your Order No.", "key": "order_no", "width": 28, "align": "left" },
+      { "title": "Qty", "key": "qty", "width": 12, "align": "right" },
+      { "title": "Ctns", "key": "cartons", "width": 12, "align": "right" },
+      { "title": "G.W. kg", "key": "gross", "width": 14, "align": "right" },
+      { "title": "N.W. kg", "key": "net", "width": 14, "align": "right" },
+      { "title": "Meas.", "key": "measurement", "width": 30, "align": "left" }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    { "label": "Total Cartons", "value": "{cartons_total}" },
+    { "label": "Total G.W. (kg)", "value": "{gross_total}" },
+    { "label": "Total N.W. (kg)", "value": "{net_total}" }
+  ],
+  "notes": [
+    "Cartons and weights are stated per line; the totals above are the sum of those lines.",
+    "Measurement is given per carton as packed; empty marks mean the goods are not packed yet."
+  ]
+}

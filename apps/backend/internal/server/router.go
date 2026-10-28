@@ -234,6 +234,10 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		shipments.PUT("/:id/status", h.Shipment.UpdateStatus)
 		// 物流节点单独一个入口：提单号与船期订舱后才有，那时单子已经不可改了。
 		shipments.PUT("/:id/logistics", h.Shipment.UpdateLogistics)
+		// 商业发票与装箱单不单独发号：它们印的是送货单的套号（DN-2610-001），
+		// 只是文件名后缀不同（-CI / -PL）。所以没有"新建商票"这种动作，只有打印。
+		shipments.GET("/:id/invoice", h.PDF.Invoice)
+		shipments.GET("/:id/packing-list", h.PDF.PackingList)
 
 		// 可出货的订单行：出货单新建页的选行来源。独立前缀，避免与 /:id 抢路径。
 		secured.GET("/shipment-candidates", h.Shipment.Candidates)

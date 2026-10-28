@@ -179,7 +179,8 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithContractLogger(log))
 
 	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
-	pdfSvc := buildPDFService(cfg, log, quotationRepo, orderRepo, contractRepo, currencySvc)
+	pdfSvc := buildPDFService(
+		cfg, log, quotationRepo, orderRepo, contractRepo, shipmentRepo, currencySvc)
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
@@ -286,6 +287,7 @@ func buildPDFService(
 	quotations repository.QuotationRepository,
 	orders repository.SalesOrderRepository,
 	contracts repository.ContractRepository,
+	shipments repository.ShipmentRepository,
 	currencies service.CurrencyService,
 ) service.PDFService {
 	fontPath := cfg.PDF.FontPath
@@ -311,7 +313,7 @@ func buildPDFService(
 	}
 
 	log.Info("单据 PDF 已启用", "font", fontPath, "templates", set.Names())
-	return service.NewPDFService(quotations, orders, contracts, currencies, renderer,
+	return service.NewPDFService(quotations, orders, contracts, shipments, currencies, renderer,
 		service.CompanyInfo{
 			Name:    cfg.PDF.CompanyName,
 			Address: cfg.PDF.CompanyAddress,

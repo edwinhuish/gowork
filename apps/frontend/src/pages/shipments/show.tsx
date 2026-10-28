@@ -3,6 +3,7 @@ import { useInvalidate, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
 
+import { download } from '@/api/client'
 import { shipmentApi } from '@/api/shipments'
 import { Empty, Mono } from '@/components/fields'
 import { orderStatusLabel } from '@/constants/catalog'
@@ -74,6 +75,7 @@ export function ShipmentShow() {
   const { result, query } = useShow<Shipment>({ resource: 'shipments' })
   const invalidate = useInvalidate()
   const [acting, setActing] = useState(false)
+  const [printing, setPrinting] = useState<'ci' | 'pl'>()
 
   const s = result
   const actions = s ? nextActions(s.status) : []
@@ -82,6 +84,26 @@ export function ShipmentShow() {
   const packCartons = (s?.allocations ?? []).reduce((sum, a) => sum + (a.cartons ?? 0), 0)
   const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + (a.gross_weight ?? 0), 0)
   const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + (a.net_weight ?? 0), 0)
+
+  /**
+   * 打印这一票的商业发票 / 装箱单。
+   *
+   * 两份文件都不单独发号：内部印的是送货单的套号，文件名后缀区分（-CI / -PL）。
+   * 改证过一次就带 -R1——客户手上是哪一版，只能靠文件名与版本号说清。
+   */
+  const printDoc = async (kind: 'ci' | 'pl') => {
+    if (!s) return
+    setPrinting(kind)
+    try {
+      const rev = s.invoice_revision > 0 ? `-R${s.invoice_revision}` : ''
+      const path = kind === 'ci' ? `/shipments/${s.id}/invoice` : `/shipments/${s.id}/packing-list`
+      await download(path, `${s.doc_no}${rev}-${kind === 'ci' ? 'CI' : 'PL'}.pdf`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '下载失败')
+    } finally {
+      setPrinting(undefined)
+    }
+  }
 
   const changeStatus = async (next: number, okText: string) => {
     if (!s) return
@@ -103,6 +125,13 @@ export function ShipmentShow() {
       title={s ? `出货单 ${s.doc_no}` : '出货单详情'}
       headerButtons={
         <Space wrap>
+          {/* 打印与状态无关：草稿也要能先打一份给货代看柜型，出完货还要补打。 */}
+          <Button loading={printing === 'ci'} onClick={() => printDoc('ci')}>
+            商业发票
+          </Button>
+          <Button loading={printing === 'pl'} onClick={() => printDoc('pl')}>
+            装箱单
+          </Button>
           {s?.status === 10 && <EditButton resource="shipments" recordItemId={s.id} />}
           {actions.map((a) =>
             a.danger ? (

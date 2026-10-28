@@ -1,0 +1,56 @@
+{
+  "title": "COMMERCIAL INVOICE",
+  "subtitle": "Set No. {set_no}",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    { "label": "Invoice No.", "value": "{doc_no}" },
+    { "label": "Date", "value": "{ship_date}" },
+    { "label": "Delivery Note No.", "value": "{set_no}" },
+    { "label": "Terms", "value": "{trade_term}" }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "SHIPMENT",
+      "lines": [
+        "Your Order No.: {order_nos}",
+        "Vessel: {vessel}",
+        "B/L No.: {bl_no}",
+        "ETD: {etd}",
+        "Currency: {currency_code}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      { "title": "No.", "key": "no", "width": 10, "align": "left" },
+      { "title": "Description", "key": "description", "width": 64, "align": "left" },
+      { "title": "Your Order No.", "key": "order_no", "width": 30, "align": "left" },
+      { "title": "Qty", "key": "qty", "width": 16, "align": "right" },
+      { "title": "UOM", "key": "unit", "width": 12, "align": "left" },
+      { "title": "Unit Price", "key": "unit_price", "width": 24, "align": "right" },
+      { "title": "Amount", "key": "amount", "width": 24, "align": "right" }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    { "label": "Total ({currency_code})", "value": "{amount_total}" },
+    { "label": "Total in {base_currency}", "value": "{amount_base_total}" }
+  ],
+  "notes": [
+    "Invoice No. {doc_no} is the set number of this shipment; the Delivery Note and the Packing List bear the same number.",
+    "{substitution_note}"
+  ]
+}

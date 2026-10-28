@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -29,6 +30,12 @@ type RenderedFile struct {
 type PDFService interface {
 	Quotation(ctx context.Context, id uint) (*RenderedFile, error)
 	Contract(ctx context.Context, id uint) (*RenderedFile, error)
+	// Invoice 出商业发票（CI），PackingList 出装箱单（PL）。
+	//
+	// 两者与送货单共用套号（送货单号），不单独发号：报关、提单与客户账上认的是同一个号，
+	// 一套资料三个文件只在文件名后缀上区分（-CI / -PL）。
+	Invoice(ctx context.Context, id uint) (*RenderedFile, error)
+	PackingList(ctx context.Context, id uint) (*RenderedFile, error)
 }
 
 // CompanyInfo 是打印抬头，来自配置。
@@ -42,6 +49,9 @@ type pdfService struct {
 	quotations repository.QuotationRepository
 	orders     repository.SalesOrderRepository
 	contracts  repository.ContractRepository
+	// shipments 供商业发票与装箱单用：这两份文件印的是"这一票出了什么"，
+	// 明细只在分配行上，不回订单取。
+	shipments  repository.ShipmentRepository
 	currencies CurrencyService
 	renderer   *pdf.Renderer
 	company    CompanyInfo
@@ -58,6 +68,7 @@ func NewPDFService(
 	quotations repository.QuotationRepository,
 	orders repository.SalesOrderRepository,
 	contracts repository.ContractRepository,
+	shipments repository.ShipmentRepository,
 	currencies CurrencyService,
 	renderer *pdf.Renderer,
 	company CompanyInfo,
@@ -67,6 +78,7 @@ func NewPDFService(
 		quotations: quotations,
 		orders:     orders,
 		contracts:  contracts,
+		shipments:  shipments,
 		currencies: currencies,
 		renderer:   renderer,
 		company:    company,
@@ -193,6 +205,162 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 	return &RenderedFile{Filename: c.DocNo + ".pdf", Data: data}, nil
 }
 
+// Invoice 出商业发票。
+//
+// 金额一律按**出货数量**算，不抄订单行的 Amount：分批出货时订单行是一整批的量，
+// 抄过来就等于把没发走的货也开在发票上。单价沿用订单，发票与订单必须对得上。
+func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error) {
+	sd, order, err := s.shipmentSource(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	curDP, baseDP, baseCode, err := s.decimals(ctx, order.CurrencyCode)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]map[string]string, 0, len(sd.Allocations))
+	orderNos := make([]string, 0, len(sd.Allocations))
+	total := 0.0
+	for i, a := range sd.Allocations {
+		price := 0.0
+		if a.SalesOrderItem != nil {
+			price = a.SalesOrderItem.UnitPrice
+		}
+		amount := a.Qty * price
+		total += amount
+		orderNo := allocationOrderNo(a)
+		orderNos = appendUnique(orderNos, orderNo)
+
+		items = append(items, map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"order_no":    orderNo,
+			"qty":         qtyText(a.Qty),
+			"unit":        a.Unit,
+			"unit_price":  moneyText(price, curDP),
+			"amount":      moneyText(amount, curDP),
+		})
+	}
+
+	setNo := setNoText(sd)
+	values := s.baseValues(baseCode)
+	values["doc_no"] = setNo
+	values["set_no"] = setNo
+	values["ship_date"] = sd.ShipDate.Format("2006-01-02")
+	values["trade_term"] = orDash(string(order.TradeTerm))
+	values["order_nos"] = orDash(strings.Join(orderNos, ", "))
+	values["vessel"] = orDash(sd.Vessel)
+	values["bl_no"] = orDash(sd.BLNo)
+	values["etd"] = dateText(sd.ETD)
+	values["currency_code"] = order.CurrencyCode
+	values["exchange_rate"] = rateText(order.ExchangeRate)
+	values["amount_total"] = moneyText(total, curDP)
+	values["amount_base_total"] = moneyText(total*order.ExchangeRate, baseDP)
+	values["substitution_note"] = substitutionNote(sd)
+	s.partnerValues(values, order.Partner)
+
+	data, err := s.render("invoice", pdf.Data{Values: values, Items: items})
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("生成商业发票 PDF", "id", sd.ID, "doc_no", setNo, "bytes", len(data))
+	return &RenderedFile{Filename: setNo + "-CI.pdf", Data: data}, nil
+}
+
+// PackingList 出装箱单。
+//
+// 装箱数据允许还没填就打印：草稿阶段常要一份先给货代看柜型与体积。
+// 空的那几格印「—」而不是 0——0 会被读成"这行确实没有纸箱"。
+func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, error) {
+	sd, order, err := s.shipmentSource(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]map[string]string, 0, len(sd.Allocations))
+	orderNos := make([]string, 0, len(sd.Allocations))
+	for i, a := range sd.Allocations {
+		orderNo := allocationOrderNo(a)
+		orderNos = appendUnique(orderNos, orderNo)
+
+		items = append(items, map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"order_no":    orderNo,
+			"qty":         qtyText(a.Qty),
+			"unit":        a.Unit,
+			"cartons":     packedInt(a.Cartons),
+			"gross":       packedWeight(a.GrossWeight),
+			"net":         packedWeight(a.NetWeight),
+			"measurement": orDash(a.Measurement),
+		})
+	}
+
+	cartons, gross, net := sd.PackingTotals()
+	setNo := setNoText(sd)
+	values := s.headerValues()
+	values["doc_no"] = setNo
+	values["set_no"] = setNo
+	values["ship_date"] = sd.ShipDate.Format("2006-01-02")
+	values["order_nos"] = orDash(strings.Join(orderNos, ", "))
+	values["vessel"] = orDash(sd.Vessel)
+	values["bl_no"] = orDash(sd.BLNo)
+	values["etd"] = dateText(sd.ETD)
+	// 合计与明细同一口径：都是逐行相加得来，票头上不另存一份。
+	values["cartons_total"] = packedInt(cartons)
+	values["gross_total"] = packedWeight(gross)
+	values["net_total"] = packedWeight(net)
+	s.partnerValues(values, order.Partner)
+
+	data, err := s.render("packing-list", pdf.Data{Values: values, Items: items})
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("生成装箱单 PDF", "id", sd.ID, "doc_no", setNo, "bytes", len(data))
+	return &RenderedFile{Filename: setNo + "-PL.pdf", Data: data}, nil
+}
+
+// shipmentSource 取一票出货及其开票用的商务条件。
+//
+// 客户、币种、汇率、贸易术语都不在票头上：一票货的商务条件来自它装的订单。
+// 而"一票只装同一个客户、同一个币种的订单"在写入时就已校验过，所以取第一张订单代表全票。
+// 这里仍重新核一遍币种：历史数据可能早于那条校验，宁可不打，也不在一张发票上印两个币种。
+func (s *pdfService) shipmentSource(
+	ctx context.Context, id uint,
+) (*model.Shipment, *model.SalesOrder, error) {
+	sd, err := s.shipments.FindByID(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(sd.Allocations) == 0 {
+		return nil, nil, errs.ErrConflict.WithMsg("这一票还没有出货明细，打不出商业发票与装箱单")
+	}
+
+	head := sd.Allocations[0].SalesOrderItem
+	if head == nil || head.SalesOrder == nil {
+		return nil, nil, errs.ErrInternal.WithMsg("出货明细缺少来源订单，无法打印")
+	}
+	// 回仓储取整单：分配行里嵌的那一层订单不一定会带客户。
+	order, err := s.orders.FindByID(ctx, head.SalesOrder.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, a := range sd.Allocations {
+		it := a.SalesOrderItem
+		if it == nil || it.SalesOrder == nil {
+			continue
+		}
+		if it.SalesOrder.CurrencyCode != order.CurrencyCode {
+			return nil, nil, errs.ErrConflict.WithMsg(
+				"这一票的明细来自不同币种的订单，打不出一张发票；请分票再打")
+		}
+	}
+	return sd, order, nil
+}
+
 // sourceItems 取来源单据的明细行。
 //
 // 报价单与订单的明细字段同名，抽成同一组渲染键，模板就不必为两种来源分叉。
@@ -257,13 +425,81 @@ func (s *pdfService) decimals(ctx context.Context, currencyCode string) (int, in
 	return curDP, baseDP, baseCode, nil
 }
 
-func (s *pdfService) baseValues(baseCode string) map[string]string {
+// headerValues 是每份单据都有的抬头。
+func (s *pdfService) headerValues() map[string]string {
 	return map[string]string{
 		"company_name":    s.company.Name,
 		"company_address": s.company.Address,
 		"company_contact": s.company.Contact,
-		"base_currency":   baseCode,
 	}
+}
+
+func (s *pdfService) baseValues(baseCode string) map[string]string {
+	values := s.headerValues()
+	values["base_currency"] = baseCode
+	return values
+}
+
+// setNoText 印套号：送货单 / 商业发票 / 装箱单共用这一个号，改证只加 -R{n}，不换号。
+//
+// 换号等于换了一票货——报关单、提单与客户账上都认原号。
+func setNoText(sd *model.Shipment) string {
+	if sd.InvoiceRevision > 0 {
+		return fmt.Sprintf("%s-R%d", sd.DocNo, sd.InvoiceRevision)
+	}
+	return sd.DocNo
+}
+
+// substitutionNote 是改证重开时的声明。
+//
+// 只写"替代哪个号"，不写原开单日期：系统没存下上一版的开单日，
+// 在发票上编一个日期比不印更糟。
+func substitutionNote(sd *model.Shipment) string {
+	if sd.InvoiceRevision == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Issued in substitution of %s (revision %d).", sd.DocNo, sd.InvoiceRevision)
+}
+
+// allocationOrderNo 取分配行背后的订单号。
+//
+// 优先走预加载的整单，取不到时退回服务层摊平好的字段：
+// 只读投影只在接口路径上填，PDF 走的是仓储。
+func allocationOrderNo(a model.ShipmentAllocation) string {
+	if a.SalesOrderItem != nil && a.SalesOrderItem.SalesOrder != nil {
+		return a.SalesOrderItem.SalesOrder.DocNo
+	}
+	return a.SalesOrderDocNo
+}
+
+// appendUnique 去重后追加，保持出现顺序：一张订单的多行并进一票时，
+// 发票上的 Your Order No. 只该出现一次。
+func appendUnique(list []string, s string) []string {
+	if s == "" {
+		return list
+	}
+	for _, v := range list {
+		if v == s {
+			return list
+		}
+	}
+	return append(list, s)
+}
+
+// packedInt 印箱数：0 的意思是"还没装箱"，与"装了 0 箱"无关，所以印「—」。
+func packedInt(v int) string {
+	if v <= 0 {
+		return "—"
+	}
+	return strconv.Itoa(v)
+}
+
+// packedWeight 印毛净重：三位小数去掉尾零，0 同上印「—」。
+func packedWeight(v float64) string {
+	if v <= 0 {
+		return "—"
+	}
+	return qtyText(v)
 }
 
 // partnerValues 填客户区块。空字段留空串，模板里那一行会被跳过——

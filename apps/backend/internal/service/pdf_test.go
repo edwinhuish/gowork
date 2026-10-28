@@ -29,7 +29,31 @@ func (f contractFixture) pdfSvc(t *testing.T) PDFService {
 	if err != nil {
 		t.Fatalf("加载字体失败: %v", err)
 	}
-	return NewPDFService(f.quotationRepo, f.orderRepo, f.contractRepo, f.currencySvc, renderer,
+	// shipments 传 nil：这组用例只打报价单与合同，不碰出货。
+	return NewPDFService(f.quotationRepo, f.orderRepo, f.contractRepo, nil, f.currencySvc, renderer,
+		CompanyInfo{
+			Name:    "Test Trading Co., Ltd.",
+			Address: "Ningbo, Zhejiang, China",
+			Contact: "sales@test.example",
+		})
+}
+
+// pdfSvc 装配出货侧的打印服务：报价与合同仓储传 nil，这组用例不碰它们。
+func (f shipmentFixture) pdfSvc(t *testing.T) PDFService {
+	t.Helper()
+	fontPath := pdf.DetectFont()
+	if fontPath == "" {
+		t.Skip("系统没有中文 TrueType 字体，跳过 PDF 渲染测试")
+	}
+	set, err := pdf.Load("")
+	if err != nil {
+		t.Fatalf("加载内置模板失败: %v", err)
+	}
+	renderer, err := pdf.NewRenderer(set, fontPath)
+	if err != nil {
+		t.Fatalf("加载字体失败: %v", err)
+	}
+	return NewPDFService(nil, f.orderRepo, nil, f.shipmentRepo, f.currencySvc, renderer,
 		CompanyInfo{
 			Name:    "Test Trading Co., Ltd.",
 			Address: "Ningbo, Zhejiang, China",
@@ -103,6 +127,65 @@ func TestPDFContract(t *testing.T) {
 		t.Fatalf("渲染合同 PDF 失败: %v", err)
 	}
 	assertPDF(t, f, c.DocNo+".pdf")
+}
+
+// 商业发票与装箱单共用送货单的套号，文件名只在后缀上区分（-CI / -PL）。
+// 同一张票打两次，号必须一样——套号分叉就再也对不回来。
+func TestPDFShipmentDocuments(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+	svc := fx.pdfSvc(t)
+
+	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{
+				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40,
+				Cartons: 8, GrossWeight: 168.5, NetWeight: 160, Measurement: "60×40×30CM",
+			},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20, Cartons: 2, GrossWeight: 21, NetWeight: 20},
+		},
+	})
+	if err != nil {
+		t.Fatalf("建出货批次失败: %v", err)
+	}
+
+	ci, err := svc.Invoice(ctx, s.ID)
+	if err != nil {
+		t.Fatalf("渲染商业发票失败: %v", err)
+	}
+	assertPDF(t, ci, s.DocNo+"-CI.pdf")
+
+	pl, err := svc.PackingList(ctx, s.ID)
+	if err != nil {
+		t.Fatalf("渲染装箱单失败: %v", err)
+	}
+	assertPDF(t, pl, s.DocNo+"-PL.pdf")
+}
+
+// 没有明细的一票打不出商票与装箱单：文件上会只有抬头，客户拿到只会来问。
+func TestPDFShipmentWithoutAllocations(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+	svc := fx.pdfSvc(t)
+
+	// 绕过服务直接落一张空票：服务本身不允许建没有明细的出货单。
+	empty := &model.Shipment{
+		DocNo:    "DN-2610-999",
+		Status:   model.DocumentStatusDraft,
+		ShipDate: now,
+	}
+	if err := fx.shipmentRepo.CreateWithAllocations(ctx, empty, nil); err != nil {
+		t.Fatalf("建空票失败: %v", err)
+	}
+	if _, err := svc.Invoice(ctx, empty.ID); err == nil {
+		t.Fatal("没有明细时应该拒绝出商业发票")
+	}
+	if _, err := svc.PackingList(ctx, empty.ID); err == nil {
+		t.Fatal("没有明细时应该拒绝出装箱单")
+	}
 }
 
 func TestPDFContractMissingSource(t *testing.T) {
