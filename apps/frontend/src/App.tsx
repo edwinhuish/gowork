@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FundOutlined,
   ProfileOutlined,
+  ShoppingCartOutlined,
   ShopOutlined,
   UserAddOutlined,
   SwapOutlined,
@@ -41,6 +42,12 @@ import {
   QuotationShow,
 } from '@/pages/quotations'
 import { OrderCreate, OrderEdit, OrderList, OrderShow } from '@/pages/orders'
+import {
+  PurchaseCreate,
+  PurchaseEdit,
+  PurchaseList,
+  PurchaseShow,
+} from '@/pages/purchases'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -143,6 +150,15 @@ export default function App() {
                 meta: { label: '销售订单', icon: <ProfileOutlined /> },
               },
               {
+                // 采购订单：销售订单的镜像，明细可挂销售单行做「以销定采」。
+                name: 'purchase-orders',
+                list: '/purchase-orders',
+                create: '/purchase-orders/create',
+                edit: '/purchase-orders/edit/:id',
+                show: '/purchase-orders/show/:id',
+                meta: { label: '采购订单', icon: <ShoppingCartOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -231,6 +247,13 @@ export default function App() {
                     <Route path="create" element={<OrderCreate />} />
                     <Route path="edit/:id" element={<OrderEdit />} />
                     <Route path="show/:id" element={<OrderShow />} />
+                  </Route>
+
+                  <Route path="purchase-orders">
+                    <Route index element={<PurchaseList />} />
+                    <Route path="create" element={<PurchaseCreate />} />
+                    <Route path="edit/:id" element={<PurchaseEdit />} />
+                    <Route path="show/:id" element={<PurchaseShow />} />
                   </Route>
 
                   <Route path="currencies">

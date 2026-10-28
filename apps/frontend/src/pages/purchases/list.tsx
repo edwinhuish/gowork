@@ -1,0 +1,180 @@
+import type { CrudFilters } from '@refinedev/core'
+import { useSelect } from '@refinedev/core'
+import {
+  CreateButton,
+  DeleteButton,
+  EditButton,
+  List,
+  ShowButton,
+  useTable,
+} from '@refinedev/antd'
+import { Button, Form, Input, Select, Space, Table, Tag } from 'antd'
+
+import { Empty, Mono, Money } from '@/components/fields'
+import { ORDER_STATUS_OPTIONS, orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
+import type { Partner, PurchaseOrder } from '@/types'
+import { formatDate } from '@/utils/format'
+
+interface PurchaseSearch {
+  keyword?: string
+  supplier_id?: number
+  status?: number
+}
+
+function statusColor(value: number): string {
+  if (value === 20) return 'success'
+  if (value === 30) return 'processing'
+  if (value === 40) return 'warning'
+  if (value === 50) return 'default'
+  if (value === 90) return 'error'
+  return 'default'
+}
+
+export function PurchaseList() {
+  const { options: supplierOptions, query: supplierQuery } = useSelect<Partner>({
+    resource: 'suppliers',
+    optionLabel: (item) => `${item.name}（${item.code}）`,
+    optionValue: 'id',
+    pagination: { mode: 'off' },
+  })
+
+  const { tableProps, searchFormProps } = useTable<PurchaseOrder>({
+    resource: 'purchase-orders',
+    syncWithLocation: true,
+    onSearch: (values): CrudFilters => {
+      const v = values as PurchaseSearch
+      const filters: CrudFilters = []
+      if (v.keyword?.trim()) {
+        filters.push({ field: 'keyword', operator: 'contains', value: v.keyword.trim() })
+      }
+      if (v.supplier_id) {
+        filters.push({ field: 'supplier_id', operator: 'eq', value: v.supplier_id })
+      }
+      if (v.status) {
+        filters.push({ field: 'status', operator: 'eq', value: v.status })
+      }
+      return filters
+    },
+  })
+
+  const resetFilters = () => {
+    searchFormProps.form?.resetFields()
+    searchFormProps.form?.submit()
+  }
+
+  return (
+    <List headerButtons={<CreateButton>新建采购单</CreateButton>}>
+      <Form {...searchFormProps} layout="inline" className="list-filters">
+        <Form.Item name="keyword">
+          <Input placeholder="搜索单号 / 备注" allowClear style={{ width: 200 }} />
+        </Form.Item>
+        <Form.Item name="supplier_id">
+          <Select
+            placeholder="全部供应商"
+            allowClear
+            showSearch
+            style={{ width: 240 }}
+            options={supplierOptions}
+            loading={supplierQuery.isLoading}
+            filterOption={(input, option) =>
+              String(option?.label ?? '')
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
+          />
+        </Form.Item>
+        <Form.Item name="status">
+          <Select
+            placeholder="全部状态"
+            allowClear
+            style={{ width: 130 }}
+            options={ORDER_STATUS_OPTIONS}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Space>
+            <Button type="primary" htmlType="submit">
+              查询
+            </Button>
+            <Button onClick={resetFilters}>重置</Button>
+          </Space>
+        </Form.Item>
+      </Form>
+
+      <Table {...tableProps} rowKey="id" scroll={{ x: 1100 }}>
+        <Table.Column
+          dataIndex="doc_no"
+          title="单号"
+          width={170}
+          render={(value: string) => <Mono>{value}</Mono>}
+        />
+        <Table.Column
+          dataIndex="supplier"
+          title="供应商"
+          width={190}
+          render={(value: PurchaseOrder['supplier']) => value?.name || <Empty />}
+        />
+        <Table.Column
+          dataIndex="trade_term"
+          title="贸易术语"
+          width={110}
+          render={(value: string) => <Tag>{tradeTermLabel(value)}</Tag>}
+        />
+        <Table.Column
+          dataIndex="status"
+          title="状态"
+          width={100}
+          render={(value: number) => (
+            <Tag color={statusColor(value)}>{orderStatusLabel(value)}</Tag>
+          )}
+        />
+        <Table.Column
+          dataIndex="order_date"
+          title="下单日"
+          width={120}
+          render={(value: string) => formatDate(value)}
+        />
+        <Table.Column
+          dataIndex="delivery_date"
+          title="到货日"
+          width={120}
+          render={(value?: string | null) => (value ? formatDate(value) : <Empty />)}
+        />
+        <Table.Column
+          dataIndex="amount_total"
+          title="采购金额"
+          width={150}
+          align="right"
+          render={(value: number, record: PurchaseOrder) => (
+            <Space size={4}>
+              <Money value={value} />
+              <Tag>{record.currency_code}</Tag>
+            </Space>
+          )}
+        />
+        <Table.Column
+          dataIndex="amount_base_total"
+          title="折本币"
+          width={130}
+          align="right"
+          render={(value: number) => <Money value={value} />}
+        />
+        <Table.Column
+          title="操作"
+          width={200}
+          render={(_, record: PurchaseOrder) => (
+            <Space size={4}>
+              <ShowButton size="small" recordItemId={record.id} resource="purchase-orders" />
+              {record.status === 10 && (
+                <>
+                  <EditButton size="small" recordItemId={record.id} resource="purchase-orders" />
+                  <DeleteButton size="small" recordItemId={record.id} resource="purchase-orders" />
+                </>
+              )}
+            </Space>
+          )}
+        />
+      </Table>
+    </List>
+  )
+}

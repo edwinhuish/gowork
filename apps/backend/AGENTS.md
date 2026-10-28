@@ -152,6 +152,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409） |
+| GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
+| GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
+| PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -163,7 +166,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
 产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
 `country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`，
-报价单与销售订单另有 `partner_id` / `status`。
+报价单与销售订单另有 `partner_id` / `status`，采购订单另有 `supplier_id` / `status`。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 

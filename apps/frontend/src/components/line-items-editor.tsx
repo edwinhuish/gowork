@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useList } from '@refinedev/core'
-import { Button, Col, Form, InputNumber, Row, Select, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Select, Tag, Typography } from 'antd'
 
 import type { Product, ProductSource } from '@/types'
 
@@ -9,6 +9,8 @@ export interface LineItemRow {
   qty?: number
   unit_price?: number
   source_id?: number
+  /** 采购单专有：这行是为哪张销售单的哪一行备的（以销定采）。 */
+  sales_order_item_id?: number
   remark?: string
 }
 
@@ -140,6 +142,15 @@ export function LineItemsEditor({
                         }
                       />
                     </Form.Item>
+                    {/* 不渲染就会在提交时丢掉「从销售订单导入」带进来的关联 */}
+                    <Form.Item name={[field.name, 'sales_order_item_id']} hidden>
+                      <Input />
+                    </Form.Item>
+                    {row.sales_order_item_id ? (
+                      <Tag color="blue" style={{ marginTop: -18 }}>
+                        以销定采
+                      </Tag>
+                    ) : null}
                   </Col>
                   <Col span={spans.qty}>
                     <Form.Item

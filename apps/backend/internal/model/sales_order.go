@@ -65,6 +65,9 @@ type SalesOrderItem struct {
 	Remark string `gorm:"size:255" json:"remark"`
 
 	Product *Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	// SalesOrder 只用于以销定采的挂接校验（采购单要知道这张销售单还能不能采），
+	// 不回吐给接口：明细里再套一张整单会让 payload 变成循环。
+	SalesOrder *SalesOrder `gorm:"foreignKey:SalesOrderID" json:"-"`
 }
 
 func (SalesOrderItem) TableName() string { return "biz_sales_order_item" }

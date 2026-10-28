@@ -69,6 +69,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.QuotationItem{},
 			&model.SalesOrder{},
 			&model.SalesOrderItem{},
+			&model.PurchaseOrder{},
+			&model.PurchaseOrderItem{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -102,6 +104,7 @@ func New(cfg *config.Config) (*App, error) {
 	leadRepo := repository.NewLeadRepository(db)
 	quotationRepo := repository.NewQuotationRepository(db)
 	orderRepo := repository.NewSalesOrderRepository(db)
+	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -138,6 +141,9 @@ func New(cfg *config.Config) (*App, error) {
 	orderSvc := service.NewSalesOrderService(
 		orderRepo, partnerRepo, productRepo, currencySvc, docNoSvc,
 		service.WithSalesOrderLogger(log))
+	purchaseSvc := service.NewPurchaseOrderService(
+		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
+		service.WithPurchaseOrderLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
@@ -154,6 +160,7 @@ func New(cfg *config.Config) (*App, error) {
 		Source:     handler.NewProductSourceHandler(sourceSvc),
 		Quotation:  handler.NewQuotationHandler(quotationSvc),
 		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
+		Purchase:   handler.NewPurchaseOrderHandler(purchaseSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
 	})
 

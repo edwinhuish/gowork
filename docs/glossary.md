@@ -86,7 +86,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 商机 | `Opportunity` | `crm_opportunity` | 有成交可能的销售机会，有阶段、金额、币种、赢单概率 |
 | 线索 | `Lead` | `crm_lead` | 尚未建档的询盘主体，有来源渠道与国别；转化后指向新建的往来单位 |
 
-### 业务事务 · ERP 交易（`ProductSource` / `Quotation` / `SalesOrder` 已实现，其余命名先定下来）
+### 业务事务 · ERP 交易（`ProductSource` / `Quotation` / `SalesOrder` / `PurchaseOrder` 已实现，其余命名先定下来）
 
 | 中文 | 英文标识 | 表名 | 定义 |
 |---|---|---|---|

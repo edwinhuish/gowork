@@ -46,6 +46,9 @@ type SalesOrderRepository interface {
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.SalesOrder, error)
 	List(ctx context.Context, f SalesOrderFilter, p Pagination) ([]model.SalesOrder, int64, error)
+	// FindItemByID 取销售订单明细行并带出所属订单，供采购单校验「以销定采」的挂接。
+	// 采购单要确认的不只是行存在，还有"这张销售单还能不能被备货"——已取消的单不能再采。
+	FindItemByID(ctx context.Context, itemID uint) (*model.SalesOrderItem, error)
 }
 
 type salesOrderRepo struct {
@@ -130,6 +133,22 @@ func (r *salesOrderRepo) FindByID(ctx context.Context, id uint) (*model.SalesOrd
 	}
 	if err != nil {
 		return nil, fmt.Errorf("查询销售订单 id=%d: %w", id, err)
+	}
+	return &m, nil
+}
+
+func (r *salesOrderRepo) FindItemByID(
+	ctx context.Context, itemID uint,
+) (*model.SalesOrderItem, error) {
+	var m model.SalesOrderItem
+	err := r.DB().WithContext(ctx).
+		Preload("SalesOrder").
+		First(&m, itemID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询销售订单明细 id=%d: %w", itemID, err)
 	}
 	return &m, nil
 }

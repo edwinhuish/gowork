@@ -29,6 +29,7 @@ type Handlers struct {
 	Source     *handler.ProductSourceHandler
 	Quotation  *handler.QuotationHandler
 	SalesOrder *handler.SalesOrderHandler
+	Purchase   *handler.PurchaseOrderHandler
 	Dashboard  *handler.DashboardHandler
 }
 
@@ -174,6 +175,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		orders.PUT("/:id", h.SalesOrder.Update)
 		orders.DELETE("/:id", h.SalesOrder.Delete)
 		orders.PUT("/:id/status", h.SalesOrder.UpdateStatus)
+
+		// 采购订单：销售订单的镜像，明细可挂到销售订单行做「以销定采」。
+		purchases := secured.Group("/purchase-orders")
+		purchases.GET("", h.Purchase.List)
+		purchases.POST("", h.Purchase.Create)
+		purchases.GET("/:id", h.Purchase.Get)
+		purchases.PUT("/:id", h.Purchase.Update)
+		purchases.DELETE("/:id", h.Purchase.Delete)
+		purchases.PUT("/:id/status", h.Purchase.UpdateStatus)
 	}
 
 	return engine

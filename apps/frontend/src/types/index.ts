@@ -395,6 +395,54 @@ export interface SalesOrder {
   updated_at: string
 }
 
+/**
+ * 采购明细行。
+ *
+ * sales_order_item_id 非空表示这一行是为某张销售订单的某一行采购的（以销定采）；
+ * source_id 记录这行对应哪条货源，仅作追溯——采购价是谈出来的，不从货源表读。
+ */
+export interface PurchaseOrderItem {
+  id: number
+  purchase_order_id: number
+  product_id: number
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  unit_price: number
+  amount: number
+  amount_base: number
+  sales_order_item_id: number | null
+  source_id: number | null
+  remark: string
+  product?: Product | null
+}
+
+/**
+ * 采购订单：销售订单的镜像。对方是供应商，采购币种通常与销售币种不同，
+ * 所以汇率单独锁一份；合计同样只由明细汇总。
+ */
+export interface PurchaseOrder {
+  id: number
+  doc_no: string
+  supplier_id: number
+  trade_term: string
+  status: number
+  order_date: string
+  /** 供应商承诺的到货日，可空。 */
+  delivery_date?: string | null
+  currency_code: string
+  exchange_rate: number
+  amount_total: number
+  amount_base_total: number
+  remark: string
+  supplier?: Partner | null
+  items?: PurchaseOrderItem[]
+  created_at: string
+  updated_at: string
+}
+
 export interface QuotationPreviewItem {
   product_id: number
   sku_code: string
