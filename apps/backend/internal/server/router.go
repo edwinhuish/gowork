@@ -42,6 +42,7 @@ type Handlers struct {
 	Stock      *handler.StockHandler
 	StockDoc   *handler.StockDocumentHandler
 	Dashboard  *handler.DashboardHandler
+	Attachment *handler.AttachmentHandler
 }
 
 // New 构建 gin 引擎。
@@ -319,6 +320,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		stockDocs.PUT("/:id", h.StockDoc.Update)
 		stockDocs.DELETE("/:id", h.StockDoc.Delete)
 		stockDocs.POST("/:id/confirm", h.StockDoc.Confirm)
+
+		// 附件：横切的归档能力，不挂在任何业务前缀下——挂什么由 entity_type 决定。
+		// 列表与上传共用同一个入口，且 entity_type + entity_id 都是必填：
+		// 不带条件的列表等于把全库的提单摊在一个接口上。
+		attachments := secured.Group("/attachments")
+		attachments.GET("", h.Attachment.List)
+		attachments.POST("", h.Attachment.Upload)
+		attachments.GET("/:id/download", h.Attachment.Download)
+		attachments.DELETE("/:id", h.Attachment.Delete)
 	}
 
 	return engine

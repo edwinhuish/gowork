@@ -87,6 +87,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.StockSnapshot{},
 			&model.StockDocument{},
 			&model.StockDocumentItem{},
+			&model.Attachment{},
+			&model.AttachmentContent{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -131,6 +133,7 @@ func New(cfg *config.Config) (*App, error) {
 	reportRepo := repository.NewReportRepository(db)
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
+	attachmentRepo := repository.NewAttachmentRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -217,6 +220,10 @@ func New(cfg *config.Config) (*App, error) {
 	stockDocSvc := service.NewStockDocumentService(
 		stockDocRepo, productRepo, partnerRepo, docNoSvc,
 		service.WithStockDocumentLogger(log))
+	// 附件不依赖任何业务服务：它能挂在哪由仓储里的那张清单判定，
+	// 加一个可挂载的实体不用改这里的装配。
+	attachmentSvc := service.NewAttachmentService(
+		attachmentRepo, service.WithAttachmentLogger(log))
 	// 报表只读不写，也不缓存：数字要能和明细逐笔对上。
 	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
@@ -248,6 +255,7 @@ func New(cfg *config.Config) (*App, error) {
 		Stock:      handler.NewStockHandler(stockSvc),
 		StockDoc:   handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
+		Attachment: handler.NewAttachmentHandler(attachmentSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}

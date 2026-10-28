@@ -203,6 +203,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/stock-documents` | `StockDoc.List` / `.Create` | 出入库单：单号前缀 `IN-` / `OUT-` / `CT-`；草稿不动库存 |
 | GET / PUT / DELETE | `/api/v1/stock-documents/:id` | `StockDoc.Get` / `.Update` / `.Delete` | 只有草稿可改可删；类型建好后不可改 |
 | POST | `/api/v1/stock-documents/:id/confirm` | `StockDoc.Confirm` | 生成流水 + 更新快照（一个事务）；重复确认 409 |
+| GET / POST | `/api/v1/attachments` | `Attachment.List` / `.Upload` | 通用附件（`sys_attachment` + `sys_attachment_content`）：`entity_type` + `entity_id` 必填，挂不存在的记录 404；上传走 multipart，只收 PDF / JPG / PNG / WebP，单文件 10MB，扩展名必须与嗅探结果一致；内容存库，与元数据分表 |
+| GET / DELETE | `/api/v1/attachments/:id/download`、`/api/v1/attachments/:id` | `Attachment.Download` / `.Delete` | 下载直接吐字节流（`Content-Disposition` 带 `filename*`），删除是软删，内容保留以便追溯 |
 
 `/customers`、`/suppliers` 与 `/forwarders` 是 `/partners` 的角色切片，不是三套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
