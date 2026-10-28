@@ -14,8 +14,8 @@
 
 **ERP 与 CRM 是这个服务的两个域，不是两个服务。** 已落地共享主数据、CRM（联系人 / 跟进 /
 线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、供应链（出货、报关、库存流水与快照、
-出入库单）与财务（应收应付、收付款与核销）、报表（账龄、单票毛利）；
-汇兑损益与销售看板等报表尚未开始，差距清单见 `docs/gap-analysis.md`。
+出入库单）与财务（应收应付、收付款与核销）、报表（账龄、单票毛利）、
+订单确认时的信用额度拦截；汇兑损益与销售看板等报表尚未开始，差距清单见 `docs/gap-analysis.md`。
 域归属见 `docs/glossary.md` 第二节，判断标准是"这张表会不会被两个域
 同时写"——会，就放 `md_` 下。
 
@@ -136,6 +136,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法 |
 | GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
+| GET | `/api/v1/partners/:id/credit` | `Partner.Credit` | `CreditService.Summary`：额度、未结清应收、未开票订单、敞口；额度 0 = 不限 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |
 | GET / POST | `/api/v1/suppliers` | `Partner.*(&supplierRole)` | 同上 |
 | GET / POST | `/api/v1/forwarders` | `Partner.*(&forwarderRole)` | 同上，角色位 `4`（货代 / 报关行） |
@@ -163,7 +164,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | POST | `/api/v1/quotations-preview` | `Quotation.Preview` | 试算金额/成本/毛利，不落库；独立前缀避免与 `/:id` 抢路径 |
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
-| PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409） |
+| PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |

@@ -69,7 +69,7 @@ apps/frontend/
         ├── suppliers/ customers/ forwarders/   同上（同一 `Partner` 模型的三种角色视图）
         ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
         ├── quotations/       同上 + show / preview（试算页）
-        ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器）
+        ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示与 admin 强制放行）
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板）
         ├── settlements/      应收应付共用的 list / form-fields / show
         ├── receivables/ payables/  四页薄封装，只传 resource 与方向

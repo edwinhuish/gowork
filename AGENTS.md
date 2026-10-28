@@ -24,7 +24,7 @@
 **当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
 采购订单）、出货批次与报关单、库存流水快照与出入库单（采购入库 / 销售出库 / 盘点）、
-应收应付与收付款核销、报表（账龄分桶 / 单票毛利）。
+应收应付与收付款核销、报表（账龄分桶 / 单票毛利）、订单确认时的客户信用额度拦截。
 汇兑损益报表、合同单据与仓间调拨**均未实现**，进度与下一步见 `docs/roadmap.md`，
 扩展套路见 `docs/architecture.md` 第六节。
 
@@ -115,13 +115,13 @@ gin HTTP 层 (Go :8080)
 | dashboard | 系统 | `/api/v1/dashboard` | 跨域聚合统计，结果缓存 30 秒 |
 | product | 共享主数据 | `/api/v1/products` | 产品，SKU 编码唯一 |
 | product-source | 共享主数据 | `/api/v1/product-sources` | 产品货源：某供应商处的货号、采购价、交期 |
-| partner | 共享主数据 | `/api/v1/partners` | 往来单位：客户与供应商的统一主体，角色用位掩码 |
+| partner | 共享主数据 | `/api/v1/partners` | 往来单位：客户与供应商的统一主体，角色用位掩码；`/:id/credit` 读额度占用 |
 | partner（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers`、`/api/v1/forwarders` | 同一份数据按角色切的入口，不是两套实现 |
 | currency / exchange-rate | 共享主数据 | `/api/v1/currencies`、`/api/v1/exchange-rates` | 币种与历史汇率；汇率不可改，录错删掉重录 |
 | contact / activity | CRM | `/api/v1/contacts`、`/api/v1/activities` | 联系人、跟进记录（`?due=1` 查已到期未跟进） |
 | lead / opportunity | CRM | `/api/v1/leads`、`/api/v1/opportunities` | 线索可转化为主体；商机带阶段机与加权预测 |
 | quotation | ERP · 交易 | `/api/v1/quotations` | 报价单：成本快照、版本、转订单（`/quotations-preview` 试算不落库） |
-| sales-order | ERP · 交易 | `/api/v1/sales-orders` | 销售订单：合计只由明细汇总，状态走完整状态机 |
+| sales-order | ERP · 交易 | `/api/v1/sales-orders` | 销售订单：合计只由明细汇总，状态走完整状态机；确认时校验信用额度（超额 409，admin 可强制放行） |
 | purchase-order | ERP · 交易 | `/api/v1/purchase-orders` | 采购订单：明细可挂销售订单行做以销定采 |
 | shipment | ERP · 供应链 | `/api/v1/shipments` | 出货批次：一票装哪些销售订单行、各多少；可出行的来源走 `/shipment-candidates` |
 | shipment-charge | ERP · 供应链 | `/api/v1/shipment-charges` | 运费杂费：归集到一票货的成本，单票毛利的减项；合计走 `/shipment-charges-summary` |
