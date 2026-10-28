@@ -159,7 +159,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | POST | `/api/v1/leads/:id/convert` | `Lead.Convert` | 建主体 + 回填 `partner_id`；重复转化 409，同名同国只 warning |
 | GET / POST | `/api/v1/product-sources` | `Source.List` / `.Create` | `ProductSourceService.List` / `.Create`（`?product_id=` 过滤，按本币价升序） |
 | GET / PUT / DELETE | `/api/v1/product-sources/:id` | `Source.Get` / `.Update` / `.Delete` | 同名方法（不可改产品与供应商） |
-| GET / POST | `/api/v1/quotations` | `Quotation.List` / `.Create` | `QuotationService.List` / `.Create`（单号走 `DocNoService`，合计由 service 算） |
+| GET / POST | `/api/v1/quotations` | `Quotation.List` / `.Create` | `QuotationService.List` / `.Create`（单号由案号派生，见「单号」；合计由 service 算） |
 | GET / PUT / DELETE | `/api/v1/quotations/:id` | `Quotation.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余返回 409 |
 | PUT | `/api/v1/quotations/:id/status` | `Quotation.UpdateStatus` | 只放行已确认 / 已取消，其余状态 400 |
 | POST | `/api/v1/quotations/:id/versions` | `Quotation.NewVersion` | 同单号、版本 +1、回到草稿；过期时须给新有效期 |
@@ -169,7 +169,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/contracts/:id` | `Contract.Get` / `.Update` / `.Delete` | 只有草稿可改可删；来源、客户与金额不在可改字段里，要改就改来源单据后重新生成 |
 | PUT | `/api/v1/contracts/:id/status` | `Contract.UpdateStatus` | 只放行已确认 / 已取消（400）；确认前复核来源单据未取消、分期合计与总额相符 |
 | GET | `/api/v1/quotations/:id/pdf`、`/api/v1/contracts/:id/pdf` | `PDF.Quotation` / `.Contract` | 返回 `application/pdf` 附件，**不走统一响应体**（失败仍走）；版式在 `internal/pkg/pdf/templates/*.json`，改版式不改代码；中文需 `pdf.font_path` 指向同时含拉丁与汉字的 `.ttf`，缺字体时打印不可用但服务照常启动 |
-| GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
+| GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段）；单号 `{案号}-SO{NN}`，从报价转来时沿用来源的案号与序号 |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-`；明细可带 `sales_order_item_id` 做以销定采 |
@@ -352,6 +352,22 @@ task backend:test       # go test ./... -count=1
 4. `internal/service/xxx.go`：`XxxService` 接口 + 私有实现 + `WithXxxLogger` Option；
    业务规则（唯一性、状态归一、跨表校验）都在这里。
 5. `internal/handler/xxx.go` + `server/router.go` 挂路由 + `bootstrap/app.go` 装配。
+
+### 单号
+
+两种形态，别混：
+
+| 形态 | 用于 | 例子 | 发号入口 |
+|---|---|---|---|
+| `{案号}-{类型}{NN}` | 报价单、销售订单 | `DZ2603-QT01` / `DZ2603-SO01` | `DocNoService.NextDeal` |
+| `{类型}-{YYYYMM}-{NNNN}` | 其余全部 | `PO-202610-0001` | `DocNoService.Next` |
+
+案号 = `{客户编码}{YY}{NN}`，标的是「一笔生意」：报价与它转出的订单共用同一个，
+序号也不变（QT03 转出必得 SO03）。`Next` 会明确拒绝报价与销售订单——留两条路径，
+同一张表里迟早长出两种格式。
+
+存量报价单（T-47 之前）没有 `base_no`：转单时订单取一笔新生意，不回改报价单的
+`doc_no`——那个号早就发给客户了，改号等于换了身份。
 
 ### 硬性规则
 
