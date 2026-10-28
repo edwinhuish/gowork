@@ -1,7 +1,7 @@
 import { useSelect } from '@refinedev/core'
 import { Form, Input, InputNumber, Select } from 'antd'
 
-import { CATEGORY_OPTIONS, STATUS_OPTIONS } from '@/constants/catalog'
+import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 
 /**
  * 产品表单字段。
@@ -80,7 +80,7 @@ export function ProductFormFields() {
       </Form.Item>
 
       <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={STATUS_OPTIONS} />
+        <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
       <Form.Item name="cost_price" label="成本价" rules={[{ type: 'number', min: 0, message: '不能为负' }]}>

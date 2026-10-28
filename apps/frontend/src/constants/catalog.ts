@@ -1,7 +1,7 @@
 /**
  * 产品类别字典。
  *
- * 与后端 model.SkuCode 的大类约定保持一致（SKU 前两位即类别码）。
+ * 与后端 model.Product.SKUCode 的大类约定保持一致（SKU 前两位即类别码）。
  * 后端目前不校验类别合法性，所以这里是唯一事实来源 —— 改动要同时看
  * apps/backend/internal/model/product.go 的注释。
  */
@@ -33,8 +33,8 @@ export const CATEGORY_OPTIONS = PRODUCT_CATEGORIES.map((c) => ({
   label: `${c.code} · ${c.label}`,
 }))
 
-/** 启用/停用下拉选项。后端用 int8（1 启用 / 0 停用）。 */
-export const STATUS_OPTIONS = [
+/** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
+export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用' },
   { value: 0, label: '停用' },
 ]

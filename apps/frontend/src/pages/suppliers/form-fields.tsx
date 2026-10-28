@@ -1,6 +1,6 @@
 import { Form, Input, Select } from 'antd'
 
-import { STATUS_OPTIONS } from '@/constants/catalog'
+import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 
 /** 供应商表单字段。新建与编辑共用，校验规则只此一份。 */
 export function SupplierFormFields() {
@@ -49,7 +49,7 @@ export function SupplierFormFields() {
       </Form.Item>
 
       <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={STATUS_OPTIONS} />
+        <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
       <Form.Item name="address" label="地址" className="form-item-full" rules={[{ max: 255, message: '最多 255 个字符' }]}>

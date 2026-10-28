@@ -43,10 +43,24 @@ body {
 }
 
 .brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
   color: #e8eefc;
   font-weight: 600;
   font-size: 15px;
   letter-spacing: 0.2px;
+}
+
+/* 副标题标出双域定位，字号压到能看清但不抢主标题。 */
+.brand-sub {
+  margin-top: 3px;
+  color: #7d8ea6;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
 }
 
 /* ---------- 顶栏 ---------- */

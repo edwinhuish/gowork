@@ -3,7 +3,7 @@ import { CreateButton, List, useTable } from '@refinedev/antd'
 import { Button, Form, Input, Select, Space, Table } from 'antd'
 
 import { CategoryTag, Empty, Mono, Money, StatusTag } from '@/components/fields'
-import { CATEGORY_OPTIONS, STATUS_OPTIONS } from '@/constants/catalog'
+import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Product } from '@/types'
 
 interface ProductSearch {
@@ -54,7 +54,7 @@ export function ProductList() {
           <Select placeholder="全部类别" allowClear options={CATEGORY_OPTIONS} style={{ width: 160 }} />
         </Form.Item>
         <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={STATUS_OPTIONS} style={{ width: 120 }} />
+          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
         </Form.Item>
         <Form.Item>
           <Space>

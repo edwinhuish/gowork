@@ -3,7 +3,7 @@ import { CreateButton, List, useTable } from '@refinedev/antd'
 import { Button, Form, Input, Select, Space, Table } from 'antd'
 
 import { Empty, Mono, StatusTag } from '@/components/fields'
-import { STATUS_OPTIONS } from '@/constants/catalog'
+import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Supplier } from '@/types'
 
 interface SupplierSearch {
@@ -41,7 +41,7 @@ export function SupplierList() {
           <Input placeholder="搜索编码 / 名称 / 联系人" allowClear style={{ width: 260 }} />
         </Form.Item>
         <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={STATUS_OPTIONS} style={{ width: 120 }} />
+          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
         </Form.Item>
         <Form.Item>
           <Space>

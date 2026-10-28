@@ -16,7 +16,12 @@ function BrandTitle({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="brand">
       <span className="brand-mark">G</span>
-      {!collapsed && <span className="brand-text">GoWork ERP</span>}
+      {!collapsed && (
+        <span className="brand-text">
+          GoWork
+          <em className="brand-sub">ERP · CRM</em>
+        </span>
+      )}
     </div>
   )
 }

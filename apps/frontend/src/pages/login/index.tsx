@@ -22,9 +22,9 @@ export function LoginPage() {
           <span className="brand-mark">G</span>
           <div>
             <Typography.Title level={4} style={{ margin: 0 }}>
-              GoWork ERP
+              GoWork
             </Typography.Title>
-            <Typography.Text type="secondary">外贸采购与出口管理平台</Typography.Text>
+            <Typography.Text type="secondary">外贸 ERP · CRM 一体化平台</Typography.Text>
           </div>
         </div>
 

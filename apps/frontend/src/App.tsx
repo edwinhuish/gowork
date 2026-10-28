@@ -74,7 +74,7 @@ export default function App() {
             options={{
               syncWithLocation: true,
               warnWhenUnsavedChanges: true,
-              title: { text: 'GoWork ERP' },
+              title: { text: 'GoWork ERP · CRM' },
             }}
           >
             <Routes>
