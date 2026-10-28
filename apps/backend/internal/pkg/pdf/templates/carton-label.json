@@ -1,0 +1,17 @@
+{
+  "label": {
+    "title": "SHIPPING MARK",
+    "size": { "width": 180, "height": 122 },
+    "per_page": 2,
+    "gap": 9,
+    "lines": [
+      { "text": "SHIPPING MARK", "size": 9, "align": "left", "space_before": 6, "space_after": 10, "muted": true },
+      { "text": "{order_no}", "size": 36, "align": "center", "space_after": 8 },
+      { "text": "INVOICE NO.: {invoice_no}", "size": 15, "align": "center", "space_after": 12 },
+      { "text": "C/NO. ______ / ______", "size": 14, "align": "center", "space_after": 7 },
+      { "text": "G.W. ______ KG          N.W. ______ KG", "size": 13, "align": "center", "space_after": 7 },
+      { "text": "MEAS. ____ × ____ × ____ CM", "size": 13, "align": "center", "space_after": 10 },
+      { "text": "MADE IN CHINA", "size": 14, "align": "center", "space_after": 6 }
+    ]
+  }
+}

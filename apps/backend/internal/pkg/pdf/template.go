@@ -5,6 +5,9 @@
 // 为此渲染只认一小组原语：抬头、右上角键值、客户区块、明细表、合计、
 // 附表（付款分期）与页脚说明。**不支持任意排版是有意的**：
 // 模板能做的事越多，"改一下模板"就越容易变成改程序。
+//
+// 箱唛（shipping mark）不走这套原语，见 label.go：它是等大贴纸排版，
+// 一张纸贴一个箱子，只有一列大字加几行留白，塞进单据模板里两边都会变形。
 package pdf
 
 import (
@@ -88,9 +91,14 @@ type Set struct {
 	cache map[string]cachedTemplate
 }
 
+// cachedTemplate 两种模板共用一份缓存：单据（tmpl）与箱唛（label）。
+//
+// 同一个目录、同一套"按修改时间失效"的逻辑，只是解析成不同的结构；
+// 分成两个目录会让 pdf.template_dir 的覆盖规则变成两句话。
 type cachedTemplate struct {
-	tmpl *Template
-	mod  time.Time
+	tmpl  *Template
+	label *LabelTemplate
+	mod   time.Time
 }
 
 // Load 加载模板集合。dir 为空时用随二进制打包的内置模板。
@@ -121,47 +129,98 @@ func Load(dir string) (*Set, error) {
 			return nil, fmt.Errorf("读取内置模板 %s: %w", e.Name(), err)
 		}
 		name := strings.TrimSuffix(e.Name(), ".json")
-		t, err := parseTemplate(name, b)
+		c, err := parseAnyTemplate(name, b)
 		if err != nil {
 			return nil, err
 		}
-		s.cache[name] = cachedTemplate{tmpl: t}
+		s.cache[name] = c
 	}
 	return s, nil
 }
 
-// Get 按名字取模板（文件名去掉 .json）。
+// Get 按名字取单据模板（文件名去掉 .json）。
 func (s *Set) Get(name string) (*Template, error) {
+	c, err := s.lookup(name)
+	if err != nil {
+		return nil, err
+	}
+	if c.tmpl == nil {
+		return nil, fmt.Errorf("PDF 模板 %q 是箱唛，不能当单据打印", name)
+	}
+	return c.tmpl, nil
+}
+
+// GetLabel 按名字取箱唛模板。
+func (s *Set) GetLabel(name string) (*LabelTemplate, error) {
+	c, err := s.lookup(name)
+	if err != nil {
+		return nil, err
+	}
+	if c.label == nil {
+		return nil, fmt.Errorf("PDF 模板 %q 是单据，不能当箱唛打印", name)
+	}
+	return c.label, nil
+}
+
+// lookup 取模板并按需重新解析：目录模式下文件改了，下一次请求就生效。
+func (s *Set) lookup(name string) (cachedTemplate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.dir == "" {
 		c, ok := s.cache[name]
 		if !ok {
-			return nil, fmt.Errorf("未知的 PDF 模板 %q", name)
+			return cachedTemplate{}, fmt.Errorf("未知的 PDF 模板 %q", name)
 		}
-		return c.tmpl, nil
+		return c, nil
 	}
 
 	path := filepath.Join(s.dir, name+".json")
 	st, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("PDF 模板 %q 不存在: %w", name, err)
+		return cachedTemplate{}, fmt.Errorf("PDF 模板 %q 不存在: %w", name, err)
 	}
 	if c, ok := s.cache[name]; ok && !st.ModTime().After(c.mod) {
-		return c.tmpl, nil
+		return c, nil
 	}
 
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("读取 PDF 模板 %s: %w", path, err)
+		return cachedTemplate{}, fmt.Errorf("读取 PDF 模板 %s: %w", path, err)
 	}
+	c, err := parseAnyTemplate(name, b)
+	if err != nil {
+		return cachedTemplate{}, err
+	}
+	c.mod = st.ModTime()
+	s.cache[name] = c
+	return c, nil
+}
+
+// parseAnyTemplate 按内容分派：带 label 段的是箱唛，其余按单据模板校验。
+//
+// 用一个目录而不是两个，是因为"覆盖模板"只需要记住一条规则：
+// 把同名文件放进 pdf.template_dir 就生效。
+func parseAnyTemplate(name string, b []byte) (cachedTemplate, error) {
+	var probe struct {
+		Label json.RawMessage `json:"label"`
+	}
+	if err := json.Unmarshal(b, &probe); err != nil {
+		return cachedTemplate{}, fmt.Errorf("解析 PDF 模板 %s: %w", name, err)
+	}
+	if len(probe.Label) > 0 {
+		lt, err := parseLabel(name, b)
+		if err != nil {
+			return cachedTemplate{}, err
+		}
+		return cachedTemplate{label: lt}, nil
+	}
+
 	t, err := parseTemplate(name, b)
 	if err != nil {
-		return nil, err
+		return cachedTemplate{}, err
 	}
-	s.cache[name] = cachedTemplate{tmpl: t, mod: st.ModTime()}
-	return t, nil
+	return cachedTemplate{tmpl: t}, nil
 }
 
 // Names 列出可用模板名，启动自检与测试用。

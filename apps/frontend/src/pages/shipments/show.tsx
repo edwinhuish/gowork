@@ -71,11 +71,24 @@ function packingText(value: number): string {
   return value > 0 ? formatQty(value) : '—'
 }
 
+/**
+ * 可打印的三份文件：接口路径与文件名后缀。
+ *
+ * 后缀不是随手起的：报关与客户那边按 -CI / -PL / -MARK 认件，改一处就得全套跟着改。
+ */
+const PRINT_DOCS = {
+  ci: { path: 'invoice', suffix: 'CI', label: '商业发票' },
+  pl: { path: 'packing-list', suffix: 'PL', label: '装箱单' },
+  mark: { path: 'carton-labels', suffix: 'MARK', label: '箱唛' },
+} as const
+
+type PrintKind = keyof typeof PRINT_DOCS
+
 export function ShipmentShow() {
   const { result, query } = useShow<Shipment>({ resource: 'shipments' })
   const invalidate = useInvalidate()
   const [acting, setActing] = useState(false)
-  const [printing, setPrinting] = useState<'ci' | 'pl'>()
+  const [printing, setPrinting] = useState<PrintKind>()
 
   const s = result
   const actions = s ? nextActions(s.status) : []
@@ -86,18 +99,18 @@ export function ShipmentShow() {
   const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + (a.net_weight ?? 0), 0)
 
   /**
-   * 打印这一票的商业发票 / 装箱单。
+   * 打印这一票的单证。
    *
-   * 两份文件都不单独发号：内部印的是送货单的套号，文件名后缀区分（-CI / -PL）。
+   * 三份文件都不单独发号：内部印的都是送货单的套号，文件名后缀区分（-CI / -PL / -MARK）。
    * 改证过一次就带 -R1——客户手上是哪一版，只能靠文件名与版本号说清。
    */
-  const printDoc = async (kind: 'ci' | 'pl') => {
+  const printDoc = async (kind: PrintKind) => {
     if (!s) return
     setPrinting(kind)
     try {
+      const { path, suffix } = PRINT_DOCS[kind]
       const rev = s.invoice_revision > 0 ? `-R${s.invoice_revision}` : ''
-      const path = kind === 'ci' ? `/shipments/${s.id}/invoice` : `/shipments/${s.id}/packing-list`
-      await download(path, `${s.doc_no}${rev}-${kind === 'ci' ? 'CI' : 'PL'}.pdf`)
+      await download(`/shipments/${s.id}/${path}`, `${s.doc_no}${rev}-${suffix}.pdf`)
     } catch (err) {
       message.error(err instanceof Error ? err.message : '下载失败')
     } finally {
@@ -146,12 +159,11 @@ export function ShipmentShow() {
       headerButtons={
         <Space wrap>
           {/* 打印与状态无关：草稿也要能先打一份给货代看柜型，出完货还要补打。 */}
-          <Button loading={printing === 'ci'} onClick={() => printDoc('ci')}>
-            商业发票
-          </Button>
-          <Button loading={printing === 'pl'} onClick={() => printDoc('pl')}>
-            装箱单
-          </Button>
+          {(Object.keys(PRINT_DOCS) as PrintKind[]).map((kind) => (
+            <Button key={kind} loading={printing === kind} onClick={() => printDoc(kind)}>
+              {PRINT_DOCS[kind].label}
+            </Button>
+          ))}
           {/* 草稿直接改内容即可，已取消的不再出单证，两种都不需要改证。 */}
           {s && s.status !== 10 && s.status !== 90 && (
             <Popconfirm

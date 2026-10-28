@@ -164,6 +164,40 @@ func TestPDFShipmentDocuments(t *testing.T) {
 	assertPDF(t, pl, s.DocNo+"-PL.pdf")
 }
 
+// 箱唛一箱一张，主标识印销售订单号：客户仓库按订单分货，
+// 而订单号在整票生命周期里不变；发票号随改证变，所以它在唛上是贴纸位。
+func TestPDFCartonLabels(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+	svc := fx.pdfSvc(t)
+
+	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40, Cartons: 3},
+			// 箱数没填的行也先给一张：样箱上也要贴，总比"打不出来"强。
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20},
+		},
+	})
+	if err != nil {
+		t.Fatalf("建出货批次失败: %v", err)
+	}
+
+	f, err := svc.CartonLabels(ctx, s.ID)
+	if err != nil {
+		t.Fatalf("渲染箱唛失败: %v", err)
+	}
+	assertPDF(t, f, s.DocNo+"-MARK.pdf")
+
+	// 3 + 1 = 4 张，每页 2 张 → 2 页。页数不对就说明张数或分页算错了。
+	// 页对象是 /Type /Page，目录树节点是 /Type /Pages，减掉它才是真实页数。
+	pages := bytes.Count(f.Data, []byte("/Type /Page")) - bytes.Count(f.Data, []byte("/Type /Pages"))
+	if pages != 2 {
+		t.Errorf("箱唛页数 = %d，期望 2（4 张、每页 2 张）", pages)
+	}
+}
+
 // 没有明细的一票打不出商票与装箱单：文件上会只有抬头，客户拿到只会来问。
 func TestPDFShipmentWithoutAllocations(t *testing.T) {
 	ctx := context.Background()

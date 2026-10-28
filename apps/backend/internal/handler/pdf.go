@@ -105,6 +105,23 @@ func (h *PDFHandler) PackingList(c *gin.Context) {
 	writeFile(c, f)
 }
 
+// CartonLabels GET /api/v1/shipments/:id/carton-labels
+func (h *PDFHandler) CartonLabels(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	f, err := h.pdf.CartonLabels(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	writeFile(c, f)
+}
+
 func writeFile(c *gin.Context, f *service.RenderedFile) {
 	// filename 用引号包住：单号里不会出现引号，但将来要是加了客户简称就有可能出现，
 	// 到那时这个头会直接把响应拆坏。

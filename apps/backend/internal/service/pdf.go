@@ -36,6 +36,8 @@ type PDFService interface {
 	// 一套资料三个文件只在文件名后缀上区分（-CI / -PL）。
 	Invoice(ctx context.Context, id uint) (*RenderedFile, error)
 	PackingList(ctx context.Context, id uint) (*RenderedFile, error)
+	// CartonLabels 出箱唛（shipping mark）：一箱一张，主标识是销售订单号。
+	CartonLabels(ctx context.Context, id uint) (*RenderedFile, error)
 }
 
 // CompanyInfo 是打印抬头，来自配置。
@@ -320,6 +322,59 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 	}
 	s.log.Info("生成装箱单 PDF", "id", sd.ID, "doc_no", setNo, "bytes", len(data))
 	return &RenderedFile{Filename: setNo + "-PL.pdf", Data: data}, nil
+}
+
+// maxCartonLabels 是一次最多打几张箱唛。
+//
+// 装箱数据的箱数是人工填的，一位多打的 0 会让一次点击变成几万页 PDF，
+// 服务端跟着卡死。上限给得足够宽（2000 箱），只拦明显的笔误。
+const maxCartonLabels = 2000
+
+// CartonLabels 出箱唛：一箱一张。
+//
+// 唛上只印两样由系统生成的东西——销售订单号（主标识）与套号（发票号），
+// 箱号、毛净重、尺寸留空给人工填：分箱方案要到实际装箱时才定，系统先排一遍是重复劳动，
+// 排错了还要跟着改。
+//
+// 张数按装箱数据的箱数走；某行还没填箱数时先给一张——样箱上也要贴。
+// 混装箱（一箱装多张订单的货）系统不生成唛，那属于人工排版。
+func (s *pdfService) CartonLabels(ctx context.Context, id uint) (*RenderedFile, error) {
+	sd, err := s.shipments.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(sd.Allocations) == 0 {
+		return nil, errs.ErrConflict.WithMsg("这一票还没有出货明细，打不出箱唛")
+	}
+
+	labels := make([]map[string]string, 0, len(sd.Allocations))
+	for _, a := range sd.Allocations {
+		n := a.Cartons
+		if n <= 0 {
+			n = 1
+		}
+		for i := 0; i < n; i++ {
+			labels = append(labels, map[string]string{
+				// 印订单号而不是送货单号：客户仓库按订单分货，而订单号在整票生命周期里不变。
+				"order_no": allocationOrderNo(a),
+				// 发票号随改证变（-R1），所以它是贴纸位，改证只换贴纸、不重贴整张唛。
+				"invoice_no": setNoText(sd),
+			})
+		}
+	}
+	if len(labels) > maxCartonLabels {
+		return nil, errs.BadRequest(fmt.Sprintf(
+			"按装箱数据要打 %d 张箱唛，超过单次上限 %d 张；请先确认箱数是否填错",
+			len(labels), maxCartonLabels))
+	}
+
+	data, err := s.renderer.RenderLabels("carton-label", labels)
+	if err != nil {
+		return nil, err
+	}
+	setNo := setNoText(sd)
+	s.log.Info("生成箱唛 PDF", "id", sd.ID, "doc_no", setNo, "labels", len(labels), "bytes", len(data))
+	return &RenderedFile{Filename: setNo + "-MARK.pdf", Data: data}, nil
 }
 
 // shipmentSource 取一票出货及其开票用的商务条件。

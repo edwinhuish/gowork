@@ -57,7 +57,8 @@ apps/backend/
         ├── errs/                错误码与错误包装
         ├── money/               金额舍入规则（全站唯一一套）
         ├── pdf/                 PDF 渲染：模板加载 + gopdf 绘制
-        │   └── templates/       单据版式（JSON，可被 pdf.template_dir 覆盖）
+        │   └── templates/       版式（JSON，可被 pdf.template_dir 覆盖）；
+        │                        带 label 段的是箱唛，其余按单据模板解析
         └── response/            统一响应体
 ```
 
@@ -171,6 +172,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | PUT | `/api/v1/contracts/:id/status` | `Contract.UpdateStatus` | 只放行已确认 / 已取消（400）；确认前复核来源单据未取消、分期合计与总额相符 |
 | GET | `/api/v1/quotations/:id/pdf`、`/api/v1/contracts/:id/pdf` | `PDF.Quotation` / `.Contract` | 返回 `application/pdf` 附件，**不走统一响应体**（失败仍走）；版式在 `internal/pkg/pdf/templates/*.json`，改版式不改代码；中文需 `pdf.font_path` 指向同时含拉丁与汉字的 `.ttf`，缺字体时打印不可用但服务照常启动 |
 | GET | `/api/v1/shipments/:id/invoice`、`/api/v1/shipments/:id/packing-list` | `PDF.Invoice` / `.PackingList` | 商业发票与装箱单：内部编号取送货单的套号（`doc_no`），改证后带 `-R{n}`，文件名 `{套号}-CI.pdf` / `-PL.pdf`，**不单独发号**；明细来自分配行（发票金额按出货数量 × 订单单价） |
+| GET | `/api/v1/shipments/:id/carton-labels` | `PDF.CartonLabels` | 箱唛：一箱一张（张数按分配的 `cartons`，没填时给 1 张），主标识印销售订单号、套号当发票号，箱号与毛净重留白人工填；文件名 `{套号}-MARK.pdf`；混装箱不生成；单次上限 2000 张 |
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段）；单号 `{案号}-SO{NN}`，从报价转来时沿用来源的案号与序号 |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |

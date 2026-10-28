@@ -238,6 +238,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		// 只是文件名后缀不同（-CI / -PL）。所以没有"新建商票"这种动作，只有打印。
 		shipments.GET("/:id/invoice", h.PDF.Invoice)
 		shipments.GET("/:id/packing-list", h.PDF.PackingList)
+		// 箱唛也是一箱一贴的打印件，不发号：主标识印销售订单号，发票号只是贴纸位。
+		shipments.GET("/:id/carton-labels", h.PDF.CartonLabels)
 		// 改证重开：号码不变、版本加一。它是"重新签发"，不是"另开一票"。
 		shipments.POST("/:id/reissue", h.Shipment.Reissue)
 
