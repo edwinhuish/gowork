@@ -72,7 +72,7 @@ func (s *dashboardService) Summary(ctx context.Context) (*dto.DashboardSummary, 
 	if summary.ProductTotal, err = s.products.Count(ctx); err != nil {
 		return nil, err
 	}
-	if summary.ActiveProducts, err = s.products.CountByEnableStatus(ctx, model.EnableStatusOn); err != nil {
+	if summary.EnabledProducts, err = s.products.CountByEnableStatus(ctx, model.EnableStatusOn); err != nil {
 		return nil, err
 	}
 	if summary.SupplierTotal, err = s.suppliers.Count(ctx); err != nil {

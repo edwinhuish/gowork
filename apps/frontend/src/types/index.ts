@@ -20,7 +20,7 @@ export interface LoginResponse {
 
 export interface DashboardSummary {
   product_total: number
-  active_products: number
+  enabled_products: number
   supplier_total: number
   customer_total: number
 }
