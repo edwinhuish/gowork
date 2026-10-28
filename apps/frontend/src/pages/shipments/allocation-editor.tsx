@@ -141,8 +141,21 @@ export function AllocationEditor({
         <Col span={spans.action} />
       </Row>
 
-      <Form.List name="allocations">
-        {(fields, { add, remove }) => (
+      <Form.List
+        name="allocations"
+        rules={[
+          {
+            // 空的一票出货没有意义，后端也会拒（400）。在这里先拦，
+            // 是因为"点了保存才报错"看起来像系统坏了。
+            validator: async (_, value: unknown[]) => {
+              if (!value || value.length === 0) {
+                throw new Error('至少加一行：这一票出哪条订单行、出多少')
+              }
+            },
+          },
+        ]}
+      >
+        {(fields, { add, remove }, { errors }) => (
           <>
             {fields.map((field) => {
               const row = rows[field.name] ?? {}
@@ -249,6 +262,8 @@ export function AllocationEditor({
                 没有可出货的订单行：订单要先确认，且不能已经出完。
               </Typography.Text>
             ) : null}
+
+            <Form.ErrorList errors={errors} />
           </>
         )}
       </Form.List>
