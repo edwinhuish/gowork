@@ -71,6 +71,8 @@ apps/frontend/
         ├── quotations/       同上 + show / preview（试算页）
         ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器）
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用两个面板）
+        ├── settlements/      应收应付共用的 list / form-fields / show
+        ├── receivables/ payables/  四页薄封装，只传 resource 与方向
         ├── stock/            只读当前库存 + 重算（没有 create / edit）
         ├── stock-movements/  流水列表 + 手工录入（没有 edit）
         ├── stock-documents/  出入库单 + items-editor + 确认
