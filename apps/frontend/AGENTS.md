@@ -66,7 +66,7 @@ apps/frontend/
     └── pages/
         ├── login/  dashboard/
         ├── products/         list / create / edit / show / form-fields / source-panel
-        ├── suppliers/ customers/   同上（同一 `Partner` 模型的两种角色视图）
+        ├── suppliers/ customers/ forwarders/   同上（同一 `Partner` 模型的三种角色视图）
         ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
         ├── quotations/       同上 + show / preview（试算页）
         ├── orders/ purchases/ shipments/   list / create / edit / show（+ 明细或分配行编辑器）
@@ -77,9 +77,10 @@ apps/frontend/
         └── exchange-rates/   list / create / form-fields（没有 edit）
 ```
 
-**`suppliers/` 与 `customers/` 是同一个数据模型的两种角色视图**，类型都是 `Partner`。
-后端只有一张 `md_partner` 表，`/suppliers` 与 `/customers` 是它按角色切的入口。
-所以两个目录里的 list 只差默认角色与列，改字段时两边都要看。
+**`suppliers/`、`customers/` 与 `forwarders/` 是同一个数据模型的三种角色视图**，类型都是 `Partner`。
+后端只有一张 `md_partner` 表，三个路径是它按角色切的入口（角色位 `2` / `1` / `4`）。
+所以三个目录里的 list 只差默认角色与列，改字段时三边都要看 —— 唯一的实质差异是
+货代表单不展示商务条件（贸易术语、账期、信用额度），那几列对货代没有意义。
 
 ## 3. 应用装配
 

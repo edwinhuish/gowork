@@ -17,8 +17,9 @@
 域边界与判断标准见 `docs/glossary.md` 第二节。
 
 **客户与供应商也是同一张表。** 它们是"往来单位"的两种角色，用 `role` 位掩码区分，
-所以"既是客户又是供应商"的主体只有一条记录、一套联系方式。`/customers` 与
-`/suppliers` 是同一资源按角色切的入口，不是两套实现。
+所以"既是客户又是供应商"的主体只有一条记录、一套联系方式；货代（含报关行）同样
+落在这张表上，只是角色位不同。`/customers`、`/suppliers` 与 `/forwarders` 是同一资源
+按角色切的入口，不是两套实现。
 
 **当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
@@ -114,7 +115,7 @@ gin HTTP 层 (Go :8080)
 | product | 共享主数据 | `/api/v1/products` | 产品，SKU 编码唯一 |
 | product-source | 共享主数据 | `/api/v1/product-sources` | 产品货源：某供应商处的货号、采购价、交期 |
 | partner | 共享主数据 | `/api/v1/partners` | 往来单位：客户与供应商的统一主体，角色用位掩码 |
-| partner（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers` | 同一份数据按角色切的入口，不是两套实现 |
+| partner（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers`、`/api/v1/forwarders` | 同一份数据按角色切的入口，不是两套实现 |
 | currency / exchange-rate | 共享主数据 | `/api/v1/currencies`、`/api/v1/exchange-rates` | 币种与历史汇率；汇率不可改，录错删掉重录 |
 | contact / activity | CRM | `/api/v1/contacts`、`/api/v1/activities` | 联系人、跟进记录（`?due=1` 查已到期未跟进） |
 | lead / opportunity | CRM | `/api/v1/leads`、`/api/v1/opportunities` | 线索可转化为主体；商机带阶段机与加权预测 |

@@ -135,6 +135,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |
 | GET / POST | `/api/v1/suppliers` | `Partner.*(&supplierRole)` | 同上 |
+| GET / POST | `/api/v1/forwarders` | `Partner.*(&forwarderRole)` | 同上，角色位 `4`（货代 / 报关行） |
 | GET / POST | `/api/v1/currencies` | `Currency.List` / `.Create` | `CurrencyService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/currencies/:id` | `Currency.Get` / `.Update` / `.Delete` | 同名方法 |
 | GET / POST | `/api/v1/exchange-rates` | `Rate.List` / `.Create` | `ExchangeRateService.List` / `.Create` |
@@ -175,11 +176,11 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/stock-documents/:id` | `StockDoc.Get` / `.Update` / `.Delete` | 只有草稿可改可删；类型建好后不可改 |
 | POST | `/api/v1/stock-documents/:id/confirm` | `StockDoc.Confirm` | 生成流水 + 更新快照（一个事务）；重复确认 409 |
 
-`/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
+`/customers`、`/suppliers` 与 `/forwarders` 是 `/partners` 的角色切片，不是三套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
 
 切片的行为约定：列表强制按角色过滤、创建时补 role、`Get/Update/Delete` 对
-角色外的 id 返回 404、并通过这两个入口编辑时**忽略** role 字段（不让客户页面
+角色外的 id 返回 404、并通过这些角色入口编辑时**忽略** role 字段（不让客户页面
 有机会抹掉供应商身份）。改这套逻辑前先看 `internal/handler/partner.go` 的注释。
 
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
