@@ -249,6 +249,11 @@ export interface Product {
   status: number
   remark: string
   supplier?: Partner | null
+  /**
+   * 这次搜索命中的编号（旧 SKU / 客户号…）。只在带 keyword 的列表里出现，
+   * 详情接口不返回：它是某一次查询的结果，不是产品的一个字段。
+   */
+  matched_codes?: string[]
   created_at: string
   updated_at: string
 }
@@ -966,6 +971,24 @@ export interface QuotationPreviewItem {
   gross_profit: number
   source_id: number | null
   source_name: string
+}
+
+/**
+ * 产品编号：SKU 之外的别名（客户物料号、供应商货号、工厂号、旧 SKU）。
+ *
+ * 不参与发号、不进单据与打印件——它只服务「客户报一个号也能找到货」。
+ * code 是原样显示，code_norm 是检索用的归一化形态（服务端算，前端只读）。
+ */
+export interface ProductCode {
+  id: number
+  product_id: number
+  code: string
+  code_norm: string
+  /** 见 model.ProductCodeSource*：sku / customer / supplier / factory / other */
+  source: string
+  remark: string
+  created_at: string
+  updated_at: string
 }
 
 /**

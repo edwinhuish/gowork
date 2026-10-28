@@ -6,6 +6,7 @@ import { CategoryTag, Empty, Money, StatusTag } from '@/components/fields'
 import type { Product } from '@/types'
 import { formatTime } from '@/utils/format'
 
+import { CodePanel } from './code-panel'
 import { SourcesPanel } from './source-panel'
 
 /**
@@ -81,6 +82,9 @@ export function ProductShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 编号放在货源之前：客户报一个号来问价时，先要确认「这号是不是这件货」。 */}
+      {result?.id ? <CodePanel productId={result.id} /> : null}
 
       {/* 货源是产品的子表：报价成本从这里取，产品页上没有它就等于成本只能手填。 */}
       {result?.id ? <SourcesPanel productId={result.id} /> : null}

@@ -70,8 +70,17 @@ export function ProductList() {
         <Table.Column
           dataIndex="sku_code"
           title="SKU 编码"
-          width={150}
-          render={(value: string) => <Mono>{value}</Mono>}
+          width={170}
+          render={(value: string, record: Product) => (
+            <div className="cell-stack">
+              <Mono>{value}</Mono>
+              {/* 搜旧编号时说明"为什么这条会出现"；不说明的话，用户看着一串
+                  对不上的 SKU 会以为搜索坏了。 */}
+              {record.matched_codes?.length ? (
+                <span className="cell-sub">命中编号：{record.matched_codes.join('、')}</span>
+              ) : null}
+            </div>
+          )}
         />
         <Table.Column
           dataIndex="name_cn"

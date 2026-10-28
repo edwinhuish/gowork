@@ -193,6 +193,30 @@ export const ENABLE_STATUS_OPTIONS = [
 ]
 
 /**
+ * 产品编号来源。取值与后端 model.ProductCodeSource* 一致。
+ *
+ * 来源决定「这个号是谁叫的」：写成「客户」「客户A」「customer」三种说法之后，
+ * 就再也统计不出有多少号是客户给的。`sku` 只由系统自动写入（改 SKU 时沉淀），
+ * 手填的话界面会给出提示但不禁用——历史数据补录时需要它。
+ */
+export const PRODUCT_CODE_SOURCE_OPTIONS = [
+  { value: 'customer', label: '客户物料号' },
+  { value: 'supplier', label: '供应商货号' },
+  { value: 'factory', label: '工厂号' },
+  { value: 'sku', label: '旧 SKU' },
+  { value: 'other', label: '其它' },
+]
+
+const PRODUCT_CODE_SOURCE_MAP = new Map(
+  PRODUCT_CODE_SOURCE_OPTIONS.map((item) => [item.value, item.label]),
+)
+
+export function productCodeSourceLabel(value?: string) {
+  if (!value) return undefined
+  return PRODUCT_CODE_SOURCE_MAP.get(value) ?? value
+}
+
+/**
  * 主体类型选项。0 公司 / 1 个人，与后端 model.PartnerEntityType 对齐。
  *
  * 只有两项，用单选按钮而不是下拉：下拉要在两次点击之后才能看到全部选项，
