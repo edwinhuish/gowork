@@ -83,7 +83,7 @@ gin HTTP 层 (Go :8080)
 | 鉴权 | JWT HS256 + 服务端会话，滑动续期 | 只有签名不够——登出要能立即失效，所以会话必须落在缓存里；剩余有效期不足一半时自动换发新令牌 |
 | 配置 | yaml + `GOWORK_*` 环境变量 | 12-factor；敏感值走环境变量，不进仓库 |
 | 日志 | 标准库 `log/slog` | 结构化日志不需要第三方库 |
-| 前端 | React 19 + TypeScript + Vite 6 + react-router 7 | 无状态管理库、无 UI 库：当前页面量级自己写更省心 |
+| 前端 | React 19 + TypeScript + Vite 6 + refine 5 + Ant Design 5 + react-router 7 | 管理端 CRUD 的表单、表格、鉴权路由都由 refine 统一，手写会在多模块间走形 |
 | 包管理 | pnpm 12（`packageManager` 锁定） | 严格 node_modules，未声明的依赖当场报错 |
 | 任务编排 | Taskfile | 跨平台，比 shell 脚本可读；命令下沉到子目录避免重复维护 |
 
