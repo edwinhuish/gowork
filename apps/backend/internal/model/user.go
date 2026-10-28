@@ -19,7 +19,8 @@ type User struct {
 
 func (User) TableName() string { return "sys_user" }
 
-// IsEnabled 报告账号是否可用。命名不叫 IsActive：Active 在本项目里
-// 已被概览指标用过（在售/在用），与启用状态是同一件事的两种说法，
-// 留着会让人以为是两个不同判断。
+// IsEnabled 报告账号是否可用。
+//
+// 用 Enabled 而不是 Active 命名：Active 在本项目里曾被概览指标用过（在售），
+// 与启用状态是同一件事的两种说法，留着会让人以为是两个不同的判断。
 func (u *User) IsEnabled() bool { return u.Status == EnableStatusOn }
