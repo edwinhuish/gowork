@@ -120,6 +120,32 @@ export function isOpenStage(value?: number | null): boolean {
   return value !== 50 && value !== 60
 }
 
+/** 线索状态。取值与后端 model.LeadStatus 一致；30 是硬终态。 */
+export const LEAD_STATUS_OPTIONS = [
+  { value: 10, label: '新建' },
+  { value: 20, label: '跟进中' },
+  { value: 30, label: '已转化' },
+  { value: 40, label: '已废弃' },
+]
+
+export const LEAD_SOURCE_OPTIONS = [
+  { value: 'EXHIBITION', label: '展会' },
+  { value: 'ALIBABA', label: '阿里国际站' },
+  { value: 'GOOGLE', label: '搜索引擎' },
+  { value: 'REFERRAL', label: '老客户推荐' },
+  { value: 'OTHER', label: '其它' },
+]
+
+export function leadStatusLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return LEAD_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
+}
+
+export function leadSourceLabel(value?: string | null): string {
+  if (!value) return '—'
+  return LEAD_SOURCE_OPTIONS.find((o) => o.value === value)?.label ?? value
+}
+
 /** 结算方式：决定账期与风险，也决定报价的价格基础。 */
 export const SETTLEMENT_METHOD_OPTIONS = [
   { value: 'TT', label: 'T/T 电汇' },

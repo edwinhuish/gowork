@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
 // PartnerFilter 是商业伙伴列表的查询条件。
@@ -61,6 +64,9 @@ type PartnerRepository interface {
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Partner, error)
 	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
+	// FindByNameAndCountry 按"公司名 + 国家"查同名主体，供线索转化时提示重复。
+	// 找不到返回 errs.ErrNotFound —— 外贸同名公司确实存在，所以调用方只提示、不阻断。
+	FindByNameAndCountry(ctx context.Context, name, country string) (*model.Partner, error)
 	List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error)
 	Count(ctx context.Context) (int64, error)
 	CountByRole(ctx context.Context, role model.PartnerRole) (int64, error)
@@ -102,6 +108,25 @@ func (r *partnerRepo) ExistsByCode(ctx context.Context, code string, excludeID u
 		}
 		return q
 	})
+}
+
+// FindByNameAndCountry 精确匹配名称，国家为空时只按名称匹配。
+func (r *partnerRepo) FindByNameAndCountry(
+	ctx context.Context, name, country string,
+) (*model.Partner, error) {
+	var m model.Partner
+	q := r.DB().WithContext(ctx).Where("name = ?", name)
+	if country != "" {
+		q = q.Where("country = ?", country)
+	}
+	err := q.First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("按名称查主体 name=%s: %w", name, err)
+	}
+	return &m, nil
 }
 
 func (r *partnerRepo) List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error) {

@@ -25,6 +25,7 @@ type Handlers struct {
 	Contact   *handler.ContactHandler
 	Activity  *handler.ActivityHandler
 	Oppty     *handler.OpportunityHandler
+	Lead      *handler.LeadHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -129,6 +130,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		opportunities.DELETE("/:id", h.Oppty.Delete)
 
 		secured.GET("/opportunities-summary", h.Oppty.Summary)
+
+		// 线索：转化是独立动作，不能靠改 status 完成。
+		leads := secured.Group("/leads")
+		leads.GET("", h.Lead.List)
+		leads.POST("", h.Lead.Create)
+		leads.GET("/:id", h.Lead.Get)
+		leads.PUT("/:id", h.Lead.Update)
+		leads.DELETE("/:id", h.Lead.Delete)
+		leads.POST("/:id/convert", h.Lead.Convert)
 	}
 
 	return engine

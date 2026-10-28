@@ -6,6 +6,7 @@ import {
   DollarOutlined,
   FundOutlined,
   ShopOutlined,
+  UserAddOutlined,
   SwapOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
@@ -27,6 +28,7 @@ import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
 import { DashboardPage } from '@/pages/dashboard'
 import { ExchangeRateCreate, ExchangeRateList } from '@/pages/exchange-rates'
+import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
 import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
@@ -100,6 +102,13 @@ export default function App() {
                 meta: { label: '跟进记录', icon: <CommentOutlined /> },
               },
               {
+                name: 'leads',
+                list: '/leads',
+                create: '/leads/create',
+                edit: '/leads/edit/:id',
+                meta: { label: '线索', icon: <UserAddOutlined /> },
+              },
+              {
                 name: 'opportunities',
                 list: '/opportunities',
                 create: '/opportunities/create',
@@ -169,6 +178,12 @@ export default function App() {
                     <Route index element={<ActivityList />} />
                     <Route path="create" element={<ActivityCreate />} />
                     <Route path="edit/:id" element={<ActivityEdit />} />
+                  </Route>
+
+                  <Route path="leads">
+                    <Route index element={<LeadList />} />
+                    <Route path="create" element={<LeadCreate />} />
+                    <Route path="edit/:id" element={<LeadEdit />} />
                   </Route>
 
                   <Route path="opportunities">

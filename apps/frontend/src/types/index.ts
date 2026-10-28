@@ -160,6 +160,39 @@ export interface OpportunitySummary {
 }
 
 /**
+ * 线索（CRM）：尚未建档的询盘主体。
+ *
+ * 大多数询盘不会成交，全部建进往来单位会让客户列表变成通讯录。
+ * status=30（已转化）是硬终态，此时 partner_id 指向新建的主体。
+ */
+export interface Lead {
+  id: number
+  company: string
+  contact_name: string
+  phone: string
+  email: string
+  country: string
+  /** EXHIBITION / ALIBABA / GOOGLE / REFERRAL / OTHER */
+  source: string
+  demand: string
+  /** 10 新建 / 20 跟进中 / 30 已转化 / 40 已废弃 */
+  status: number
+  partner_id: number | null
+  converted_at: string | null
+  remark: string
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LeadConvertResult {
+  lead: Lead
+  partner: Partner
+  /** 同名同国主体的提示，非阻断。 */
+  warning?: string
+}
+
+/**
  * 币种。三位 ISO 4217 代码是业务身份，单据上存的就是它，所以创建后不可修改。
  *
  * is_base 标记本币：全库有且只有一个，是折算的基准。

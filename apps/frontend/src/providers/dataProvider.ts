@@ -37,6 +37,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'due',
   'stage',
   'open_only',
+  'source',
 ])
 
 function buildListQuery({ pagination, filters }: GetListParams): Record<string, unknown> {
