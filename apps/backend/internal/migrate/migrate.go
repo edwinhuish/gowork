@@ -32,7 +32,7 @@ func Run(db *gorm.DB, log *slog.Logger) error {
 	if err := ensureRecordTable(db); err != nil {
 		return err
 	}
-	if err := MergeParties(db, log); err != nil {
+	if err := MergeLegacyCustomersAndSuppliers(db, log); err != nil {
 		return err
 	}
 	return nil

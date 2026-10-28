@@ -21,10 +21,10 @@ type ProductService interface {
 
 type productService struct {
 	repo repository.ProductRepository
-	// parties 用来校验 supplier_id 指向的主体确实具备供应商角色。
+	// partners 用来校验 supplier_id 指向的主体确实具备供应商角色。
 	// 合并后的主表什么角色都可能，光有外键约束不住"选了个客户当供应商"。
-	parties repository.PartyRepository
-	log     *slog.Logger
+	partners repository.PartnerRepository
+	log      *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -36,10 +36,10 @@ func WithProductLogger(l *slog.Logger) ProductOption {
 
 func NewProductService(
 	repo repository.ProductRepository,
-	parties repository.PartyRepository,
+	partners repository.PartnerRepository,
 	opts ...ProductOption,
 ) ProductService {
-	s := &productService{repo: repo, parties: parties, log: slog.Default()}
+	s := &productService{repo: repo, partners: partners, log: slog.Default()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -168,14 +168,14 @@ func (s *productService) checkSupplier(ctx context.Context, id *uint) error {
 	if id == nil {
 		return nil
 	}
-	p, err := s.parties.FindByID(ctx, *id)
+	p, err := s.partners.FindByID(ctx, *id)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return errs.BadRequest("指定的供应商不存在")
 		}
 		return err
 	}
-	if !p.Role.Has(model.PartyRoleSupplier) {
+	if !p.Role.Has(model.PartnerRoleSupplier) {
 		return errs.BadRequest("所选主体不具备供应商角色：" + p.Name)
 	}
 	return nil

@@ -15,13 +15,13 @@ func (a *App) seed(
 	ctx context.Context,
 	auth service.AuthService,
 	users repository.UserRepository,
-	parties repository.PartyRepository,
+	partners repository.PartnerRepository,
 	products repository.ProductRepository,
 ) error {
 	if err := a.seedAdmin(ctx, auth, users); err != nil {
 		return err
 	}
-	return a.seedDemoData(ctx, parties, products)
+	return a.seedDemoData(ctx, partners, products)
 }
 
 func (a *App) seedAdmin(ctx context.Context, auth service.AuthService, users repository.UserRepository) error {
@@ -59,30 +59,30 @@ func (a *App) seedAdmin(ctx context.Context, auth service.AuthService, users rep
 // 这样列表、筛选、概览计数一跑起来就能看出新模型是否真的生效。
 func (a *App) seedDemoData(
 	ctx context.Context,
-	parties repository.PartyRepository,
+	partners repository.PartnerRepository,
 	products repository.ProductRepository,
 ) error {
-	n, err := parties.Count(ctx)
+	n, err := partners.Count(ctx)
 	if err != nil || n > 0 {
 		return err
 	}
 
-	demoParties := []model.Party{
+	demoPartners := []model.Partner{
 		{
 			Code: "SUP001", Name: "永康市华信五金厂",
-			Role: model.PartyRoleSupplier, EntityType: model.PartyEntityCompany,
+			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
 			ContactName: "陈先生", Phone: "13800000001",
 			Address: "浙江省金华市永康市", Status: model.EnableStatusOn,
 		},
 		{
 			Code: "SUP002", Name: "揭阳铭泰不锈钢制品",
-			Role: model.PartyRoleSupplier, EntityType: model.PartyEntityCompany,
+			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
 			ContactName: "林小姐", Phone: "13800000002",
 			Address: "广东省揭阳市", Status: model.EnableStatusOn,
 		},
 		{
 			Code: "CUS001", Name: "Ferreteria El Sol",
-			Role: model.PartyRoleCustomer, EntityType: model.PartyEntityCompany,
+			Role: model.PartnerRoleCustomer, EntityType: model.PartnerEntityCompany,
 			Country: "Ecuador", ContactName: "Carlos", Phone: "+593 9 0000 0001",
 			Address: "Guayaquil", Status: model.EnableStatusOn,
 		},
@@ -90,26 +90,26 @@ func (a *App) seedDemoData(
 			// 客供两用：既买成品，又把包装物料卖回给我们。
 			// 合并前这种主体必须在两张表各建一条、维护两套联系方式。
 			Code: "BOTH001", Name: "宁波华翔工贸",
-			Role:       model.PartyRoleCustomer | model.PartyRoleSupplier,
-			EntityType: model.PartyEntityCompany,
+			Role:       model.PartnerRoleCustomer | model.PartnerRoleSupplier,
+			EntityType: model.PartnerEntityCompany,
 			Country:    "China", ContactName: "周经理", Phone: "13800000003",
 			Address: "浙江省宁波市", Status: model.EnableStatusOn,
 		},
 		{
 			// 个人主体：货代买手，报关资料与公司不同，所以单独标记类型。
 			Code: "PER001", Name: "王海（个人买手）",
-			Role: model.PartyRoleCustomer, EntityType: model.PartyEntityPerson,
+			Role: model.PartnerRoleCustomer, EntityType: model.PartnerEntityPerson,
 			Country: "Ecuador", ContactName: "王海", Phone: "+593 9 0000 0002",
 			Remark: "个人收款的买手，报关资料用个人身份", Status: model.EnableStatusOn,
 		},
 	}
-	for i := range demoParties {
-		if err := parties.Create(ctx, &demoParties[i]); err != nil {
+	for i := range demoPartners {
+		if err := partners.Create(ctx, &demoPartners[i]); err != nil {
 			return err
 		}
 	}
 
-	supplierID := demoParties[0].ID
+	supplierID := demoPartners[0].ID
 	demoProducts := []model.Product{
 		{SKUCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &supplierID, CostPrice: 6.8, SalePrice: 9.9, Status: model.EnableStatusOn},
 		{SKUCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &supplierID, CostPrice: 3.2, SalePrice: 5.5, Status: model.EnableStatusOn},
@@ -122,6 +122,6 @@ func (a *App) seedDemoData(
 		}
 	}
 
-	a.Log.Info("已写入演示数据", "parties", len(demoParties), "products", len(demoProducts))
+	a.Log.Info("已写入演示数据", "partners", len(demoPartners), "products", len(demoProducts))
 	return nil
 }

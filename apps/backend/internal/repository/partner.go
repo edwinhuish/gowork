@@ -8,19 +8,19 @@ import (
 	"github.com/edwinhuish/gowork/internal/model"
 )
 
-// PartyFilter 是商业伙伴列表的查询条件。
+// PartnerFilter 是商业伙伴列表的查询条件。
 //
 // Role 是"包含"语义而不是"等于"：筛供应商时，既做客户又做供应商的主体
 // 必须一起出来，否则它在采购侧的选择列表里会消失。
-type PartyFilter struct {
+type PartnerFilter struct {
 	Keyword    string
-	Role       *model.PartyRole
-	EntityType *model.PartyEntityType
+	Role       *model.PartnerRole
+	EntityType *model.PartnerEntityType
 	Country    string
 	Status     *model.EnableStatus
 }
 
-func (f PartyFilter) scopes() []Scope {
+func (f PartnerFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 5)
 
 	if f.Keyword != "" {
@@ -55,38 +55,38 @@ func (f PartyFilter) scopes() []Scope {
 	return scopes
 }
 
-type PartyRepository interface {
-	Create(ctx context.Context, m *model.Party) error
+type PartnerRepository interface {
+	Create(ctx context.Context, m *model.Partner) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
-	FindByID(ctx context.Context, id uint) (*model.Party, error)
+	FindByID(ctx context.Context, id uint) (*model.Partner, error)
 	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
-	List(ctx context.Context, f PartyFilter, p Pagination) ([]model.Party, int64, error)
+	List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error)
 	Count(ctx context.Context) (int64, error)
-	CountByRole(ctx context.Context, role model.PartyRole) (int64, error)
+	CountByRole(ctx context.Context, role model.PartnerRole) (int64, error)
 }
 
-type partyRepo struct {
-	*Base[model.Party]
+type partnerRepo struct {
+	*Base[model.Partner]
 }
 
-func NewPartyRepository(db *gorm.DB) PartyRepository {
-	return &partyRepo{Base: NewBase[model.Party](db)}
+func NewPartnerRepository(db *gorm.DB) PartnerRepository {
+	return &partnerRepo{Base: NewBase[model.Partner](db)}
 }
 
-func (r *partyRepo) Create(ctx context.Context, m *model.Party) error {
+func (r *partnerRepo) Create(ctx context.Context, m *model.Partner) error {
 	return r.Base.Create(ctx, m)
 }
 
-func (r *partyRepo) Update(ctx context.Context, id uint, fields map[string]any) error {
+func (r *partnerRepo) Update(ctx context.Context, id uint, fields map[string]any) error {
 	return r.Base.UpdateFields(ctx, id, fields)
 }
 
-func (r *partyRepo) Delete(ctx context.Context, id uint) error {
+func (r *partnerRepo) Delete(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
 }
 
-func (r *partyRepo) FindByID(ctx context.Context, id uint) (*model.Party, error) {
+func (r *partnerRepo) FindByID(ctx context.Context, id uint) (*model.Partner, error) {
 	return r.Base.FindByID(ctx, id)
 }
 
@@ -94,7 +94,7 @@ func (r *partyRepo) FindByID(ctx context.Context, id uint) (*model.Party, error)
 //
 // 合并后编码在客户与供应商之间也唯一：同一个主体只有一个编码，
 // 这正是合并要解决的问题（原先 CUS001 与 SUP001 可能指向同一家公司）。
-func (r *partyRepo) ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error) {
+func (r *partnerRepo) ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error) {
 	return r.Exists(ctx, func(db *gorm.DB) *gorm.DB {
 		q := db.Where("code = ?", code)
 		if excludeID > 0 {
@@ -104,11 +104,11 @@ func (r *partyRepo) ExistsByCode(ctx context.Context, code string, excludeID uin
 	})
 }
 
-func (r *partyRepo) List(ctx context.Context, f PartyFilter, p Pagination) ([]model.Party, int64, error) {
+func (r *partnerRepo) List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error) {
 	return r.Paginate(ctx, p, f.scopes()...)
 }
 
-func (r *partyRepo) Count(ctx context.Context) (int64, error) {
+func (r *partnerRepo) Count(ctx context.Context) (int64, error) {
 	return r.Base.Count(ctx)
 }
 
@@ -116,7 +116,7 @@ func (r *partyRepo) Count(ctx context.Context) (int64, error) {
 //
 // 用 RoleValuesContaining 而不是 Count(role = ?)：后者会漏掉 role=3 的"客供两用"
 // 主体，导致概览里的供应商数比供应商列表实际少了。
-func (r *partyRepo) CountByRole(ctx context.Context, role model.PartyRole) (int64, error) {
+func (r *partnerRepo) CountByRole(ctx context.Context, role model.PartnerRole) (int64, error) {
 	values := model.RoleValuesContaining(role)
 	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
 		return db.Where("role IN ?", values)

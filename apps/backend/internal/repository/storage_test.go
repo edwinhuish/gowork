@@ -69,7 +69,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		t.Fatalf("方言应为 %s，实际 %s", driver, got)
 	}
 
-	if err := database.AutoMigrate(db, &model.Party{}, &model.Product{}); err != nil {
+	if err := database.AutoMigrate(db, &model.Partner{}, &model.Product{}); err != nil {
 		t.Fatalf("迁移失败: %v", err)
 	}
 
@@ -78,17 +78,17 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	mark := fmt.Sprintf("T%d", suffix)
 
 	// 每次跑用独立主体圈定数据集，避免和库里已有的演示数据混在一起。
-	partyRepo := NewPartyRepository(db)
-	supplier := &model.Party{
+	partnerRepo := NewPartnerRepository(db)
+	supplier := &model.Partner{
 		Code: "SUP-" + mark, Name: "测试供应商",
-		Role: model.PartyRoleSupplier, Status: model.EnableStatusOn,
+		Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
 	}
-	if err := partyRepo.Create(ctx, supplier); err != nil {
+	if err := partnerRepo.Create(ctx, supplier); err != nil {
 		t.Fatalf("创建供应商: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = db.Unscoped().Where("supplier_id = ?", supplier.ID).Delete(&model.Product{}).Error
-		_ = db.Unscoped().Where("id = ?", supplier.ID).Delete(&model.Party{}).Error
+		_ = db.Unscoped().Where("id = ?", supplier.ID).Delete(&model.Partner{}).Error
 	})
 
 	products := []*model.Product{
@@ -139,28 +139,28 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	t.Run("角色过滤按包含语义", func(t *testing.T) {
 		// 客供两用是合并的核心场景：同一个主体既能在采购侧被选到，
 		// 又能在销售侧被选到，而且是同一条记录、同一套联系方式。
-		both := &model.Party{
+		both := &model.Partner{
 			Code: "BOTH-" + mark, Name: "客供两用主体",
-			Role:   model.PartyRoleCustomer | model.PartyRoleSupplier,
+			Role:   model.PartnerRoleCustomer | model.PartnerRoleSupplier,
 			Status: model.EnableStatusOn,
 		}
-		if err := partyRepo.Create(ctx, both); err != nil {
+		if err := partnerRepo.Create(ctx, both); err != nil {
 			t.Fatalf("创建客供两用主体: %v", err)
 		}
 		t.Cleanup(func() {
-			_ = db.Unscoped().Where("id = ?", both.ID).Delete(&model.Party{}).Error
+			_ = db.Unscoped().Where("id = ?", both.ID).Delete(&model.Partner{}).Error
 		})
 
-		supplierRole := model.PartyRoleSupplier
-		if _, total, err := partyRepo.List(ctx, PartyFilter{Role: &supplierRole, Keyword: mark},
+		supplierRole := model.PartnerRoleSupplier
+		if _, total, err := partnerRepo.List(ctx, PartnerFilter{Role: &supplierRole, Keyword: mark},
 			Pagination{Page: 1, PageSize: 20}); err != nil {
 			t.Fatalf("List: %v", err)
 		} else if total != 2 {
 			t.Fatalf("筛供应商应同时包含纯供应商与客供两用主体，得到 %d 条", total)
 		}
 
-		customerRole := model.PartyRoleCustomer
-		list, total, err := partyRepo.List(ctx, PartyFilter{Role: &customerRole, Keyword: mark},
+		customerRole := model.PartnerRoleCustomer
+		list, total, err := partnerRepo.List(ctx, PartnerFilter{Role: &customerRole, Keyword: mark},
 			Pagination{Page: 1, PageSize: 20})
 		if err != nil {
 			t.Fatalf("List: %v", err)
@@ -170,10 +170,10 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 
 		// 概览计数与列表必须口径一致：按 role = ? 统计会漏掉 role=3 的主体。
-		if n, err := partyRepo.CountByRole(ctx, model.PartyRoleSupplier); err != nil || n < 2 {
+		if n, err := partnerRepo.CountByRole(ctx, model.PartnerRoleSupplier); err != nil || n < 2 {
 			t.Fatalf("供应商计数应至少包含纯供应商与两用主体: n=%d err=%v", n, err)
 		}
-		if n, err := partyRepo.CountByRole(ctx, model.PartyRoleCustomer); err != nil || n < 1 {
+		if n, err := partnerRepo.CountByRole(ctx, model.PartnerRoleCustomer); err != nil || n < 1 {
 			t.Fatalf("客户计数应至少包含两用主体: n=%d err=%v", n, err)
 		}
 	})

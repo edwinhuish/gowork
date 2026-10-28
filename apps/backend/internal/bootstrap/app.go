@@ -44,10 +44,18 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	// 表改名必须排在 AutoMigrate 之前。AutoMigrate 只认模型，会在 md_partner
+	// 这个名字下直接建一张空表；等它建完再改名就撞名了，而旧表 md_party 里的
+	// 数据会被晾在原地 —— 启动照常成功，列表却是空的。
+	if err := migrate.RenameLegacyPartnerTable(db, log); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("执行表改名迁移: %w", err)
+	}
+
 	if cfg.Database.AutoMigrate {
 		if err := database.AutoMigrate(db,
 			&model.User{},
-			&model.Party{},
+			&model.Partner{},
 			&model.Product{},
 		); err != nil {
 			_ = database.Close(db)
@@ -71,7 +79,7 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ---- 数据访问层 ----
 	userRepo := repository.NewUserRepository(db)
-	partyRepo := repository.NewPartyRepository(db)
+	partnerRepo := repository.NewPartnerRepository(db)
 	productRepo := repository.NewProductRepository(db)
 
 	// ---- 业务层 ----
@@ -85,22 +93,22 @@ func New(cfg *config.Config) (*App, error) {
 		},
 		service.WithAuthLogger(log),
 	)
-	productSvc := service.NewProductService(productRepo, partyRepo, service.WithProductLogger(log))
-	partySvc := service.NewPartyService(partyRepo, productRepo, service.WithPartyLogger(log))
-	dashboardSvc := service.NewDashboardService(productRepo, partyRepo, c, service.WithDashboardLogger(log))
+	productSvc := service.NewProductService(productRepo, partnerRepo, service.WithProductLogger(log))
+	partnerSvc := service.NewPartnerService(partnerRepo, productRepo, service.WithPartnerLogger(log))
+	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, server.Handlers{
 		Auth:      handler.NewAuthHandler(authSvc),
 		Product:   handler.NewProductHandler(productSvc),
-		Party:     handler.NewPartyHandler(partySvc),
+		Partner:   handler.NewPartnerHandler(partnerSvc),
 		Dashboard: handler.NewDashboardHandler(dashboardSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
 
 	if cfg.Database.Seed {
-		if err := app.seed(context.Background(), authSvc, userRepo, partyRepo, productRepo); err != nil {
+		if err := app.seed(context.Background(), authSvc, userRepo, partnerRepo, productRepo); err != nil {
 			app.Close()
 			return nil, fmt.Errorf("初始化种子数据: %w", err)
 		}

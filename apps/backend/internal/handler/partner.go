@@ -10,29 +10,29 @@ import (
 	"github.com/edwinhuish/gowork/internal/service"
 )
 
-// PartyHandler 同时服务三个路由前缀：
+// PartnerHandler 同时服务三个路由前缀：
 //
-//	/parties    统一主体，可跨角色操作
+//	/partners   统一主体，可跨角色操作
 //	/customers  等价于只看客户角色，兼容改造前的页面与链接
 //	/suppliers  等价于只看供应商角色
 //
 // 每个方法都接收一个 scope：非 nil 时，该入口只能看到、只能创建该角色的主体。
 // 用参数而不是复制三套 handler，是因为逻辑完全一致，唯一的差别就是这个过滤。
 //
-// 为什么保留两个兼容入口而不是让前端直接改用 /parties：改造要能分批上线，
+// 为什么保留两个兼容入口而不是让前端直接改用 /partners：改造要能分批上线，
 // 后端先合表、前端后改菜单，中间这段时间旧页面必须照常工作。
-type PartyHandler struct {
-	parties service.PartyService
+type PartnerHandler struct {
+	partners service.PartnerService
 }
 
-func NewPartyHandler(parties service.PartyService) *PartyHandler {
-	return &PartyHandler{parties: parties}
+func NewPartnerHandler(partners service.PartnerService) *PartnerHandler {
+	return &PartnerHandler{partners: partners}
 }
 
-// List GET /parties | /customers | /suppliers
-func (h *PartyHandler) List(scope *model.PartyRole) gin.HandlerFunc {
+// List GET /partners | /customers | /suppliers
+func (h *PartnerHandler) List(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var q dto.PartyQuery
+		var q dto.PartnerQuery
 		if !bindQuery(c, &q) {
 			return
 		}
@@ -44,7 +44,7 @@ func (h *PartyHandler) List(scope *model.PartyRole) gin.HandlerFunc {
 			q.Role = &r
 		}
 
-		res, err := h.parties.List(c.Request.Context(), q)
+		res, err := h.partners.List(c.Request.Context(), q)
 		if err != nil {
 			response.Fail(c, err)
 			return
@@ -53,15 +53,15 @@ func (h *PartyHandler) List(scope *model.PartyRole) gin.HandlerFunc {
 	}
 }
 
-// Get GET /parties/:id | /customers/:id | /suppliers/:id
-func (h *PartyHandler) Get(scope *model.PartyRole) gin.HandlerFunc {
+// Get GET /partners/:id | /customers/:id | /suppliers/:id
+func (h *PartnerHandler) Get(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseID(c)
 		if !ok {
 			return
 		}
 
-		m, err := h.parties.Get(c.Request.Context(), id)
+		m, err := h.partners.Get(c.Request.Context(), id)
 		if err != nil {
 			response.Fail(c, err)
 			return
@@ -76,10 +76,10 @@ func (h *PartyHandler) Get(scope *model.PartyRole) gin.HandlerFunc {
 	}
 }
 
-// Create POST /parties | /customers | /suppliers
-func (h *PartyHandler) Create(scope *model.PartyRole) gin.HandlerFunc {
+// Create POST /partners | /customers | /suppliers
+func (h *PartnerHandler) Create(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var in dto.PartyInput
+		var in dto.PartnerInput
 		if !bindJSON(c, &in) {
 			return
 		}
@@ -88,7 +88,7 @@ func (h *PartyHandler) Create(scope *model.PartyRole) gin.HandlerFunc {
 			in.Role = &r
 		}
 
-		m, err := h.parties.Create(c.Request.Context(), in)
+		m, err := h.partners.Create(c.Request.Context(), in)
 		if err != nil {
 			response.Fail(c, err)
 			return
@@ -97,20 +97,20 @@ func (h *PartyHandler) Create(scope *model.PartyRole) gin.HandlerFunc {
 	}
 }
 
-// Update PUT /parties/:id | /customers/:id | /suppliers/:id
-func (h *PartyHandler) Update(scope *model.PartyRole) gin.HandlerFunc {
+// Update PUT /partners/:id | /customers/:id | /suppliers/:id
+func (h *PartnerHandler) Update(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseID(c)
 		if !ok {
 			return
 		}
-		var in dto.PartyInput
+		var in dto.PartnerInput
 		if !bindJSON(c, &in) {
 			return
 		}
 
 		if scope != nil {
-			existing, err := h.parties.Get(c.Request.Context(), id)
+			existing, err := h.partners.Get(c.Request.Context(), id)
 			if err != nil {
 				response.Fail(c, err)
 				return
@@ -125,7 +125,7 @@ func (h *PartyHandler) Update(scope *model.PartyRole) gin.HandlerFunc {
 			in.Role = nil
 		}
 
-		m, err := h.parties.Update(c.Request.Context(), id, in)
+		m, err := h.partners.Update(c.Request.Context(), id, in)
 		if err != nil {
 			response.Fail(c, err)
 			return
@@ -134,8 +134,8 @@ func (h *PartyHandler) Update(scope *model.PartyRole) gin.HandlerFunc {
 	}
 }
 
-// Delete DELETE /parties/:id | /customers/:id | /suppliers/:id
-func (h *PartyHandler) Delete(scope *model.PartyRole) gin.HandlerFunc {
+// Delete DELETE /partners/:id | /customers/:id | /suppliers/:id
+func (h *PartnerHandler) Delete(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseID(c)
 		if !ok {
@@ -143,7 +143,7 @@ func (h *PartyHandler) Delete(scope *model.PartyRole) gin.HandlerFunc {
 		}
 
 		if scope != nil {
-			existing, err := h.parties.Get(c.Request.Context(), id)
+			existing, err := h.partners.Get(c.Request.Context(), id)
 			if err != nil {
 				response.Fail(c, err)
 				return
@@ -154,7 +154,7 @@ func (h *PartyHandler) Delete(scope *model.PartyRole) gin.HandlerFunc {
 			}
 		}
 
-		if err := h.parties.Delete(c.Request.Context(), id); err != nil {
+		if err := h.partners.Delete(c.Request.Context(), id); err != nil {
 			response.Fail(c, err)
 			return
 		}

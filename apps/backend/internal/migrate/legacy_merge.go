@@ -10,9 +10,13 @@ import (
 	"github.com/edwinhuish/gowork/internal/model"
 )
 
-const mergePartiesName = "20261028_merge_customer_supplier_into_party"
+// mergeLegacyRecord 是这条迁移在 sys_migration 里的登记名。
+//
+// 名字里的 "party" 保持原样，不随模型改名成 Partner 而改：
+// 它是已经落库的历史标识，换了字面量，已有库会认为这条迁移没跑过而重跑一遍。
+const mergeLegacyRecord = "20261028_merge_customer_supplier_into_party"
 
-// legacyParty 是旧表 md_customer / md_supplier 的读取载体。
+// legacyPartner 是旧表 md_customer / md_supplier 的读取载体。
 //
 // 旧模型已随合并删除，不能复用 model，所以这里按列名把两张表读进同一个结构体
 // （供应商表没有 country，读出来就是空串）。
@@ -21,7 +25,7 @@ const mergePartiesName = "20261028_merge_customer_supplier_into_party"
 // 只要结构体里有 DeletedAt 字段，gorm 就会自动追加 `deleted_at IS NULL`，
 // 用 Table() 指定表名也绕不过去。软删除的主体必须一起搬过去，
 // 否则引用它们的历史单据会指向一个查不到的主体。
-type legacyParty struct {
+type legacyPartner struct {
 	ID        uint
 	Code      string
 	Name      string
@@ -37,7 +41,10 @@ type legacyParty struct {
 	DeletedAt gorm.DeletedAt
 }
 
-// MergeParties 把 md_customer 与 md_supplier 合并进 md_party。
+// MergeLegacyCustomersAndSuppliers 把 md_customer 与 md_supplier 合并进 md_partner。
+//
+// 函数名按"搬什么"来取，而不是叫 MergePartners：Partner 只是落点，
+// 这样命名读起来不会被误解成"在合并多个伙伴"。
 //
 // 三件事必须一起做，否则数据会处于互相矛盾的状态：
 //  1. 两张旧表的主体搬进新表，客户 role=customer、供应商 role=supplier；
@@ -47,7 +54,7 @@ type legacyParty struct {
 // 两表的 id 都从 1 开始，合并后不可能都沿用，所以只能重新分配再重映射。
 // 供应商先导入，于是新表的前若干条 id 恰好与原供应商 id 相同，
 // 大部分产品引用实际上不用改，但代码不能依赖这个巧合。
-func MergeParties(db *gorm.DB, log *slog.Logger) error {
+func MergeLegacyCustomersAndSuppliers(db *gorm.DB, log *slog.Logger) error {
 	if err := ensureRecordTable(db); err != nil {
 		return err
 	}
@@ -60,7 +67,7 @@ func MergeParties(db *gorm.DB, log *slog.Logger) error {
 		return nil
 	}
 
-	done, err := applied(db, mergePartiesName)
+	done, err := applied(db, mergeLegacyRecord)
 	if err != nil {
 		return err
 	}
@@ -69,23 +76,23 @@ func MergeParties(db *gorm.DB, log *slog.Logger) error {
 	}
 
 	var existing int64
-	if err := db.Unscoped().Model(&model.Party{}).Count(&existing).Error; err != nil {
-		return fmt.Errorf("统计 md_party 记录数: %w", err)
+	if err := db.Unscoped().Model(&model.Partner{}).Count(&existing).Error; err != nil {
+		return fmt.Errorf("统计 md_partner 记录数: %w", err)
 	}
 	if existing > 0 {
 		// 没有 applied 记录但目标表已有数据：上一次运行在中途被打断，
 		// 或者有人手工导过数据。继续插入只会产生重复主体，
 		// 而这种重复很难事后识别，所以宁可停在这里让人确认。
 		return fmt.Errorf(
-			"md_party 已有 %d 条记录但缺少迁移记录 %q，为避免重复导入已中止；"+
+			"md_partner 已有 %d 条记录但缺少迁移记录 %q，为避免重复导入已中止；"+
 				"确认数据无误后手工执行 INSERT INTO sys_migration(name, applied_at) 补记录",
-			existing, mergePartiesName)
+			existing, mergeLegacyRecord)
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		taken := make(map[string]bool)
 		var codes []string
-		if err := tx.Unscoped().Model(&model.Party{}).Pluck("code", &codes).Error; err != nil {
+		if err := tx.Unscoped().Model(&model.Partner{}).Pluck("code", &codes).Error; err != nil {
 			return fmt.Errorf("读取已有主体编码: %w", err)
 		}
 		for _, c := range codes {
@@ -96,12 +103,12 @@ func MergeParties(db *gorm.DB, log *slog.Logger) error {
 		if hasSupplier {
 			// 供应商先导入并优先占用编码：产品的 supplier_id 指向供应商，
 			// 且供应商编码是对账用的外部标识，比客户编码更不该被改写。
-			if supplierMap, err = importLegacy(tx, "md_supplier", model.PartyRoleSupplier, taken, log); err != nil {
+			if supplierMap, err = importLegacy(tx, "md_supplier", model.PartnerRoleSupplier, taken, log); err != nil {
 				return err
 			}
 		}
 		if hasCustomer {
-			if _, err := importLegacy(tx, "md_customer", model.PartyRoleCustomer, taken, log); err != nil {
+			if _, err := importLegacy(tx, "md_customer", model.PartnerRoleCustomer, taken, log); err != nil {
 				return err
 			}
 		}
@@ -109,19 +116,19 @@ func MergeParties(db *gorm.DB, log *slog.Logger) error {
 		if err := remapProductSupplier(tx, supplierMap, log); err != nil {
 			return err
 		}
-		return markApplied(tx, mergePartiesName)
+		return markApplied(tx, mergeLegacyRecord)
 	})
 }
 
-// importLegacy 把一张旧表的数据搬进 md_party，返回 旧 id → 新 id 的映射。
+// importLegacy 把一张旧表的数据搬进 md_partner，返回 旧 id → 新 id 的映射。
 func importLegacy(
 	tx *gorm.DB,
 	table string,
-	role model.PartyRole,
+	role model.PartnerRole,
 	taken map[string]bool,
 	log *slog.Logger,
 ) (map[uint]uint, error) {
-	var rows []legacyParty
+	var rows []legacyPartner
 	if err := tx.Table(table).Unscoped().Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("读取旧表 %s: %w", table, err)
 	}
@@ -139,12 +146,12 @@ func importLegacy(
 				"table", table, "old_id", row.ID, "old_code", row.Code, "new_code", code)
 		}
 
-		p := &model.Party{
+		p := &model.Partner{
 			Code: code,
 			Name: row.Name,
 			Role: role,
 			// 旧表只有企业主体，个人类型是这次新增的能力，迁移不涉及。
-			EntityType:  model.PartyEntityCompany,
+			EntityType:  model.PartnerEntityCompany,
 			Country:     row.Country,
 			ContactName: row.Contact,
 			Phone:       row.Phone,
@@ -165,7 +172,7 @@ func importLegacy(
 		idMap[row.ID] = p.ID
 	}
 
-	log.Info("已合并旧表到 md_party", "table", table, "role", role.String(), "rows", len(rows))
+	log.Info("已合并旧表到 md_partner", "table", table, "role", role.String(), "rows", len(rows))
 	return idMap, nil
 }
 

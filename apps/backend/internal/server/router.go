@@ -19,7 +19,7 @@ import (
 type Handlers struct {
 	Auth      *handler.AuthHandler
 	Product   *handler.ProductHandler
-	Party     *handler.PartyHandler
+	Partner   *handler.PartnerHandler
 	Dashboard *handler.DashboardHandler
 }
 
@@ -57,32 +57,32 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		products.PUT("/:id", h.Product.Update)
 		products.DELETE("/:id", h.Product.Delete)
 
-		parties := secured.Group("/parties")
-		parties.GET("", h.Party.List(nil))
-		parties.POST("", h.Party.Create(nil))
-		parties.GET("/:id", h.Party.Get(nil))
-		parties.PUT("/:id", h.Party.Update(nil))
-		parties.DELETE("/:id", h.Party.Delete(nil))
+		partners := secured.Group("/partners")
+		partners.GET("", h.Partner.List(nil))
+		partners.POST("", h.Partner.Create(nil))
+		partners.GET("/:id", h.Partner.Get(nil))
+		partners.PUT("/:id", h.Partner.Update(nil))
+		partners.DELETE("/:id", h.Partner.Delete(nil))
 
 		// 兼容入口。客户与供应商已经合成一张表，但前端页面按 resource 名拼 URL，
 		// 且外部可能存着 /customers/12 这类链接。这两组路由把同一份数据
 		// 按角色切开暴露，行为与合并前一致。
 		// 常量不能取地址，先落成变量再传指针。
-		customerRole := model.PartyRoleCustomer
-		supplierRole := model.PartyRoleSupplier
+		customerRole := model.PartnerRoleCustomer
+		supplierRole := model.PartnerRoleSupplier
 		customers := secured.Group("/customers")
-		customers.GET("", h.Party.List(&customerRole))
-		customers.POST("", h.Party.Create(&customerRole))
-		customers.GET("/:id", h.Party.Get(&customerRole))
-		customers.PUT("/:id", h.Party.Update(&customerRole))
-		customers.DELETE("/:id", h.Party.Delete(&customerRole))
+		customers.GET("", h.Partner.List(&customerRole))
+		customers.POST("", h.Partner.Create(&customerRole))
+		customers.GET("/:id", h.Partner.Get(&customerRole))
+		customers.PUT("/:id", h.Partner.Update(&customerRole))
+		customers.DELETE("/:id", h.Partner.Delete(&customerRole))
 
 		suppliers := secured.Group("/suppliers")
-		suppliers.GET("", h.Party.List(&supplierRole))
-		suppliers.POST("", h.Party.Create(&supplierRole))
-		suppliers.GET("/:id", h.Party.Get(&supplierRole))
-		suppliers.PUT("/:id", h.Party.Update(&supplierRole))
-		suppliers.DELETE("/:id", h.Party.Delete(&supplierRole))
+		suppliers.GET("", h.Partner.List(&supplierRole))
+		suppliers.POST("", h.Partner.Create(&supplierRole))
+		suppliers.GET("/:id", h.Partner.Get(&supplierRole))
+		suppliers.PUT("/:id", h.Partner.Update(&supplierRole))
+		suppliers.DELETE("/:id", h.Partner.Delete(&supplierRole))
 	}
 
 	return engine

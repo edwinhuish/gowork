@@ -12,48 +12,48 @@ import (
 )
 
 var (
-	errInvalidPartyRole  = errs.BadRequest("role 不合法：1=客户，2=供应商，3=两者")
-	errInvalidEntityType = errs.BadRequest("entity_type 不合法：0=公司，1=个人")
+	errInvalidPartnerRole = errs.BadRequest("role 不合法：1=客户，2=供应商，3=两者")
+	errInvalidEntityType  = errs.BadRequest("entity_type 不合法：0=公司，1=个人")
 )
 
-// PartyService 管理商业伙伴（客户与供应商的统一主体）。
+// PartnerService 管理商业伙伴（客户与供应商的统一主体）。
 //
 // 它同时依赖产品仓储，因为"能不能删这个供应商"不能只看主体表：
 // 角色与引用是两处状态，摘角色和删主体都必须先确认没有产品还挂着它。
-type PartyService interface {
-	Create(ctx context.Context, in dto.PartyInput) (*model.Party, error)
-	Update(ctx context.Context, id uint, in dto.PartyInput) (*model.Party, error)
+type PartnerService interface {
+	Create(ctx context.Context, in dto.PartnerInput) (*model.Partner, error)
+	Update(ctx context.Context, id uint, in dto.PartnerInput) (*model.Partner, error)
 	Delete(ctx context.Context, id uint) error
-	Get(ctx context.Context, id uint) (*model.Party, error)
-	List(ctx context.Context, q dto.PartyQuery) (*dto.PageResult[model.Party], error)
+	Get(ctx context.Context, id uint) (*model.Partner, error)
+	List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error)
 }
 
-type partyService struct {
-	repo     repository.PartyRepository
+type partnerService struct {
+	repo     repository.PartnerRepository
 	products repository.ProductRepository
 	log      *slog.Logger
 }
 
-type PartyOption func(*partyService)
+type PartnerOption func(*partnerService)
 
-func WithPartyLogger(l *slog.Logger) PartyOption {
-	return func(s *partyService) { s.log = l }
+func WithPartnerLogger(l *slog.Logger) PartnerOption {
+	return func(s *partnerService) { s.log = l }
 }
 
-func NewPartyService(
-	repo repository.PartyRepository,
+func NewPartnerService(
+	repo repository.PartnerRepository,
 	products repository.ProductRepository,
-	opts ...PartyOption,
-) PartyService {
-	s := &partyService{repo: repo, products: products, log: slog.Default()}
+	opts ...PartnerOption,
+) PartnerService {
+	s := &partnerService{repo: repo, products: products, log: slog.Default()}
 	for _, opt := range opts {
 		opt(s)
 	}
 	return s
 }
 
-func (s *partyService) Create(ctx context.Context, in dto.PartyInput) (*model.Party, error) {
-	role, hasRole, err := normPartyRole(in.Role)
+func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*model.Partner, error) {
+	role, hasRole, err := normPartnerRole(in.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *partyService) Create(ctx context.Context, in dto.PartyInput) (*model.Pa
 		return nil, err
 	}
 	if !hasEntityType {
-		entityType = model.PartyEntityCompany
+		entityType = model.PartnerEntityCompany
 	}
 	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *partyService) Create(ctx context.Context, in dto.PartyInput) (*model.Pa
 		return nil, errs.ErrConflict.WithMsg("主体编码已存在：" + in.Code)
 	}
 
-	m := &model.Party{
+	m := &model.Partner{
 		Code:        in.Code,
 		Name:        in.Name,
 		Role:        role,
@@ -100,7 +100,7 @@ func (s *partyService) Create(ctx context.Context, in dto.PartyInput) (*model.Pa
 	return m, nil
 }
 
-func (s *partyService) Update(ctx context.Context, id uint, in dto.PartyInput) (*model.Party, error) {
+func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInput) (*model.Partner, error) {
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -130,14 +130,14 @@ func (s *partyService) Update(ctx context.Context, id uint, in dto.PartyInput) (
 		"remark":  in.Remark,
 	}
 
-	role, hasRole, err := normPartyRole(in.Role)
+	role, hasRole, err := normPartnerRole(in.Role)
 	if err != nil {
 		return nil, err
 	}
 	if hasRole {
 		// 摘掉 supplier 角色等同于"这个主体不再是供应商"，而产品还挂着它时
 		// 就会留下一条指向非供应商产品的引用。先拦下来，让人去改产品。
-		if existing.Role.Has(model.PartyRoleSupplier) && !role.Has(model.PartyRoleSupplier) {
+		if existing.Role.Has(model.PartnerRoleSupplier) && !role.Has(model.PartnerRoleSupplier) {
 			used, err := s.products.CountBySupplierID(ctx, id)
 			if err != nil {
 				return nil, err
@@ -164,12 +164,12 @@ func (s *partyService) Update(ctx context.Context, id uint, in dto.PartyInput) (
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *partyService) Delete(ctx context.Context, id uint) error {
+func (s *partnerService) Delete(ctx context.Context, id uint) error {
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if existing.Role.Has(model.PartyRoleSupplier) {
+	if existing.Role.Has(model.PartnerRoleSupplier) {
 		used, err := s.products.CountBySupplierID(ctx, id)
 		if err != nil {
 			return err
@@ -182,21 +182,21 @@ func (s *partyService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *partyService) Get(ctx context.Context, id uint) (*model.Party, error) {
+func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, error) {
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *partyService) List(ctx context.Context, q dto.PartyQuery) (*dto.PageResult[model.Party], error) {
+func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.PartyFilter{
+	filter := repository.PartnerFilter{
 		Keyword: q.Keyword,
-		Role:    partyRolePtr(q.Role),
+		Role:    partnerRolePtr(q.Role),
 		Status:  enableStatusPtr(q.Status),
 		Country: q.Country,
 	}
 	if q.EntityType != nil {
-		t := model.PartyEntityType(*q.EntityType)
+		t := model.PartnerEntityType(*q.EntityType)
 		filter.EntityType = &t
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
@@ -208,38 +208,38 @@ func (s *partyService) List(ctx context.Context, q dto.PartyQuery) (*dto.PageRes
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
 }
 
-// normPartyRole 校验角色位。has 为 false 表示调用方没提交这个字段。
-func normPartyRole(p dto.PartyRoleInput) (role model.PartyRole, has bool, err error) {
+// normPartnerRole 校验角色位。has 为 false 表示调用方没提交这个字段。
+func normPartnerRole(p dto.PartnerRoleInput) (role model.PartnerRole, has bool, err error) {
 	if p == nil {
 		return 0, false, nil
 	}
-	role = model.PartyRole(*p)
+	role = model.PartnerRole(*p)
 	if !role.IsValid() {
-		return 0, false, errInvalidPartyRole
+		return 0, false, errInvalidPartnerRole
 	}
 	return role, true, nil
 }
 
 // normEntityType 校验主体类型。has 为 false 表示调用方没提交这个字段。
-func normEntityType(p dto.PartyEntityTypeInput) (t model.PartyEntityType, has bool, err error) {
+func normEntityType(p dto.PartnerEntityTypeInput) (t model.PartnerEntityType, has bool, err error) {
 	if p == nil {
 		return 0, false, nil
 	}
-	t = model.PartyEntityType(*p)
+	t = model.PartnerEntityType(*p)
 	if !t.IsValid() {
 		return 0, false, errInvalidEntityType
 	}
 	return t, true, nil
 }
 
-// partyRolePtr 把 dto 的可选角色转成仓储层用的枚举指针。
+// partnerRolePtr 把 dto 的可选角色转成仓储层用的枚举指针。
 //
 // 列表筛选不校验取值：传一个未定义的角色位，展开出来的候选集合为空，
 // 结果是空列表 —— 这比报错更符合"筛选"的语义（没有这种记录）。
-func partyRolePtr(p dto.PartyRoleInput) *model.PartyRole {
+func partnerRolePtr(p dto.PartnerRoleInput) *model.PartnerRole {
 	if p == nil {
 		return nil
 	}
-	r := model.PartyRole(*p)
+	r := model.PartnerRole(*p)
 	return &r
 }

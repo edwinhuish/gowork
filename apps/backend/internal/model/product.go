@@ -12,7 +12,7 @@ type Product struct {
 	Category string `gorm:"size:32;index" json:"category"`
 	Spec     string `gorm:"size:128" json:"spec"`
 	Unit     string `gorm:"size:16;not null;default:PCS" json:"unit"`
-	// SupplierID 指向 md_party 里承担供应商角色的主体。
+	// SupplierID 指向 md_partner 里承担供应商角色的主体。
 	// 字段名与 JSON tag 保留 supplier 语义：产品关心的是"从谁进的货"，
 	// 而不是"这个主体还兼着什么角色"。角色约束由 service 在写入时校验。
 	SupplierID *uint        `gorm:"index" json:"supplier_id"`
@@ -21,7 +21,7 @@ type Product struct {
 	Status     EnableStatus `gorm:"not null;default:1;index" json:"status"`
 	Remark     string       `gorm:"size:255" json:"remark"`
 
-	Supplier *Party `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
+	Supplier *Partner `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 }
 
 func (Product) TableName() string { return "md_product" }

@@ -49,26 +49,26 @@ var legacyDDL = []string{
 		phone varchar(32), email varchar(128), address varchar(255), status integer, remark varchar(255))`,
 }
 
-func TestMergeParties(t *testing.T) {
+func TestMergeLegacyCustomersAndSuppliers(t *testing.T) {
 	db := newTestDB(t)
 	log := slog.New(slog.DiscardHandler)
 
-	if err := database.AutoMigrate(db, &model.Party{}, &model.Product{}); err != nil {
+	if err := database.AutoMigrate(db, &model.Partner{}, &model.Product{}); err != nil {
 		t.Fatalf("同步新表结构: %v", err)
 	}
 
-	// 先把 md_party 的自增序列推高一格，再物理删掉占位记录。
+	// 先把 md_partner 的自增序列推高一格，再物理删掉占位记录。
 	//
 	// 不做这一步的话，新表是空的，供应商导入后 id 恰好从 1 开始、与原表完全重合，
 	// 重映射即使写错了（比如根本没执行）测试也照样通过。推高之后新 id 全程偏移，
 	// 产品的 supplier_id 必须真的被改写才能对上。
-	placeholder := &model.Party{
-		Code: "__seq__", Name: "占位", Role: model.PartyRoleSupplier, Status: model.EnableStatusOn,
+	placeholder := &model.Partner{
+		Code: "__seq__", Name: "占位", Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
 	}
 	if err := db.Create(placeholder).Error; err != nil {
 		t.Fatalf("写入占位记录: %v", err)
 	}
-	if err := db.Unscoped().Delete(&model.Party{}, placeholder.ID).Error; err != nil {
+	if err := db.Unscoped().Delete(&model.Partner{}, placeholder.ID).Error; err != nil {
 		t.Fatalf("物理删除占位记录: %v", err)
 	}
 
@@ -104,35 +104,35 @@ func TestMergeParties(t *testing.T) {
 		}
 	}
 
-	if err := MergeParties(db, log); err != nil {
+	if err := MergeLegacyCustomersAndSuppliers(db, log); err != nil {
 		t.Fatalf("执行合并迁移: %v", err)
 	}
 
-	var parties []model.Party
-	if err := db.Unscoped().Order("id").Find(&parties).Error; err != nil {
-		t.Fatalf("读取 md_party: %v", err)
+	var partners []model.Partner
+	if err := db.Unscoped().Order("id").Find(&partners).Error; err != nil {
+		t.Fatalf("读取 md_partner: %v", err)
 	}
-	if len(parties) != 4 {
-		t.Fatalf("应合并出 4 条主体，得到 %d 条", len(parties))
+	if len(partners) != 4 {
+		t.Fatalf("应合并出 4 条主体，得到 %d 条", len(partners))
 	}
 
-	byCode := make(map[string]model.Party, len(parties))
-	for _, p := range parties {
+	byCode := make(map[string]model.Partner, len(partners))
+	for _, p := range partners {
 		byCode[p.Code] = p
 	}
 
 	t.Run("角色按来源表赋值", func(t *testing.T) {
-		if p := byCode["SUP001"]; p.Role != model.PartyRoleSupplier {
+		if p := byCode["SUP001"]; p.Role != model.PartnerRoleSupplier {
 			t.Fatalf("SUP001 的角色应为供应商，得到 %s", p.Role)
 		}
-		if p := byCode["CUS001"]; p.Role != model.PartyRoleCustomer {
+		if p := byCode["CUS001"]; p.Role != model.PartnerRoleCustomer {
 			t.Fatalf("CUS001 的角色应为客户，得到 %s", p.Role)
 		}
 	})
 
 	t.Run("旧表只保留企业类型", func(t *testing.T) {
-		for _, p := range parties {
-			if p.EntityType != model.PartyEntityCompany {
+		for _, p := range partners {
+			if p.EntityType != model.PartnerEntityCompany {
 				t.Fatalf("%s 应迁移为公司类型，得到 %d", p.Code, p.EntityType)
 			}
 		}
@@ -165,7 +165,7 @@ func TestMergeParties(t *testing.T) {
 		if !ok {
 			t.Fatalf("撞码的客户应被改名为 SUP001-2，实际编码有: %v", keys(byCode))
 		}
-		if p.Role != model.PartyRoleCustomer {
+		if p.Role != model.PartnerRoleCustomer {
 			t.Fatalf("加后缀的应是客户，得到 %s", p.Role)
 		}
 		if p.Name != "撞码的客户" {
@@ -204,11 +204,11 @@ func TestMergeParties(t *testing.T) {
 	})
 
 	t.Run("重复执行不产生重复数据", func(t *testing.T) {
-		if err := MergeParties(db, log); err != nil {
+		if err := MergeLegacyCustomersAndSuppliers(db, log); err != nil {
 			t.Fatalf("第二次执行应直接跳过: %v", err)
 		}
 		var n int64
-		if err := db.Unscoped().Model(&model.Party{}).Count(&n).Error; err != nil {
+		if err := db.Unscoped().Model(&model.Partner{}).Count(&n).Error; err != nil {
 			t.Fatalf("统计: %v", err)
 		}
 		if n != 4 {
@@ -216,7 +216,7 @@ func TestMergeParties(t *testing.T) {
 		}
 
 		var records int64
-		if err := db.Model(&Record{}).Where("name = ?", mergePartiesName).Count(&records).Error; err != nil {
+		if err := db.Model(&Record{}).Where("name = ?", mergeLegacyRecord).Count(&records).Error; err != nil {
 			t.Fatalf("统计迁移记录: %v", err)
 		}
 		if records != 1 {
@@ -225,21 +225,21 @@ func TestMergeParties(t *testing.T) {
 	})
 }
 
-// TestMergePartiesSkipsWithoutLegacyTables 覆盖全新库的启动路径：
+// TestMergeLegacyCustomersAndSuppliersSkipsWithoutLegacyTables 覆盖全新库的启动路径：
 // 没有旧表时迁移应当安静跳过，且不写迁移记录 ——
 // 这样将来导入一份旧库，迁移仍然会正常触发。
-func TestMergePartiesSkipsWithoutLegacyTables(t *testing.T) {
+func TestMergeLegacyCustomersAndSuppliersSkipsWithoutLegacyTables(t *testing.T) {
 	db := newTestDB(t)
 	log := slog.New(slog.DiscardHandler)
 
-	if err := database.AutoMigrate(db, &model.Party{}, &model.Product{}); err != nil {
+	if err := database.AutoMigrate(db, &model.Partner{}, &model.Product{}); err != nil {
 		t.Fatalf("同步新表结构: %v", err)
 	}
 	if err := db.AutoMigrate(&Record{}); err != nil {
 		t.Fatalf("创建迁移记录表: %v", err)
 	}
 
-	if err := MergeParties(db, log); err != nil {
+	if err := MergeLegacyCustomersAndSuppliers(db, log); err != nil {
 		t.Fatalf("没有旧表时应直接返回: %v", err)
 	}
 
@@ -252,13 +252,13 @@ func TestMergePartiesSkipsWithoutLegacyTables(t *testing.T) {
 	}
 }
 
-// TestMergePartiesRefusesOnExistingData 验证"目标表已有数据却没有迁移记录"时
+// TestMergeLegacyCustomersAndSuppliersRefusesOnExistingData 验证"目标表已有数据却没有迁移记录"时
 // 会停下来报错，而不是继续插入造成重复主体。
-func TestMergePartiesRefusesOnExistingData(t *testing.T) {
+func TestMergeLegacyCustomersAndSuppliersRefusesOnExistingData(t *testing.T) {
 	db := newTestDB(t)
 	log := slog.New(slog.DiscardHandler)
 
-	if err := database.AutoMigrate(db, &model.Party{}, &model.Product{}); err != nil {
+	if err := database.AutoMigrate(db, &model.Partner{}, &model.Product{}); err != nil {
 		t.Fatalf("同步新表结构: %v", err)
 	}
 	for _, ddl := range legacyDDL {
@@ -266,13 +266,13 @@ func TestMergePartiesRefusesOnExistingData(t *testing.T) {
 			t.Fatalf("创建旧表: %v", err)
 		}
 	}
-	if err := db.Create(&model.Party{
-		Code: "EXIST", Name: "已存在", Role: model.PartyRoleSupplier, Status: model.EnableStatusOn,
+	if err := db.Create(&model.Partner{
+		Code: "EXIST", Name: "已存在", Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
 	}).Error; err != nil {
 		t.Fatalf("写入已有主体: %v", err)
 	}
 
-	err := MergeParties(db, log)
+	err := MergeLegacyCustomersAndSuppliers(db, log)
 	if err == nil {
 		t.Fatal("目标表已有数据时应中止并报错，而不是重复导入")
 	}
@@ -283,7 +283,7 @@ func TestMergePartiesRefusesOnExistingData(t *testing.T) {
 	}
 }
 
-func keys(m map[string]model.Party) []string {
+func keys(m map[string]model.Partner) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)

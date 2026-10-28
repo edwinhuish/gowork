@@ -23,7 +23,7 @@ type DashboardService interface {
 // 它不持有任何一个 model 的写权限，只做读取与汇总。
 type dashboardService struct {
 	products repository.ProductRepository
-	parties  repository.PartyRepository
+	partners repository.PartnerRepository
 	cache    cache.Cache
 	log      *slog.Logger
 }
@@ -36,13 +36,13 @@ func WithDashboardLogger(l *slog.Logger) DashboardOption {
 
 func NewDashboardService(
 	products repository.ProductRepository,
-	parties repository.PartyRepository,
+	partners repository.PartnerRepository,
 	c cache.Cache,
 	opts ...DashboardOption,
 ) DashboardService {
 	s := &dashboardService{
 		products: products,
-		parties:  parties,
+		partners: partners,
 		cache:    c,
 		log:      slog.Default(),
 	}
@@ -75,10 +75,10 @@ func (s *dashboardService) Summary(ctx context.Context) (*dto.DashboardSummary, 
 	// 供应商与客户现在是同一张表的两种角色，按角色计数。
 	// "客供两用"的主体在两个指标里各计一次 —— 它确实同时是两种身份，
 	// 只是共用一条记录、一套联系方式，这正是合并想达到的效果。
-	if summary.SupplierTotal, err = s.parties.CountByRole(ctx, model.PartyRoleSupplier); err != nil {
+	if summary.SupplierTotal, err = s.partners.CountByRole(ctx, model.PartnerRoleSupplier); err != nil {
 		return nil, err
 	}
-	if summary.CustomerTotal, err = s.parties.CountByRole(ctx, model.PartyRoleCustomer); err != nil {
+	if summary.CustomerTotal, err = s.partners.CountByRole(ctx, model.PartnerRoleCustomer); err != nil {
 		return nil, err
 	}
 
