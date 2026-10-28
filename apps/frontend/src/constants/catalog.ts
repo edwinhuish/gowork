@@ -51,14 +51,17 @@ export const PARTNER_ENTITY_TYPE_OPTIONS = [
 ]
 
 /**
- * 主体角色位。1 客户 / 2 供应商，两者兼具时是 3。
+ * 主体角色位。1 客户 / 2 供应商 / 4 货代，叠加时按位相加
+ * （3 = 客供两用，5 = 客户兼货代）。
  *
  * 这里是「位」而不是「选项」：角色可以叠加，所以没有值为 3 的第三个选项，
- * 界面上的多选由位运算合成，展示由 RoleTag 拆开。
+ * 界面上的多选由位运算合成，展示由 RoleTag 拆开。取值必须与后端
+ * model.PartnerRole 一致，新增角色只在这里与那里各补一行。
  */
 export const PARTNER_ROLE = {
   customer: 1,
   supplier: 2,
+  forwarder: 4,
 } as const
 
 /**

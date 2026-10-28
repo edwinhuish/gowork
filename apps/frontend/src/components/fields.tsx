@@ -56,12 +56,14 @@ export function RoleTag({ value }: { value?: number | null }) {
   const role = value ?? 0
   const customer = (role & PARTNER_ROLE.customer) !== 0
   const supplier = (role & PARTNER_ROLE.supplier) !== 0
+  const forwarder = (role & PARTNER_ROLE.forwarder) !== 0
 
-  if (!customer && !supplier) return <Empty />
+  if (!customer && !supplier && !forwarder) return <Empty />
   return (
     <Space size={4}>
       {customer && <Tag color="blue">客户</Tag>}
       {supplier && <Tag color="geekblue">供应商</Tag>}
+      {forwarder && <Tag color="cyan">货代</Tag>}
     </Space>
   )
 }

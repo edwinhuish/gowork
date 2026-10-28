@@ -7,6 +7,7 @@ import {
   DollarOutlined,
   FileTextOutlined,
   FundOutlined,
+  GlobalOutlined,
   HistoryOutlined,
   ImportOutlined,
   ProfileOutlined,
@@ -35,6 +36,7 @@ import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
 import { DashboardPage } from '@/pages/dashboard'
 import { ExchangeRateCreate, ExchangeRateList } from '@/pages/exchange-rates'
+import { ForwarderCreate, ForwarderEdit, ForwarderList, ForwarderShow } from '@/pages/forwarders'
 import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
 import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
@@ -120,6 +122,14 @@ export default function App() {
                 edit: '/customers/edit/:id',
                 show: '/customers/show/:id',
                 meta: { label: '客户', icon: <TeamOutlined /> },
+              },
+              {
+                name: 'forwarders',
+                list: '/forwarders',
+                create: '/forwarders/create',
+                edit: '/forwarders/edit/:id',
+                show: '/forwarders/show/:id',
+                meta: { label: '货代', icon: <GlobalOutlined /> },
               },
               {
                 name: 'contacts',
@@ -257,6 +267,13 @@ export default function App() {
                     <Route path="create" element={<CustomerCreate />} />
                     <Route path="edit/:id" element={<CustomerEdit />} />
                     <Route path="show/:id" element={<CustomerShow />} />
+                  </Route>
+
+                  <Route path="forwarders">
+                    <Route index element={<ForwarderList />} />
+                    <Route path="create" element={<ForwarderCreate />} />
+                    <Route path="edit/:id" element={<ForwarderEdit />} />
+                    <Route path="show/:id" element={<ForwarderShow />} />
                   </Route>
 
                   <Route path="contacts">
