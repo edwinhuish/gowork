@@ -15,7 +15,7 @@
 两侧业务：ERP 管采购、库存、出货与订单，CRM 管联系人、跟进与商机。
 
 **集成发生在数据层，不是两个系统对接。** CRM 里跟进的客户与 ERP 里开票的客户
-是同一行 `md_party` 记录——没有同步任务，也没有第二份客户表。
+是同一行 `md_partner` 记录——没有同步任务，也没有第二份客户表。
 域边界与判断标准见 `docs/glossary.md` 第二节。
 
 **客户与供应商也是同一张表。** 它们是"往来单位"的两种角色，用 `role` 位掩码区分，
@@ -111,14 +111,14 @@ gin HTTP 层 (Go :8080)
 |---|---|---|---|
 | auth | 系统 | `/api/v1/auth` | 登录、当前用户、登出；登录失败限流 |
 | product | 共享主数据 | `/api/v1/products` | 产品，SKU 编码唯一 |
-| party | 共享主数据 | `/api/v1/parties` | 往来单位：客户与供应商的统一主体，角色用位掩码 |
-| party（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers` | 同一份数据按角色切的入口，不是两套实现 |
+| partner | 共享主数据 | `/api/v1/partners` | 往来单位：客户与供应商的统一主体，角色用位掩码 |
+| partner（角色切片） | 同上 | `/api/v1/customers`、`/api/v1/suppliers` | 同一份数据按角色切的入口，不是两套实现 |
 | dashboard | 系统 | `/api/v1/dashboard` | 跨域聚合统计，结果缓存 30 秒 |
 
 **前端**（细节见 `apps/frontend/AGENTS.md`）：登录页 + 概览 + 产品 / 供应商 / 客户
 三个模块。每个模块是 refine 的 `list / create / edit / show` 四页，
 新建与编辑共用 `form-fields.tsx` 里的字段定义。客户与供应商两个模块的类型都是
-`Party`，只是默认角色不同。
+`Partner`，只是默认角色不同。
 
 **未实现但已定名的模块**（先看术语表再加，别另起名字）：ERP 侧的
 `PurchaseOrder` / `SalesOrder` / `Shipment` / `StockMovement`，CRM 侧的

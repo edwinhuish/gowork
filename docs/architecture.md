@@ -121,7 +121,7 @@ service.NewProductService(repo, service.WithProductLogger(log))
 ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/product.go` 不放进
 `internal/service/erp/` 下。
 
-理由是当前规模：主数据只有 product 与 party 两个模型，而 party 被两个域同时引用，
+理由是当前规模：主数据只有 product 与 partner 两个模型，而 partner 被两个域同时引用，
 按域分反而要先给共享件找个第三个目录。域归属靠术语表与表前缀
 （`md_` / `biz_` / `crm_`）表达，已经够清楚。
 
@@ -137,7 +137,7 @@ ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/pr
 代价在一个很常见的场景里立刻显现：同一家公司既卖料件给我们、又买我们的成品。
 两张表意味着两行数据、两套联系方式、两个编码，对账时还要人工确认它们是同一家。
 
-合并成 `md_party` 后用 `role` 区分。**用位掩码而不是 `1/2/3` 枚举**：角色是集合，
+合并成 `md_partner` 后用 `role` 区分。**用位掩码而不是 `1/2/3` 枚举**：角色是集合，
 将来加货代、报关行时，连续枚举要补到 7 个值，而且每加一种都要回头改所有判断分支。
 
 三个必须记住的推论：
@@ -146,7 +146,7 @@ ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/pr
 |---|---|
 | 判角色一律按位与（`role.Has(x)`、`(role & bit) !== 0`） | 写 `role === 1` 会把 `role=3` 判成"不是客户"，两个列表里都显示成未知角色 |
 | 列表按角色筛选要展开成 `role IN (...)` | 直接 `WHERE role = 2` 会漏掉客供两用的主体；直接写位运算条件在 PG/MySQL 上都用不上索引 |
-| 产品上的 `supplier_id` 指向 party，不是"供应商表" | 保存产品必须校验该主体确实含 supplier 角色，否则"选了个客户当供应商"能写进库 |
+| 产品上的 `supplier_id` 指向 partner，不是"供应商表" | 保存产品必须校验该主体确实含 supplier 角色，否则"选了个客户当供应商"能写进库 |
 
 兼容入口 `/customers` 与 `/suppliers` 是同一份数据的角色切片：同一个 handler，
 路由层注入默认角色。它们不是两个资源，新增字段时只改一处。
@@ -369,13 +369,13 @@ type PurchaseOrderHandler struct {
 | 库存 | 用「出入库流水 + 当前库存快照」两张表，快照可由流水重算，便于对账 |
 | 出货批次 | 出货单与订单是多对多（分批/合并），必须有分配表，不要试图把订单号编进编码 |
 | 产品货源 | 一个产品对多个供应商货号，单独建 `md_product_source`，不要往产品表塞 `supplier_id2`。产品上的 `supplier_id` 是**默认货源**，不是唯一货源 |
-| 联系人（CRM） | `crm_party_contact`，一个主体多行。`md_party` 上的 `contact` 列退化为"主联系人姓名"，不要在上面继续加字段 |
+| 联系人（CRM） | `crm_partner_contact`，一个主体多行。`md_partner` 上的 `contact` 列退化为"主联系人姓名"，不要在上面继续加字段 |
 | 跟进记录（CRM） | `crm_activity`。可能挂在往来单位或商机上，用 `subject_type` + `subject_id` 一张表，不要拆两张 |
 | 商机（CRM） | `crm_opportunity`，阶段用枚举 + 状态机；金额与赢单概率分列存，不要用阶段反推 |
 
 **CRM 模块最容易踩的一条**：想给往来单位加一个"最近跟进时间"字段图省事。
 那是派生数据，应该由 `crm_activity` 聚合出来（或加缓存），
-写进 `md_party` 会让"这个值什么时候该更新"变成每处写主体代码都要记得的事。
+写进 `md_partner` 会让"这个值什么时候该更新"变成每处写主体代码都要记得的事。
 
 ## 八、前端分层
 

@@ -152,11 +152,11 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | GET | `/api/v1/dashboard/summary` | 概览统计 |
 | GET/POST | `/api/v1/products` | 产品列表 / 新建 |
 | GET/PUT/DELETE | `/api/v1/products/:id` | 产品详情 / 编辑 / 删除 |
-| GET/POST | `/api/v1/parties` | 往来单位列表 / 新建（客户与供应商的统一资源） |
-| GET/PUT/DELETE | `/api/v1/parties/:id` | 往来单位详情 / 编辑 / 删除 |
-| GET/POST | `/api/v1/suppliers` | 供应商列表 / 新建（`/parties` 锁定供应商角色） |
+| GET/POST | `/api/v1/partners` | 往来单位列表 / 新建（客户与供应商的统一资源） |
+| GET/PUT/DELETE | `/api/v1/partners/:id` | 往来单位详情 / 编辑 / 删除 |
+| GET/POST | `/api/v1/suppliers` | 供应商列表 / 新建（`/partners` 锁定供应商角色） |
 | GET/PUT/DELETE | `/api/v1/suppliers/:id` | 供应商详情 / 编辑 / 删除 |
-| GET/POST | `/api/v1/customers` | 客户列表 / 新建（`/parties` 锁定客户角色） |
+| GET/POST | `/api/v1/customers` | 客户列表 / 新建（`/partners` 锁定客户角色） |
 | GET/PUT/DELETE | `/api/v1/customers/:id` | 客户详情 / 编辑 / 删除 |
 
 除 `/healthz` 与 `/auth/login` 外，均需 `Authorization: Bearer <token>`。

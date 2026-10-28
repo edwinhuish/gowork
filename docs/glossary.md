@@ -12,7 +12,7 @@ GoWork 是外贸采购代理的 **ERP 与 CRM 集成系统**：一套主数据�
 ERP 的采购/出货链路、CRM 的客户关系链路上，共用同一份产品与往来单位数据。
 
 **不是"两个系统对接"**——没有同步任务、没有第二份客户表。集成发生在数据层：
-CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_party` 记录。
+CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录。
 
 而且**客户与供应商本身也是同一张表**。它们是同一个"往来单位"的两种角色，
 用 role 位掩码区分，因此"既是客户又是供应商"的主体只有一条记录、一套联系方式。
@@ -21,7 +21,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_party` 记录�
 
 ```
         ┌──────────────── 共享主数据 md_ ─────────────────────┐
-        │  产品 Product · 往来单位 Party（客户 / 供应商 / 两者） │
+        │ 产品 Product · 往来单位 Partner（客户/供应商/两者） │
         └───────┬─────────────────────────────┬───────────────┘
                 │                             │
     ┌───────────▼───────────┐     ┌───────────▼───────────┐
@@ -57,12 +57,12 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_party` 记录�
 | 产品 | `Product` | 可售卖的最小实体，以 SKU 编码唯一标识。价格、规格、包装是它的属性，不是它的身份 | ERP + CRM |
 | SKU 编码 | `SKUCode` | 产品唯一编码，格式 `类别(2) + 子类(2) - 流水(4)`，如 `BH01-0023`。全库唯一、永不复用 | ERP + CRM |
 | 产品类别 | `Category` | 两字母类别码（`HT` / `PT` / `BH` …），与 SKU 编码前两位一致 | ERP + CRM |
-| 往来单位 | `Party` | 客户与供应商的统一主体。一个主体可同时承担两种角色，此时只有一条记录、一套联系方式 | ERP + CRM |
-| 主体角色 | `PartyRole` | 位掩码：`1` 客户 / `2` 供应商 / `3` 两者 | ERP + CRM |
-| 主体类型 | `PartyEntityType` | `0` 公司 / `1` 个人。个人主体的报关资料与发票抬头和公司不同 | ERP + CRM |
-| 供应商角色 | `PartyRoleSupplier` | 角色位 `2`。代码里说"供应商"指的是**这个角色**，不是一张表 | ERP |
-| 客户角色 | `PartyRoleCustomer` | 角色位 `1`。同上 | ERP + CRM |
-| 联系人姓名 | `Party.ContactName` | 主体上的**单个**主联系人姓名。完整联系人（多个、各有电话邮箱）是 CRM 的 `Contact` 实体，尚未实现 | ERP + CRM |
+| 往来单位 | `Partner` | 客户与供应商的统一主体。一个主体可同时承担两种角色，此时只有一条记录、一套联系方式 | ERP + CRM |
+| 主体角色 | `PartnerRole` | 位掩码：`1` 客户 / `2` 供应商 / `3` 两者 | ERP + CRM |
+| 主体类型 | `PartnerEntityType` | `0` 公司 / `1` 个人。个人主体的报关资料与发票抬头和公司不同 | ERP + CRM |
+| 供应商角色 | `PartnerRoleSupplier` | 角色位 `2`。代码里说"供应商"指的是**这个角色**，不是一张表 | ERP |
+| 客户角色 | `PartnerRoleCustomer` | 角色位 `1`。同上 | ERP + CRM |
+| 联系人姓名 | `Partner.ContactName` | 主体上的**单个**主联系人姓名。完整联系人（多个、各有电话邮箱）是 CRM 的 `Contact` 实体，尚未实现 | ERP + CRM |
 | 系统账号 | `User` | 登录系统的操作者，与往来单位的联系人无关 | 系统 |
 
 ### 业务事务（未实现，命名先定下来）
@@ -97,14 +97,14 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_party` 记录�
 代价是**判断必须按位**：
 
 ```go
-role.Has(model.PartyRoleSupplier)   // 对
-role == model.PartyRoleSupplier     // 错：值为 3 的主体被判成"不是供应商"
-role&model.PartyRoleSupplier != 0   // 对，Has 内部就是这么写的
+role.Has(model.PartnerRoleSupplier)  // 对
+role == model.PartnerRoleSupplier    // 错：值为 3 的主体被判成"不是供应商"
+role&model.PartnerRoleSupplier != 0  // 对，Has 内部就是这么写的
 ```
 
 ```ts
-(role & PARTY_ROLE.supplier) !== 0  // 对
-role === 1                          // 错，理由同上
+(role & PARTNER_ROLE.supplier) !== 0  // 对
+role === 1                            // 错，理由同上
 ```
 
 还有一处只有位掩码才会遇到的细节：按角色**筛选列表**时不能用
@@ -122,14 +122,15 @@ role === 1                          // 错，理由同上
 | Contact（指人名时） | `ContactName` | `Contact` 是 CRM 实体，不是字段 |
 | `code`（指 SKU 时） | `sku_code` / `SKUCode` | 往来单位也有 `code`，语义不同 |
 | Status（脱离上下文的裸写法） | `EnableStatus` / `DocumentStatus` | 不带限定词的 status 无法判断是哪套状态 |
-| vendor | Supplier（角色名） | 角色仍叫 supplier，承载它的实体叫 party |
-| client | Customer（角色名） | 角色仍叫 customer，承载它的实体叫 party |
-| 客户表 / 供应商表 | `md_party` + 角色过滤 | 合并后只有一张表；`/customers`、`/suppliers` 是同一资源按角色切的入口 |
+| vendor | Supplier（角色名） | 角色仍叫 supplier，承载它的实体叫 partner |
+| client | Customer（角色名） | 角色仍叫 customer，承载它的实体叫 partner |
+| 客户表 / 供应商表 | `md_partner` + 角色过滤 | 合并后只有一张表；`/customers`、`/suppliers` 是同一资源按角色切的入口 |
 | 客供两用 / 双向往来（作为角色取值） | `role = 3`（客户\|供应商） | 它是两个角色位的组合，不是第三个角色 |
-| 个人客户 / 公司客户（作为两个类型） | `PartyEntityType` | 主体类型与角色是两个正交维度，别混成一个字段 |
+| 个人客户 / 公司客户（作为两个类型） | `PartnerEntityType` | 主体类型与角色是两个正交维度，别混成一个字段 |
 | 商品 / 货品 | 产品 | `Product` |
 | 货号 / 型号 | SKU 编码 | 货号是供应商侧的叫法，属于 `ProductSource` |
 | 单据（泛指任何记录） | 明确说是主数据还是单据 | 单据特指有状态流转的业务凭证 |
+| Party / party | `Partner` / `partner` | Party 在合同语境里指「当事方」，日常又容易被读成「聚会」，做主数据实体名两头都不贴切；Partner 才是「业务伙伴」的行业说法。表名同理：`md_party` → `md_partner` |
 
 ## 五、命名规则
 
@@ -151,19 +152,19 @@ role === 1                          // 错，理由同上
 | 组件 PascalCase，文件名与导出一致 | `ProductList`、`form-fields.tsx` 导出多个字段组件 |
 | hook 以 `use` 开头 | `useTable`（refine 提供）、`useForm` |
 | 常量 UPPER_SNAKE_CASE | `ENABLE_STATUS_OPTIONS`、`PAGE_SIZE` |
-| 类型/接口 PascalCase，不加 `I` 前缀 | `Party`、`PageResult<T>` |
+| 类型/接口 PascalCase，不加 `I` 前缀 | `Partner`、`PageResult<T>` |
 | 字段名与后端 JSON 完全一致（snake_case） | `sku_code`、`created_at`，不要在这里转 camelCase |
 
 ### 数据库与 API
 
 | 对象 | 规则 | 例子 |
 |---|---|---|
-| 表名 | `前缀_单数_snake` | `md_party`、`sys_user`、`biz_sales_order` |
+| 表名 | `前缀_单数_snake` | `md_partner`、`sys_user`、`biz_sales_order` |
 | 列名 | snake_case，与 JSON tag 对齐 | `sku_code`、`supplier_id`、`entity_type` |
 | 主键 | 一律 `id`，自增 `uint` | 见 `docs/architecture.md` 第五节 |
-| API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/parties`、`/api/v1/sales-orders` |
+| API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/partners`、`/api/v1/sales-orders` |
 | JSON 字段 | snake_case | `product_total`、`enabled_products` |
 
-**列名与 Go 字段可以不同，但必须有理由。** 例：`Party.ContactName` 的列名是
+**列名与 Go 字段可以不同，但必须有理由。** 例：`Partner.ContactName` 的列名是
 `contact`，因为改名会让 AutoMigrate 新增列、把既有数据留在旧列里。
 这类偏离要在结构体上写明原因，不能只靠 commit message。
