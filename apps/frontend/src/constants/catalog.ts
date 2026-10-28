@@ -40,12 +40,12 @@ export const ENABLE_STATUS_OPTIONS = [
 ]
 
 /**
- * 主体类型选项。0 公司 / 1 个人，与后端 model.PartyEntityType 对齐。
+ * 主体类型选项。0 公司 / 1 个人，与后端 model.PartnerEntityType 对齐。
  *
  * 只有两项，用单选按钮而不是下拉：下拉要在两次点击之后才能看到全部选项，
  * 而这一项决定了报关资料按公司还是个人走，值得直接摊开。
  */
-export const PARTY_ENTITY_TYPE_OPTIONS = [
+export const PARTNER_ENTITY_TYPE_OPTIONS = [
   { value: 0, label: '公司' },
   { value: 1, label: '个人' },
 ]
@@ -56,7 +56,7 @@ export const PARTY_ENTITY_TYPE_OPTIONS = [
  * 这里是「位」而不是「选项」：角色可以叠加，所以没有值为 3 的第三个选项，
  * 界面上的多选由位运算合成，展示由 RoleTag 拆开。
  */
-export const PARTY_ROLE = {
+export const PARTNER_ROLE = {
   customer: 1,
   supplier: 2,
 } as const

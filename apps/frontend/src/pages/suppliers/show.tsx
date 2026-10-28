@@ -3,11 +3,11 @@ import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
-import type { Party } from '@/types'
+import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function SupplierShow() {
-  const { result, query } = useShow<Party>({ resource: 'suppliers' })
+  const { result, query } = useShow<Partner>({ resource: 'suppliers' })
 
   return (
     <Show isLoading={query.isLoading} title={result?.name ?? '供应商详情'}>

@@ -1,12 +1,12 @@
 import { Edit, useForm } from '@refinedev/antd'
 import { Form } from 'antd'
 
-import type { Party } from '@/types'
+import type { Partner } from '@/types'
 
 import { SupplierFormFields } from './form-fields'
 
 export function SupplierEdit() {
-  const { formProps, saveButtonProps, query } = useForm<Party>({
+  const { formProps, saveButtonProps, query } = useForm<Partner>({
     resource: 'suppliers',
     action: 'edit',
     redirect: 'list',

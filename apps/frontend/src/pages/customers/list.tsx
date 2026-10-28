@@ -4,7 +4,7 @@ import { Button, Form, Input, Select, Space, Table } from 'antd'
 
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
-import type { Party } from '@/types'
+import type { Partner } from '@/types'
 
 interface CustomerSearch {
   keyword?: string
@@ -19,7 +19,7 @@ interface CustomerSearch {
  * 做成下拉就得先维护一份国家字典，当前阶段没必要。
  */
 export function CustomerList() {
-  const { tableProps, searchFormProps } = useTable<Party>({
+  const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'customers',
     syncWithLocation: true,
     onSearch: (values): CrudFilters => {

@@ -1,6 +1,6 @@
 import { Form, Input, Radio, Select } from 'antd'
 
-import { ENABLE_STATUS_OPTIONS, PARTY_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
+import { ENABLE_STATUS_OPTIONS, PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
 
 /** 客户表单字段。新建与编辑共用。 */
 export function CustomerFormFields() {
@@ -34,7 +34,7 @@ export function CustomerFormFields() {
         initialValue={0}
         tooltip="个人主体的报关资料与发票抬头和公司不同，需要单独标记"
       >
-        <Radio.Group options={PARTY_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
+        <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
       </Form.Item>
 
       <Form.Item name="country" label="国家/地区" rules={[{ max: 64, message: '最多 64 个字符' }]}>

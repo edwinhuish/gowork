@@ -16,7 +16,7 @@ import type { PageResult } from '@/types'
  * 后端分页与筛选契约（见 apps/backend/internal/dto/common.go 与各资源 Query）：
  *   page / page_size / keyword 全资源通用
  *   category+supplier_id+status 仅产品
- *   country+status+role+entity_type 仅往来单位（/parties 及其 customers/suppliers 别名）
+ *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
  *
  * refine 用 CrudFilters 表达筛选条件，这里翻译成后端认可的同名查询参数。
  * 白名单是有意的：不认识的条件直接丢弃，而不是拼进 URL 让后端静默忽略——

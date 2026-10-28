@@ -44,7 +44,7 @@ export function DashboardPage() {
 
       <Card variant="borderless" style={{ marginTop: 16 }} title="模块现状">
         <Typography.Paragraph type="secondary">
-          客户与供应商已合并为同一张 <code>md_party</code>（往来单位）表，用 role 位掩码区分角色。
+          客户与供应商已合并为同一张 <code>md_partner</code>（往来单位）表，用 role 位掩码区分角色。
           一个主体可以同时是客户和供应商，两个数字里会各计一次，但它们指向同一条记录、同一套联系方式。
         </Typography.Paragraph>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>

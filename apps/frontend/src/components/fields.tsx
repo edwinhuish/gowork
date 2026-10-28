@@ -1,6 +1,6 @@
 import { Space, Tag } from 'antd'
 
-import { categoryLabel, PARTY_ROLE } from '@/constants/catalog'
+import { categoryLabel, PARTNER_ROLE } from '@/constants/catalog'
 
 /**
  * 业务字段的统一展示件。
@@ -54,8 +54,8 @@ export function Mono({ children }: { children?: string | null }) {
  */
 export function RoleTag({ value }: { value?: number | null }) {
   const role = value ?? 0
-  const customer = (role & PARTY_ROLE.customer) !== 0
-  const supplier = (role & PARTY_ROLE.supplier) !== 0
+  const customer = (role & PARTNER_ROLE.customer) !== 0
+  const supplier = (role & PARTNER_ROLE.supplier) !== 0
 
   if (!customer && !supplier) return <Empty />
   return (

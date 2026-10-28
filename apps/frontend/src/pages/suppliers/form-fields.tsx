@@ -1,6 +1,6 @@
 import { Form, Input, Radio, Select } from 'antd'
 
-import { ENABLE_STATUS_OPTIONS, PARTY_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
+import { ENABLE_STATUS_OPTIONS, PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
 
 /** 供应商表单字段。新建与编辑共用，校验规则只此一份。 */
 export function SupplierFormFields() {
@@ -34,7 +34,7 @@ export function SupplierFormFields() {
         initialValue={0}
         tooltip="1688 上的个人店铺、个体户按个人登记，报关与开票资料与公司不同"
       >
-        <Radio.Group options={PARTY_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
+        <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
       </Form.Item>
 
       <Form.Item name="contact" label="联系人" rules={[{ max: 64, message: '最多 64 个字符' }]}>
