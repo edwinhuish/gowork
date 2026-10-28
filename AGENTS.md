@@ -24,8 +24,8 @@
 **当前阶段：沿业务主链推进。** 已实现鉴权、共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价单 / 销售订单 /
 采购订单）、出货批次与报关单、库存流水快照与出入库单（采购入库 / 销售出库 / 盘点）、
-应收应付与收付款核销、报表（账龄分桶 / 单票毛利）、订单确认时的客户信用额度拦截。
-汇兑损益报表、合同单据与仓间调拨**均未实现**，进度与下一步见 `docs/roadmap.md`，
+应收应付与收付款核销、报表（账龄分桶 / 单票毛利 / 汇兑损益）、订单确认时的客户信用额度拦截。
+合同单据与仓间调拨、销售看板**均未实现**，进度与下一步见 `docs/roadmap.md`，
 扩展套路见 `docs/architecture.md` 第六节。
 
 **改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
@@ -128,7 +128,7 @@ gin HTTP 层 (Go :8080)
 | customs-declaration | ERP · 供应链 | `/api/v1/customs-declarations` | 报关单：一票可多张（分票申报 / 退单重报）；物流节点走 `PUT /shipments/:id/logistics` |
 | receivable / payable | ERP · 财务 | `/api/v1/receivables`、`/api/v1/payables` | 应收应付：由订单生成、一期一张单、汇率随单据锁定 |
 | payment | ERP · 财务 | `/api/v1/payments` | 收付款单与核销行：收款核应收、付款核应付；汇率取到账日，差额是汇兑损益 |
-| report | 系统 · 报表 | `/api/v1/reports/*` | 只读聚合：账龄（按主体分桶）与单票毛利（收入 − 采购 − 运杂费）；不跟随单据状态机 |
+| report | 系统 · 报表 | `/api/v1/reports/*` | 只读聚合：账龄（按主体分桶）、单票毛利（收入 − 采购 − 运杂费）、汇兑损益（逐笔核销）；不跟随单据状态机 |
 | stock | ERP · 库存 | `/api/v1/stock-movements`、`/api/v1/stock-snapshots` | 流水是库存的唯一事实来源；快照只由流水推出来，接口只有读与重算 |
 | stock-document | ERP · 库存 | `/api/v1/stock-documents` | 出入库单（采购入库 / 销售出库 / 盘点）：确认那一刻才生成流水 |
 

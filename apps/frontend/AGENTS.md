@@ -78,6 +78,7 @@ apps/frontend/
         ├── stock-movements/  流水列表 + 手工录入（没有 edit）
         ├── stock-documents/  出入库单 + items-editor + 确认
         ├── aging/            账龄报表（只读聚合，没有 create / edit）
+        ├── exchange-gains/   汇兑损益报表（同上，逐笔明细 + 币种小计）
         ├── currencies/       list / create / edit / form-fields（代码编辑时只读）
         └── exchange-rates/   list / create / form-fields（没有 edit）
 ```
