@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // OpportunityStage 是商机阶段。
@@ -105,10 +107,12 @@ type Opportunity struct {
 	Subject   string           `gorm:"size:128;not null" json:"subject"`
 	Stage     OpportunityStage `gorm:"not null;index" json:"stage"`
 
-	Amount       float64 `gorm:"type:decimal(14,2);not null;default:0" json:"amount"`
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	AmountBase   float64 `gorm:"type:decimal(14,2);not null;default:0" json:"amount_base"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	// 三个金额字段用 money.Decimal（定点）：加权预测是把几十条商机相加之后
+	// 与已成交金额对比，float64 的末位误差会在看板上变成"权重加起来比总额多几分钱"。
+	Amount       money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"amount"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	AmountBase   money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"amount_base"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
 
 	// Probability 赢单概率 0-100。赢单恒为 100、输单恒为 0，不允许手填成别的值。
 	Probability int `gorm:"not null;default:0" json:"probability"`
@@ -122,6 +126,6 @@ type Opportunity struct {
 func (Opportunity) TableName() string { return "crm_opportunity" }
 
 // WeightedAmount 是加权金额（本币）：预计金额 × 赢单概率。
-func (o Opportunity) WeightedAmount() float64 {
-	return o.AmountBase * float64(o.Probability) / 100
+func (o Opportunity) WeightedAmount() money.Decimal {
+	return o.AmountBase.MulInt(int64(o.Probability)).Div(money.FromInt(100))
 }

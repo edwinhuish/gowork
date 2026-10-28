@@ -11,6 +11,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -98,7 +99,7 @@ func (s *opportunityService) Create(
 		return nil, err
 	}
 	s.log.Info("新增商机", "id", m.ID, "partner_id", m.PartnerID,
-		"stage", m.Stage.Label(), "amount_base", m.AmountBase)
+		"stage", m.Stage.Label(), "amount_base", m.AmountBase.String())
 	return m, nil
 }
 
@@ -173,8 +174,8 @@ func (s *opportunityService) Summary(
 			Weighted:   row.Weighted,
 		})
 		out.TotalCount += row.Count
-		out.TotalAmountBase += row.AmountBase
-		out.TotalWeighted += row.Weighted
+		out.TotalAmountBase = out.TotalAmountBase.Add(row.AmountBase)
+		out.TotalWeighted = out.TotalWeighted.Add(row.Weighted)
 	}
 	return out, nil
 }
@@ -186,10 +187,10 @@ func (s *opportunityService) Summary(
 type opportunityTerms struct {
 	Subject           string
 	Stage             model.OpportunityStage
-	Amount            float64
+	Amount            money.Decimal
 	CurrencyCode      string
-	AmountBase        float64
-	ExchangeRate      float64
+	AmountBase        money.Decimal
+	ExchangeRate      money.Decimal
 	Probability       int
 	ExpectedCloseDate time.Time
 	Remark            string
@@ -224,7 +225,7 @@ func (s *opportunityService) buildTerms(
 		return out, errs.ErrConflict.WithMsg(fmt.Sprintf(
 			"商机阶段不能从「%s」变为「%s」", existing.Stage.Label(), stage.Label()))
 	}
-	if in.Amount < 0 {
+	if in.Amount.IsNegative() {
 		return out, errs.BadRequest("预计金额不能为负")
 	}
 
@@ -243,7 +244,7 @@ func (s *opportunityService) buildTerms(
 	if code == "" {
 		code = baseCode
 	}
-	amountBase, rate, err := s.currencies.ToBase(ctx, in.Amount, code, s.clock())
+	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, in.Amount, code, s.clock())
 	if err != nil {
 		return out, err
 	}

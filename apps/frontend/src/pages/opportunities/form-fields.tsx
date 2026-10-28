@@ -75,8 +75,16 @@ export function OpportunityFormFields({ partnerReadOnly = false }: { partnerRead
         <Select options={OPPORTUNITY_STAGE_OPTIONS} />
       </Form.Item>
 
-      <Form.Item name="amount" label="预计金额" initialValue={0}>
-        <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} placeholder="0.00" />
+      {/* stringMode：金额以字符串收发，走一遍 JS number 就等于把后端的定点精度丢了。 */}
+      <Form.Item name="amount" label="预计金额" initialValue="0">
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          step={100}
+          precision={2}
+          stringMode
+          placeholder="0.00"
+        />
       </Form.Item>
 
       <Form.Item

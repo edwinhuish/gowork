@@ -8,6 +8,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -83,7 +84,7 @@ func TestOpportunityRules(t *testing.T) {
 			PartnerID:         partner.ID,
 			Subject:           "2026 秋季五金补货",
 			Stage:             int8(model.OpportunityStageQuoted),
-			Amount:            1000,
+			Amount:            money.MustParse("1000"),
 			CurrencyCode:      "USD",
 			ExpectedCloseDate: "2026-11-30",
 		}
@@ -94,11 +95,11 @@ func TestOpportunityRules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("新建商机失败: %v", err)
 		}
-		if m.AmountBase != 7100 {
-			t.Errorf("本币金额 = %v，期望 7100", m.AmountBase)
+		if m.AmountBase.Cmp(money.MustParse("7100")) != 0 {
+			t.Errorf("本币金额 = %s，期望 7100", m.AmountBase)
 		}
-		if m.ExchangeRate != 7.1 {
-			t.Errorf("汇率 = %v，期望 7.1", m.ExchangeRate)
+		if m.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+			t.Errorf("汇率 = %s，期望 7.1", m.ExchangeRate)
 		}
 		if m.Probability != 50 {
 			t.Errorf("默认概率 = %d，期望 50（已报价）", m.Probability)
@@ -156,14 +157,16 @@ func TestOpportunityRules(t *testing.T) {
 
 	t.Run("留空币种按本币", func(t *testing.T) {
 		in := base()
-		in.Amount = 500
+		in.Amount = money.MustParse("500")
 		in.CurrencyCode = ""
 		m, err := fx.svc.Create(ctx, in)
 		if err != nil {
 			t.Fatalf("新建商机失败: %v", err)
 		}
-		if m.CurrencyCode != "CNY" || m.AmountBase != 500 || m.ExchangeRate != 1 {
-			t.Errorf("留空币种应落本币 1:1，实际 %s / %v / %v",
+		if m.CurrencyCode != "CNY" ||
+			m.AmountBase.Cmp(money.MustParse("500")) != 0 ||
+			m.ExchangeRate.Cmp(money.FromInt(1)) != 0 {
+			t.Errorf("留空币种应落本币 1:1，实际 %s / %s / %s",
 				m.CurrencyCode, m.AmountBase, m.ExchangeRate)
 		}
 	})
@@ -173,6 +176,20 @@ func TestOpportunityRules(t *testing.T) {
 		in.Stage = 99
 		if _, err := fx.svc.Create(ctx, in); err == nil {
 			t.Fatal("非法阶段应被拒绝")
+		}
+	})
+
+	// 加权金额必须是定点相加：float64 下 33 + 0.1 会得到 33.099999999999994，
+	// 而看板上的数就是客户与销售总监对账时看的那一个。
+	t.Run("加权金额按定点算", func(t *testing.T) {
+		sum := model.Opportunity{
+			AmountBase: money.MustParse("100"), Probability: 33,
+		}.WeightedAmount()
+		sum = sum.Add(model.Opportunity{
+			AmountBase: money.MustParse("0.1"), Probability: 100,
+		}.WeightedAmount())
+		if got := sum.Round(2).StringFixed(2); got != "33.10" {
+			t.Errorf("加权金额合计 = %s，期望 33.10", got)
 		}
 	})
 
@@ -186,15 +203,15 @@ func TestOpportunityRules(t *testing.T) {
 		if summary.TotalCount < 5 {
 			t.Fatalf("汇总条数 = %d，期望至少 5", summary.TotalCount)
 		}
-		var weighted float64
+		weighted := money.Zero()
 		for _, s := range summary.Stages {
-			weighted += s.Weighted
+			weighted = weighted.Add(s.Weighted)
 		}
-		if diff := weighted - summary.TotalWeighted; diff > 0.001 || diff < -0.001 {
-			t.Errorf("各阶段加权合计 %v 与总计 %v 不一致", weighted, summary.TotalWeighted)
+		if weighted.Cmp(summary.TotalWeighted) != 0 {
+			t.Errorf("各阶段加权合计 %s 与总计 %s 不一致", weighted, summary.TotalWeighted)
 		}
-		if summary.TotalWeighted >= summary.TotalAmountBase {
-			t.Errorf("加权金额应小于总额（概率都低于 100），实际 %v >= %v",
+		if summary.TotalWeighted.Cmp(summary.TotalAmountBase) >= 0 {
+			t.Errorf("加权金额应小于总额（概率都低于 100），实际 %s >= %s",
 				summary.TotalWeighted, summary.TotalAmountBase)
 		}
 

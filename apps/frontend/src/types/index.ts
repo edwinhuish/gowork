@@ -132,10 +132,11 @@ export interface Opportunity {
   subject: string
   /** 10 接洽 / 20 需求确认 / 30 已报价 / 40 谈判中 / 50 赢单 / 60 输单 */
   stage: number
-  amount: number
+  /** 后端 money.Decimal 序列化成字符串，前端只做展示与转交，不做算术。 */
+  amount: string
   currency_code: string
-  amount_base: number
-  exchange_rate: number
+  amount_base: string
+  exchange_rate: string
   /** 赢单恒 100、输单恒 0，由后端强制。 */
   probability: number
   expected_close_date: string
@@ -148,15 +149,15 @@ export interface Opportunity {
 export interface OpportunityStageSummary {
   stage: number
   count: number
-  amount_base: number
-  weighted: number
+  amount_base: string
+  weighted: string
 }
 
 export interface OpportunitySummary {
   stages: OpportunityStageSummary[]
   total_count: number
-  total_amount_base: number
-  total_weighted: number
+  total_amount_base: string
+  total_weighted: string
 }
 
 /**

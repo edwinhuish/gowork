@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // OpportunityFilter 是商机列表与汇总共用的查询条件。
@@ -57,8 +59,8 @@ func (f OpportunityFilter) scopes() []Scope {
 type StageSummary struct {
 	Stage      model.OpportunityStage `gorm:"column:stage" json:"stage"`
 	Count      int64                  `gorm:"column:cnt" json:"count"`
-	AmountBase float64                `gorm:"column:amount_base" json:"amount_base"`
-	Weighted   float64                `gorm:"column:weighted" json:"weighted"`
+	AmountBase money.Decimal          `json:"amount_base"`
+	Weighted   money.Decimal          `json:"weighted"`
 }
 
 type OpportunityRepository interface {
@@ -113,21 +115,47 @@ func (r *opportunityRepo) List(
 	return r.PaginateOrdered(ctx, p, "expected_close_date ASC, id DESC", scopes...)
 }
 
+// Summary 按阶段汇总。
+//
+// 汇总在 Go 里做，不下推到 SQL：`SUM(amount_base * probability / 100.0)` 在库里
+// 走的是 REAL/DOUBLE，三库的浮点累加顺序还不一样，结果是"看板上权重加起来比总额
+// 多几分钱"。拉开这些列在 CRM 的量级（万级以内）完全不是问题。
 func (r *opportunityRepo) Summary(
 	ctx context.Context, f OpportunityFilter,
 ) ([]StageSummary, error) {
-	var rows []StageSummary
+	var rows []struct {
+		Stage       model.OpportunityStage
+		AmountBase  money.Decimal
+		Probability int
+	}
 	err := r.DB().WithContext(ctx).Model(&model.Opportunity{}).
 		Scopes(f.scopes()...).
-		Select(`stage,
-			COUNT(*) AS cnt,
-			COALESCE(SUM(amount_base), 0) AS amount_base,
-			COALESCE(SUM(amount_base * probability / 100.0), 0) AS weighted`).
-		Group("stage").
-		Order("stage").
-		Scan(&rows).Error
+		Select("stage, amount_base, probability").
+		Find(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("按阶段汇总商机: %w", err)
 	}
-	return rows, nil
+
+	byStage := make(map[model.OpportunityStage]*StageSummary, len(rows))
+	for _, row := range rows {
+		agg, ok := byStage[row.Stage]
+		if !ok {
+			agg = &StageSummary{Stage: row.Stage}
+			byStage[row.Stage] = agg
+		}
+		agg.Count++
+		agg.AmountBase = agg.AmountBase.Add(row.AmountBase)
+		// 单条加权按 2 位舍入再累加：与商机详情上显示的那个数保持一致，
+		// 否则「各阶段加起来」与「逐条相加」会差几分钱。
+		weighted := row.AmountBase.MulInt(int64(row.Probability)).
+			Div(money.FromInt(100)).Round(2)
+		agg.Weighted = agg.Weighted.Add(weighted)
+	}
+
+	out := make([]StageSummary, 0, len(byStage))
+	for _, agg := range byStage {
+		out = append(out, *agg)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Stage < out[j].Stage })
+	return out, nil
 }

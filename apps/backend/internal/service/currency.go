@@ -31,6 +31,13 @@ type CurrencyService interface {
 	Convert(ctx context.Context, amount float64, from, to string, on time.Time) (converted, rate float64, err error)
 	// ToBase 折算到本币，供"只知道原币、不关心本币是哪个"的调用方使用。
 	ToBase(ctx context.Context, amount float64, currencyCode string, on time.Time) (base, rate float64, err error)
+	// ToBaseDecimal 是 ToBase 的定点版本（T-37 起）：已改造的域用它，
+	// 免得"折本币"这一步又把 Decimal 转回 float64，改造就白做了。
+	//
+	// 两个版本并存是过渡态：只剩 float 版没有调用方时删掉它。
+	ToBaseDecimal(
+		ctx context.Context, amount money.Decimal, currencyCode string, on time.Time,
+	) (base, rate money.Decimal, err error)
 	// BaseCode 返回本币代码。币种留空表示"用本币"时，需要它来落字段。
 	BaseCode(ctx context.Context) (string, error)
 	// Decimals 返回该币种的金额小数位，报价单与订单算行金额时按它舍入。
@@ -260,6 +267,73 @@ func (s *currencyService) ToBase(
 		return 0, 0, err
 	}
 	return s.Convert(ctx, amount, currencyCode, baseCode, on)
+}
+
+// ConvertDecimal 是 Convert 的定点版本：口径完全相同（同一套汇率查找、
+// 同一个舍入位数），只是中间不做 float64 往返。
+func (s *currencyService) ConvertDecimal(
+	ctx context.Context, amount money.Decimal, from, to string, on time.Time,
+) (money.Decimal, money.Decimal, error) {
+	fromCode, err := normCurrencyCode(from)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	toCode, err := normCurrencyCode(to)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	if fromCode == toCode {
+		return amount, money.FromInt(1), nil
+	}
+
+	base, err := s.repo.FindBase(ctx)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return money.Zero(), money.Zero(), errs.BadRequest("尚未设置本币，无法折算汇率")
+		}
+		return money.Zero(), money.Zero(), err
+	}
+	for _, code := range []string{fromCode, toCode} {
+		if code == base.Code {
+			continue
+		}
+		if _, err := s.repo.FindByCode(ctx, code); err != nil {
+			if errors.Is(err, errs.ErrNotFound) {
+				return money.Zero(), money.Zero(), errs.BadRequest("币种不存在：" + code)
+			}
+			return money.Zero(), money.Zero(), err
+		}
+	}
+
+	target, err := s.repo.FindByCode(ctx, toCode)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+
+	fromRate, err := s.rateOn(ctx, fromCode, base.Code, on)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	toRate, err := s.rateOn(ctx, toCode, base.Code, on)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+
+	// 汇率本身仍以 float64 存在 md_exchange_rate 上（那一列还没改造），
+	// 进这里的第一件事就是转成 Decimal，之后的乘除与舍入都在定点里做。
+	rate := money.FromFloat(fromRate).Div(money.FromFloat(toRate))
+	converted := amount.Mul(rate).Round(target.DecimalPlaces)
+	return converted, rate, nil
+}
+
+func (s *currencyService) ToBaseDecimal(
+	ctx context.Context, amount money.Decimal, currencyCode string, on time.Time,
+) (money.Decimal, money.Decimal, error) {
+	baseCode, err := s.BaseCode(ctx)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	return s.ConvertDecimal(ctx, amount, currencyCode, baseCode, on)
 }
 
 func (s *currencyService) BaseCode(ctx context.Context) (string, error) {

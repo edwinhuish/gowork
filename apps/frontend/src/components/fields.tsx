@@ -17,13 +17,16 @@ export function StatusTag({ value }: { value?: number | null }) {
 }
 
 /** 金额：两位小数 + 千分位，等宽数字避免列内错位。 */
-export function Money({ value }: { value?: number | null }) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
+export function Money({ value }: { value?: number | string | null }) {
+  // 后端金额已经是定点小数的字符串（money.Decimal）：这里只做千分位与保留两位的
+  // 显示，不参与任何算术——要算就在服务端算，前端算出来的数没法与票据对上。
+  const num = typeof value === 'string' ? Number(value) : value
+  if (num === null || num === undefined || Number.isNaN(num)) {
     return <span className="cell-empty">—</span>
   }
   return (
     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-      {value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
     </span>
   )
 }
