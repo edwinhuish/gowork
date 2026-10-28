@@ -7,7 +7,7 @@ import type { QuotationPreview } from '@/types'
 import { formatPercent } from '@/utils/format'
 import type { LineItemRow } from '@/components/line-items-editor'
 
-function money(value: number): string {
+function money(value: number | string): string {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -38,7 +38,7 @@ export function useQuotationPreview(form: FormInstance) {
       .map((it) => ({
         product_id: it.product_id as number,
         qty: it.qty as number,
-        unit_price: it.unit_price ?? 0,
+        unit_price: it.unit_price ?? '0',
         source_id: it.source_id,
         remark: it.remark,
       }))
@@ -65,7 +65,7 @@ export function useQuotationPreview(form: FormInstance) {
 export function QuotationPreviewAlert({ preview }: { preview: QuotationPreview | null }) {
   if (!preview) return null
 
-  const loss = preview.margin_rate < 0
+  const loss = Number(preview.margin_rate) < 0
   const detail = preview.items
     .map(
       (it) =>

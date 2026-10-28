@@ -179,7 +179,7 @@ export function ContractCreate() {
 
         <div className="form-item-full">
           <ContractTermsEditor
-            total={source?.amount_total}
+            total={source?.amount_total === undefined ? undefined : Number(source.amount_total)}
             currencyCode={source?.currency_code}
           />
         </div>

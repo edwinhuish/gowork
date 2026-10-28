@@ -141,7 +141,7 @@ func TestQuotationRules(t *testing.T) {
 		CurrencyCode: "usd",
 		ValidUntil:   "2026-11-30",
 		Items: []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: 10},
+			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
 		},
 	}
 
@@ -160,23 +160,25 @@ func TestQuotationRules(t *testing.T) {
 		if q.Version != 1 || q.RootID != 0 {
 			t.Errorf("version/root_id = %d/%d，期望 1/0", q.Version, q.RootID)
 		}
-		if q.CurrencyCode != "USD" || !approx(q.ExchangeRate, 7.1) {
-			t.Errorf("币种/汇率 = %s/%v，期望 USD/7.1", q.CurrencyCode, q.ExchangeRate)
+		if q.CurrencyCode != "USD" || q.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+			t.Errorf("币种/汇率 = %s/%s，期望 USD/7.1", q.CurrencyCode, q.ExchangeRate)
 		}
 		// 100 × 10 USD = 1000 USD；× 7.1 = 7100 CNY；成本取最低货源 8 CNY × 100 = 800。
-		if !approx(q.AmountTotal, 1000) || !approx(q.AmountBaseTotal, 7100) {
-			t.Errorf("金额 = %v / %v，期望 1000 / 7100", q.AmountTotal, q.AmountBaseTotal)
+		if q.AmountTotal.Cmp(money.MustParse("1000")) != 0 ||
+			q.AmountBaseTotal.Cmp(money.MustParse("7100")) != 0 {
+			t.Errorf("金额 = %s / %s，期望 1000 / 7100", q.AmountTotal, q.AmountBaseTotal)
 		}
-		if !approx(q.CostTotal, 800) || !approx(q.GrossProfit, 6300) {
-			t.Errorf("成本/毛利 = %v / %v，期望 800 / 6300", q.CostTotal, q.GrossProfit)
+		if q.CostTotal.Cmp(money.MustParse("800")) != 0 ||
+			q.GrossProfit.Cmp(money.MustParse("6300")) != 0 {
+			t.Errorf("成本/毛利 = %s / %s，期望 800 / 6300", q.CostTotal, q.GrossProfit)
 		}
-		if !approx(q.MarginRate, 0.887324) {
-			t.Errorf("毛利率 = %v，期望 0.887324", q.MarginRate)
+		if q.MarginRate.Cmp(money.MustParse("0.887324")) != 0 {
+			t.Errorf("毛利率 = %s，期望 0.887324", q.MarginRate)
 		}
 
 		item := q.Items[0]
-		if !approx(item.CostPrice, 8) {
-			t.Errorf("明细成本价 = %v，期望 8（最低货源）", item.CostPrice)
+		if item.CostPrice.Cmp(money.MustParse("8")) != 0 {
+			t.Errorf("明细成本价 = %s，期望 8（最低货源）", item.CostPrice)
 		}
 		if item.SourceID == nil || *item.SourceID != fx.cheapSrcID {
 			t.Errorf("明细未记录成本取自哪条货源，实际 %v", item.SourceID)
@@ -191,23 +193,23 @@ func TestQuotationRules(t *testing.T) {
 		src := fx.priceySrcID
 		in := input
 		in.Items = []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: 10, SourceID: &src},
+			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10"), SourceID: &src},
 		}
 		q, err := fx.svc.Create(ctx, in)
 		if err != nil {
 			t.Fatalf("新建报价单失败: %v", err)
 		}
-		if !approx(q.CostTotal, 852) {
-			t.Errorf("成本 = %v，期望 852（1.2 USD × 7.1 × 100）", q.CostTotal)
+		if q.CostTotal.Cmp(money.MustParse("852")) != 0 {
+			t.Errorf("成本 = %s，期望 852（1.2 USD × 7.1 × 100）", q.CostTotal)
 		}
-		if !approx(q.MarginRate, 0.88) {
-			t.Errorf("毛利率 = %v，期望 0.88", q.MarginRate)
+		if q.MarginRate.Cmp(money.MustParse("0.88")) != 0 {
+			t.Errorf("毛利率 = %s，期望 0.88", q.MarginRate)
 		}
 	})
 
 	t.Run("产品没有货源时不给报价", func(t *testing.T) {
 		in := input
-		in.Items = []dto.QuotationItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: 10}}
+		in.Items = []dto.QuotationItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: money.MustParse("10")}}
 		_, err := fx.svc.Create(ctx, in)
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
 			t.Fatalf("期望 40001（请先维护货源），实际 %v", err)
@@ -239,10 +241,12 @@ func TestQuotationRules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("试算失败: %v", err)
 		}
-		if !approx(pv.AmountBaseTotal, created.AmountBaseTotal) ||
-			!approx(pv.CostTotal, created.CostTotal) ||
-			!approx(pv.MarginRate, created.MarginRate) {
-			t.Errorf("试算 %v/%v/%v 与保存 %v/%v/%v 口径不一致",
+		// 定点之后可以要求完全相等：试算与保存走的是同一个折算函数，
+		// 任何一位差异都说明两条路径的舍入时机不同。
+		if pv.AmountBaseTotal.Cmp(created.AmountBaseTotal) != 0 ||
+			pv.CostTotal.Cmp(created.CostTotal) != 0 ||
+			pv.MarginRate.Cmp(created.MarginRate) != 0 {
+			t.Errorf("试算 %s/%s/%s 与保存 %s/%s/%s 口径不一致",
 				pv.AmountBaseTotal, pv.CostTotal, pv.MarginRate,
 				created.AmountBaseTotal, created.CostTotal, created.MarginRate)
 		}
@@ -296,7 +300,7 @@ func TestQuotationRules(t *testing.T) {
 		if v2.RootID != created.ID {
 			t.Errorf("新版本 root_id = %d，期望指向第 1 版 %d", v2.RootID, created.ID)
 		}
-		if len(v2.Items) != 1 || !approx(v2.Items[0].CostPrice, created.Items[0].CostPrice) {
+		if len(v2.Items) != 1 || v2.Items[0].CostPrice.Cmp(created.Items[0].CostPrice) != 0 {
 			t.Errorf("新版本未复制明细或成本快照变了: %+v", v2.Items)
 		}
 	})
@@ -373,7 +377,7 @@ func TestQuotationConvert(t *testing.T) {
 		CurrencyCode: "usd",
 		ValidUntil:   "2026-11-30",
 		Items: []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: 10},
+			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
 		},
 	}
 
@@ -434,12 +438,13 @@ func TestQuotationConvert(t *testing.T) {
 		if order.PartnerID != q.PartnerID || order.TradeTerm != q.TradeTerm {
 			t.Errorf("客户/贸易术语未沿用报价单: %d/%s", order.PartnerID, order.TradeTerm)
 		}
-		// 汇率取自报价单，金额由明细重新汇总，两边必须一致。
-		if !approx(order.ExchangeRate, q.ExchangeRate) {
-			t.Errorf("订单汇率 = %v，期望沿用报价单的 %v", order.ExchangeRate, q.ExchangeRate)
+		// 汇率取自报价单（订单表还是 float64，所以这里把报价的定点转成 float 再比），
+		// 金额由明细重新汇总，两边必须一致。
+		if !approx(order.ExchangeRate, q.ExchangeRate.Float64()) {
+			t.Errorf("订单汇率 = %v，期望沿用报价单的 %s", order.ExchangeRate, q.ExchangeRate)
 		}
-		if !approx(order.AmountBaseTotal, q.AmountBaseTotal) {
-			t.Errorf("订单本币总额 = %v，期望与报价单一致 %v",
+		if !approx(order.AmountBaseTotal, q.AmountBaseTotal.Float64()) {
+			t.Errorf("订单本币总额 = %v，期望与报价单一致 %s",
 				order.AmountBaseTotal, q.AmountBaseTotal)
 		}
 		if len(order.Items) != 1 || !approx(order.Items[0].UnitPrice, 10) ||

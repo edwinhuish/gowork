@@ -97,6 +97,21 @@ func TestDecimalMulDiv(t *testing.T) {
 	if got := MustParse("1").Div(FromInt(3)).String(); got != "0.333333" {
 		t.Errorf("1 / 3 = %s，期望 0.333333", got)
 	}
+	// 2 / 3 必须进位到 0.666667：截断会得到 0.666666，而毛利率正靠这末位对账。
+	if got := MustParse("2").Div(FromInt(3)).String(); got != "0.666667" {
+		t.Errorf("2 / 3 = %s，期望 0.666667", got)
+	}
+	// 6300 / 7100 = 0.88732394… → 0.887324（报价单毛利率的实算用例）。
+	if got := MustParse("6300").Div(MustParse("7100")).String(); got != "0.887324" {
+		t.Errorf("6300 / 7100 = %s，期望 0.887324", got)
+	}
+	// 负数除法：-1 / 3 与 1 / -3 都要向负方向进位（远离 0）。
+	if got := MustParse("-1").Div(FromInt(3)).String(); got != "-0.333333" {
+		t.Errorf("-1 / 3 = %s，期望 -0.333333", got)
+	}
+	if got := MustParse("-2").Div(FromInt(3)).String(); got != "-0.666667" {
+		t.Errorf("-2 / 3 = %s，期望 -0.666667", got)
+	}
 	// 除零返回 0 而不是 panic：报表里有"占比"这类指标，分母为 0 是常态。
 	if got := MustParse("1").Div(Zero()); !got.IsZero() {
 		t.Errorf("除以 0 应得 0，得到 %s", got)

@@ -11,7 +11,8 @@ import type { QuotationDetail, QuotationPreview } from '@/types'
 export interface QuotationItemInput {
   product_id: number
   qty: number
-  unit_price: number
+  /** 单价按字符串收发（后端 money.Decimal）。 */
+  unit_price: string
   /** 留空取该产品本币价最低的启用货源。 */
   source_id?: number
   remark?: string

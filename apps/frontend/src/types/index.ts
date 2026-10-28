@@ -332,13 +332,13 @@ export interface QuotationItem {
   spec: string
   unit: string
   qty: number
-  /** 报价币种单价。 */
-  unit_price: number
-  amount: number
-  amount_base: number
+  /** 报价币种单价。金额字段都是后端 money.Decimal 的字符串，前端只展示不运算。 */
+  unit_price: string
+  amount: string
+  amount_base: string
   /** 本币单位成本快照，来自货源。 */
-  cost_price: number
-  cost_amount: number
+  cost_price: string
+  cost_amount: string
   /** 成本取自哪条货源，事后能回答「这个价按谁家算的」。 */
   source_id: number | null
   remark: string
@@ -365,14 +365,14 @@ export interface Quotation {
   /** 10 草稿 / 20 已确认 / 90 已取消 */
   status: number
   currency_code: string
-  exchange_rate: number
+  exchange_rate: string
   valid_until: string
-  amount_total: number
-  amount_base_total: number
-  cost_total: number
-  gross_profit: number
-  /** 毛利率，0.235 表示 23.5%。 */
-  margin_rate: number
+  amount_total: string
+  amount_base_total: string
+  cost_total: string
+  gross_profit: string
+  /** 毛利率，0.235 表示 23.5%。字符串，展示时再转。 */
+  margin_rate: string
   remark: string
   /** 转订单后回填：一张报价单最多转成一张订单。 */
   sales_order_id?: number | null
@@ -965,12 +965,12 @@ export interface QuotationPreviewItem {
   name_cn: string
   unit: string
   qty: number
-  unit_price: number
-  amount: number
-  amount_base: number
-  cost_price: number
-  cost_amount: number
-  gross_profit: number
+  unit_price: string
+  amount: string
+  amount_base: string
+  cost_price: string
+  cost_amount: string
+  gross_profit: string
   source_id: number | null
   source_name: string
 }
@@ -1018,11 +1018,11 @@ export interface Attachment {
 /** 报价试算结果：口径与保存后完全一致（同一个折算函数）。 */
 export interface QuotationPreview {
   currency_code: string
-  exchange_rate: number
+  exchange_rate: string
   items: QuotationPreviewItem[]
-  amount_total: number
-  amount_base_total: number
-  cost_total: number
-  gross_profit: number
-  margin_rate: number
+  amount_total: string
+  amount_base_total: string
+  cost_total: string
+  gross_profit: string
+  margin_rate: string
 }

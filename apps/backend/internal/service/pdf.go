@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/pkg/pdf"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
@@ -110,8 +111,8 @@ func (s *pdfService) Quotation(ctx context.Context, id uint) (*RenderedFile, err
 			"description": itemDescription(it.SKUCode, it.NameCN, it.Spec),
 			"qty":         qtyText(it.Qty),
 			"unit":        it.Unit,
-			"unit_price":  moneyText(it.UnitPrice, curDP),
-			"amount":      moneyText(it.Amount, curDP),
+			"unit_price":  moneyTextD(it.UnitPrice, curDP),
+			"amount":      moneyTextD(it.Amount, curDP),
 		})
 	}
 
@@ -122,9 +123,9 @@ func (s *pdfService) Quotation(ctx context.Context, id uint) (*RenderedFile, err
 	values["trade_term"] = string(q.TradeTerm)
 	values["version"] = strconv.Itoa(q.Version)
 	values["currency_code"] = q.CurrencyCode
-	values["exchange_rate"] = rateText(q.ExchangeRate)
-	values["amount_total"] = moneyText(q.AmountTotal, curDP)
-	values["amount_base_total"] = moneyText(q.AmountBaseTotal, baseDP)
+	values["exchange_rate"] = rateTextD(q.ExchangeRate)
+	values["amount_total"] = moneyTextD(q.AmountTotal, curDP)
+	values["amount_base_total"] = moneyTextD(q.AmountBaseTotal, baseDP)
 	values["remark"] = orDash(q.Remark)
 	if q.Partner != nil {
 		// 结算方式是快照式的当下值：报价单没有存一份，改客户资料后重打的 PDF
@@ -434,6 +435,19 @@ func (s *pdfService) sourceItems(
 		}
 	}
 
+	// rowD 与 row 同形，只是单价与金额来自 money.Decimal：
+	// 报价明细已改定点，打印时不必先转回 float64。
+	rowD := func(i int, sku, name, spec, unit string, qty float64, unitPrice, amount money.Decimal) map[string]string {
+		return map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(sku, name, spec),
+			"qty":         qtyText(qty),
+			"unit":        unit,
+			"unit_price":  moneyTextD(unitPrice, curDP),
+			"amount":      moneyTextD(amount, curDP),
+		}
+	}
+
 	switch c.SourceType {
 	case model.ContractSourceQuotation:
 		q, err := s.quotations.FindByID(ctx, c.SourceID)
@@ -442,7 +456,7 @@ func (s *pdfService) sourceItems(
 		}
 		rows := make([]map[string]string, 0, len(q.Items))
 		for i, it := range q.Items {
-			rows = append(rows, row(i, it.SKUCode, it.NameCN, it.Spec, it.Unit, it.Qty, it.UnitPrice, it.Amount))
+			rows = append(rows, rowD(i, it.SKUCode, it.NameCN, it.Spec, it.Unit, it.Qty, it.UnitPrice, it.Amount))
 		}
 		return rows, model.ContractSourceQuotation.Label(), string(q.TradeTerm), nil
 
@@ -609,6 +623,13 @@ func moneyText(v float64, dp int) string {
 	return groupThousands(strconv.FormatFloat(v, 'f', dp, 64))
 }
 
+// moneyTextD 印定点金额：与 moneyText 同一套显示规则，只是数从 money.Decimal 来。
+//
+// 已改造的域（报价、商机）用它，免得为了打印又把 Decimal 转回 float64。
+func moneyTextD(v money.Decimal, dp int) string {
+	return groupThousands(v.StringFixed(dp))
+}
+
 // qtyText 印数量：最多三位小数，去掉无意义的尾零。
 // 1000 印成 1,000.000 会让人以为数量有精度要求。
 func qtyText(v float64) string {
@@ -644,6 +665,9 @@ func groupThousands(s string) string {
 func rateText(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
+
+// rateTextD 印定点汇率：去掉尾零。
+func rateTextD(v money.Decimal) string { return v.String() }
 
 func dateText(t *time.Time) string {
 	if t == nil || t.IsZero() {

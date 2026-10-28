@@ -19,9 +19,11 @@ export function formatDate(value?: string) {
  * 比例转百分数。后端存比例（0.235），百分数在计算里每次都要除 100，
  * 漏一处就是差一百倍，所以只在显示这一层转。
  */
-export function formatPercent(value?: number | null, digits = 2) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
-  return `${(value * 100).toFixed(digits)}%`
+export function formatPercent(value?: number | string | null, digits = 2) {
+  // 定点小数以字符串下发（比例只在显示这一层乘 100）。
+  const num = typeof value === 'string' ? Number(value) : value
+  if (num === null || num === undefined || Number.isNaN(num)) return '—'
+  return `${(num * 100).toFixed(digits)}%`
 }
 
 /**

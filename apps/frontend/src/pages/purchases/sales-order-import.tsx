@@ -42,7 +42,7 @@ export function SalesOrderImport({ form }: { form: FormInstance }) {
       const rows: LineItemRow[] = (so.items ?? []).map((it) => ({
         product_id: it.product_id,
         qty: it.qty,
-        unit_price: 0,
+        unit_price: '0',
         sales_order_item_id: it.id,
       }))
       if (rows.length === 0) {

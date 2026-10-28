@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/model"
+import (
+	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // QuotationQuery 是报价单列表的查询条件。
 type QuotationQuery struct {
@@ -16,8 +19,9 @@ type QuotationQuery struct {
 type QuotationItemInput struct {
 	ProductID uint    `json:"product_id" binding:"required"`
 	Qty       float64 `json:"qty" binding:"required,gt=0"`
-	// UnitPrice 报价币种的单价。
-	UnitPrice float64 `json:"unit_price" binding:"gte=0"`
+	// UnitPrice 报价币种的单价。字符串收发（money.Decimal）：
+	// 单价被乘上数量、再乘汇率，进来时掉一位精度，最后就会落到合计上。
+	UnitPrice money.Decimal `json:"unit_price"`
 	// SourceID 指定成本取自哪条货源；留空取该产品本币价最低的启用货源。
 	// 允许指定是为了"这单指定从某家进"——对方账期好、或某家正在做活动价。
 	SourceID *uint  `json:"source_id"`
@@ -69,31 +73,31 @@ type QuotationPreviewInput struct {
 
 // QuotationPreviewItem 是试算结果的一行，含成本来源，便于判断"这个价按谁家算的"。
 type QuotationPreviewItem struct {
-	ProductID   uint    `json:"product_id"`
-	SKUCode     string  `json:"sku_code"`
-	NameCN      string  `json:"name_cn"`
-	Unit        string  `json:"unit"`
-	Qty         float64 `json:"qty"`
-	UnitPrice   float64 `json:"unit_price"`
-	Amount      float64 `json:"amount"`
-	AmountBase  float64 `json:"amount_base"`
-	CostPrice   float64 `json:"cost_price"`
-	CostAmount  float64 `json:"cost_amount"`
-	GrossProfit float64 `json:"gross_profit"`
-	SourceID    *uint   `json:"source_id"`
-	SourceName  string  `json:"source_name"`
+	ProductID   uint          `json:"product_id"`
+	SKUCode     string        `json:"sku_code"`
+	NameCN      string        `json:"name_cn"`
+	Unit        string        `json:"unit"`
+	Qty         float64       `json:"qty"`
+	UnitPrice   money.Decimal `json:"unit_price"`
+	Amount      money.Decimal `json:"amount"`
+	AmountBase  money.Decimal `json:"amount_base"`
+	CostPrice   money.Decimal `json:"cost_price"`
+	CostAmount  money.Decimal `json:"cost_amount"`
+	GrossProfit money.Decimal `json:"gross_profit"`
+	SourceID    *uint         `json:"source_id"`
+	SourceName  string        `json:"source_name"`
 }
 
 // QuotationPreview 是试算汇总，口径与保存后落库的完全一致（同一个折算函数）。
 type QuotationPreview struct {
 	CurrencyCode    string                 `json:"currency_code"`
-	ExchangeRate    float64                `json:"exchange_rate"`
+	ExchangeRate    money.Decimal          `json:"exchange_rate"`
 	Items           []QuotationPreviewItem `json:"items"`
-	AmountTotal     float64                `json:"amount_total"`
-	AmountBaseTotal float64                `json:"amount_base_total"`
-	CostTotal       float64                `json:"cost_total"`
-	GrossProfit     float64                `json:"gross_profit"`
-	MarginRate      float64                `json:"margin_rate"`
+	AmountTotal     money.Decimal          `json:"amount_total"`
+	AmountBaseTotal money.Decimal          `json:"amount_base_total"`
+	CostTotal       money.Decimal          `json:"cost_total"`
+	GrossProfit     money.Decimal          `json:"gross_profit"`
+	MarginRate      money.Decimal          `json:"margin_rate"`
 }
 
 // QuotationDetail 在单据本体上补两个计算字段。

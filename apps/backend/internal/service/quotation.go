@@ -137,7 +137,8 @@ func (s *quotationService) Create(
 	}
 
 	s.log.Info("新增报价单", "id", q.ID, "doc_no", q.DocNo,
-		"partner_id", q.PartnerID, "amount_base", q.AmountBaseTotal, "margin", q.MarginRate)
+		"partner_id", q.PartnerID, "amount_base", q.AmountBaseTotal.String(),
+		"margin", q.MarginRate.String())
 	return s.Get(ctx, q.ID)
 }
 
@@ -387,7 +388,9 @@ func (s *quotationService) Convert(
 		lines = append(lines, QuotationOrderLine{
 			ProductID: it.ProductID,
 			Qty:       it.Qty,
-			UnitPrice: it.UnitPrice,
+			// 销售订单的金额列还是 float64（T-37 第 4 片下一段），
+			// 这里显式转换一次；订单改造时删掉 .Float64()。
+			UnitPrice: it.UnitPrice.Float64(),
 			Remark:    it.Remark,
 		})
 	}
@@ -404,7 +407,8 @@ func (s *quotationService) Convert(
 		DealSeq:      dealSeq,
 		TradeTerm:    q.TradeTerm,
 		CurrencyCode: q.CurrencyCode,
-		ExchangeRate: q.ExchangeRate,
+		// 同上：订单表还是 float64，改造时删掉。
+		ExchangeRate: q.ExchangeRate.Float64(),
 		OrderDate:    orderDate,
 		DeliveryDate: deliveryDate,
 		Remark:       fmt.Sprintf("由报价单 %s v%d 转入", q.DocNo, q.Version),
@@ -498,7 +502,7 @@ func (s *quotationService) detail(m *model.Quotation) *dto.QuotationDetail {
 type quotationTerms struct {
 	TradeTerm        model.TradeTerm
 	CurrencyCode     string
-	ExchangeRate     float64
+	ExchangeRate     money.Decimal
 	CurrencyDecimals int
 	BaseDecimals     int
 	ValidUntil       time.Time
@@ -507,11 +511,11 @@ type quotationTerms struct {
 
 // quotationTotals 是一整单的锁定合计。
 type quotationTotals struct {
-	Amount     float64
-	AmountBase float64
-	Cost       float64
-	Gross      float64
-	Margin     float64
+	Amount     money.Decimal
+	AmountBase money.Decimal
+	Cost       money.Decimal
+	Gross      money.Decimal
+	Margin     money.Decimal
 }
 
 func (s *quotationService) buildTerms(
@@ -548,8 +552,14 @@ func (s *quotationService) buildTerms(
 // buildCurrency 定下报价币种、单据汇率与两侧的小数位。
 func (s *quotationService) buildCurrency(
 	ctx context.Context, raw string,
-) (code string, rate float64, curDP, baseDP int, err error) {
-	return resolveCurrency(ctx, s.currencies, raw, s.clock())
+) (code string, rate money.Decimal, curDP, baseDP int, err error) {
+	code, rawRate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, raw, s.clock())
+	if err != nil {
+		return "", money.Zero(), 0, 0, err
+	}
+	// 汇率表那一列还是 float64（T-37 第 6 片），进服务的第一步就转成定点：
+	// 单据上的汇率从此是十进制的，之后乘多少行都不会带尾差。
+	return code, money.FromFloat(rawRate), curDP, baseDP, nil
 }
 
 func (s *quotationService) parseValidUntil(raw string) (time.Time, error) {
@@ -577,7 +587,7 @@ func (s *quotationService) buildItems(
 		if row.Qty <= 0 {
 			return nil, totals, errs.BadRequest("明细数量必须大于 0")
 		}
-		if row.UnitPrice < 0 {
+		if row.UnitPrice.IsNegative() {
 			return nil, totals, errs.BadRequest("明细单价不能为负")
 		}
 		product, err := s.products.FindByID(ctx, row.ProductID)
@@ -592,12 +602,13 @@ func (s *quotationService) buildItems(
 			return nil, totals, err
 		}
 
-		amount := money.Round(row.UnitPrice*row.Qty, t.CurrencyDecimals)
-		amountBase := money.Round(amount*t.ExchangeRate, t.BaseDecimals)
-		// 成本快照：货源本币价（Decimal）× 数量在定点里算完，最后一步才落到
-		// 报价明细的 float64 列——那一列等 T-37 第 4 片改造，届时这行去掉 Float64()。
-		costAmount := src.PurchasePriceBase.Mul(money.FromFloat(row.Qty)).
-			Round(t.BaseDecimals).Float64()
+		// 数量仍是 float64（qty 不在 T-37 的范围），乘进去之前转成定点：
+		// 数量本身是十进制录入的，FromFloat 只做一次精确转换（3 位小数远在 float64 的
+		// 有效位之内），之后的乘法与舍入都在定点里做。
+		qty := money.FromFloat(row.Qty)
+		amount := row.UnitPrice.Mul(qty).Round(t.CurrencyDecimals)
+		amountBase := amount.Mul(t.ExchangeRate).Round(t.BaseDecimals)
+		costAmount := src.PurchasePriceBase.Mul(qty).Round(t.BaseDecimals)
 
 		items = append(items, model.QuotationItem{
 			ProductID:  product.ID,
@@ -609,23 +620,24 @@ func (s *quotationService) buildItems(
 			UnitPrice:  row.UnitPrice,
 			Amount:     amount,
 			AmountBase: amountBase,
-			CostPrice:  src.PurchasePriceBase.Float64(),
+			CostPrice:  src.PurchasePriceBase,
 			CostAmount: costAmount,
 			SourceID:   &src.ID,
 			Remark:     row.Remark,
 		})
 
-		totals.Amount += amount
-		totals.AmountBase += amountBase
-		totals.Cost += costAmount
+		totals.Amount = totals.Amount.Add(amount)
+		totals.AmountBase = totals.AmountBase.Add(amountBase)
+		totals.Cost = totals.Cost.Add(costAmount)
 	}
 
-	totals.Amount = money.Round(totals.Amount, t.CurrencyDecimals)
-	totals.AmountBase = money.Round(totals.AmountBase, t.BaseDecimals)
-	totals.Cost = money.Round(totals.Cost, t.BaseDecimals)
-	totals.Gross = money.Round(totals.AmountBase-totals.Cost, t.BaseDecimals)
-	if totals.AmountBase != 0 {
-		totals.Margin = money.Round(totals.Gross/totals.AmountBase, 6)
+	totals.Amount = totals.Amount.Round(t.CurrencyDecimals)
+	totals.AmountBase = totals.AmountBase.Round(t.BaseDecimals)
+	totals.Cost = totals.Cost.Round(t.BaseDecimals)
+	totals.Gross = totals.AmountBase.Sub(totals.Cost).Round(t.BaseDecimals)
+	if !totals.AmountBase.IsZero() {
+		// 毛利率存 6 位小数（0.235 表示 23.5%）：百分数会在每次计算里多除一遍 100。
+		totals.Margin = totals.Gross.Div(totals.AmountBase).Round(6)
 	}
 	return items, totals, nil
 }

@@ -178,12 +178,28 @@ func (d Decimal) Mul(o Decimal) Decimal {
 func (d Decimal) MulInt(n int64) Decimal { return d.Mul(FromInt(n)) }
 
 // Div 相除（按 Scale 位四舍五入）。除数为 0 时返回 0。
+//
+// 与 Mul 一样要显式进位：Quo 是向零截断，1/3 会得到 0.333333 而不是 0.333333，
+// 但 2/3 截断成 0.666666 就比四舍五入少了末位——毛利率这类比例正是靠末位对账的。
 func (d Decimal) Div(o Decimal) Decimal {
 	if o.v == 0 {
 		return Decimal{}
 	}
 	num := new(big.Int).Mul(big.NewInt(d.v), big.NewInt(pow10))
-	q := new(big.Int).Quo(num, big.NewInt(o.v))
+	den := big.NewInt(o.v)
+	q, r := new(big.Int).QuoRem(num, den, new(big.Int))
+
+	absR := new(big.Int).Abs(r)
+	absR.Lsh(absR, 1)
+	absDen := new(big.Int).Abs(den)
+	if absR.Cmp(absDen) >= 0 {
+		// 结果符号 = 被除数符号 × 除数符号；同号进位，异号退位。
+		if num.Sign()*den.Sign() < 0 {
+			q.Sub(q, big.NewInt(1))
+		} else {
+			q.Add(q, big.NewInt(1))
+		}
+	}
 	if !q.IsInt64() {
 		return Decimal{}
 	}

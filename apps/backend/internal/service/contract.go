@@ -335,9 +335,11 @@ func (s *contractService) loadSource(
 			docNo:        q.DocNo,
 			partnerID:    q.PartnerID,
 			currencyCode: q.CurrencyCode,
-			exchangeRate: q.ExchangeRate,
-			amountTotal:  q.AmountTotal,
-			amountBase:   q.AmountBaseTotal,
+			// 合同表的金额列还是 float64（T-37 第 4 片的最后一段），
+			// 这里显式转换一次；合同改造时删掉 .Float64()。
+			exchangeRate: q.ExchangeRate.Float64(),
+			amountTotal:  q.AmountTotal.Float64(),
+			amountBase:   q.AmountBaseTotal.Float64(),
 		}, nil
 
 	case model.ContractSourceSalesOrder:

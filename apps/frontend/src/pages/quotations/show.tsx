@@ -265,7 +265,7 @@ export function QuotationShow() {
             key: 'gross_profit',
             label: '毛利',
             children: q ? (
-              <span style={{ color: q.gross_profit < 0 ? '#cf1322' : undefined }}>
+              <span style={{ color: Number(q.gross_profit) < 0 ? '#cf1322' : undefined }}>
                 <Money value={q.gross_profit} />
               </span>
             ) : (
@@ -276,7 +276,7 @@ export function QuotationShow() {
             key: 'margin_rate',
             label: '毛利率',
             children: q ? (
-              <span style={{ color: q.margin_rate < 0 ? '#cf1322' : undefined }}>
+              <span style={{ color: Number(q.margin_rate) < 0 ? '#cf1322' : undefined }}>
                 {formatPercent(q.margin_rate)}
               </span>
             ) : (
@@ -362,7 +362,9 @@ export function QuotationShow() {
             width={110}
             align="right"
             render={(_, record: QuotationItem) => {
-              const gross = record.amount_base - record.cost_amount
+              // 明细行没有单独的毛利列，这里只做「是否亏」的显示判断；
+              // 真实毛利以服务端算的为准（本币金额 − 成本额）。
+              const gross = Number(record.amount_base) - Number(record.cost_amount)
               return (
                 <span style={{ color: gross < 0 ? '#cf1322' : undefined }}>
                   <Money value={gross} />

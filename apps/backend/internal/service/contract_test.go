@@ -136,7 +136,7 @@ func (f contractFixture) confirmedQuotation(t *testing.T) *dto.QuotationDetail {
 		CurrencyCode: "USD",
 		ValidUntil:   f.now.AddDate(0, 1, 0).Format("2006-01-02"),
 		Items: []dto.QuotationItemInput{
-			{ProductID: f.productID, Qty: 100, UnitPrice: 10},
+			{ProductID: f.productID, Qty: 100, UnitPrice: money.MustParse("10")},
 		},
 	})
 	if err != nil {
@@ -289,7 +289,7 @@ func TestContractGenerateFromQuotation(t *testing.T) {
 			TradeTerm:    "FOB",
 			CurrencyCode: "USD",
 			ValidUntil:   "2026-11-30",
-			Items:        []dto.QuotationItemInput{{ProductID: fx.productID, Qty: 100, UnitPrice: 10}},
+			Items:        []dto.QuotationItemInput{{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")}},
 		})
 		if err != nil {
 			t.Fatalf("建报价单失败: %v", err)

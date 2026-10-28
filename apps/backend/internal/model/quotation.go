@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // Quotation 是对客户发出的价格方案：主链上第一张真正的单据。
 //
@@ -30,8 +34,8 @@ type Quotation struct {
 	Status    DocumentStatus `gorm:"not null;index" json:"status"`
 
 	// 报价币种与折算率。汇率在创建时定死：有效期内的价格对应的是发出那天的人民币成本。
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
 	// ValidUntil 有效期截止日（含当天）。过期后不可转订单——客户拿着去年的价来下单，
 	// 而原料已经涨过，那不是折扣而是亏损。
 	ValidUntil time.Time `gorm:"type:date;index;not null" json:"valid_until"`
@@ -48,13 +52,13 @@ type Quotation struct {
 	// 以下合计是写入时一次算好的锁定快照，不随货源或汇率变动重算。
 	// 这与"派生数据不加列"不冲突：单据上的合计是事实的一部分（客户看到的数字），
 	// 派生数据指的是可以由明细随时聚合、且必须实时一致的中间结果。
-	AmountTotal     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
-	AmountBaseTotal float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
-	CostTotal       float64 `gorm:"type:decimal(16,4);not null;default:0" json:"cost_total"`
-	GrossProfit     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"gross_profit"`
+	AmountTotal     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
+	AmountBaseTotal money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
+	CostTotal       money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"cost_total"`
+	GrossProfit     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"gross_profit"`
 	// MarginRate 毛利率，0.235 表示 23.5%。存比例而不是百分数：
 	// 百分数在计算里每次都要除 100，漏一处就是差一百倍。
-	MarginRate float64 `gorm:"type:decimal(9,6);not null;default:0" json:"margin_rate"`
+	MarginRate money.Decimal `gorm:"type:decimal(9,6);not null;default:0" json:"margin_rate"`
 
 	Remark string `gorm:"size:255" json:"remark"`
 
@@ -113,15 +117,15 @@ type QuotationItem struct {
 
 	Qty float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// UnitPrice 报价币种的单价；Amount 是它的合计（原币）。
-	UnitPrice float64 `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
-	Amount    float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	UnitPrice money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
+	Amount    money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
 	// AmountBase 按单据汇率折出的本币金额。毛利统一在本币口径算：
 	// 成本来自供应商（本币口径），报价可能是任何币种，不比到同一口径就没法相减。
-	AmountBase float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	AmountBase money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 
 	// CostPrice 本币单位成本快照；CostAmount = CostPrice × Qty。
-	CostPrice  float64 `gorm:"type:decimal(14,4);not null;default:0" json:"cost_price"`
-	CostAmount float64 `gorm:"type:decimal(16,4);not null;default:0" json:"cost_amount"`
+	CostPrice  money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"cost_price"`
+	CostAmount money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"cost_amount"`
 
 	// SourceID 记下成本取自哪条货源，事后能回答"这个价是按谁家算的"。
 	SourceID *uint  `gorm:"index" json:"source_id"`
@@ -133,4 +137,4 @@ type QuotationItem struct {
 func (QuotationItem) TableName() string { return "biz_quotation_item" }
 
 // GrossProfit 是这一行的本币毛利。负数意味着这一行在亏，界面上要能直接看出来。
-func (i QuotationItem) GrossProfit() float64 { return i.AmountBase - i.CostAmount }
+func (i QuotationItem) GrossProfit() money.Decimal { return i.AmountBase.Sub(i.CostAmount) }

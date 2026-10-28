@@ -7,7 +7,8 @@ import type { Product, ProductSource } from '@/types'
 export interface LineItemRow {
   product_id?: number
   qty?: number
-  unit_price?: number
+  /** 单价按字符串收发（后端 money.Decimal），过一遍 JS number 就丢了末位。 */
+  unit_price?: string
   source_id?: number
   /** 采购单专有：这行是为哪张销售单的哪一行备的（以销定采）。 */
   sales_order_item_id?: number
@@ -70,11 +71,11 @@ export function LineItemsEditor({
 
   const onProductChange = (index: number, productId: number) => {
     const product = products.find((p) => p.id === productId)
-    const current = (form.getFieldValue(['items', index, 'unit_price']) as number | undefined) ?? 0
+    const current = form.getFieldValue(['items', index, 'unit_price']) as string | undefined
     // 售价作为报价的起点：报价单九成是"按目录价再谈"，从 0 开始填等于让人重抄一遍。
+    // 产品售价与报价单价现在都是定点的字符串，直接搬过去，不做 number 中转。
     if (!current && product) {
-      // 产品售价是字符串（定点），报价明细的单价还是 number（T-37 后续片再改）。
-      form.setFieldValue(['items', index, 'unit_price'], Number(product.sale_price))
+      form.setFieldValue(['items', index, 'unit_price'], product.sale_price)
     }
     // 换了产品，上一行选的货源就不属于这个产品了，必须清掉。
     form.setFieldValue(['items', index, 'source_id'], undefined)
@@ -121,7 +122,9 @@ export function LineItemsEditor({
               const rowSources = row.product_id
                 ? (sourcesByProduct.get(row.product_id) ?? [])
                 : []
-              const subtotal = (row.qty ?? 0) * (row.unit_price ?? 0)
+              // 只用于界面提示：真实金额由服务端按「数量 × 单价 × 汇率」算，
+              // 这里转成 number 只是为了让用户边填边看个大概。
+              const subtotal = (row.qty ?? 0) * Number(row.unit_price ?? 0)
 
               return (
                 <Row gutter={8} key={field.key} align="top">
@@ -168,6 +171,7 @@ export function LineItemsEditor({
                         min={0}
                         step={0.01}
                         precision={4}
+                        stringMode
                         placeholder="0.00"
                       />
                     </Form.Item>
@@ -212,7 +216,7 @@ export function LineItemsEditor({
             <Button
               type="dashed"
               block
-              onClick={() => add({ qty: 1, unit_price: 0 })}
+              onClick={() => add({ qty: 1, unit_price: '0' })}
               style={{ marginTop: 4 }}
             >
               加一行明细
