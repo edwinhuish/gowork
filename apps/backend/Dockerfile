@@ -1,7 +1,8 @@
 # 后端镜像（多阶段构建）。
 # 构建上下文是 apps/backend 目录：
 #   docker build -t gowork-server ./apps/backend
-FROM golang:1.24-alpine AS builder
+# 基础镜像版本跟随 go.mod 的 go 指令，否则构建时还要临时下载新版工具链。
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /src
 
