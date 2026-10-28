@@ -20,8 +20,9 @@ import type { PageResult } from '@/types'
  *   currency_code 仅汇率；币种本身只用 status + keyword
  *   partner_id 仅联系人 / 跟进记录 / 产品货源（按主体看是 CRM 的主维度，货源侧是反向查）
  *   product_id 仅产品货源（产品详情页的货源面板按产品取数）
+ *   shipment_id 仅运费杂费（出货详情页的费用面板按票取数）
  *   due 仅跟进记录（=1 时只取已到期未跟进，判定在后端按整天算）
- *   type 仅库存流水（期初 / 采购入库 / 销售出库…，见 model.StockMovementType）
+ *   type 库存流水（model.StockMovementType）与运费杂费（model.ShipmentChargeType）共用
  *
  * refine 用 CrudFilters 表达筛选条件，这里翻译成后端认可的同名查询参数。
  * 白名单是有意的：不认识的条件直接丢弃，而不是拼进 URL 让后端静默忽略——
@@ -37,6 +38,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'currency_code',
   'partner_id',
   'product_id',
+  'shipment_id',
   'due',
   'stage',
   'open_only',

@@ -33,6 +33,28 @@ export const CATEGORY_OPTIONS = PRODUCT_CATEGORIES.map((c) => ({
   label: `${c.code} · ${c.label}`,
 }))
 
+/**
+ * 运费杂费类型。取值与后端 model.ShipmentChargeType 一致，故意留空档：
+ * 将来要在报关费与拖车费之间插一类（查验费），加一个值即可。
+ */
+export const SHIPMENT_CHARGE_OPTIONS = [
+  { value: 10, label: '海运费' },
+  { value: 20, label: '报关费' },
+  { value: 30, label: '拖车费' },
+  { value: 40, label: '保险费' },
+  { value: 90, label: '其它' },
+] as const
+
+const SHIPMENT_CHARGE_MAP = new Map<number, string>(
+  SHIPMENT_CHARGE_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+/** 费用类型的中文名；未知值原样透出，不吞数据，便于发现后端加了新类型而前端没跟上。 */
+export function shipmentChargeLabel(value?: number | null): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return SHIPMENT_CHARGE_MAP.get(value) ?? `未知类型(${value})`
+}
+
 /** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
 export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用' },

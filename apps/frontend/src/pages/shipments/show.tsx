@@ -9,6 +9,8 @@ import { orderStatusLabel } from '@/constants/catalog'
 import type { Shipment, ShipmentAllocation } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
+import { ChargesPanel } from './charge-panel'
+
 interface StatusAction {
   label: string
   next: number
@@ -199,6 +201,10 @@ export function ShipmentShow() {
           />
         </Table>
       </Card>
+
+      {/* 运费杂费是这一票的成本：海运费按票收，摊到订单行上要先定分摊规则，
+          规则一改历史数字全变，所以挂在票上。 */}
+      {s?.id ? <ChargesPanel shipmentId={s.id} /> : null}
     </Show>
   )
 }

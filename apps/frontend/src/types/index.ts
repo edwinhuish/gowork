@@ -254,6 +254,30 @@ export interface Product {
 }
 
 /**
+ * 运费杂费：归集到一票货的成本，单票毛利的减项。
+ *
+ * 只登记我方承担的费用 —— FOB 下客户付的海运费不录，录进来会被算成我方成本。
+ * 金额按「原币 + 币种 + 本币 + 汇率」四件套存：只存原币的话，
+ * 把美元运费和人民币报关费加在一起就得手工换算，而汇率每天都在变。
+ */
+export interface ShipmentCharge {
+  id: number
+  shipment_id: number
+  /** 10 海运费 / 20 报关费 / 30 拖车费 / 40 保险费 / 90 其它 */
+  type: number
+  /** 收款方（货代或供应商），可为空。不表示"谁承担"，这张表里每行都是我方的成本。 */
+  partner_id: number | null
+  amount: number
+  currency_code: string
+  amount_base: number
+  exchange_rate: number
+  remark: string
+  partner?: Partner | null
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 产品货源：某产品在某供应商处的采购来源与货号、价格、交期。
  *
  * 一个产品可挂多个货源，产品上的 supplier_id 只是默认货源。
