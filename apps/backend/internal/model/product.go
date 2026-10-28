@@ -15,11 +15,29 @@ type Product struct {
 	// SupplierID 指向 md_partner 里承担供应商角色的主体。
 	// 字段名与 JSON tag 保留 supplier 语义：产品关心的是"从谁进的货"，
 	// 而不是"这个主体还兼着什么角色"。角色约束由 service 在写入时校验。
-	SupplierID *uint        `gorm:"index" json:"supplier_id"`
-	CostPrice  float64      `gorm:"type:decimal(12,2);not null;default:0" json:"cost_price"`
-	SalePrice  float64      `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
-	Status     EnableStatus `gorm:"not null;default:1;index" json:"status"`
-	Remark     string       `gorm:"size:255" json:"remark"`
+	SupplierID *uint   `gorm:"index" json:"supplier_id"`
+	CostPrice  float64 `gorm:"type:decimal(12,2);not null;default:0" json:"cost_price"`
+	SalePrice  float64 `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
+
+	// 以下六项是报关要素的**默认值**，全部可选。
+	//
+	// HS 编码随目的国与用途变：同一个产品出口到欧盟和美国可能归不同税号，
+	// 同一批货里用途不同还要分票申报。所以真实报关以出货批次上填的为准，
+	// 产品上这组字段只负责"带出来"——没有它，每票货都要重新查一遍编码，
+	// 有它之后只在例外时才改。
+	HSCode         string `gorm:"size:16" json:"hs_code"`
+	DeclaredNameCN string `gorm:"size:128" json:"declared_name_cn"`
+	DeclaredNameEN string `gorm:"size:128" json:"declared_name_en"`
+	// Material 记材质与用途。两者合成一个字段而不是两个：报关时它们总是
+	// 一起写在同一栏（"不锈钢，厨房用"），拆开反而每次都要判断该填哪个。
+	Material      string `gorm:"size:255" json:"material"`
+	OriginCountry string `gorm:"size:64" json:"origin_country"`
+	// LegalUnit 是法定第一计量单位（千克、台、米），与业务用的 Unit 不同：
+	// 报价按「箱」、报关按「千克」是常态，所以不能复用 Unit。
+	LegalUnit string `gorm:"size:16" json:"legal_unit"`
+
+	Status EnableStatus `gorm:"not null;default:1;index" json:"status"`
+	Remark string       `gorm:"size:255" json:"remark"`
 
 	Supplier *Partner `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 }

@@ -239,6 +239,13 @@ export interface Product {
   supplier_id: number | null
   cost_price: number
   sale_price: number
+  /** 报关要素的默认值。真实报关以出货批次上填的为准，这里是带出来的缺省。 */
+  hs_code: string
+  declared_name_cn: string
+  declared_name_en: string
+  material: string
+  origin_country: string
+  legal_unit: string
   status: number
   remark: string
   supplier?: Partner | null

@@ -52,6 +52,25 @@ export function ProductShow() {
             label: '售价',
             children: <Money value={result?.sale_price} />,
           },
+          { key: 'hs_code', label: 'HS 编码', children: result?.hs_code || <Empty /> },
+          { key: 'legal_unit', label: '法定单位', children: result?.legal_unit || <Empty /> },
+          {
+            key: 'declared_name_cn',
+            label: '申报品名（中文）',
+            children: result?.declared_name_cn || <Empty />,
+          },
+          {
+            key: 'declared_name_en',
+            label: '申报品名（英文）',
+            children: result?.declared_name_en || <Empty />,
+          },
+          { key: 'origin_country', label: '原产地', children: result?.origin_country || <Empty /> },
+          {
+            key: 'material',
+            label: '材质与用途',
+            span: 2,
+            children: result?.material || <Empty />,
+          },
           {
             key: 'remark',
             label: '备注',

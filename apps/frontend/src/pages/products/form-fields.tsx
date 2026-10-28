@@ -1,5 +1,5 @@
 import { useSelect } from '@refinedev/core'
-import { Form, Input, InputNumber, Select } from 'antd'
+import { Divider, Form, Input, InputNumber, Select } from 'antd'
 
 import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 
@@ -89,6 +89,53 @@ export function ProductFormFields() {
 
       <Form.Item name="sale_price" label="售价" rules={[{ type: 'number', min: 0, message: '不能为负' }]}>
         <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" />
+      </Form.Item>
+
+      {/* 报关要素全是选填：它们只是默认值，真正申报以出货批次上填的为准。
+          做成必填会逼人在打样阶段就编一个 HS 编码，那比留空更糟。 */}
+      <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
+        报关要素（选填）
+      </Divider>
+
+      <Form.Item
+        name="hs_code"
+        label="HS 编码"
+        rules={[{ max: 16, message: '最多 16 个字符' }]}
+        extra="默认值；同一产品出口不同国家可能归不同税号"
+      >
+        <Input placeholder="7326909000" />
+      </Form.Item>
+
+      <Form.Item name="legal_unit" label="法定单位" rules={[{ max: 16, message: '最多 16 个字符' }]}>
+        <Input placeholder="千克" />
+      </Form.Item>
+
+      <Form.Item
+        name="declared_name_cn"
+        label="申报品名（中文）"
+        rules={[{ max: 128, message: '最多 128 个字符' }]}
+      >
+        <Input placeholder="不锈钢合页" />
+      </Form.Item>
+
+      <Form.Item
+        name="declared_name_en"
+        label="申报品名（英文）"
+        rules={[{ max: 128, message: '最多 128 个字符' }]}
+      >
+        <Input placeholder="Stainless Steel Hinge" />
+      </Form.Item>
+
+      <Form.Item name="origin_country" label="原产地" rules={[{ max: 64, message: '最多 64 个字符' }]}>
+        <Input placeholder="中国" />
+      </Form.Item>
+
+      <Form.Item
+        name="material"
+        label="材质与用途"
+        rules={[{ max: 255, message: '最多 255 个字符' }]}
+      >
+        <Input placeholder="不锈钢，建筑用" />
       </Form.Item>
 
       <Form.Item name="remark" label="备注" className="form-item-full">

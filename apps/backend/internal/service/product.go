@@ -77,8 +77,16 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 		SupplierID: in.SupplierID,
 		CostPrice:  in.CostPrice,
 		SalePrice:  in.SalePrice,
-		Status:     status,
-		Remark:     in.Remark,
+
+		HSCode:         in.HSCode,
+		DeclaredNameCN: in.DeclaredNameCN,
+		DeclaredNameEN: in.DeclaredNameEN,
+		Material:       in.Material,
+		OriginCountry:  in.OriginCountry,
+		LegalUnit:      in.LegalUnit,
+
+		Status: status,
+		Remark: in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -118,8 +126,16 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		"supplier_id": in.SupplierID,
 		"cost_price":  in.CostPrice,
 		"sale_price":  in.SalePrice,
-		"status":      status,
-		"remark":      in.Remark,
+
+		"hs_code":          in.HSCode,
+		"declared_name_cn": in.DeclaredNameCN,
+		"declared_name_en": in.DeclaredNameEN,
+		"material":         in.Material,
+		"origin_country":   in.OriginCountry,
+		"legal_unit":       in.LegalUnit,
+
+		"status": status,
+		"remark": in.Remark,
 	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
