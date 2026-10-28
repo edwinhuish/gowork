@@ -163,6 +163,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		quotations.DELETE("/:id", h.Quotation.Delete)
 		quotations.PUT("/:id/status", h.Quotation.UpdateStatus)
 		quotations.POST("/:id/versions", h.Quotation.NewVersion)
+		// 报价转订单：一次点击生成订单草稿，之后这张报价单不能再转。
+		quotations.POST("/:id/convert", h.Quotation.Convert)
 
 		// 试算独立前缀：与 /:id 同级会抢路径（同 opportunities-summary 的处理）。
 		secured.POST("/quotations-preview", h.Quotation.Preview)

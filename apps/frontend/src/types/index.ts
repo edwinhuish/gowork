@@ -334,6 +334,9 @@ export interface Quotation {
   /** 毛利率，0.235 表示 23.5%。 */
   margin_rate: number
   remark: string
+  /** 转订单后回填：一张报价单最多转成一张订单。 */
+  sales_order_id?: number | null
+  sales_order_doc_no?: string
   partner?: Partner | null
   items?: QuotationItem[]
   created_at: string

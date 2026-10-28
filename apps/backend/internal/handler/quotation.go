@@ -128,6 +128,27 @@ func (h *QuotationHandler) NewVersion(c *gin.Context) {
 	response.Created(c, m)
 }
 
+// Convert POST /api/v1/quotations/:id/convert
+//
+// 单独一个接口而不是"带参数的创建订单"：转换的语义是"把这张报价单兑现"，
+// 它必须能自己判断能不能转、并且只允许转一次。
+func (h *QuotationHandler) Convert(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.QuotationConvertInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	res, err := h.quotations.Convert(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Created(c, res)
+}
+
 // Preview POST /api/v1/quotations-preview
 //
 // 独立前缀与 opportunities-summary 同理：避免新增静态段与 /:id 抢路径。

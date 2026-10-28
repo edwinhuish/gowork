@@ -135,12 +135,13 @@ func New(cfg *config.Config) (*App, error) {
 	// 单号服务在这里落地：T-10 是第一张真正需要 DocNo 的单据。
 	docNoSvc := service.NewDocNoService(
 		repository.NewDocSeqRepository(db), service.WithDocNoLogger(log))
-	quotationSvc := service.NewQuotationService(
-		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc,
-		service.WithQuotationLogger(log))
 	orderSvc := service.NewSalesOrderService(
 		orderRepo, partnerRepo, productRepo, currencySvc, docNoSvc,
 		service.WithSalesOrderLogger(log))
+	// 报价单要在转换时建订单，所以它依赖销售订单服务；顺序不能反。
+	quotationSvc := service.NewQuotationService(
+		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc, orderSvc,
+		service.WithQuotationLogger(log))
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))

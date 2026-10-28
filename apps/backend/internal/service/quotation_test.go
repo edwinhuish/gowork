@@ -14,6 +14,7 @@ import (
 
 type quotationFixture struct {
 	svc         QuotationService
+	orders      SalesOrderService
 	now         *time.Time
 	customerID  uint
 	supplierID  uint
@@ -29,7 +30,8 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
-		&model.ProductSource{}, &model.Quotation{}, &model.QuotationItem{}, &model.DocSeq{})
+		&model.ProductSource{}, &model.Quotation{}, &model.QuotationItem{},
+		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -101,13 +103,19 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		t.Fatalf("建货源失败: %v", err)
 	}
 
+	docNoSvc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock))
+	orderSvc := NewSalesOrderService(
+		repository.NewSalesOrderRepository(db), partnerRepo, productRepo, currencySvc, docNoSvc,
+		WithSalesOrderClock(clock),
+	)
+
 	return quotationFixture{
 		svc: NewQuotationService(
 			repository.NewQuotationRepository(db), partnerRepo, productRepo, sourceRepo,
-			currencySvc,
-			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
+			currencySvc, docNoSvc, orderSvc,
 			WithQuotationClock(clock),
 		),
+		orders:      orderSvc,
 		now:         now,
 		customerID:  customer.ID,
 		supplierID:  supplier.ID,
@@ -345,6 +353,136 @@ func TestQuotationRules(t *testing.T) {
 			Status: int8(model.DocumentStatusConfirmed),
 		}); err == nil {
 			t.Fatal("已取消的报价单不该再被确认")
+		}
+	})
+}
+
+func TestQuotationConvert(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newQuotationFixture(t, &now)
+
+	input := dto.QuotationInput{
+		PartnerID:    fx.customerID,
+		TradeTerm:    "CIF",
+		CurrencyCode: "usd",
+		ValidUntil:   "2026-11-30",
+		Items: []dto.QuotationItemInput{
+			{ProductID: fx.productID, Qty: 100, UnitPrice: 10},
+		},
+	}
+
+	t.Run("草稿不能转订单", func(t *testing.T) {
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		_, err = fx.svc.Convert(ctx, q.ID, dto.QuotationConvertInput{})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901（还是草稿），实际 %v", err)
+		}
+	})
+
+	t.Run("确认后转单生成同价订单并回填", func(t *testing.T) {
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		}); err != nil {
+			t.Fatalf("确认失败: %v", err)
+		}
+
+		got, err := fx.svc.Convert(ctx, q.ID, dto.QuotationConvertInput{
+			OrderDate: "2026-10-28", DeliveryDate: "2026-12-20",
+		})
+		if err != nil {
+			t.Fatalf("转订单失败: %v", err)
+		}
+		if got.SalesOrderID == nil || got.SalesOrderDocNo == "" {
+			t.Fatalf("报价单未回填订单引用: %+v", got)
+		}
+		if got.ConvertBlock == "" {
+			t.Error("已转单的报价单应当说明不能再转")
+		}
+
+		order, err := fx.orders.Get(ctx, *got.SalesOrderID)
+		if err != nil {
+			t.Fatalf("查订单失败: %v", err)
+		}
+		if order.DocNo != got.SalesOrderDocNo {
+			t.Errorf("订单单号 = %q，与回填的 %q 不一致", order.DocNo, got.SalesOrderDocNo)
+		}
+		if order.Status != model.DocumentStatusDraft {
+			t.Errorf("转出来的订单状态 = %d，期望草稿", order.Status)
+		}
+		if order.PartnerID != q.PartnerID || order.TradeTerm != q.TradeTerm {
+			t.Errorf("客户/贸易术语未沿用报价单: %d/%s", order.PartnerID, order.TradeTerm)
+		}
+		// 汇率取自报价单，金额由明细重新汇总，两边必须一致。
+		if !approx(order.ExchangeRate, q.ExchangeRate) {
+			t.Errorf("订单汇率 = %v，期望沿用报价单的 %v", order.ExchangeRate, q.ExchangeRate)
+		}
+		if !approx(order.AmountBaseTotal, q.AmountBaseTotal) {
+			t.Errorf("订单本币总额 = %v，期望与报价单一致 %v",
+				order.AmountBaseTotal, q.AmountBaseTotal)
+		}
+		if len(order.Items) != 1 || !approx(order.Items[0].UnitPrice, 10) ||
+			!approx(order.Items[0].Qty, 100) {
+			t.Errorf("订单明细未沿用报价单: %+v", order.Items)
+		}
+
+		// 重复转换
+		if _, err := fx.svc.Convert(ctx, q.ID, dto.QuotationConvertInput{}); err == nil {
+			t.Fatal("同一张报价单不该允许转两次")
+		} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901，实际 %v", err)
+		}
+
+		// 已转单后不能再作废，也不能再改
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusCancelled),
+		}); err == nil {
+			t.Fatal("已转单的报价单不该允许作废")
+		}
+		if _, err := fx.svc.Update(ctx, q.ID, input); err == nil {
+			t.Fatal("已转单的报价单不该允许修改")
+		}
+	})
+
+	t.Run("过期报价单不能转单", func(t *testing.T) {
+		start := now
+		defer func() { now = start }()
+
+		short := input
+		short.ValidUntil = "2026-10-28"
+		q, err := fx.svc.Create(ctx, short)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		now = start.AddDate(0, 0, 3)
+		_, err = fx.svc.Convert(ctx, q.ID, dto.QuotationConvertInput{})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901（已过期），实际 %v", err)
+		}
+	})
+
+	t.Run("交期早于下单日被拒", func(t *testing.T) {
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		}); err != nil {
+			t.Fatalf("确认失败: %v", err)
+		}
+		_, err = fx.svc.Convert(ctx, q.ID, dto.QuotationConvertInput{
+			OrderDate: "2026-11-10", DeliveryDate: "2026-11-01",
+		})
+		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
+			t.Fatalf("期望 40001，实际 %v", err)
 		}
 	})
 }

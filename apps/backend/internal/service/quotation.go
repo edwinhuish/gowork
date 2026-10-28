@@ -29,6 +29,11 @@ type QuotationService interface {
 	UpdateStatus(ctx context.Context, id uint, in dto.QuotationStatusInput) (*dto.QuotationDetail, error)
 	NewVersion(ctx context.Context, id uint, in dto.QuotationVersionInput) (*dto.QuotationDetail, error)
 	Preview(ctx context.Context, in dto.QuotationPreviewInput) (*dto.QuotationPreview, error)
+	// Convert 把已确认且未过期的报价单转成销售订单草稿，并回填订单引用。
+	// 一张报价单只能转一次（并发下靠条件更新保证）。
+	Convert(
+		ctx context.Context, id uint, in dto.QuotationConvertInput,
+	) (*dto.QuotationDetail, error)
 }
 
 type quotationService struct {
@@ -38,8 +43,11 @@ type quotationService struct {
 	sources    repository.ProductSourceRepository
 	currencies CurrencyService
 	docNos     DocNoService
-	clock      func() time.Time
-	log        *slog.Logger
+	// orders 只用于转订单（T-13）：建单逻辑留在销售订单服务里，
+	// 报价这边只负责判定能不能转、转完之后回填引用。
+	orders SalesOrderService
+	clock  func() time.Time
+	log    *slog.Logger
 }
 
 type QuotationOption func(*quotationService)
@@ -60,6 +68,7 @@ func NewQuotationService(
 	sources repository.ProductSourceRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
+	orders SalesOrderService,
 	opts ...QuotationOption,
 ) QuotationService {
 	s := &quotationService{
@@ -69,6 +78,7 @@ func NewQuotationService(
 		sources:    sources,
 		currencies: currencies,
 		docNos:     docNos,
+		orders:     orders,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -235,6 +245,12 @@ func (s *quotationService) UpdateStatus(
 		return nil, errs.ErrConflict.WithMsg(
 			"报价单已过有效期，请另存新版本并更新有效期后再确认")
 	}
+	// 已转成订单的报价单不能作废：订单已经在跑，报价单再变成"已取消"，
+	// 事后就没法解释这张订单是凭什么来的。要停就停订单。
+	if next == model.DocumentStatusCancelled && existing.SalesOrderID != nil {
+		return nil, errs.ErrConflict.WithMsg(
+			"报价单已转为订单 " + existing.SalesOrderDocNo + "，请改为取消该订单")
+	}
 	if err := s.quotations.Update(ctx, id, map[string]any{"status": next}); err != nil {
 		return nil, err
 	}
@@ -317,6 +333,88 @@ func (s *quotationService) NewVersion(
 	s.log.Info("报价单另存新版本", "from_id", existing.ID, "id", next.ID,
 		"doc_no", next.DocNo, "version", next.Version)
 	return s.Get(ctx, next.ID)
+}
+
+// Convert 把报价单转成销售订单草稿。
+//
+// 生成的订单是**草稿**而不是已确认：转单是内部动作，客户确认的是报价，
+// 订单要不要确认、什么时候确认由业务决定；自动确认会让"已确认订单"这个状态失去意义。
+//
+// 幂等靠两点：转换前的 `SalesOrderID == nil` 检查挡住顺序重复点击；
+// 回填走条件更新（WHERE sales_order_id IS NULL）挡住并发双击——
+// 后者抢不到时，把刚建的那张订单删掉再报 409，避免留下一张没人认领的草稿单。
+func (s *quotationService) Convert(
+	ctx context.Context, id uint, in dto.QuotationConvertInput,
+) (*dto.QuotationDetail, error) {
+	q, err := s.quotations.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if q.SalesOrderID != nil {
+		return nil, errs.ErrConflict.WithMsg("该报价单已转为订单 " + q.SalesOrderDocNo)
+	}
+	if block := q.ConvertBlocker(s.clock()); block != "" {
+		return nil, errs.ErrConflict.WithMsg(block)
+	}
+
+	orderDate := model.DateOnly(s.clock())
+	if strings.TrimSpace(in.OrderDate) != "" {
+		orderDate, err = parseDateOnly(in.OrderDate)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var deliveryDate *time.Time
+	if strings.TrimSpace(in.DeliveryDate) != "" {
+		d, err := parseDateOnly(in.DeliveryDate)
+		if err != nil {
+			return nil, err
+		}
+		if d.Before(orderDate) {
+			return nil, errs.BadRequest("交期不能早于下单日")
+		}
+		deliveryDate = &d
+	}
+
+	lines := make([]QuotationOrderLine, 0, len(q.Items))
+	for _, it := range q.Items {
+		lines = append(lines, QuotationOrderLine{
+			ProductID: it.ProductID,
+			Qty:       it.Qty,
+			UnitPrice: it.UnitPrice,
+			Remark:    it.Remark,
+		})
+	}
+
+	order, err := s.orders.CreateFromQuotation(ctx, QuotationOrderInput{
+		PartnerID:    q.PartnerID,
+		TradeTerm:    q.TradeTerm,
+		CurrencyCode: q.CurrencyCode,
+		ExchangeRate: q.ExchangeRate,
+		OrderDate:    orderDate,
+		DeliveryDate: deliveryDate,
+		Remark:       fmt.Sprintf("由报价单 %s v%d 转入", q.DocNo, q.Version),
+		Items:        lines,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claimed, err := s.quotations.MarkConverted(ctx, q.ID, order.ID, order.DocNo)
+	if err != nil || !claimed {
+		// 并发里输的那一方：刚建的订单没人认领，删掉再报冲突。
+		if delErr := s.orders.Delete(ctx, order.ID); delErr != nil {
+			s.log.Error("撤销并发转单产生的订单失败", "order_id", order.ID, "err", delErr)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, errs.ErrConflict.WithMsg("该报价单已被转为订单，请刷新后查看")
+	}
+
+	s.log.Info("报价单转订单", "quotation_id", q.ID, "doc_no", q.DocNo,
+		"order_id", order.ID, "order_doc_no", order.DocNo)
+	return s.Get(ctx, q.ID)
 }
 
 // Preview 算一遍但不落库：报价前先看毛利，别等发出去才发现亏了。

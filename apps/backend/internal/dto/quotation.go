@@ -49,6 +49,18 @@ type QuotationVersionInput struct {
 	ValidUntil string `json:"valid_until"`
 }
 
+// QuotationConvertInput 是转订单时的可选覆盖项。
+//
+// 客户、币种、汇率、单价、数量一律取报价单上的值，不接受覆盖：
+// 转订单是"把已经谈好的那张纸变成要出货的单据"，任何一项可以改，
+// 就变成"转单时顺手改了价"而没人发现。
+type QuotationConvertInput struct {
+	// OrderDate 下单日，留空取今天。
+	OrderDate string `json:"order_date"`
+	// DeliveryDate 约定交期，可留空。
+	DeliveryDate string `json:"delivery_date"`
+}
+
 // QuotationPreviewInput 是"算一遍但不保存"的入参：报价时先看毛利再决定报不报。
 type QuotationPreviewInput struct {
 	CurrencyCode string               `json:"currency_code" binding:"max=8"`

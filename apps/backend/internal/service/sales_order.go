@@ -27,6 +27,31 @@ type SalesOrderService interface {
 	Get(ctx context.Context, id uint) (*model.SalesOrder, error)
 	List(ctx context.Context, q dto.SalesOrderQuery) (*dto.PageResult[model.SalesOrder], error)
 	UpdateStatus(ctx context.Context, id uint, in dto.SalesOrderStatusInput) (*model.SalesOrder, error)
+	// CreateFromQuotation 按报价单锁定的币种、汇率与明细生成订单草稿（T-13）。
+	//
+	// 它不重取当日汇率：报价单上的价与汇率是一个整体，拆开重算等于在转单的一瞬间改价。
+	// 这个方法只给转换流程用，不进 HTTP 入参，所以客户端无法指定汇率。
+	CreateFromQuotation(ctx context.Context, in QuotationOrderInput) (*model.SalesOrder, error)
+}
+
+// QuotationOrderInput 是"按报价单生成订单"的入参：字段全部来自已确认的报价单。
+type QuotationOrderInput struct {
+	PartnerID    uint
+	TradeTerm    model.TradeTerm
+	CurrencyCode string
+	ExchangeRate float64
+	OrderDate    time.Time
+	DeliveryDate *time.Time
+	Remark       string
+	Items        []QuotationOrderLine
+}
+
+// QuotationOrderLine 是转换过来的一行：产品、数量、单价都是报价单上的原值。
+type QuotationOrderLine struct {
+	ProductID uint
+	Qty       float64
+	UnitPrice float64
+	Remark    string
 }
 
 type salesOrderService struct {
@@ -213,6 +238,76 @@ func (s *salesOrderService) UpdateStatus(
 	}
 	s.log.Info("销售订单状态变更", "id", id, "from", existing.Status, "to", next)
 	return s.orders.FindByID(ctx, id)
+}
+
+func (s *salesOrderService) CreateFromQuotation(
+	ctx context.Context, in QuotationOrderInput,
+) (*model.SalesOrder, error) {
+	if in.ExchangeRate <= 0 {
+		return nil, errs.BadRequest("报价单缺少有效汇率，无法转订单")
+	}
+	baseCode, err := s.currencies.BaseCode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	curDP, err := s.currencies.Decimals(ctx, in.CurrencyCode)
+	if err != nil {
+		return nil, err
+	}
+	baseDP, err := s.currencies.Decimals(ctx, baseCode)
+	if err != nil {
+		return nil, err
+	}
+
+	terms := salesOrderTerms{
+		TradeTerm:        in.TradeTerm,
+		CurrencyCode:     in.CurrencyCode,
+		ExchangeRate:     in.ExchangeRate,
+		CurrencyDecimals: curDP,
+		BaseDecimals:     baseDP,
+		OrderDate:        in.OrderDate,
+		DeliveryDate:     in.DeliveryDate,
+		Remark:           in.Remark,
+	}
+	rows := make([]dto.SalesOrderItemInput, 0, len(in.Items))
+	for _, l := range in.Items {
+		rows = append(rows, dto.SalesOrderItemInput{
+			ProductID: l.ProductID,
+			Qty:       l.Qty,
+			UnitPrice: l.UnitPrice,
+			Remark:    l.Remark,
+		})
+	}
+	// 金额仍走 buildItems：转单的金额与手建单的金额必须是同一套算法，
+	// 否则同一批货按两条路径进来会得到两个本币总额。
+	items, totals, err := s.buildItems(ctx, rows, terms)
+	if err != nil {
+		return nil, err
+	}
+
+	docNo, err := s.docNos.Next(ctx, model.DocTypeSalesOrder)
+	if err != nil {
+		return nil, err
+	}
+	o := &model.SalesOrder{
+		DocNo:           docNo,
+		PartnerID:       in.PartnerID,
+		TradeTerm:       in.TradeTerm,
+		Status:          model.DocumentStatusDraft,
+		OrderDate:       in.OrderDate,
+		DeliveryDate:    in.DeliveryDate,
+		CurrencyCode:    in.CurrencyCode,
+		ExchangeRate:    in.ExchangeRate,
+		AmountTotal:     totals.Amount,
+		AmountBaseTotal: totals.AmountBase,
+		Remark:          in.Remark,
+	}
+	if err := s.orders.CreateWithItems(ctx, o, items); err != nil {
+		return nil, err
+	}
+	s.log.Info("由报价单生成销售订单", "id", o.ID, "doc_no", o.DocNo,
+		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal)
+	return s.orders.FindByID(ctx, o.ID)
 }
 
 // salesOrderTerms 是校验并归一化之后的表头字段。

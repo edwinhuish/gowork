@@ -108,7 +108,10 @@ export function QuotationList() {
           render={(value: string, record: Quotation) => (
             <div className="cell-stack">
               <Mono>{value}</Mono>
-              <span className="cell-sub">v{record.version}</span>
+              <span className="cell-sub">
+                v{record.version}
+                {record.sales_order_id ? ' · 已转单' : ''}
+              </span>
             </div>
           )}
         />

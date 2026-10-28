@@ -56,6 +56,11 @@ type QuotationRepository interface {
 	List(ctx context.Context, f QuotationFilter, p Pagination) ([]model.Quotation, int64, error)
 	// MaxVersionByDocNo 取同一份报价已有的最大版本号，供"另存新版本"。
 	MaxVersionByDocNo(ctx context.Context, docNo string) (int, error)
+	// MarkConverted 抢占式回填"已转成哪张订单"，返回是否抢到。
+	//
+	// 条件更新（WHERE sales_order_id IS NULL）是幂等的唯一闸门：
+	// 先查后写挡不住并发双击，两个人同时点"转订单"会得到两张订单。
+	MarkConverted(ctx context.Context, quotationID, orderID uint, orderDocNo string) (bool, error)
 }
 
 type quotationRepo struct {
@@ -153,6 +158,21 @@ func (r *quotationRepo) List(
 		return db.Preload("Partner")
 	})
 	return r.PaginateOrdered(ctx, p, "id DESC", scopes...)
+}
+
+func (r *quotationRepo) MarkConverted(
+	ctx context.Context, quotationID, orderID uint, orderDocNo string,
+) (bool, error) {
+	res := r.DB().WithContext(ctx).Model(&model.Quotation{}).
+		Where("id = ? AND sales_order_id IS NULL", quotationID).
+		Updates(map[string]any{
+			"sales_order_id":     orderID,
+			"sales_order_doc_no": orderDocNo,
+		})
+	if res.Error != nil {
+		return false, fmt.Errorf("回填报价单转单引用 id=%d: %w", quotationID, res.Error)
+	}
+	return res.RowsAffected > 0, nil
 }
 
 func (r *quotationRepo) MaxVersionByDocNo(ctx context.Context, docNo string) (int, error) {

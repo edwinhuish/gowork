@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useInvalidate, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import {
@@ -38,11 +39,15 @@ function statusColor(value: number): string {
 export function QuotationShow() {
   const { result, query } = useShow<QuotationDetail>({ resource: 'quotations' })
   const invalidate = useInvalidate()
+  const navigate = useNavigate()
   const [acting, setActing] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)
   const [newValidUntil, setNewValidUntil] = useState('')
+  const [convertOpen, setConvertOpen] = useState(false)
+  const [convertDelivery, setConvertDelivery] = useState('')
 
   const q = result
+  const converted = Boolean(q?.sales_order_id)
   const refresh = () => invalidate({ resource: 'quotations', invalidates: ['detail', 'list'] })
 
   const changeStatus = async (status: number, okText: string) => {
@@ -74,6 +79,27 @@ export function QuotationShow() {
     }
   }
 
+  const convert = async () => {
+    if (!q) return
+    setActing(true)
+    try {
+      const res = await quotationApi.convert(q.id, {
+        delivery_date: convertDelivery || undefined,
+      })
+      setConvertOpen(false)
+      message.success('已生成销售订单草稿')
+      await refresh()
+      // 转换完最想看到的是那张订单，直接带过去，省一次"订单在哪"的来回。
+      if (res.sales_order_id) {
+        navigate(`/sales-orders/show/${res.sales_order_id}`)
+      }
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '转订单失败')
+    } finally {
+      setActing(false)
+    }
+  }
+
   return (
     <Show
       isLoading={query.isLoading}
@@ -90,7 +116,23 @@ export function QuotationShow() {
               确认报价
             </Button>
           )}
-          {(q?.status === 10 || q?.status === 20) && (
+          {q?.status === 20 && !converted && !q?.expired && (
+            <Button
+              type="primary"
+              onClick={() => {
+                setConvertDelivery('')
+                setConvertOpen(true)
+              }}
+            >
+              转订单
+            </Button>
+          )}
+          {converted && (
+            <Button onClick={() => navigate(`/sales-orders/show/${q?.sales_order_id}`)}>
+              查看订单
+            </Button>
+          )}
+          {(q?.status === 10 || q?.status === 20) && !converted && (
             <Popconfirm
               title="作废这张报价单？"
               description="作废是终态，不能再确认；需要重新报价请另存新版本"
@@ -112,14 +154,27 @@ export function QuotationShow() {
         </Space>
       }
     >
-      {q?.convert_block && (
+      {converted ? (
+        <Alert
+          type="success"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            <>
+              已转为销售订单 <Mono>{q?.sales_order_doc_no}</Mono>
+              {' · '}
+              报价单已锁定，不可再改、不可再转
+            </>
+          }
+        />
+      ) : q?.convert_block ? (
         <Alert
           type={q.expired ? 'error' : 'warning'}
           showIcon
           style={{ marginBottom: 16 }}
           message={`不可转订单：${q.convert_block}`}
         />
-      )}
+      ) : null}
 
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
@@ -312,6 +367,28 @@ export function QuotationShow() {
           value={newValidUntil}
           onChange={(e) => setNewValidUntil(e.target.value)}
           addonBefore="有效期"
+        />
+      </Modal>
+
+      <Modal
+        open={convertOpen}
+        title="转为销售订单"
+        okText="生成订单草稿"
+        cancelText="取消"
+        confirmLoading={acting}
+        onOk={convert}
+        onCancel={() => setConvertOpen(false)}
+      >
+        <p>
+          将按报价单带出客户、贸易术语、币种、汇率与明细（含单价与数量），
+          下单日取今天，生成的订单是<strong>草稿</strong>，需要再确认。
+        </p>
+        <p>转换后这张报价单锁定：不可再改、不可再转、不可作废。</p>
+        <Input
+          placeholder="约定交期，如 2026-12-20"
+          value={convertDelivery}
+          onChange={(e) => setConvertDelivery(e.target.value)}
+          addonBefore="交期"
         />
       </Modal>
     </Show>

@@ -148,6 +148,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/quotations/:id` | `Quotation.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余返回 409 |
 | PUT | `/api/v1/quotations/:id/status` | `Quotation.UpdateStatus` | 只放行已确认 / 已取消，其余状态 400 |
 | POST | `/api/v1/quotations/:id/versions` | `Quotation.NewVersion` | 同单号、版本 +1、回到草稿；过期时须给新有效期 |
+| POST | `/api/v1/quotations/:id/convert` | `Quotation.Convert` | 生成销售订单草稿并回填 `sales_order_id`；重复转换 409，条件更新保证幂等 |
 | POST | `/api/v1/quotations-preview` | `Quotation.Preview` | 试算金额/成本/毛利，不落库；独立前缀避免与 `/:id` 抢路径 |
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |

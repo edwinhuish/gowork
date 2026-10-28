@@ -31,6 +31,15 @@ type Quotation struct {
 	// 而原料已经涨过，那不是折扣而是亏损。
 	ValidUntil time.Time `gorm:"type:date;index;not null" json:"valid_until"`
 
+	// SalesOrderID / SalesOrderDocNo 是转订单后回填的引用（一张报价最多转成一张订单）。
+	//
+	// 只存 id 与单号快照、不做双向约束：订单是独立单据，报价单只是它的来源说明；
+	// 用外键把两者绑死会让"删订单"变成"要连报价一起动"。
+	// 这一列同时是幂等闸门：回填走条件更新（WHERE sales_order_id IS NULL），
+	// 两个人同时点"转订单"时只会有一个成功。
+	SalesOrderID    *uint  `gorm:"index" json:"sales_order_id"`
+	SalesOrderDocNo string `gorm:"size:32" json:"sales_order_doc_no"`
+
 	// 以下合计是写入时一次算好的锁定快照，不随货源或汇率变动重算。
 	// 这与"派生数据不加列"不冲突：单据上的合计是事实的一部分（客户看到的数字），
 	// 派生数据指的是可以由明细随时聚合、且必须实时一致的中间结果。
@@ -69,6 +78,8 @@ func (q Quotation) ConvertBlocker(now time.Time) string {
 	switch {
 	case q.Status == DocumentStatusCancelled:
 		return "报价单已取消"
+	case q.SalesOrderID != nil:
+		return "报价单已转为订单 " + q.SalesOrderDocNo
 	case q.IsExpired(now):
 		return "报价单已过有效期（截止 " + q.ValidUntil.Format("2006-01-02") + "），请另存新版本"
 	case q.Status == DocumentStatusDraft:

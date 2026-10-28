@@ -52,4 +52,13 @@ export const quotationApi = {
   /** 试算：不落库，只算金额、成本与毛利。 */
   preview: (body: { currency_code?: string; items: QuotationItemInput[] }) =>
     http.post<QuotationPreview>('/quotations-preview', body),
+
+  /**
+   * 转订单：生成销售订单草稿并回填订单引用。
+   *
+   * 客户、币种、汇率、单价、数量一律取报价单上的值，这里只能给日期——
+   * 任何一项可覆盖，"转单时顺手改价"就没人发现得了。
+   */
+  convert: (id: number, body: { order_date?: string; delivery_date?: string }) =>
+    http.post<QuotationDetail>(`/quotations/${id}/convert`, body),
 }
