@@ -1,13 +1,13 @@
 import type { ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
-import { Layout } from './components/Layout'
-import { Customers } from './pages/Customers'
-import { Dashboard } from './pages/Dashboard'
-import { Login } from './pages/Login'
-import { Products } from './pages/Products'
-import { Suppliers } from './pages/Suppliers'
-import { AuthProvider, useAuth } from './store/auth'
+import { Layout } from '@/components/Layout'
+import { Customers } from '@/pages/Customers'
+import { Dashboard } from '@/pages/Dashboard'
+import { Login } from '@/pages/Login'
+import { Products } from '@/pages/Products'
+import { Suppliers } from '@/pages/Suppliers'
+import { AuthProvider, useAuth } from '@/store/auth'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth()

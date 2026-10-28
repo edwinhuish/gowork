@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import { useAuth } from '../store/auth'
+import { useAuth } from '@/store/auth'
 
 const navItems = [
   { to: '/', label: '概览', end: true },

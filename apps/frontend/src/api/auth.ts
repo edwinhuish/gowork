@@ -1,5 +1,5 @@
 import { http } from './client'
-import type { LoginResponse, UserInfo } from '../types'
+import type { LoginResponse, UserInfo } from '@/types'
 
 export const authApi = {
   login: (username: string, password: string) =>

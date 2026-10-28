@@ -1,13 +1,13 @@
 import { useState } from 'react'
 
-import { supplierApi } from '../api/supplier'
-import type { SupplierInput } from '../api/supplier'
-import { Field } from '../components/Field'
-import { Modal } from '../components/Modal'
-import { Pagination } from '../components/Pagination'
-import { StatusBadge } from '../components/StatusBadge'
-import { PAGE_SIZE, usePagedResource } from '../hooks/usePagedResource'
-import type { Supplier } from '../types'
+import { supplierApi } from '@/api/supplier'
+import type { SupplierInput } from '@/api/supplier'
+import { Field } from '@/components/Field'
+import { Modal } from '@/components/Modal'
+import { Pagination } from '@/components/Pagination'
+import { StatusBadge } from '@/components/StatusBadge'
+import { PAGE_SIZE, usePagedResource } from '@/hooks/usePagedResource'
+import type { Supplier } from '@/types'
 
 const emptyForm: SupplierInput = {
   code: '',

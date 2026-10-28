@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { Customer, PageResult } from '../types'
+import type { Customer, PageResult } from '@/types'
 
 export interface CustomerQuery {
   page?: number

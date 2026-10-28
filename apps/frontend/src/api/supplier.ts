@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { PageResult, Supplier } from '../types'
+import type { PageResult, Supplier } from '@/types'
 
 export interface SupplierQuery {
   page?: number

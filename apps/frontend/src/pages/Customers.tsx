@@ -1,13 +1,13 @@
 import { useState } from 'react'
 
-import { customerApi } from '../api/customer'
-import type { CustomerInput } from '../api/customer'
-import { Field } from '../components/Field'
-import { Modal } from '../components/Modal'
-import { Pagination } from '../components/Pagination'
-import { StatusBadge } from '../components/StatusBadge'
-import { PAGE_SIZE, usePagedResource } from '../hooks/usePagedResource'
-import type { Customer } from '../types'
+import { customerApi } from '@/api/customer'
+import type { CustomerInput } from '@/api/customer'
+import { Field } from '@/components/Field'
+import { Modal } from '@/components/Modal'
+import { Pagination } from '@/components/Pagination'
+import { StatusBadge } from '@/components/StatusBadge'
+import { PAGE_SIZE, usePagedResource } from '@/hooks/usePagedResource'
+import type { Customer } from '@/types'
 
 const emptyForm: CustomerInput = {
   code: '',

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 
-import { productApi } from '../api/product'
-import type { ProductInput } from '../api/product'
-import { supplierApi } from '../api/supplier'
-import { Field } from '../components/Field'
-import { Modal } from '../components/Modal'
-import { Pagination } from '../components/Pagination'
-import { StatusBadge } from '../components/StatusBadge'
-import { PAGE_SIZE, usePagedResource } from '../hooks/usePagedResource'
-import type { Product, Supplier } from '../types'
+import { productApi } from '@/api/product'
+import type { ProductInput } from '@/api/product'
+import { supplierApi } from '@/api/supplier'
+import { Field } from '@/components/Field'
+import { Modal } from '@/components/Modal'
+import { Pagination } from '@/components/Pagination'
+import { StatusBadge } from '@/components/StatusBadge'
+import { PAGE_SIZE, usePagedResource } from '@/hooks/usePagedResource'
+import type { Product, Supplier } from '@/types'
 
 const emptyForm: ProductInput = {
   sku_code: '',

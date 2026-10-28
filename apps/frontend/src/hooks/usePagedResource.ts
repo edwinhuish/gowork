@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { PageResult } from '../types'
+import type { PageResult } from '@/types'
 
 const PAGE_SIZE = 15
 

@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { authApi } from '../api/auth'
-import { getToken, setToken } from '../api/client'
-import type { UserInfo } from '../types'
+import { authApi } from '@/api/auth'
+import { getToken, setToken } from '@/api/client'
+import type { UserInfo } from '@/types'
 
 interface AuthContextValue {
   user: UserInfo | null

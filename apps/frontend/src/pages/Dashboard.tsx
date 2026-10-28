@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import { dashboardApi } from '../api/dashboard'
-import type { DashboardSummary } from '../types'
+import { dashboardApi } from '@/api/dashboard'
+import type { DashboardSummary } from '@/types'
 
 export function Dashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
