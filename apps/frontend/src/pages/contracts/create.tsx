@@ -65,7 +65,8 @@ export function ContractCreate() {
   useEffect(() => {
     if (!source || prefilled === source.id) return
     setPrefilled(source.id)
-    form.setFieldValue('terms', [{ name: '全额', amount: source.amount_total }])
+    // 合同的分期金额还是 number（合同表待改造），来源总额是定点字符串，这里转一次。
+    form.setFieldValue('terms', [{ name: '全额', amount: Number(source.amount_total) }])
   }, [source, prefilled, form])
 
   return (
@@ -137,7 +138,8 @@ export function ContractCreate() {
                   来源 <Tag>{source.doc_no}</Tag> 客户{' '}
                   {source.partner?.name ?? '—'}，总额{' '}
                   <strong>
-                    {source.amount_total.toLocaleString('zh-CN', {
+                    {/* 来源总额是定点的字符串，这里只为显示转一次 number。 */}
+                    {Number(source.amount_total).toLocaleString('zh-CN', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}{' '}

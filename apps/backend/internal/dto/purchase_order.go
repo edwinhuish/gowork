@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // PurchaseOrderQuery 是采购订单列表的查询条件。
 type PurchaseOrderQuery struct {
 	PageQuery
@@ -11,7 +13,8 @@ type PurchaseOrderQuery struct {
 type PurchaseOrderItemInput struct {
 	ProductID uint    `json:"product_id" binding:"required"`
 	Qty       float64 `json:"qty" binding:"required,gt=0"`
-	UnitPrice float64 `json:"unit_price" binding:"gte=0"`
+	// UnitPrice 按字符串收发（money.Decimal）。
+	UnitPrice money.Decimal `json:"unit_price"`
 	// SalesOrderItemID 非空表示这一行为该销售订单行采购（以销定采）。
 	SalesOrderItemID *uint `json:"sales_order_item_id"`
 	// SourceID 指定这行采购对应的货源，仅作追溯，不参与取价：

@@ -460,9 +460,10 @@ export interface SalesOrderItem {
   spec: string
   unit: string
   qty: number
-  unit_price: number
-  amount: number
-  amount_base: number
+  /** 金额字段是后端 money.Decimal 的字符串：前端只展示，算术一律在服务端。 */
+  unit_price: string
+  amount: string
+  amount_base: string
   remark: string
   product?: Product | null
   /** 已出数量，只在订单详情里由出货分配算出来；列表不带。 */
@@ -490,9 +491,9 @@ export interface SalesOrder {
   /** 约定交期，可空——下单时还没谈定是常态。 */
   delivery_date?: string | null
   currency_code: string
-  exchange_rate: number
-  amount_total: number
-  amount_base_total: number
+  exchange_rate: string
+  amount_total: string
+  amount_base_total: string
   remark: string
   partner?: Partner | null
   items?: SalesOrderItem[]
@@ -926,9 +927,9 @@ export interface PurchaseOrderItem {
   spec: string
   unit: string
   qty: number
-  unit_price: number
-  amount: number
-  amount_base: number
+  unit_price: string
+  amount: string
+  amount_base: string
   sales_order_item_id: number | null
   source_id: number | null
   remark: string
@@ -949,9 +950,9 @@ export interface PurchaseOrder {
   /** 供应商承诺的到货日，可空。 */
   delivery_date?: string | null
   currency_code: string
-  exchange_rate: number
-  amount_total: number
-  amount_base_total: number
+  exchange_rate: string
+  amount_total: string
+  amount_base_total: string
   remark: string
   supplier?: Partner | null
   items?: PurchaseOrderItem[]

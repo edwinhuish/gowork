@@ -13,6 +13,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -81,8 +82,8 @@ func (f creditFixture) addOrder(
 	m := &model.SalesOrder{
 		DocNo: docNo, PartnerID: f.customerID, TradeTerm: model.TradeTermFOB,
 		Status: status, OrderDate: model.DateOnly(f.now),
-		CurrencyCode: "CNY", ExchangeRate: 1,
-		AmountTotal: amountBase, AmountBaseTotal: amountBase,
+		CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+		AmountTotal: money.FromFloat(amountBase), AmountBaseTotal: money.FromFloat(amountBase),
 	}
 	if err := f.db.Create(m).Error; err != nil {
 		t.Fatalf("建订单 %s 失败: %v", docNo, err)

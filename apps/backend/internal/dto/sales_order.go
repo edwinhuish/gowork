@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // SalesOrderQuery 是销售订单列表的查询条件。
 type SalesOrderQuery struct {
 	PageQuery
@@ -11,8 +13,9 @@ type SalesOrderQuery struct {
 type SalesOrderItemInput struct {
 	ProductID uint    `json:"product_id" binding:"required"`
 	Qty       float64 `json:"qty" binding:"required,gt=0"`
-	UnitPrice float64 `json:"unit_price" binding:"gte=0"`
-	Remark    string  `json:"remark" binding:"max=255"`
+	// UnitPrice 按字符串收发（money.Decimal）。
+	UnitPrice money.Decimal `json:"unit_price"`
+	Remark    string        `json:"remark" binding:"max=255"`
 }
 
 // SalesOrderInput 新建与编辑共用。

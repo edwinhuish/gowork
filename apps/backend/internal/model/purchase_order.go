@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // PurchaseOrder 是向供应商下的采购单：销售订单的镜像。
 //
@@ -23,12 +27,12 @@ type PurchaseOrder struct {
 	DeliveryDate *time.Time `gorm:"type:date" json:"delivery_date"`
 
 	// 采购币种通常与销售币种不同（收美元、付人民币），所以汇率必须单独锁一份。
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
 
 	// 合计由明细汇总，写入时算一次；入参里没有合计字段，前端传了也读不到。
-	AmountTotal     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
-	AmountBaseTotal float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
+	AmountTotal     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_total"`
+	AmountBaseTotal money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base_total"`
 
 	Remark string `gorm:"size:255" json:"remark"`
 
@@ -54,9 +58,9 @@ type PurchaseOrderItem struct {
 	Unit    string  `gorm:"size:16" json:"unit"`
 	Qty     float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
 
-	UnitPrice  float64 `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
-	Amount     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
-	AmountBase float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	UnitPrice  money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
+	Amount     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	AmountBase money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 
 	// SalesOrderItemID 非空表示这一行是为某张销售订单的某一行采购的（以销定采）。
 	// 只存 id 不存单号快照：销售订单行不会消失，而单号可以从关联里查出来。

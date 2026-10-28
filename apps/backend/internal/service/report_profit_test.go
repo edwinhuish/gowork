@@ -11,6 +11,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -51,8 +52,8 @@ func (f *profitFixture) addSalesLine(
 	order := &model.SalesOrder{
 		DocNo: fmt.Sprintf("SO-PROFIT-%d", f.seq), PartnerID: 1, TradeTerm: model.TradeTermFOB,
 		Status: model.DocumentStatusConfirmed, OrderDate: model.DateOnly(f.now),
-		CurrencyCode: "USD", ExchangeRate: 7.1,
-		AmountTotal: qty * unitPrice, AmountBaseTotal: amountBase,
+		CurrencyCode: "USD", ExchangeRate: money.MustParse("7.1"),
+		AmountTotal: money.FromFloat(qty * unitPrice), AmountBaseTotal: money.FromFloat(amountBase),
 	}
 	if err := f.db.Create(order).Error; err != nil {
 		t.Fatalf("建销售订单失败: %v", err)
@@ -60,7 +61,10 @@ func (f *profitFixture) addSalesLine(
 	item := &model.SalesOrderItem{
 		SalesOrderID: order.ID, ProductID: 1,
 		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS",
-		Qty: qty, UnitPrice: unitPrice, Amount: qty * unitPrice, AmountBase: amountBase,
+		Qty:        qty,
+		UnitPrice:  money.FromFloat(unitPrice),
+		Amount:     money.FromFloat(qty * unitPrice),
+		AmountBase: money.FromFloat(amountBase),
 	}
 	if err := f.db.Create(item).Error; err != nil {
 		t.Fatalf("建销售明细失败: %v", err)
@@ -77,8 +81,8 @@ func (f *profitFixture) addPurchase(
 	order := &model.PurchaseOrder{
 		DocNo: fmt.Sprintf("PO-PROFIT-%d", f.seq), SupplierID: 2, TradeTerm: model.TradeTermEXW,
 		Status: status, OrderDate: model.DateOnly(f.now),
-		CurrencyCode: "CNY", ExchangeRate: 1,
-		AmountTotal: amountBase, AmountBaseTotal: amountBase,
+		CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+		AmountTotal: money.FromFloat(amountBase), AmountBaseTotal: money.FromFloat(amountBase),
 	}
 	if err := f.db.Create(order).Error; err != nil {
 		t.Fatalf("建采购订单失败: %v", err)
@@ -87,7 +91,10 @@ func (f *profitFixture) addPurchase(
 	item := &model.PurchaseOrderItem{
 		PurchaseOrderID: order.ID, ProductID: 1,
 		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS",
-		Qty: qty, UnitPrice: amountBase / qty, Amount: amountBase, AmountBase: amountBase,
+		Qty:              qty,
+		UnitPrice:        money.FromFloat(amountBase / qty),
+		Amount:           money.FromFloat(amountBase),
+		AmountBase:       money.FromFloat(amountBase),
 		SalesOrderItemID: &itemID,
 	}
 	if err := f.db.Create(item).Error; err != nil {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -86,8 +87,8 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 	salesOrder := &model.SalesOrder{
 		DocNo: "SO-202610-0001", PartnerID: customer.ID, TradeTerm: model.TradeTermFOB,
 		Status: model.DocumentStatusConfirmed, OrderDate: model.DateOnly(now),
-		CurrencyCode: "USD", ExchangeRate: 7.1,
-		AmountTotal: 1000, AmountBaseTotal: 7100,
+		CurrencyCode: "USD", ExchangeRate: money.MustParse("7.1"),
+		AmountTotal: money.MustParse("1000"), AmountBaseTotal: money.MustParse("7100"),
 	}
 	if err := salesOrderRepo.CreateWithItems(ctx, salesOrder, nil); err != nil {
 		t.Fatalf("建销售订单失败: %v", err)
@@ -97,8 +98,8 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 	purchase := &model.PurchaseOrder{
 		DocNo: "PO-2610-001", SupplierID: supplier.ID, TradeTerm: model.TradeTermEXW,
 		Status: model.DocumentStatusConfirmed, OrderDate: model.DateOnly(now),
-		CurrencyCode: "CNY", ExchangeRate: 1,
-		AmountTotal: 3000, AmountBaseTotal: 3000,
+		CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+		AmountTotal: money.MustParse("3000"), AmountBaseTotal: money.MustParse("3000"),
 	}
 	if err := purchaseRepo.CreateWithItems(ctx, purchase, nil); err != nil {
 		t.Fatalf("建采购订单失败: %v", err)

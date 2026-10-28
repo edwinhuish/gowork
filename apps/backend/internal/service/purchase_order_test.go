@@ -125,7 +125,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 		CurrencyCode: "usd",
 		OrderDate:    "2026-10-28",
 		Items: []dto.PurchaseOrderItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: 2},
+			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("2")},
 		},
 	}
 
@@ -144,8 +144,9 @@ func TestPurchaseOrderRules(t *testing.T) {
 			t.Errorf("状态 = %d，期望草稿", o.Status)
 		}
 		// 100 × 2 USD = 200 USD；× 7.1 = 1420 CNY
-		if !approx(o.AmountTotal, 200) || !approx(o.AmountBaseTotal, 1420) {
-			t.Errorf("合计 = %v / %v，期望 200 / 1420", o.AmountTotal, o.AmountBaseTotal)
+		if o.AmountTotal.Cmp(money.MustParse("200")) != 0 ||
+			o.AmountBaseTotal.Cmp(money.MustParse("1420")) != 0 {
+			t.Errorf("合计 = %s / %s，期望 200 / 1420", o.AmountTotal, o.AmountBaseTotal)
 		}
 	})
 
@@ -153,7 +154,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 		so, err := fx.sales.Create(ctx, dto.SalesOrderInput{
 			PartnerID: fx.customerID, TradeTerm: "FOB", CurrencyCode: "USD",
 			OrderDate: "2026-10-28",
-			Items:     []dto.SalesOrderItemInput{{ProductID: fx.productID, Qty: 100, UnitPrice: 10}},
+			Items:     []dto.SalesOrderItemInput{{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")}},
 		})
 		if err != nil {
 			t.Fatalf("新建销售订单失败: %v", err)
@@ -162,7 +163,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 
 		in := input
 		in.Items = []dto.PurchaseOrderItemInput{{
-			ProductID: fx.productID, Qty: 100, UnitPrice: 2, SalesOrderItemID: &soItemID,
+			ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("2"), SalesOrderItemID: &soItemID,
 		}}
 		o, err := fx.svc.Create(ctx, in)
 		if err != nil {
@@ -188,7 +189,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 	t.Run("挂到另一个产品的销售单行被拒", func(t *testing.T) {
 		so, err := fx.sales.Create(ctx, dto.SalesOrderInput{
 			PartnerID: fx.customerID, TradeTerm: "FOB", CurrencyCode: "USD",
-			Items: []dto.SalesOrderItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: 5}},
+			Items: []dto.SalesOrderItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: money.MustParse("5")}},
 		})
 		if err != nil {
 			t.Fatalf("新建销售订单失败: %v", err)
@@ -197,7 +198,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 
 		in := input
 		in.Items = []dto.PurchaseOrderItemInput{{
-			ProductID: fx.productID, Qty: 10, UnitPrice: 2, SalesOrderItemID: &soItemID,
+			ProductID: fx.productID, Qty: 10, UnitPrice: money.MustParse("2"), SalesOrderItemID: &soItemID,
 		}}
 		_, err = fx.svc.Create(ctx, in)
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
@@ -209,7 +210,7 @@ func TestPurchaseOrderRules(t *testing.T) {
 		in := input
 		src := fx.sourceID
 		in.Items = []dto.PurchaseOrderItemInput{{
-			ProductID: fx.product2ID, Qty: 1, UnitPrice: 1, SourceID: &src,
+			ProductID: fx.product2ID, Qty: 1, UnitPrice: money.MustParse("1"), SourceID: &src,
 		}}
 		_, err := fx.svc.Create(ctx, in)
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {

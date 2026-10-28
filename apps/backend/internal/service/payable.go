@@ -217,7 +217,7 @@ func (s *payableService) buildTerms(
 		return out, errs.BadRequest(
 			fmt.Sprintf("采购订单 %s 是%s，不能开应付", order.DocNo, order.Status.Label()))
 	}
-	if order.AmountTotal <= 0 {
+	if order.AmountTotal.Cmp(money.Zero()) <= 0 {
 		return out, errs.BadRequest(fmt.Sprintf("采购订单 %s 金额为 0，不能开应付", order.DocNo))
 	}
 
@@ -226,7 +226,8 @@ func (s *payableService) buildTerms(
 	if err != nil {
 		return out, err
 	}
-	remaining := money.Round(order.AmountTotal-issued, 4)
+	// 已开票金额还在结算表里（float64，改造到资金那一片时去掉这次往返）。
+	remaining := order.AmountTotal.Sub(money.FromFloat(issued)).Round(4).Float64()
 	if remaining <= 0 {
 		return out, errs.ErrConflict.WithMsg(
 			fmt.Sprintf("采购订单 %s 已全额开票（%s %.4f）", order.DocNo, order.CurrencyCode, issued))
@@ -252,9 +253,9 @@ func (s *payableService) buildTerms(
 		PartnerID:    order.SupplierID,
 		SourceDocNo:  order.DocNo,
 		CurrencyCode: order.CurrencyCode,
-		ExchangeRate: order.ExchangeRate,
+		ExchangeRate: order.ExchangeRate.Float64(),
 		Amount:       amount,
-		AmountBase:   money.Round(amount*order.ExchangeRate, 4),
+		AmountBase:   money.Round(amount*order.ExchangeRate.Float64(), 4),
 		DueDate:      dueDate,
 	}
 	return out, nil

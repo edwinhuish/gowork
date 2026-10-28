@@ -438,16 +438,15 @@ func TestQuotationConvert(t *testing.T) {
 		if order.PartnerID != q.PartnerID || order.TradeTerm != q.TradeTerm {
 			t.Errorf("客户/贸易术语未沿用报价单: %d/%s", order.PartnerID, order.TradeTerm)
 		}
-		// 汇率取自报价单（订单表还是 float64，所以这里把报价的定点转成 float 再比），
-		// 金额由明细重新汇总，两边必须一致。
-		if !approx(order.ExchangeRate, q.ExchangeRate.Float64()) {
-			t.Errorf("订单汇率 = %v，期望沿用报价单的 %s", order.ExchangeRate, q.ExchangeRate)
+		// 汇率与金额都已是定点：转单必须一位不差地沿用报价单。
+		if order.ExchangeRate.Cmp(q.ExchangeRate) != 0 {
+			t.Errorf("订单汇率 = %s，期望沿用报价单的 %s", order.ExchangeRate, q.ExchangeRate)
 		}
-		if !approx(order.AmountBaseTotal, q.AmountBaseTotal.Float64()) {
-			t.Errorf("订单本币总额 = %v，期望与报价单一致 %s",
+		if order.AmountBaseTotal.Cmp(q.AmountBaseTotal) != 0 {
+			t.Errorf("订单本币总额 = %s，期望与报价单一致 %s",
 				order.AmountBaseTotal, q.AmountBaseTotal)
 		}
-		if len(order.Items) != 1 || !approx(order.Items[0].UnitPrice, 10) ||
+		if len(order.Items) != 1 || order.Items[0].UnitPrice.Cmp(money.MustParse("10")) != 0 ||
 			!approx(order.Items[0].Qty, 100) {
 			t.Errorf("订单明细未沿用报价单: %+v", order.Items)
 		}

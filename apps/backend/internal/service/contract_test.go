@@ -165,9 +165,9 @@ func (f contractFixture) orderFromQuotation(
 		OrderDate:       f.now,
 		DeliveryDate:    delivery,
 		CurrencyCode:    "USD",
-		ExchangeRate:    7.1,
-		AmountTotal:     1000,
-		AmountBaseTotal: 7100,
+		ExchangeRate:    money.MustParse("7.1"),
+		AmountTotal:     money.MustParse("1000"),
+		AmountBaseTotal: money.MustParse("7100"),
 	}
 	if err := f.orderRepo.CreateWithItems(context.Background(), o, nil); err != nil {
 		t.Fatalf("建订单失败: %v", err)

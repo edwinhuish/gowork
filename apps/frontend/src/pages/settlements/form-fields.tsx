@@ -8,7 +8,8 @@ interface OrderOption {
   id: number
   doc_no: string
   currency_code: string
-  amount_total: number
+  /** 后端 money.Decimal：字符串，只用于下拉里的显示。 */
+  amount_total: string
 }
 
 /**

@@ -8,6 +8,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -110,8 +111,8 @@ func TestSalesOrderRules(t *testing.T) {
 		OrderDate:    "2026-10-28",
 		CurrencyCode: "usd",
 		Items: []dto.SalesOrderItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: 10},
-			{ProductID: fx.product2ID, Qty: 20, UnitPrice: 5},
+			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
+			{ProductID: fx.product2ID, Qty: 20, UnitPrice: money.MustParse("5")},
 		},
 	}
 
@@ -134,8 +135,9 @@ func TestSalesOrderRules(t *testing.T) {
 			t.Errorf("新单状态 = %d，期望草稿", o.Status)
 		}
 		// 1000 + 100 = 1100 USD；× 7.1 = 7810 CNY
-		if !approx(o.AmountTotal, 1100) || !approx(o.AmountBaseTotal, 7810) {
-			t.Errorf("合计 = %v / %v，期望 1100 / 7810", o.AmountTotal, o.AmountBaseTotal)
+		if o.AmountTotal.Cmp(money.MustParse("1100")) != 0 ||
+			o.AmountBaseTotal.Cmp(money.MustParse("7810")) != 0 {
+			t.Errorf("合计 = %s / %s，期望 1100 / 7810", o.AmountTotal, o.AmountBaseTotal)
 		}
 		if len(o.Items) != 2 {
 			t.Fatalf("明细行数 = %d，期望 2", len(o.Items))

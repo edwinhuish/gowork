@@ -388,9 +388,7 @@ func (s *quotationService) Convert(
 		lines = append(lines, QuotationOrderLine{
 			ProductID: it.ProductID,
 			Qty:       it.Qty,
-			// 销售订单的金额列还是 float64（T-37 第 4 片下一段），
-			// 这里显式转换一次；订单改造时删掉 .Float64()。
-			UnitPrice: it.UnitPrice.Float64(),
+			UnitPrice: it.UnitPrice,
 			Remark:    it.Remark,
 		})
 	}
@@ -407,8 +405,7 @@ func (s *quotationService) Convert(
 		DealSeq:      dealSeq,
 		TradeTerm:    q.TradeTerm,
 		CurrencyCode: q.CurrencyCode,
-		// 同上：订单表还是 float64，改造时删掉。
-		ExchangeRate: q.ExchangeRate.Float64(),
+		ExchangeRate: q.ExchangeRate,
 		OrderDate:    orderDate,
 		DeliveryDate: deliveryDate,
 		Remark:       fmt.Sprintf("由报价单 %s v%d 转入", q.DocNo, q.Version),

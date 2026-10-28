@@ -11,6 +11,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -89,7 +90,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 			OrderDate:    now.Format("2006-01-02"),
 			CurrencyCode: "CNY",
 			Items: []dto.SalesOrderItemInput{
-				{ProductID: productID, Qty: qty, UnitPrice: 10},
+				{ProductID: productID, Qty: qty, UnitPrice: money.MustParse("10")},
 			},
 		})
 		if err != nil {

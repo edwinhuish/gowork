@@ -362,9 +362,9 @@ func (s *contractService) loadSource(
 			docNo:        o.DocNo,
 			partnerID:    o.PartnerID,
 			currencyCode: o.CurrencyCode,
-			exchangeRate: o.ExchangeRate,
-			amountTotal:  o.AmountTotal,
-			amountBase:   o.AmountBaseTotal,
+			exchangeRate: o.ExchangeRate.Float64(),
+			amountTotal:  o.AmountTotal.Float64(),
+			amountBase:   o.AmountBaseTotal.Float64(),
 			deliveryDate: o.DeliveryDate,
 		}, nil
 	}

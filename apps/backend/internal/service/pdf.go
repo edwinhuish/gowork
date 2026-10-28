@@ -225,14 +225,14 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 
 	items := make([]map[string]string, 0, len(sd.Allocations))
 	orderNos := make([]string, 0, len(sd.Allocations))
-	total := 0.0
+	total := money.Zero()
 	for i, a := range sd.Allocations {
-		price := 0.0
+		price := money.Zero()
 		if a.SalesOrderItem != nil {
 			price = a.SalesOrderItem.UnitPrice
 		}
-		amount := a.Qty * price
-		total += amount
+		amount := price.Mul(money.FromFloat(a.Qty))
+		total = total.Add(amount)
 		orderNo := allocationOrderNo(a)
 		orderNos = appendUnique(orderNos, orderNo)
 
@@ -242,8 +242,8 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 			"order_no":    orderNo,
 			"qty":         qtyText(a.Qty),
 			"unit":        a.Unit,
-			"unit_price":  moneyText(price, curDP),
-			"amount":      moneyText(amount, curDP),
+			"unit_price":  moneyTextD(price, curDP),
+			"amount":      moneyTextD(amount, curDP),
 		})
 	}
 
@@ -258,9 +258,9 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 	values["bl_no"] = orDash(sd.BLNo)
 	values["etd"] = dateText(sd.ETD)
 	values["currency_code"] = order.CurrencyCode
-	values["exchange_rate"] = rateText(order.ExchangeRate)
-	values["amount_total"] = moneyText(total, curDP)
-	values["amount_base_total"] = moneyText(total*order.ExchangeRate, baseDP)
+	values["exchange_rate"] = rateTextD(order.ExchangeRate)
+	values["amount_total"] = moneyTextD(total.Round(curDP), curDP)
+	values["amount_base_total"] = moneyTextD(total.Mul(order.ExchangeRate).Round(baseDP), baseDP)
 	values["substitution_note"] = substitutionNote(sd)
 	s.partnerValues(values, order.Partner)
 
@@ -424,17 +424,6 @@ func (s *pdfService) sourceItems(
 	ctx context.Context, c *model.Contract, curDP int,
 ) ([]map[string]string, string, string, error) {
 	// 报价单与订单的明细字段同名，收成同一组渲染键，模板不必为两种来源分叉。
-	row := func(i int, sku, name, spec, unit string, qty, unitPrice, amount float64) map[string]string {
-		return map[string]string{
-			"no":          strconv.Itoa(i + 1),
-			"description": itemDescription(sku, name, spec),
-			"qty":         qtyText(qty),
-			"unit":        unit,
-			"unit_price":  moneyText(unitPrice, curDP),
-			"amount":      moneyText(amount, curDP),
-		}
-	}
-
 	// rowD 与 row 同形，只是单价与金额来自 money.Decimal：
 	// 报价明细已改定点，打印时不必先转回 float64。
 	rowD := func(i int, sku, name, spec, unit string, qty float64, unitPrice, amount money.Decimal) map[string]string {
@@ -467,7 +456,7 @@ func (s *pdfService) sourceItems(
 		}
 		rows := make([]map[string]string, 0, len(o.Items))
 		for i, it := range o.Items {
-			rows = append(rows, row(i, it.SKUCode, it.NameCN, it.Spec, it.Unit, it.Qty, it.UnitPrice, it.Amount))
+			rows = append(rows, rowD(i, it.SKUCode, it.NameCN, it.Spec, it.Unit, it.Qty, it.UnitPrice, it.Amount))
 		}
 		return rows, model.ContractSourceSalesOrder.Label(), string(o.TradeTerm), nil
 	}

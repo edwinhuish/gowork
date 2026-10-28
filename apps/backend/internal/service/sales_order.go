@@ -44,7 +44,7 @@ type QuotationOrderInput struct {
 	DealSeq      uint
 	TradeTerm    model.TradeTerm
 	CurrencyCode string
-	ExchangeRate float64
+	ExchangeRate money.Decimal
 	OrderDate    time.Time
 	DeliveryDate *time.Time
 	Remark       string
@@ -55,7 +55,7 @@ type QuotationOrderInput struct {
 type QuotationOrderLine struct {
 	ProductID uint
 	Qty       float64
-	UnitPrice float64
+	UnitPrice money.Decimal
 	Remark    string
 }
 
@@ -155,7 +155,7 @@ func (s *salesOrderService) Create(
 		return nil, err
 	}
 	s.log.Info("新增销售订单", "id", o.ID, "doc_no", o.DocNo,
-		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal)
+		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal.String())
 	return s.Get(ctx, o.ID)
 }
 
@@ -277,9 +277,10 @@ func (s *salesOrderService) UpdateStatus(
 	// 从这一刻起它和它的应收一起算进敞口，所以校验也放在这一刻。
 	if next == model.DocumentStatusConfirmed {
 		if err := s.credits.CheckConfirm(ctx, CreditCheck{
-			PartnerID:  existing.PartnerID,
-			DocNo:      existing.DocNo,
-			AmountBase: existing.AmountBaseTotal,
+			PartnerID: existing.PartnerID,
+			DocNo:     existing.DocNo,
+			// 敞口与额度（partner.credit_limit）还是 float64，改造到资金那一片时删掉。
+			AmountBase: existing.AmountBaseTotal.Float64(),
 			Force:      in.ForceCredit,
 		}); err != nil {
 			return nil, err
@@ -295,7 +296,7 @@ func (s *salesOrderService) UpdateStatus(
 func (s *salesOrderService) CreateFromQuotation(
 	ctx context.Context, in QuotationOrderInput,
 ) (*model.SalesOrder, error) {
-	if in.ExchangeRate <= 0 {
+	if in.ExchangeRate.Cmp(money.Zero()) <= 0 {
 		return nil, errs.BadRequest("报价单缺少有效汇率，无法转订单")
 	}
 	baseCode, err := s.currencies.BaseCode(ctx)
@@ -375,7 +376,7 @@ func (s *salesOrderService) CreateFromQuotation(
 		return nil, err
 	}
 	s.log.Info("由报价单生成销售订单", "id", o.ID, "doc_no", o.DocNo,
-		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal)
+		"partner_id", o.PartnerID, "amount_base", o.AmountBaseTotal.String())
 	return s.Get(ctx, o.ID)
 }
 
@@ -383,7 +384,7 @@ func (s *salesOrderService) CreateFromQuotation(
 type salesOrderTerms struct {
 	TradeTerm        model.TradeTerm
 	CurrencyCode     string
-	ExchangeRate     float64
+	ExchangeRate     money.Decimal
 	CurrencyDecimals int
 	BaseDecimals     int
 	OrderDate        time.Time
@@ -422,15 +423,16 @@ func (s *salesOrderService) buildTerms(
 		deliveryDate = &d
 	}
 
-	code, rate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
+	code, rawRate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
 	if err != nil {
 		return out, err
 	}
 
 	out = salesOrderTerms{
-		TradeTerm:        term,
-		CurrencyCode:     code,
-		ExchangeRate:     rate,
+		TradeTerm:    term,
+		CurrencyCode: code,
+		// 汇率表那一列还是 float64（第 6 片），进服务时转成定点。
+		ExchangeRate:     money.FromFloat(rawRate),
 		CurrencyDecimals: curDP,
 		BaseDecimals:     baseDP,
 		OrderDate:        orderDate,
@@ -453,7 +455,7 @@ func (s *salesOrderService) buildItems(
 		if row.Qty <= 0 {
 			return nil, totals, errs.BadRequest("明细数量必须大于 0")
 		}
-		if row.UnitPrice < 0 {
+		if row.UnitPrice.IsNegative() {
 			return nil, totals, errs.BadRequest("明细单价不能为负")
 		}
 		product, err := s.products.FindByID(ctx, row.ProductID)
@@ -464,8 +466,10 @@ func (s *salesOrderService) buildItems(
 			return nil, totals, err
 		}
 
-		amount := money.Round(row.UnitPrice*row.Qty, t.CurrencyDecimals)
-		amountBase := money.Round(amount*t.ExchangeRate, t.BaseDecimals)
+		// 数量仍是 float64（qty 不在 T-37 范围），乘之前转一次定点，其后全在定点里算。
+		qty := money.FromFloat(row.Qty)
+		amount := row.UnitPrice.Mul(qty).Round(t.CurrencyDecimals)
+		amountBase := amount.Mul(t.ExchangeRate).Round(t.BaseDecimals)
 
 		items = append(items, model.SalesOrderItem{
 			ProductID:  product.ID,
@@ -480,17 +484,17 @@ func (s *salesOrderService) buildItems(
 			Remark:     row.Remark,
 		})
 
-		totals.Amount += amount
-		totals.AmountBase += amountBase
+		totals.Amount = totals.Amount.Add(amount)
+		totals.AmountBase = totals.AmountBase.Add(amountBase)
 	}
 
-	totals.Amount = money.Round(totals.Amount, t.CurrencyDecimals)
-	totals.AmountBase = money.Round(totals.AmountBase, t.BaseDecimals)
+	totals.Amount = totals.Amount.Round(t.CurrencyDecimals)
+	totals.AmountBase = totals.AmountBase.Round(t.BaseDecimals)
 	return items, totals, nil
 }
 
 // salesOrderTotals 是订单合计。
 type salesOrderTotals struct {
-	Amount     float64
-	AmountBase float64
+	Amount     money.Decimal
+	AmountBase money.Decimal
 }
