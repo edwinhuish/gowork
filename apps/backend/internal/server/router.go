@@ -17,18 +17,19 @@ import (
 
 // Handlers 汇总所有 HTTP handler，由 bootstrap 注入。
 type Handlers struct {
-	Auth      *handler.AuthHandler
-	Product   *handler.ProductHandler
-	Partner   *handler.PartnerHandler
-	Currency  *handler.CurrencyHandler
-	Rate      *handler.ExchangeRateHandler
-	Contact   *handler.ContactHandler
-	Activity  *handler.ActivityHandler
-	Oppty     *handler.OpportunityHandler
-	Lead      *handler.LeadHandler
-	Source    *handler.ProductSourceHandler
-	Quotation *handler.QuotationHandler
-	Dashboard *handler.DashboardHandler
+	Auth       *handler.AuthHandler
+	Product    *handler.ProductHandler
+	Partner    *handler.PartnerHandler
+	Currency   *handler.CurrencyHandler
+	Rate       *handler.ExchangeRateHandler
+	Contact    *handler.ContactHandler
+	Activity   *handler.ActivityHandler
+	Oppty      *handler.OpportunityHandler
+	Lead       *handler.LeadHandler
+	Source     *handler.ProductSourceHandler
+	Quotation  *handler.QuotationHandler
+	SalesOrder *handler.SalesOrderHandler
+	Dashboard  *handler.DashboardHandler
 }
 
 // New 构建 gin 引擎。
@@ -164,6 +165,15 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 
 		// 试算独立前缀：与 /:id 同级会抢路径（同 opportunities-summary 的处理）。
 		secured.POST("/quotations-preview", h.Quotation.Preview)
+
+		// 销售订单：报价谈成后的出货凭证。总额只由明细汇总，状态走完整状态机。
+		orders := secured.Group("/sales-orders")
+		orders.GET("", h.SalesOrder.List)
+		orders.POST("", h.SalesOrder.Create)
+		orders.GET("/:id", h.SalesOrder.Get)
+		orders.PUT("/:id", h.SalesOrder.Update)
+		orders.DELETE("/:id", h.SalesOrder.Delete)
+		orders.PUT("/:id/status", h.SalesOrder.UpdateStatus)
 	}
 
 	return engine

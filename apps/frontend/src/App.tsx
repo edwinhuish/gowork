@@ -6,6 +6,7 @@ import {
   DollarOutlined,
   FileTextOutlined,
   FundOutlined,
+  ProfileOutlined,
   ShopOutlined,
   UserAddOutlined,
   SwapOutlined,
@@ -39,6 +40,7 @@ import {
   QuotationList,
   QuotationShow,
 } from '@/pages/quotations'
+import { OrderCreate, OrderEdit, OrderList, OrderShow } from '@/pages/orders'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -132,6 +134,15 @@ export default function App() {
                 meta: { label: '报价单', icon: <FileTextOutlined /> },
               },
               {
+                // 订单：报价谈成之后要出货的那张凭证，状态走完整状态机。
+                name: 'sales-orders',
+                list: '/sales-orders',
+                create: '/sales-orders/create',
+                edit: '/sales-orders/edit/:id',
+                show: '/sales-orders/show/:id',
+                meta: { label: '销售订单', icon: <ProfileOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -213,6 +224,13 @@ export default function App() {
                     <Route path="create" element={<QuotationCreate />} />
                     <Route path="edit/:id" element={<QuotationEdit />} />
                     <Route path="show/:id" element={<QuotationShow />} />
+                  </Route>
+
+                  <Route path="sales-orders">
+                    <Route index element={<OrderList />} />
+                    <Route path="create" element={<OrderCreate />} />
+                    <Route path="edit/:id" element={<OrderEdit />} />
+                    <Route path="show/:id" element={<OrderShow />} />
                   </Route>
 
                   <Route path="currencies">

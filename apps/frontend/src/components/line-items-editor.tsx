@@ -4,7 +4,7 @@ import { Button, Col, Form, InputNumber, Row, Select, Typography } from 'antd'
 
 import type { Product, ProductSource } from '@/types'
 
-export interface QuotationItemRow {
+export interface LineItemRow {
   product_id?: number
   qty?: number
   unit_price?: number
@@ -13,25 +13,34 @@ export interface QuotationItemRow {
 }
 
 /**
- * 报价明细编辑器。
+ * 单据明细编辑器：报价单与销售订单共用。
  *
- * 只让填「数量 × 单价 × 用哪条货源」，金额与成本一律不在这里算完就提交——
+ * 只让填「数量 × 单价」（报价单还可指定成本货源），金额一律不在这里提交——
  * 行小计只用来给人看，真正落库的金额由后端按单据汇率算。
  *
- * 货源下拉按产品过滤，且列出本币价：报价时最常问的就是"这货从谁家进、多少成本"。
- * 不选就用该产品本币价最低的启用货源，与后端默认口径一致。
+ * 为什么抽出来共用：报价单与订单的明细行字段几乎一样，抄一份的结果是
+ * 哪天改了数量精度或产品搜索方式，只改了其中一个页面。
  */
-export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }) {
+export function LineItemsEditor({
+  currencyCode,
+  showSource = false,
+}: {
+  currencyCode?: string
+  /** 报价单需要选成本货源；订单没有成本口径，不显示这一列。 */
+  showSource?: boolean
+}) {
   const form = Form.useFormInstance()
-  const rows = Form.useWatch<QuotationItemRow[]>('items', form) ?? []
+  const rows = Form.useWatch<LineItemRow[]>('items', form) ?? []
 
   const { query: productsQuery } = useList<Product>({
     resource: 'products',
     pagination: { mode: 'off' },
   })
+  // 订单用不到货源，但 hook 不能条件调用，用 enabled 把它停掉。
   const { query: sourcesQuery } = useList<ProductSource>({
     resource: 'product-sources',
     pagination: { mode: 'off' },
+    queryOptions: { enabled: showSource },
   })
 
   const products = productsQuery.data?.data ?? []
@@ -68,29 +77,37 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
     form.setFieldValue(['items', index, 'source_id'], undefined)
   }
 
+  const spans = showSource
+    ? { product: 7, qty: 3, price: 3, source: 6, subtotal: 3, action: 2 }
+    : { product: 10, qty: 4, price: 4, source: 0, subtotal: 4, action: 2 }
+
   return (
     <div>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        成本取所选货源的本币采购价；不选则用该产品本币价最低的启用货源，保存时锁进明细。
+        {showSource
+          ? '成本取所选货源的本币采购价；不选则用该产品本币价最低的启用货源，保存时锁进明细。'
+          : '金额由后端按「数量 × 单价 × 单据汇率」算，前端提交的合计不参与。'}
       </Typography.Paragraph>
 
       <Row gutter={8} style={{ marginBottom: 4 }}>
-        <Col span={7}>
+        <Col span={spans.product}>
           <Typography.Text type="secondary">产品</Typography.Text>
         </Col>
-        <Col span={3}>
+        <Col span={spans.qty}>
           <Typography.Text type="secondary">数量</Typography.Text>
         </Col>
-        <Col span={3}>
+        <Col span={spans.price}>
           <Typography.Text type="secondary">单价</Typography.Text>
         </Col>
-        <Col span={6}>
-          <Typography.Text type="secondary">成本货源</Typography.Text>
-        </Col>
-        <Col span={3}>
+        {showSource && (
+          <Col span={spans.source}>
+            <Typography.Text type="secondary">成本货源</Typography.Text>
+          </Col>
+        )}
+        <Col span={spans.subtotal}>
           <Typography.Text type="secondary">行小计</Typography.Text>
         </Col>
-        <Col span={2} />
+        <Col span={spans.action} />
       </Row>
 
       <Form.List name="items">
@@ -105,7 +122,7 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
 
               return (
                 <Row gutter={8} key={field.key} align="top">
-                  <Col span={7}>
+                  <Col span={spans.product}>
                     <Form.Item
                       name={[field.name, 'product_id']}
                       rules={[{ required: true, message: '请选择产品' }]}
@@ -124,7 +141,7 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={3}>
+                  <Col span={spans.qty}>
                     <Form.Item
                       name={[field.name, 'qty']}
                       rules={[{ required: true, message: '数量' }]}
@@ -132,7 +149,7 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
                       <InputNumber style={{ width: '100%' }} min={0.001} step={1} placeholder="0" />
                     </Form.Item>
                   </Col>
-                  <Col span={3}>
+                  <Col span={spans.price}>
                     <Form.Item name={[field.name, 'unit_price']}>
                       <InputNumber
                         style={{ width: '100%' }}
@@ -143,24 +160,26 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={6}>
-                    <Form.Item name={[field.name, 'source_id']}>
-                      <Select
-                        placeholder={
-                          row.product_id && rowSources.length === 0 ? '该产品还没有货源' : '最低价'
-                        }
-                        allowClear
-                        disabled={!row.product_id || rowSources.length === 0}
-                        options={rowSources.map((s) => ({
-                          value: s.id,
-                          label: `${s.partner?.name ?? '供应商'} · ${s.purchase_price_base.toFixed(2)}${
-                            s.supplier_sku ? ` · ${s.supplier_sku}` : ''
-                          }`,
-                        }))}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={3}>
+                  {showSource && (
+                    <Col span={spans.source}>
+                      <Form.Item name={[field.name, 'source_id']}>
+                        <Select
+                          placeholder={
+                            row.product_id && rowSources.length === 0 ? '该产品还没有货源' : '最低价'
+                          }
+                          allowClear
+                          disabled={!row.product_id || rowSources.length === 0}
+                          options={rowSources.map((s) => ({
+                            value: s.id,
+                            label: `${s.partner?.name ?? '供应商'} · ${s.purchase_price_base.toFixed(
+                              2,
+                            )}${s.supplier_sku ? ` · ${s.supplier_sku}` : ''}`,
+                          }))}
+                        />
+                      </Form.Item>
+                    </Col>
+                  )}
+                  <Col span={spans.subtotal}>
                     <div style={{ paddingTop: 6, fontVariantNumeric: 'tabular-nums' }}>
                       {subtotal.toLocaleString('zh-CN', {
                         minimumFractionDigits: 2,
@@ -169,7 +188,7 @@ export function QuotationItemsEditor({ currencyCode }: { currencyCode?: string }
                       {currencyCode ? ` ${currencyCode}` : ''}
                     </div>
                   </Col>
-                  <Col span={2}>
+                  <Col span={spans.action}>
                     <Button type="link" danger onClick={() => remove(field.name)}>
                       删除
                     </Button>

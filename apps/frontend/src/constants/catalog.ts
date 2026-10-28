@@ -161,6 +161,24 @@ export function quotationStatusLabel(value?: number | null): string {
   return QUOTATION_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
 }
 
+/**
+ * 销售订单状态：完整的单据状态机。
+ * 跳步（草稿直接到已出货）与往回退都由后端拒绝，前端只在详情页给出当前可走的下一步。
+ */
+export const ORDER_STATUS_OPTIONS = [
+  { value: 10, label: '草稿' },
+  { value: 20, label: '已确认' },
+  { value: 30, label: '备货中' },
+  { value: 40, label: '已出货' },
+  { value: 50, label: '已完成' },
+  { value: 90, label: '已取消' },
+]
+
+export function orderStatusLabel(value?: number | null): string {
+  if (value === null || value === undefined) return '未知'
+  return ORDER_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? `状态 ${value}`
+}
+
 /** 贸易术语的中文名；未知码原样透出，不吞数据。 */
 export function tradeTermLabel(value?: string | null): string {
   if (!value) return '—'

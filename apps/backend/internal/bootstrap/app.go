@@ -67,6 +67,8 @@ func New(cfg *config.Config) (*App, error) {
 			&model.Lead{},
 			&model.Quotation{},
 			&model.QuotationItem{},
+			&model.SalesOrder{},
+			&model.SalesOrderItem{},
 		); err != nil {
 			_ = database.Close(db)
 			return nil, err
@@ -99,6 +101,7 @@ func New(cfg *config.Config) (*App, error) {
 	opptyRepo := repository.NewOpportunityRepository(db)
 	leadRepo := repository.NewLeadRepository(db)
 	quotationRepo := repository.NewQuotationRepository(db)
+	orderRepo := repository.NewSalesOrderRepository(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -132,22 +135,26 @@ func New(cfg *config.Config) (*App, error) {
 	quotationSvc := service.NewQuotationService(
 		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc,
 		service.WithQuotationLogger(log))
+	orderSvc := service.NewSalesOrderService(
+		orderRepo, partnerRepo, productRepo, currencySvc, docNoSvc,
+		service.WithSalesOrderLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, server.Handlers{
-		Auth:      handler.NewAuthHandler(authSvc),
-		Product:   handler.NewProductHandler(productSvc),
-		Partner:   handler.NewPartnerHandler(partnerSvc),
-		Currency:  handler.NewCurrencyHandler(currencySvc),
-		Rate:      handler.NewExchangeRateHandler(rateSvc),
-		Contact:   handler.NewContactHandler(contactSvc),
-		Activity:  handler.NewActivityHandler(activitySvc),
-		Oppty:     handler.NewOpportunityHandler(opptySvc),
-		Lead:      handler.NewLeadHandler(leadSvc),
-		Source:    handler.NewProductSourceHandler(sourceSvc),
-		Quotation: handler.NewQuotationHandler(quotationSvc),
-		Dashboard: handler.NewDashboardHandler(dashboardSvc),
+		Auth:       handler.NewAuthHandler(authSvc),
+		Product:    handler.NewProductHandler(productSvc),
+		Partner:    handler.NewPartnerHandler(partnerSvc),
+		Currency:   handler.NewCurrencyHandler(currencySvc),
+		Rate:       handler.NewExchangeRateHandler(rateSvc),
+		Contact:    handler.NewContactHandler(contactSvc),
+		Activity:   handler.NewActivityHandler(activitySvc),
+		Oppty:      handler.NewOpportunityHandler(opptySvc),
+		Lead:       handler.NewLeadHandler(leadSvc),
+		Source:     handler.NewProductSourceHandler(sourceSvc),
+		Quotation:  handler.NewQuotationHandler(quotationSvc),
+		SalesOrder: handler.NewSalesOrderHandler(orderSvc),
+		Dashboard:  handler.NewDashboardHandler(dashboardSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}

@@ -149,6 +149,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | PUT | `/api/v1/quotations/:id/status` | `Quotation.UpdateStatus` | 只放行已确认 / 已取消，其余状态 400 |
 | POST | `/api/v1/quotations/:id/versions` | `Quotation.NewVersion` | 同单号、版本 +1、回到草稿；过期时须给新有效期 |
 | POST | `/api/v1/quotations-preview` | `Quotation.Preview` | 试算金额/成本/毛利，不落库；独立前缀避免与 `/:id` 抢路径 |
+| GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段），单号 `SO-` |
+| GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
+| PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409） |
 
 `/customers` 与 `/suppliers` 是 `/partners` 的角色切片，不是两套实现：同一个
 `PartnerHandler`，路由层把默认角色传进去。新增字段只改 `PartnerHandler` 一处。
@@ -160,7 +163,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
 产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
 `country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`，
-报价单另有 `partner_id` / `status`。
+报价单与销售订单另有 `partner_id` / `status`。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 

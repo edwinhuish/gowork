@@ -346,6 +346,55 @@ export interface QuotationDetail extends Quotation {
   convert_block?: string
 }
 
+/**
+ * 销售订单明细。
+ *
+ * 与报价明细的区别：这里没有成本价与成本额。订单是"客户认下的量"，
+ * 成本属于采购（T-12），毛利要等采购价与运杂费落定才算。
+ */
+export interface SalesOrderItem {
+  id: number
+  sales_order_id: number
+  product_id: number
+  sku_code: string
+  name_cn: string
+  spec: string
+  unit: string
+  qty: number
+  unit_price: number
+  amount: number
+  amount_base: number
+  remark: string
+  product?: Product | null
+}
+
+/**
+ * 销售订单。
+ *
+ * 合计只由明细汇总（后端算，前端提交的总额被忽略）。
+ * 状态走完整单据状态机：10 草稿 → 20 已确认 → 30 备货中 → 40 已出货 → 50 已完成，
+ * 未出货前可 90 取消；跳步会被拒绝。
+ */
+export interface SalesOrder {
+  id: number
+  doc_no: string
+  partner_id: number
+  trade_term: string
+  status: number
+  order_date: string
+  /** 约定交期，可空——下单时还没谈定是常态。 */
+  delivery_date?: string | null
+  currency_code: string
+  exchange_rate: number
+  amount_total: number
+  amount_base_total: number
+  remark: string
+  partner?: Partner | null
+  items?: SalesOrderItem[]
+  created_at: string
+  updated_at: string
+}
+
 export interface QuotationPreviewItem {
   product_id: number
   sku_code: string

@@ -1,10 +1,10 @@
 import { Edit, useForm } from '@refinedev/antd'
 import { Alert, Button, Divider, Form, Space } from 'antd'
 
+import { LineItemsEditor } from '@/components/line-items-editor'
 import type { Quotation } from '@/types'
 
 import { QuotationFormFields } from './form-fields'
-import { QuotationItemsEditor } from './items-editor'
 import { QuotationPreviewAlert, useQuotationPreview } from './preview'
 
 /**
@@ -49,7 +49,8 @@ export function QuotationEdit() {
           明细
         </Divider>
 
-        <QuotationItemsEditor
+        <LineItemsEditor
+          showSource
           currencyCode={Form.useWatch<string | undefined>('currency_code', form)}
         />
 

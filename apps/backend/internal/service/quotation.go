@@ -437,29 +437,7 @@ func (s *quotationService) buildTerms(
 func (s *quotationService) buildCurrency(
 	ctx context.Context, raw string,
 ) (code string, rate float64, curDP, baseDP int, err error) {
-	baseCode, err := s.currencies.BaseCode(ctx)
-	if err != nil {
-		return "", 0, 0, 0, err
-	}
-	code = strings.ToUpper(strings.TrimSpace(raw))
-	if code == "" {
-		code = baseCode
-	}
-	// ToBase(1) 顺带完成了"币种是否存在"与"当日汇率是否已录"两项校验：
-	// 缺汇率时给 400 而不是把 1 当汇率写进单据，那会让毛利凭空多出一个汇率倍数。
-	_, rate, err = s.currencies.ToBase(ctx, 1, code, s.clock())
-	if err != nil {
-		return "", 0, 0, 0, err
-	}
-	curDP, err = s.currencies.Decimals(ctx, code)
-	if err != nil {
-		return "", 0, 0, 0, err
-	}
-	baseDP, err = s.currencies.Decimals(ctx, baseCode)
-	if err != nil {
-		return "", 0, 0, 0, err
-	}
-	return code, rate, curDP, baseDP, nil
+	return resolveCurrency(ctx, s.currencies, raw, s.clock())
 }
 
 func (s *quotationService) parseValidUntil(raw string) (time.Time, error) {

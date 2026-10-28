@@ -5,8 +5,7 @@ import { Alert, message } from 'antd'
 import { quotationApi } from '@/api/quotations'
 import type { QuotationPreview } from '@/types'
 import { formatPercent } from '@/utils/format'
-
-import type { QuotationItemRow } from './items-editor'
+import type { LineItemRow } from '@/components/line-items-editor'
 
 function money(value: number): string {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -26,7 +25,7 @@ export function useQuotationPreview(form: FormInstance) {
   const reset = () => setPreview(null)
 
   const run = async () => {
-    let values: { currency_code?: string; items?: QuotationItemRow[] }
+    let values: { currency_code?: string; items?: LineItemRow[] }
     try {
       values = (await form.validateFields()) as typeof values
     } catch {
