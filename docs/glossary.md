@@ -65,28 +65,63 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 联系人姓名 | `Partner.ContactName` | 主体上的**单个**主联系人姓名。完整联系人（多个、各有电话邮箱）是 CRM 的 `Contact` 实体，尚未实现 | ERP + CRM |
 | 系统账号 | `User` | 登录系统的操作者，与往来单位的联系人无关 | 系统 |
 
-### 业务事务（未实现，命名先定下来）
+### 底座（未实现，命名先定下来）
 
-| 中文 | 英文标识 | 定义 | 域 |
+这几张表本身不是业务单据，但被后面每张单据引用，所以表名要先定死。
+
+| 中文 | 英文标识 | 表名 | 定义 | 主要使用方 |
+|---|---|---|---|---|
+| 币种 | `Currency` | `md_currency` | ISO 4217 三位代码（`USD` / `EUR` / `CNY`）+ 小数位。全库有且只有一个本币 | ERP + CRM |
+| 本币 | `BaseCurrency` | — | 记账本位币，`Currency` 里 `is_base` 的那一条。不是配置项：它出现在每张单据的本币金额里，必须可查 | ERP |
+| 汇率 | `ExchangeRate` | `md_exchange_rate` | 某币种在某生效日相对本币的折算率，`1 外币 = rate 本币`。按日追加历史，不覆盖 | ERP + CRM |
+| 单据编号 | `DocNo` | — | 单据的业务编号，格式 `类型(2)-年月(6)-流水(4)`，如 `SO-202610-0001`。与主键 `id` 是两回事 | ERP |
+
+### 业务事务 · CRM（未实现，命名先定下来）
+
+| 中文 | 英文标识 | 表名 | 定义 |
 |---|---|---|---|
-| 联系人 | `Contact` | 往来单位下的具体自然人，一个主体可有多个；各自有电话、邮箱、职位 | CRM |
-| 跟进记录 | `Activity` | 一次交互（电话/邮件/拜访/报价），挂在往来单位或商机上 | CRM |
-| 商机 | `Opportunity` | 有成交可能的销售机会，有阶段与预计金额 | CRM |
-| 销售订单 | `SalesOrder` | 客户下达的订单，含明细行 | ERP |
-| 采购订单 | `PurchaseOrder` | 向供应商下达的订单，含明细行 | ERP |
-| 出货批次 | `Shipment` | 一次实际发运。与订单是多对多（分批出货、合并出货） | ERP |
-| 产品货源 | `ProductSource` | 某产品在某供应商处的采购来源与货号。一个产品可有多个货源 | ERP |
-| 库存流水 | `StockMovement` | 每一次出入库记录，库存的权威来源 | ERP |
-| 库存快照 | `StockSnapshot` | 当前库存，可由流水重算，用于对账 | ERP |
+| 联系人 | `Contact` | `crm_partner_contact` | 往来单位下的具体自然人，一个主体可有多个；各有电话、邮箱、职位、语言。`md_partner.contact` 只是主联系人姓名的冗余 |
+| 跟进记录 | `Activity` | `crm_activity` | 一次交互（电话/邮件/拜访/报价），挂在往来单位**或**商机上 |
+| 商机 | `Opportunity` | `crm_opportunity` | 有成交可能的销售机会，有阶段、金额、币种、赢单概率 |
+| 线索 | `Lead` | `crm_lead` | 尚未建档的询盘主体，有来源渠道与国别；转化后指向新建的往来单位 |
+
+### 业务事务 · ERP 交易（未实现，命名先定下来）
+
+| 中文 | 英文标识 | 表名 | 定义 |
+|---|---|---|---|
+| 产品货源 | `ProductSource` | `md_product_source` | 某产品在某供应商处的采购来源与货号、价格、交期。一个产品可有多个货源 |
+| 报价单 | `Quotation` | `biz_quotation`（明细 `biz_quotation_item`） | 向客户发出的价格方案，含贸易术语、币种、有效期与多轮版本 |
+| 销售订单 | `SalesOrder` | `biz_sales_order`（明细 `biz_sales_order_item`） | 客户下达的订单，含明细行；金额由明细汇总 |
+| 采购订单 | `PurchaseOrder` | `biz_purchase_order`（明细 `biz_purchase_order_item`） | 向供应商下达的订单，可挂到销售订单行上 |
+| 出货批次 | `Shipment` | `biz_shipment`（分配 `biz_shipment_allocation`） | 一次实际发运。与订单是多对多（分批出货、合并出货） |
+| 库存流水 | `StockMovement` | `inv_stock_movement` | 每一次出入库记录，库存的权威来源 |
+| 库存快照 | `StockSnapshot` | `inv_stock_snapshot` | 当前库存，只能由流水重算，用于对账与性能 |
+| 应收单 | `Receivable` | `biz_receivable` | 应向客户收取的一笔款项，由订单或出货生成 |
+| 应付单 | `Payable` | `biz_payable` | 应向供应商支付的一笔款项 |
+| 收付款单 | `Payment` | `biz_payment`（核销 `biz_payment_allocation`） | 实际发生的一笔收款或付款，可核销多张应收/应付 |
+| 运费杂费 | `ShipmentCharge` | `biz_shipment_charge` | 归集到出货批次的海运费、报关费、拖车费等 |
+| 报关单 | `CustomsDeclaration` | `biz_customs_declaration` | 一票货物的报关记录，含报关单号与监管方式 |
+
+### 交易条件（不是实体，是单据上的字段）
+
+| 中文 | 英文标识 | 取值 | 说明 |
+|---|---|---|---|
+| 贸易术语 | `TradeTerm` | `EXW` / `FOB` / `CIF` / `CFR` / `DDP` | 决定运费与保险由谁承担，直接影响报价的构成 |
+| 结算方式 | `SettlementMethod` | `TT` 电汇 / `LC` 信用证 / `DP` 付款交单 / `DA` 承兑交单 / `OA` 赊销 | 决定账期与风险，报价时的价格基础不同 |
 
 ### 状态（最容易混的一对）
 
 | 中文 | 英文标识 | 取值 | 含义 |
 |---|---|---|---|
 | 启用状态 | `EnableStatus` | `1` 启用 / `0` 停用 | 这条**主数据或账号**还能不能被业务引用。停用不删除，历史单据仍指得到 |
-| 单据状态 | `DocumentStatus` | 待实现 | **业务单据**的流转阶段（待确认/已确认/已发货/已取消） |
+| 单据状态 | `DocumentStatus` | `10` 草稿 / `20` 已确认 / `30` 备货中 / `40` 已出货 / `50` 已完成 / `90` 已取消 | **业务单据**的流转阶段 |
 
 两者是不同类型，不要共用字段、不要共用一个 `status` 列。
+
+`DocumentStatus` 的取值**故意留空档**（10 / 20 / 30 …）：将来要在"已确认"和"备货中"之间
+插一个"已收订金"，只需给一个新值，不用把已有记录的 30 改成 40。连续编号看着整齐，
+但它的整齐是拿历史数据换的。
+
 
 ### 角色的位掩码（合并客户与供应商的产物）
 
@@ -130,6 +165,16 @@ role === 1                            // 错，理由同上
 | 商品 / 货品 | 产品 | `Product` |
 | 货号 / 型号 | SKU 编码 | 货号是供应商侧的叫法，属于 `ProductSource` |
 | 单据（泛指任何记录） | 明确说是主数据还是单据 | 单据特指有状态流转的业务凭证 |
+| 订单（裸写） | `SalesOrder` / `PurchaseOrder` | 两个方向都有订单，裸写「订单」时无法判断谁向谁下 |
+| 发货 / 出运 / 发货单 | 出货批次 `Shipment` | 三个叫法指同一件事；「出运」只在报关语境里用 |
+| 报价 / 价格表 / 报价方案 | 报价单 `Quotation` | 价格表是产品属性，报价单是有有效期与版本的凭证 |
+| 汇率 / 汇价 / 兑换率 | `ExchangeRate` | 三处各写一个名字，最后会有人以为它们是三个概念 |
+| 币种 / 货币 / 结算币 | `Currency` | 用「币种」；「结算币」是单据上的字段语义，不是实体 |
+| 金额（不说明计价口径） | 原币金额 / 本币金额 | 跨币种单据上两者相差一个汇率，裸写「金额」必然被误读 |
+| 客户（指线索时） | `Lead` | 线索还没建档，没有 `md_partner` 记录，不算客户 |
+| 联系人（指主体上的主联系人） | `ContactName` | 同第 122 行的规则，只是这次要区分「多人中的主联系人」 |
+| 库存（指快照） | `StockSnapshot` | 「库存」既可指流水也可能指快照，查询与修正走的是两套规则 |
+| 核销 / 冲销 | 核销 `PaymentAllocation` | 「冲销」是财务的红字冲回，与把收款对应到应收不是一回事 |
 | Party / party | `Partner` / `partner` | Party 在合同语境里指「当事方」，日常又容易被读成「聚会」，做主数据实体名两头都不贴切；Partner 才是「业务伙伴」的行业说法。表名同理：`md_party` → `md_partner` |
 
 ## 五、命名规则
@@ -164,6 +209,10 @@ role === 1                            // 错，理由同上
 | 主键 | 一律 `id`，自增 `uint` | 见 `docs/architecture.md` 第五节 |
 | API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/partners`、`/api/v1/sales-orders` |
 | JSON 字段 | snake_case | `product_total`、`enabled_products` |
+| 单据编号列 | 一律 `doc_no`，加 `uniqueIndex` | `biz_sales_order.doc_no` = `SO-202610-0001` |
+| 币种列 | `currency_code`，存 ISO 4217 三位代码 | 不要存币种 `id`：单据要能脱离主数据读懂 |
+| 金额列 | 跨币种单据必须成对出现 | `amount`（原币）+ `amount_base`（本币），另存 `exchange_rate` |
+| 单据状态列 | 一律叫 `status`，类型 `model.DocumentStatus` | 与主数据的 `status`（`EnableStatus`）同名不同型，靠类型而非列名区分 |
 
 **列名与 Go 字段可以不同，但必须有理由。** 例：`Partner.ContactName` 的列名是
 `contact`，因为改名会让 AutoMigrate 新增列、把既有数据留在旧列里。
