@@ -9,17 +9,20 @@
 
 GoWork 是外贸采购代理的 **ERP 与 CRM 集成系统**：一套主数据，两侧业务。
 采购代理的日常是"替客户买、替客户发、盯住客户关系"，这三件事分别落在
-ERP 的采购/出货链路、CRM 的客户关系链路上，共用同一份产品、供应商、客户数据。
+ERP 的采购/出货链路、CRM 的客户关系链路上，共用同一份产品与往来单位数据。
 
 **不是"两个系统对接"**——没有同步任务、没有第二份客户表。集成发生在数据层：
-CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记录。
+CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_party` 记录。
+
+而且**客户与供应商本身也是同一张表**。它们是同一个"往来单位"的两种角色，
+用 role 位掩码区分，因此"既是客户又是供应商"的主体只有一条记录、一套联系方式。
 
 ## 二、三层域模型
 
 ```
-        ┌──────────────── 共享主数据 md_ ────────────────┐
-        │  产品 Product · 供应商 Supplier · 客户 Customer  │
-        └───────┬─────────────────────────────┬──────────┘
+        ┌──────────────── 共享主数据 md_ ─────────────────────┐
+        │  产品 Product · 往来单位 Party（客户 / 供应商 / 两者） │
+        └───────┬─────────────────────────────┬───────────────┘
                 │                             │
     ┌───────────▼───────────┐     ┌───────────▼───────────┐
     │  ERP 域 biz_ / inv_   │     │  CRM 域 crm_          │
@@ -31,13 +34,17 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记�
 | 域 | 管什么 | 表前缀 | 引用的主数据 | 当前状态 |
 |---|---|---|---|---|
 | 共享主数据 | 被两侧反复引用的实体 | `md_` | — | 已实现 |
-| ERP | 交易与供应链：采购、库存、出货、订单 | `biz_`（单据）`inv_`（库存） | 产品、供应商、客户 | 未实现 |
-| CRM | 客户关系：联系人、跟进、商机 | `crm_` | 客户（主）、产品 | 未实现 |
+| ERP | 交易与供应链：采购、库存、出货、订单 | `biz_`（单据）`inv_`（库存） | 产品、往来单位（供应商角色） | 未实现 |
+| CRM | 客户关系：联系人、跟进、商机 | `crm_` | 往来单位（客户角色）、产品 | 未实现 |
 | 系统 | 账号、角色 | `sys_` | — | 已实现 |
 
-**为什么 `md_customer` 不放进 `crm_`**：客户是 ERP 开发票、CRM 做跟进的同一个主体。
+**为什么往来单位不放进 `crm_`**：客户是 ERP 开发票、CRM 做跟进的同一个主体。
 把它归给任何一侧，另一侧就得跨域引用，域边界立刻失效。判断标准是
 "这张表会不会被两个域同时写"——会，就留在 `md_`。
+
+**为什么客户与供应商不拆成两张表**：拆开的代价在"同一主体既是客户又是供应商"时
+立刻显现——两行数据、两套联系方式、两个编码，对账时还要人工确认它们是同一家公司。
+合并后一笔业务引用同一个 id，往来余额可以直接按主体归集。
 
 ## 三、术语表
 
@@ -50,17 +57,20 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记�
 | 产品 | `Product` | 可售卖的最小实体，以 SKU 编码唯一标识。价格、规格、包装是它的属性，不是它的身份 | ERP + CRM |
 | SKU 编码 | `SKUCode` | 产品唯一编码，格式 `类别(2) + 子类(2) - 流水(4)`，如 `BH01-0023`。全库唯一、永不复用 | ERP + CRM |
 | 产品类别 | `Category` | 两字母类别码（`HT` / `PT` / `BH` …），与 SKU 编码前两位一致 | ERP + CRM |
-| 供应商 | `Supplier` | 提供货物的工厂或 1688 店铺 | ERP |
-| 客户 | `Customer` | 采购方主体：外贸链条里的进口商或终端门店 | ERP + CRM |
-| 联系人姓名 | `ContactName` | 客户/供应商上的**单个**主联系人姓名。完整联系人（多个、各有电话邮箱）是 CRM 的 `Contact` 实体，尚未实现 | ERP + CRM |
-| 系统账号 | `User` | 登录系统的操作者，与客户/供应商的联系人无关 | 系统 |
+| 往来单位 | `Party` | 客户与供应商的统一主体。一个主体可同时承担两种角色，此时只有一条记录、一套联系方式 | ERP + CRM |
+| 主体角色 | `PartyRole` | 位掩码：`1` 客户 / `2` 供应商 / `3` 两者 | ERP + CRM |
+| 主体类型 | `PartyEntityType` | `0` 公司 / `1` 个人。个人主体的报关资料与发票抬头和公司不同 | ERP + CRM |
+| 供应商角色 | `PartyRoleSupplier` | 角色位 `2`。代码里说"供应商"指的是**这个角色**，不是一张表 | ERP |
+| 客户角色 | `PartyRoleCustomer` | 角色位 `1`。同上 | ERP + CRM |
+| 联系人姓名 | `Party.ContactName` | 主体上的**单个**主联系人姓名。完整联系人（多个、各有电话邮箱）是 CRM 的 `Contact` 实体，尚未实现 | ERP + CRM |
+| 系统账号 | `User` | 登录系统的操作者，与往来单位的联系人无关 | 系统 |
 
 ### 业务事务（未实现，命名先定下来）
 
 | 中文 | 英文标识 | 定义 | 域 |
 |---|---|---|---|
-| 联系人 | `Contact` | 客户下的具体自然人，一个客户可有多个；各自有电话、邮箱、职位 | CRM |
-| 跟进记录 | `Activity` | 一次交互（电话/邮件/拜访/报价），挂在客户或商机上 | CRM |
+| 联系人 | `Contact` | 往来单位下的具体自然人，一个主体可有多个；各自有电话、邮箱、职位 | CRM |
+| 跟进记录 | `Activity` | 一次交互（电话/邮件/拜访/报价），挂在往来单位或商机上 | CRM |
 | 商机 | `Opportunity` | 有成交可能的销售机会，有阶段与预计金额 | CRM |
 | 销售订单 | `SalesOrder` | 客户下达的订单，含明细行 | ERP |
 | 采购订单 | `PurchaseOrder` | 向供应商下达的订单，含明细行 | ERP |
@@ -78,6 +88,30 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记�
 
 两者是不同类型，不要共用字段、不要共用一个 `status` 列。
 
+### 角色的位掩码（合并客户与供应商的产物）
+
+角色用位掩码而不是 `1=客户 / 2=供应商 / 3=两者` 的连续枚举。理由是角色天然是集合：
+加入第三种角色（货代、报关行）时，连续枚举要补到 7 个值，而且每加一种都得回头
+改所有判断分支；位掩码只加一个常量。
+
+代价是**判断必须按位**：
+
+```go
+role.Has(model.PartyRoleSupplier)   // 对
+role == model.PartyRoleSupplier     // 错：值为 3 的主体被判成"不是供应商"
+role&model.PartyRoleSupplier != 0   // 对，Has 内部就是这么写的
+```
+
+```ts
+(role & PARTY_ROLE.supplier) !== 0  // 对
+role === 1                          // 错，理由同上
+```
+
+还有一处只有位掩码才会遇到的细节：按角色**筛选列表**时不能用
+`WHERE role = ?`，那样会把"客供两用"的主体漏掉。查询要展开成
+`role IN (...)`（Go 侧是 `model.RoleValuesContaining`），既覆盖全部组合，
+又能命中 role 上的普通索引——直接写位运算条件在 PostgreSQL 和 MySQL 上都走不了 btree。
+
 ## 四、易混词对照
 
 左列是**本项目不允许出现**的说法，右列才是对的。
@@ -86,10 +120,13 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记�
 |---|---|---|
 | Active / 在售 / 有效 | Enabled / 启用 | 同一个 `status=1` 曾有三种叫法，代码、文档、界面各说各的 |
 | Contact（指人名时） | `ContactName` | `Contact` 是 CRM 实体，不是字段 |
-| `code`（指 SKU 时） | `sku_code` / `SKUCode` | 客户和供应商也有 `code`，三者语义不同 |
+| `code`（指 SKU 时） | `sku_code` / `SKUCode` | 往来单位也有 `code`，语义不同 |
 | Status（脱离上下文的裸写法） | `EnableStatus` / `DocumentStatus` | 不带限定词的 status 无法判断是哪套状态 |
-| vendor | Supplier | 项目统一用 supplier |
-| client | Customer | 项目统一用 customer |
+| vendor | Supplier（角色名） | 角色仍叫 supplier，承载它的实体叫 party |
+| client | Customer（角色名） | 角色仍叫 customer，承载它的实体叫 party |
+| 客户表 / 供应商表 | `md_party` + 角色过滤 | 合并后只有一张表；`/customers`、`/suppliers` 是同一资源按角色切的入口 |
+| 客供两用 / 双向往来（作为角色取值） | `role = 3`（客户\|供应商） | 它是两个角色位的组合，不是第三个角色 |
+| 个人客户 / 公司客户（作为两个类型） | `PartyEntityType` | 主体类型与角色是两个正交维度，别混成一个字段 |
 | 商品 / 货品 | 产品 | `Product` |
 | 货号 / 型号 | SKU 编码 | 货号是供应商侧的叫法，属于 `ProductSource` |
 | 单据（泛指任何记录） | 明确说是主数据还是单据 | 单据特指有状态流转的业务凭证 |
@@ -114,19 +151,19 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_customer` 记�
 | 组件 PascalCase，文件名与导出一致 | `ProductList`、`form-fields.tsx` 导出多个字段组件 |
 | hook 以 `use` 开头 | `useTable`（refine 提供）、`useForm` |
 | 常量 UPPER_SNAKE_CASE | `ENABLE_STATUS_OPTIONS`、`PAGE_SIZE` |
-| 类型/接口 PascalCase，不加 `I` 前缀 | `Customer`、`PageResult<T>` |
+| 类型/接口 PascalCase，不加 `I` 前缀 | `Party`、`PageResult<T>` |
 | 字段名与后端 JSON 完全一致（snake_case） | `sku_code`、`created_at`，不要在这里转 camelCase |
 
 ### 数据库与 API
 
 | 对象 | 规则 | 例子 |
 |---|---|---|
-| 表名 | `前缀_单数_snake` | `md_customer`、`sys_user`、`biz_sales_order` |
-| 列名 | snake_case，与 JSON tag 对齐 | `sku_code`、`supplier_id` |
+| 表名 | `前缀_单数_snake` | `md_party`、`sys_user`、`biz_sales_order` |
+| 列名 | snake_case，与 JSON tag 对齐 | `sku_code`、`supplier_id`、`entity_type` |
 | 主键 | 一律 `id`，自增 `uint` | 见 `docs/architecture.md` 第五节 |
-| API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/sales-orders` |
+| API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/parties`、`/api/v1/sales-orders` |
 | JSON 字段 | snake_case | `product_total`、`enabled_products` |
 
-**列名与 Go 字段可以不同，但必须有理由。** 例：`Customer.ContactName` 的列名是
+**列名与 Go 字段可以不同，但必须有理由。** 例：`Party.ContactName` 的列名是
 `contact`，因为改名会让 AutoMigrate 新增列、把既有数据留在旧列里。
 这类偏离要在结构体上写明原因，不能只靠 commit message。

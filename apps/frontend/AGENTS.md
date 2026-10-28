@@ -55,8 +55,8 @@ apps/frontend/
     │   └── auth.ts  dashboard.ts      （CRUD 已改由 dataProvider 直连，不再逐个写 xxxApi）
     ├── components/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
-    │   └── fields.tsx       StatusTag / Money / CategoryTag / Mono / Empty
-    ├── constants/catalog.ts 产品类别字典（PRODUCT_CATEGORIES）、启用状态下拉（ENABLE_STATUS_OPTIONS）
+    │   └── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
+    ├── constants/catalog.ts 产品类别字典、启用状态、主体类型选项、角色位常量
     ├── utils/format.ts      时间格式化
     └── pages/
         ├── login/index.tsx
@@ -65,6 +65,10 @@ apps/frontend/
         ├── suppliers/       同上
         └── customers/       同上
 ```
+
+**`suppliers/` 与 `customers/` 是同一个数据模型的两种角色视图**，类型都是 `Party`。
+后端只有一张 `md_party` 表，`/suppliers` 与 `/customers` 是它按角色切的入口。
+所以两个目录里的 list 只差默认角色与列，改字段时两边都要看。
 
 ## 3. 应用装配
 
@@ -227,3 +231,5 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | `npm install` 报 `[gowork-frontend] 本项目使用 pnpm` | `package.json` 的 `preinstall` 守卫 | 用 pnpm；`package-lock.json` 被忽略，删掉即可 |
 | 某个下拉的选项和后端对不上 | 页面里自己写了一份 options，没走 `constants/catalog.ts` | 字典只留在 catalog.ts 一处，页面 import 它 |
 | 改了 `pnpm-workspace.yaml` 不生效 | pnpm 设置只能放这里 | 见根 `README.md`「前端包管理」 |
+| 客供两用的主体在列表里显示成"未知角色" | 写了 `role === 1` / `role === 2` | `Party.role` 是位掩码，必须按位与：`(role & PARTY_ROLE.supplier) !== 0`，展示统一用 `RoleTag` |
+| 新加的表单字段提交后没生效 | 后端 `PartyInput` 里没有该字段，或字段名与 JSON tag 不一致 | 表单一律提交 `snake_case`，与后端 JSON tag 对齐；`role` / `entity_type` 为 `nil` 表示"不改"而不是"改成 0" |

@@ -44,6 +44,7 @@ apps/backend/
     │   └── dialect.go           三库差异收敛点（模糊搜索 / 转义）
     ├── model/                   gorm 模型，只有数据形状与 tag
     ├── dto/                     请求 / 响应 / 查询契约
+    ├── migrate/                 一次性数据迁移（改结构之外的数据形状都在这里）
     ├── infra/
     │   ├── database/            连接、连接池、自动迁移
     │   ├── cache/               统一 Cache 接口 + redis / memory 两实现（含落盘）
@@ -53,7 +54,12 @@ apps/backend/
         └── response/            统一响应体
 ```
 
-测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、`repository/storage_test.go`。
+测试与实现同目录：`config/config_test.go`、`infra/cache/cache_test.go`、
+`repository/storage_test.go`、`migrate/party_test.go`。
+
+**`migrate` 与 `database.AutoMigrate` 的分工别搞混**：AutoMigrate 只让表结构追上
+模型（加列、加索引），不搬数据、不改名、不建立表间对应关系。凡是要动已有数据，
+写成 `migrate` 里一个具名函数，并在 `Run` 里按顺序注册。
 
 ## 3. 依赖方向（编译期约束）
 
@@ -84,6 +90,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 |---|---|---|
 | `config` | yaml → 默认值 → `GOWORK_*` env → `Validate()`；数据库/缓存的 `driver` 决定实现 | 新增配置项三件事一起做：结构体字段、`applyDefaults`、`applyEnv`，并在 `Validate` 里给启动期报错 |
 | `infra/database` | 三驱动 dialector；sqlite 自动建目录、WAL、连接数收敛（单写者）；连接池按驱动给默认值 | 驱动差异只能出现在这里，不要外溢 |
+| `migrate` | 一次性数据迁移：`sys_migration` 记已执行项，幂等；每份迁移一个具名函数，事务内完成 | 只搬数据不改结构（结构归 AutoMigrate）；读旧表加 `Unscoped`；状态不明时中止而不是继续插 |
 | `infra/cache` | `Cache` 接口 7 个方法；redis 与 memory **语义对齐**（未命中 `ErrMiss`、`Incr` 滑动窗口、非数字返回 `ErrNotInteger`、ttl≤0 永不过期） | memory 有落盘：`Close()` 必须被调用，否则最后一段数据丢失 |
 | `repository` | 泛型 `Base[T]` 提供 Create / UpdateFields / DeleteByID / FindByID / Exists / Count / Paginate；查询条件用 `Scope` 解耦 | 新增实体嵌 `Base[T]` 复用，只写自己独有的查询；复杂查询用 `r.DB()` |
 | `service` | 每个领域一个接口 + 私有实现，构造函数用 **Option 模式**注入 logger 等可选依赖 | 业务规则（唯一性、状态、金额）只写在这一层 |
@@ -99,8 +106,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 
 统一前缀 `/api/v1`。除 `POST /auth/login` 与 `/healthz` 外都要 `Authorization: Bearer <token>`。
 
-域归属见 `docs/glossary.md` 第三节：`products` 与 `customers` 会被 ERP、CRM 两侧引用，
-`suppliers` 只属 ERP。新增接口时先确认它落在哪个域，再决定表前缀。
+域归属见 `docs/glossary.md` 第三节：`products` 与 `parties` 会被 ERP、CRM 两侧引用。
+新增接口时先确认它落在哪个域，再决定表前缀。
 
 | 方法 | 路径 | handler | service |
 |---|---|---|---|
@@ -111,13 +118,21 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/dashboard/summary` | `Dashboard.Summary` | `DashboardService.Summary`（缓存 30s） |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法 |
-| GET / POST | `/api/v1/suppliers` | `Supplier.*` | `SupplierService.*` |
-| GET / PUT / DELETE | `/api/v1/suppliers/:id` | `Supplier.*` | 同上 |
-| GET / POST | `/api/v1/customers` | `Customer.*` | `CustomerService.*` |
-| GET / PUT / DELETE | `/api/v1/customers/:id` | `Customer.*` | 同上 |
+| GET / POST | `/api/v1/parties` | `Party.List(nil)` / `.Create(nil)` | `PartyService.List` / `.Create` |
+| GET / PUT / DELETE | `/api/v1/parties/:id` | `Party.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
+| GET / POST | `/api/v1/customers` | `Party.*(&customerRole)` | 同上，路由注入角色 |
+| GET / POST | `/api/v1/suppliers` | `Party.*(&supplierRole)` | 同上 |
+
+`/customers` 与 `/suppliers` 是 `/parties` 的角色切片，不是两套实现：同一个
+`PartyHandler`，路由层把默认角色传进去。新增字段只改 `PartyHandler` 一处。
+
+切片的行为约定：列表强制按角色过滤、创建时补 role、`Get/Update/Delete` 对
+角色外的 id 返回 404、并通过这两个入口编辑时**忽略** role 字段（不让客户页面
+有机会抹掉供应商身份）。改这套逻辑前先看 `internal/handler/party.go` 的注释。
 
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
-产品另有 `category` / `supplier_id` / `status`，供应商与客户另有 `status`。
+产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
+`country` / `status`。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
 
@@ -232,8 +247,13 @@ task backend:test:storage  # 三库两缓存一致性测试
 ### 硬性规则
 
 - **编码字段**（`sku_code` / `code`）必须 `uniqueIndex`，service 层做前置查重，冲突返回 `40901`。
-  查重方法名要带列语义：产品的叫 `ExistsBySKUCode`，客户/供应商的叫 `ExistsByCode`——
-  三个都叫 `ExistsByCode` 时，调用方只能靠记参数分辨查的是哪一列。
+  查重方法名要带列语义：产品的叫 `ExistsBySKUCode`（查 `sku_code`），主体的叫 `ExistsByCode`
+  （查 `code`）。合并前客户与供应商各有一个 `ExistsByCode`，三个方法同名不同义，
+  调用方只能靠记参数分辨。
+- **角色判断必须按位与**：`Party.Role` 是位掩码（1 客户 / 2 供应商 / 3 两者）。
+  写 `role == model.PartyRoleSupplier` 会把客供两用的主体判成"不是供应商"。
+  列表按角色筛选走 `model.RoleValuesContaining` 展开成 `IN`，不要直写位运算条件
+  （PG 与 MySQL 上都用不了 btree 索引）。
 - **两类状态不要混**：主数据与账号用 `model.EnableStatus`（1 启用 / 0 停用）；
   单据状态将来是 `DocumentStatus`，是另一个类型。两者取值都是小整数，
   赋错了编译器不报，只会在筛选条件上出错。
@@ -257,5 +277,9 @@ task backend:test:storage  # 三库两缓存一致性测试
 | 重启后登录态全没了 | memory 缓存没落盘 | `cache.memory.persist: true` 且 `Close()` 被调用（`main` 里靠 defer 保证） |
 | 生产误用了内存缓存 | `cache.driver` 配错 | 生产 `fallback_to_memory: false`，连不上 Redis 直接启动失败 |
 | 第 3 节的自检命令计数不为 0 | 新代码引入了反向依赖 | 按分层把逻辑挪回对应层 |
-| 改了结构体字段名之后那一列数据全变空 | 没写 `gorm:"column:..."`，gorm 按新字段名建了新列，旧数据留在旧列里 | 列名与字段名不一致时必须显式写 `column:`，例：`model.Customer.ContactName` 绑的是 `contact` 列 |
+| 改了结构体字段名之后那一列数据全变空 | 没写 `gorm:"column:..."`，gorm 按新字段名建了新列，旧数据留在旧列里 | 列名与字段名不一致时必须显式写 `column:`，例：`model.Party.ContactName` 绑的是 `contact` 列 |
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
+| 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
+| 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTY_ROLE.supplier) !== 0` |
+| 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响） |
+| 迁移后少了若干条旧数据 | 读旧表时漏了 `Unscoped`，软删除条件由目标 struct 的 schema 决定，`Table()` 指定表名也绕不过去 | `tx.Table("md_xxx").Unscoped().Find(&rows)`，`internal/migrate/party_test.go` 有对应用例 |

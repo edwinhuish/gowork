@@ -3,8 +3,11 @@
 外贸采购代理的 **ERP + CRM 集成系统**：Go 后端（gin + gorm + redis）+ React 管理端，
 用 Taskfile 统一管理指令。
 
-一条主数据（产品 / 供应商 / 客户）供两侧业务共用——ERP 管采购、库存、出货与订单，
-CRM 管联系人、跟进与商机，两侧引用同一行客户记录。
+一条主数据（产品 / 往来单位）供两侧业务共用——ERP 管采购、库存、出货与订单，
+CRM 管联系人、跟进与商机，两侧引用同一行往来单位记录。
+
+客户与供应商本身就合并在这张表里，靠 `role` 位掩码区分：同一个主体可以既是客户
+又是供应商，此时只有一条记录、一套联系方式。
 
 > 面向 AI 协作者的文档：根目录 [`AGENTS.md`](AGENTS.md) 讲目标与整体架构，
 > [`docs/glossary.md`](docs/glossary.md) 是术语与域边界的唯一事实来源，
@@ -55,7 +58,9 @@ task dev         # 并行起后端 :8080 与前端 :5173
 
 打开 http://localhost:5173，默认账号 **admin / admin123**。
 
-首次启动会自动建表并写入演示数据（2 个供应商、1 个客户、4 个产品）。
+首次启动会自动建表并写入演示数据（5 个往来单位、4 个产品）。演示数据刻意包含两种
+合并前无法表达的情况：一个"客供两用"主体（`BOTH001`，role=3）和一个个人主体
+（`PER001`，entity_type=1），用来验证角色位与主体类型确实生效。
 
 没有 `task` 时等价操作：
 
@@ -147,22 +152,25 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | GET | `/api/v1/dashboard/summary` | 概览统计 |
 | GET/POST | `/api/v1/products` | 产品列表 / 新建 |
 | GET/PUT/DELETE | `/api/v1/products/:id` | 产品详情 / 编辑 / 删除 |
-| GET/POST | `/api/v1/suppliers` | 供应商列表 / 新建 |
+| GET/POST | `/api/v1/parties` | 往来单位列表 / 新建（客户与供应商的统一资源） |
+| GET/PUT/DELETE | `/api/v1/parties/:id` | 往来单位详情 / 编辑 / 删除 |
+| GET/POST | `/api/v1/suppliers` | 供应商列表 / 新建（`/parties` 锁定供应商角色） |
 | GET/PUT/DELETE | `/api/v1/suppliers/:id` | 供应商详情 / 编辑 / 删除 |
-| GET/POST | `/api/v1/customers` | 客户列表 / 新建 |
+| GET/POST | `/api/v1/customers` | 客户列表 / 新建（`/parties` 锁定客户角色） |
 | GET/PUT/DELETE | `/api/v1/customers/:id` | 客户详情 / 编辑 / 删除 |
 
 除 `/healthz` 与 `/auth/login` 外，均需 `Authorization: Bearer <token>`。
 
-列表接口通用查询参数：`page`、`page_size`（上限 200）、`keyword`，另有各模块的 `status`、`category` 等。
+列表接口通用查询参数：`page`、`page_size`（上限 200）、`keyword`，另有各模块的 `status`、`category` 等；
+往来单位另有 `role`（位掩码，按包含语义过滤）与 `entity_type`（0 公司 / 1 个人）。
 
 ## 已实现模块
 
 **共享主数据**（ERP 与 CRM 同时引用）
 
 - **产品**：SKU 编码唯一校验、分类、默认货源（供应商）、成本/售价、软删除
-- **供应商**：编码唯一校验、关键字搜索、软删除
-- **客户**：编码唯一校验、国家/地区、主联系人、软删除
+- **往来单位**：编码唯一校验、角色位掩码（客户 / 供应商 / 两者）、主体类型（公司 / 个人）、
+  国家/地区、主联系人、软删除。有产品引用时不能删除，也不能摘掉供应商角色
 
 **系统**
 
