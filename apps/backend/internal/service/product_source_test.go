@@ -9,6 +9,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -106,7 +107,7 @@ func TestProductSourceRules(t *testing.T) {
 		ProductID:     fx.productID,
 		PartnerID:     fx.supplierID,
 		SupplierSKU:   "  A-100  ",
-		PurchasePrice: 1.2,
+		PurchasePrice: money.MustParse("1.2"),
 		CurrencyCode:  "usd",
 		MOQ:           1000,
 		DeliveryDays:  25,
@@ -125,11 +126,11 @@ func TestProductSourceRules(t *testing.T) {
 		if m.SupplierSKU != "A-100" {
 			t.Errorf("supplier_sku = %q，期望去掉首尾空格", m.SupplierSKU)
 		}
-		if !approx(m.PurchasePriceBase, 8.52) {
-			t.Errorf("purchase_price_base = %v，期望 8.52", m.PurchasePriceBase)
+		if m.PurchasePriceBase.Cmp(money.MustParse("8.52")) != 0 {
+			t.Errorf("purchase_price_base = %s，期望 8.52", m.PurchasePriceBase)
 		}
-		if !approx(m.ExchangeRate, 7.1) {
-			t.Errorf("exchange_rate = %v，期望 7.1", m.ExchangeRate)
+		if m.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+			t.Errorf("exchange_rate = %s，期望 7.1", m.ExchangeRate)
 		}
 	})
 
@@ -143,7 +144,7 @@ func TestProductSourceRules(t *testing.T) {
 	t.Run("同一供应商的空货号也不能重复", func(t *testing.T) {
 		noSKU := input
 		noSKU.SupplierSKU = ""
-		noSKU.PurchasePrice = 1.1
+		noSKU.PurchasePrice = money.MustParse("1.1")
 		if _, err := fx.sources.Create(ctx, noSKU); err != nil {
 			t.Fatalf("第一条空货号应被允许: %v", err)
 		}
@@ -189,7 +190,7 @@ func TestProductSourceRules(t *testing.T) {
 		off := int8(model.EnableStatusOff)
 		m, err := fx.sources.Create(ctx, dto.ProductSourceInput{
 			ProductID: fx.productID, PartnerID: fx.supplierID,
-			SupplierSKU: "A-300", PurchasePrice: 2, Status: &off,
+			SupplierSKU: "A-300", PurchasePrice: money.MustParse("2"), Status: &off,
 		})
 		if err != nil {
 			t.Fatalf("新增停用货源失败: %v", err)

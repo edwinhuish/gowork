@@ -10,6 +10,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -89,7 +90,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 		sourceRepo, productRepo, partnerRepo, currencySvc, WithProductSourceClock(clock),
 	).Create(ctx, dto.ProductSourceInput{
 		ProductID: product.ID, PartnerID: supplier.ID, SupplierSKU: "B-100",
-		PurchasePrice: 8, MOQ: 1000, DeliveryDays: 20,
+		PurchasePrice: money.MustParse("8"), MOQ: 1000, DeliveryDays: 20,
 	}); err != nil {
 		t.Fatalf("建货源失败: %v", err)
 	}

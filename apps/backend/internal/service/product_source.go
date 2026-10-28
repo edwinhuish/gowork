@@ -11,6 +11,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -103,7 +104,7 @@ func (s *productSourceService) Create(
 		return nil, err
 	}
 	s.log.Info("新增产品货源", "id", m.ID, "product_id", m.ProductID,
-		"partner_id", m.PartnerID, "sku", m.SupplierSKU, "price_base", m.PurchasePriceBase)
+		"partner_id", m.PartnerID, "sku", m.SupplierSKU, "price_base", m.PurchasePriceBase.String())
 	return s.repo.FindByID(ctx, m.ID)
 }
 
@@ -184,10 +185,10 @@ func (s *productSourceService) List(
 // map 得靠类型断言取出来，断错了是运行时 panic。
 type productSourceTerms struct {
 	SupplierSKU       string
-	PurchasePrice     float64
+	PurchasePrice     money.Decimal
 	CurrencyCode      string
-	PurchasePriceBase float64
-	ExchangeRate      float64
+	PurchasePriceBase money.Decimal
+	ExchangeRate      money.Decimal
 	MOQ               int
 	DeliveryDays      int
 	Status            model.EnableStatus
@@ -201,7 +202,7 @@ func (s *productSourceService) buildTerms(
 ) (productSourceTerms, error) {
 	var out productSourceTerms
 
-	if in.PurchasePrice < 0 {
+	if in.PurchasePrice.IsNegative() {
 		return out, errs.BadRequest("采购价不能为负")
 	}
 	if in.MOQ < 0 {
@@ -240,7 +241,7 @@ func (s *productSourceService) buildTerms(
 	if code == "" {
 		code = baseCode
 	}
-	priceBase, rate, err := s.currencies.ToBase(ctx, in.PurchasePrice, code, s.clock())
+	priceBase, rate, err := s.currencies.ToBaseDecimal(ctx, in.PurchasePrice, code, s.clock())
 	if err != nil {
 		return out, err
 	}

@@ -73,7 +73,8 @@ export function LineItemsEditor({
     const current = (form.getFieldValue(['items', index, 'unit_price']) as number | undefined) ?? 0
     // 售价作为报价的起点：报价单九成是"按目录价再谈"，从 0 开始填等于让人重抄一遍。
     if (!current && product) {
-      form.setFieldValue(['items', index, 'unit_price'], product.sale_price)
+      // 产品售价是字符串（定点），报价明细的单价还是 number（T-37 后续片再改）。
+      form.setFieldValue(['items', index, 'unit_price'], Number(product.sale_price))
     }
     // 换了产品，上一行选的货源就不属于这个产品了，必须清掉。
     form.setFieldValue(['items', index, 'source_id'], undefined)
@@ -182,7 +183,7 @@ export function LineItemsEditor({
                           disabled={!row.product_id || rowSources.length === 0}
                           options={rowSources.map((s) => ({
                             value: s.id,
-                            label: `${s.partner?.name ?? '供应商'} · ${s.purchase_price_base.toFixed(
+                            label: `${s.partner?.name ?? '供应商'} · ${Number(s.purchase_price_base).toFixed(
                               2,
                             )}${s.supplier_sku ? ` · ${s.supplier_sku}` : ''}`,
                           }))}

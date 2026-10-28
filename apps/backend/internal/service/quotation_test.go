@@ -9,6 +9,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -91,14 +92,14 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		sourceRepo, productRepo, partnerRepo, currencySvc, WithProductSourceClock(clock))
 	cheap, err := sourceSvc.Create(ctx, dto.ProductSourceInput{
 		ProductID: p1.ID, PartnerID: supplier.ID, SupplierSKU: "B-100",
-		PurchasePrice: 8, MOQ: 1000, DeliveryDays: 20,
+		PurchasePrice: money.MustParse("8"), MOQ: 1000, DeliveryDays: 20,
 	})
 	if err != nil {
 		t.Fatalf("建货源失败: %v", err)
 	}
 	pricey, err := sourceSvc.Create(ctx, dto.ProductSourceInput{
 		ProductID: p1.ID, PartnerID: supplier.ID, SupplierSKU: "A-100",
-		PurchasePrice: 1.2, CurrencyCode: "USD", MOQ: 500, DeliveryDays: 15,
+		PurchasePrice: money.MustParse("1.2"), CurrencyCode: "USD", MOQ: 500, DeliveryDays: 15,
 	})
 	if err != nil {
 		t.Fatalf("建货源失败: %v", err)

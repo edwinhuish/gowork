@@ -594,7 +594,10 @@ func (s *quotationService) buildItems(
 
 		amount := money.Round(row.UnitPrice*row.Qty, t.CurrencyDecimals)
 		amountBase := money.Round(amount*t.ExchangeRate, t.BaseDecimals)
-		costAmount := money.Round(src.PurchasePriceBase*row.Qty, t.BaseDecimals)
+		// 成本快照：货源本币价（Decimal）× 数量在定点里算完，最后一步才落到
+		// 报价明细的 float64 列——那一列等 T-37 第 4 片改造，届时这行去掉 Float64()。
+		costAmount := src.PurchasePriceBase.Mul(money.FromFloat(row.Qty)).
+			Round(t.BaseDecimals).Float64()
 
 		items = append(items, model.QuotationItem{
 			ProductID:  product.ID,
@@ -606,7 +609,7 @@ func (s *quotationService) buildItems(
 			UnitPrice:  row.UnitPrice,
 			Amount:     amount,
 			AmountBase: amountBase,
-			CostPrice:  src.PurchasePriceBase,
+			CostPrice:  src.PurchasePriceBase.Float64(),
 			CostAmount: costAmount,
 			SourceID:   &src.ID,
 			Remark:     row.Remark,

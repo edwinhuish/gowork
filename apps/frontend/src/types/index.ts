@@ -238,8 +238,9 @@ export interface Product {
   spec: string
   unit: string
   supplier_id: number | null
-  cost_price: number
-  sale_price: number
+  /** 后端 money.Decimal：字符串收发，前端只显示，不参与算术。 */
+  cost_price: string
+  sale_price: string
   /** 报关要素的默认值。真实报关以出货批次上填的为准，这里是带出来的缺省。 */
   hs_code: string
   declared_name_cn: string
@@ -299,10 +300,10 @@ export interface ProductSource {
   partner_id: number
   /** 供应商货号；允许为空——打样阶段对方还没给号。 */
   supplier_sku: string
-  purchase_price: number
+  purchase_price: string
   currency_code: string
-  purchase_price_base: number
-  exchange_rate: number
+  purchase_price_base: string
+  exchange_rate: string
   /** 最小起订量，0 表示对方没提要求。 */
   moq: number
   /** 交期天数，0 表示未确认。 */

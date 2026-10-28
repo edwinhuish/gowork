@@ -1,5 +1,7 @@
 package model
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // ProductSource 产品货源：某产品在某供应商处的采购来源。
 //
 // 为什么不在产品表上加 supplier_id2 / supplier_id3：一个产品对多个供应商是常态
@@ -21,10 +23,12 @@ type ProductSource struct {
 
 	// 采购价按「原币价 + 币种 + 本币价 + 汇率」四件套存（蓝图第五节第 1 条）。
 	// 只存原币，比价时得先手工算汇率，而汇率每天都在变——比价结果过一天就不成立。
-	PurchasePrice     float64 `gorm:"type:decimal(14,4);not null;default:0" json:"purchase_price"`
-	CurrencyCode      string  `gorm:"size:8;not null" json:"currency_code"`
-	PurchasePriceBase float64 `gorm:"type:decimal(14,4);not null;default:0" json:"purchase_price_base"`
-	ExchangeRate      float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	// 三个金额字段是 money.Decimal（定点）：货源本币价是报价成本的直接来源，
+	// 报价按它比价、毛利按它算，任何末位误差都会被放大到每一张报价上。
+	PurchasePrice     money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"purchase_price"`
+	CurrencyCode      string        `gorm:"size:8;not null" json:"currency_code"`
+	PurchasePriceBase money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"purchase_price_base"`
+	ExchangeRate      money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
 
 	// MOQ 最小起订量。0 表示对方没提要求，而不是"不能订"。
 	MOQ int `gorm:"not null;default:0" json:"moq"`

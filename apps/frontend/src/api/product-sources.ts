@@ -12,7 +12,8 @@ export interface ProductSourceInput {
   product_id: number
   partner_id: number
   supplier_sku: string
-  purchase_price: number
+  /** 后端 money.Decimal：字符串收发，避免过一遍 JS number 丢精度。 */
+  purchase_price: string
   /** 留空即本币，由后端折算并回填本币价与汇率。 */
   currency_code?: string
   moq: number

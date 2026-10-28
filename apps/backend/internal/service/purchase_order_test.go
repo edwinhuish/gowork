@@ -8,6 +8,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -84,7 +85,7 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 		sourceRepo, productRepo, partnerRepo, currencySvc, WithProductSourceClock(clock),
 	).Create(ctx, dto.ProductSourceInput{
 		ProductID: p1.ID, PartnerID: supplier.ID, SupplierSKU: "A-100",
-		PurchasePrice: 8, MOQ: 500, DeliveryDays: 15,
+		PurchasePrice: money.MustParse("8"), MOQ: 500, DeliveryDays: 15,
 	})
 	if err != nil {
 		t.Fatalf("建货源失败: %v", err)

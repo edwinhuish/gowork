@@ -1,5 +1,7 @@
 package model
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // Product 产品主数据。
 //
 // 编码约定参考「分类 + 流水」：SKUCode 全库唯一且永不复用，
@@ -15,9 +17,11 @@ type Product struct {
 	// SupplierID 指向 md_partner 里承担供应商角色的主体。
 	// 字段名与 JSON tag 保留 supplier 语义：产品关心的是"从谁进的货"，
 	// 而不是"这个主体还兼着什么角色"。角色约束由 service 在写入时校验。
-	SupplierID *uint   `gorm:"index" json:"supplier_id"`
-	CostPrice  float64 `gorm:"type:decimal(12,2);not null;default:0" json:"cost_price"`
-	SalePrice  float64 `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
+	SupplierID *uint `gorm:"index" json:"supplier_id"`
+	// 成本价与售价用 money.Decimal：它们是参考价，但会被复制进报价与订单的
+	// 成本快照，一旦带了 float 的尾差，两边永远对不上。
+	CostPrice money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"cost_price"`
+	SalePrice money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
 
 	// 以下六项是报关要素的**默认值**，全部可选。
 	//

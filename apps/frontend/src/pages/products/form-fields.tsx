@@ -83,12 +83,27 @@ export function ProductFormFields() {
         <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
-      <Form.Item name="cost_price" label="成本价" rules={[{ type: 'number', min: 0, message: '不能为负' }]}>
-        <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" />
+      {/* stringMode：金额按字符串收发表单，走一遍 JS number 等于把后端的定点精度丢了。 */}
+      <Form.Item name="cost_price" label="成本价" initialValue="0">
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          step={0.01}
+          precision={2}
+          stringMode
+          placeholder="0.00"
+        />
       </Form.Item>
 
-      <Form.Item name="sale_price" label="售价" rules={[{ type: 'number', min: 0, message: '不能为负' }]}>
-        <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" />
+      <Form.Item name="sale_price" label="售价" initialValue="0">
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          step={0.01}
+          precision={2}
+          stringMode
+          placeholder="0.00"
+        />
       </Form.Item>
 
       {/* 报关要素全是选填：它们只是默认值，真正申报以出货批次上填的为准。

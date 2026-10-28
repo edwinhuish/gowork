@@ -27,7 +27,7 @@ import type { Currency, Partner, ProductSource } from '@/types'
 interface SourceForm {
   partner_id: number
   supplier_sku?: string
-  purchase_price: number
+  purchase_price: string
   currency_code?: string
   moq: number
   delivery_days: number
@@ -77,7 +77,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ status: 1, purchase_price: 0, moq: 0, delivery_days: 0 })
+    form.setFieldsValue({ status: 1, purchase_price: '0', moq: 0, delivery_days: 0 })
     setModalOpen(true)
   }
 
@@ -102,7 +102,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
       product_id: productId,
       partner_id: values.partner_id,
       supplier_sku: values.supplier_sku?.trim() ?? '',
-      purchase_price: values.purchase_price ?? 0,
+      purchase_price: values.purchase_price ?? '0',
       currency_code: values.currency_code || undefined,
       moq: values.moq ?? 0,
       delivery_days: values.delivery_days ?? 0,
@@ -293,16 +293,14 @@ export function SourcesPanel({ productId }: { productId: number }) {
             </Col>
 
             <Col span={12}>
-              <Form.Item
-                name="purchase_price"
-                label="采购价（原币）"
-                rules={[{ type: 'number', min: 0, message: '不能为负' }]}
-              >
+              {/* stringMode：本币价由后端用定点算，前端不过一遍 number。 */}
+              <Form.Item name="purchase_price" label="采购价（原币）" initialValue="0">
                 <InputNumber
                   style={{ width: '100%' }}
                   min={0}
                   step={0.01}
                   precision={4}
+                  stringMode
                   placeholder="0.0000"
                 />
               </Form.Item>

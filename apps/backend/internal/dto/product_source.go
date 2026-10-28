@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // ProductSourceQuery 是产品货源列表的查询条件。
 //
 // ProductID 是主维度：货源总是"挂在这个产品下"被查看与维护。
@@ -20,7 +22,7 @@ type ProductSourceInput struct {
 	PartnerID   uint   `json:"partner_id" binding:"required"`
 	SupplierSKU string `json:"supplier_sku" binding:"max=64"`
 	// PurchasePrice 原币采购价。币种留空即本币，由 service 折算并回填。
-	PurchasePrice float64           `json:"purchase_price"`
+	PurchasePrice money.Decimal     `json:"purchase_price"`
 	CurrencyCode  string            `json:"currency_code" binding:"max=8"`
 	MOQ           int               `json:"moq" binding:"gte=0"`
 	DeliveryDays  int               `json:"delivery_days" binding:"gte=0,lte=3650"`
