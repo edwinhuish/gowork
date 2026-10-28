@@ -77,7 +77,7 @@ export function StockDocFormFields({ typeReadOnly = false }: { typeReadOnly?: bo
         rules={[{ max: 32, message: '最多 32 个字符' }]}
         extra="采购订单号 / 出货单号，只作追溯，不校验是否存在"
       >
-        <Input placeholder={type === 20 ? 'SH-202610-0001' : 'PO-202610-0001'} />
+        <Input placeholder={type === 20 ? 'DN-2610-001' : 'PO-2610-001'} />
       </Form.Item>
 
       <Form.Item name="remark" label="备注" className="form-item-full">

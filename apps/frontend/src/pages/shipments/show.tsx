@@ -125,8 +125,19 @@ export function ShipmentShow() {
         items={[
           {
             key: 'doc_no',
-            label: '单号',
-            children: <span className="cell-mono">{s?.doc_no}</span>,
+            label: '送货单 / 套号',
+            // 这个号同时是商业发票与装箱单的号：三份文件只在文件名后缀上区分
+            // （-DN / -CI / -PL），报关、提单与客户账上认的都是它。
+            children: (
+              <span className="cell-mono" title="商业发票与装箱单共用这个号">
+                {s?.doc_no}
+              </span>
+            ),
+          },
+          {
+            key: 'invoice_revision',
+            label: '商票版本',
+            children: s ? (s.invoice_revision > 0 ? `R${s.invoice_revision}` : '首版') : <Empty />,
           },
           {
             key: 'status',

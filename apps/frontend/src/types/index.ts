@@ -522,8 +522,11 @@ export interface ShipmentAllocation {
  */
 export interface Shipment {
   id: number
+  /** 送货单号，同时也是这一票的套号：商业发票与装箱单共用它。 */
   doc_no: string
   status: number
+  /** 商票改证次数：0 是首版，改证不换号，只在文件名与打印件上加 -R1。 */
+  invoice_revision: number
   /** 实际（或计划）出货日，决定它落在哪个统计月份。 */
   ship_date: string
   /**
