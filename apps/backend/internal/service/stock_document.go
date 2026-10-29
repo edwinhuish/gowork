@@ -26,6 +26,9 @@ type StockDocumentService interface {
 	Delete(ctx context.Context, id uint) error
 	// Confirm 确认单据：按类型生成库存流水并更新快照。
 	Confirm(ctx context.Context, id uint) (*model.StockDocument, error)
+	// IssueSalesOut 由出货确认调用：建一张销售出库单并立刻确认（T-40）。
+	// 调用方负责把它包进自己的事务。
+	IssueSalesOut(ctx context.Context, in dto.SalesOutIssueInput) (*model.StockDocument, error)
 }
 
 type stockDocumentService struct {
@@ -272,6 +275,68 @@ func (s *stockDocumentService) Confirm(
 	s.log.Info("出入库单已确认", "id", doc.ID, "doc_no", doc.DocNo,
 		"type", doc.Type.Label(), "movements", len(movements))
 	return s.docs.FindByID(ctx, doc.ID)
+}
+
+// IssueSalesOut 由出货确认调用：生成一张销售出库单并**立刻确认**（T-40）。
+//
+// 为什么不是"先建草稿、再由人点确认"：出货确认已经是仓库那边的结果，
+// 中间再插一次人工确认，等于给"货已出、账没动"留了一个窗口——而这个窗口
+// 正是 T-40 要堵的那个洞。
+//
+// 调用方（出货服务）把这一步包在自己的事务里，所以"出货标记为已出货"与
+// "库存流水落地"要么一起成功，要么一起回滚。
+func (s *stockDocumentService) IssueSalesOut(
+	ctx context.Context, in dto.SalesOutIssueInput,
+) (*model.StockDocument, error) {
+	if len(in.Items) == 0 {
+		return nil, errs.BadRequest("这次出货没有分配行，不能生成销售出库单")
+	}
+	if strings.TrimSpace(in.ShipmentNo) == "" {
+		// 没有来源单号就判不了重，等于允许同一批货反复出库。
+		return nil, errs.BadRequest("缺少来源出货单号")
+	}
+
+	dup, err := s.docs.ExistsBySource(ctx, model.StockDocSalesOut, in.ShipmentNo)
+	if err != nil {
+		return nil, err
+	}
+	if dup {
+		return nil, errs.ErrConflict.WithMsg(
+			fmt.Sprintf("出货 %s 已经生成过销售出库单，不能重复出库", in.ShipmentNo))
+	}
+
+	docNo, err := s.docNos.Next(ctx, model.StockDocSalesOut.DocType())
+	if err != nil {
+		return nil, err
+	}
+
+	doc := &model.StockDocument{
+		DocNo:       docNo,
+		Type:        model.StockDocSalesOut,
+		Status:      model.DocumentStatusDraft,
+		DocDate:     model.DateOnly(in.DocDate),
+		PartnerID:   in.PartnerID,
+		SourceDocNo: in.ShipmentNo,
+		Remark:      strings.TrimSpace(in.Remark),
+	}
+	items := make([]model.StockDocumentItem, 0, len(in.Items))
+	for _, it := range in.Items {
+		items = append(items, model.StockDocumentItem{
+			ProductID: it.ProductID,
+			SKUCode:   it.SKUCode,
+			NameCN:    it.NameCN,
+			Spec:      it.Spec,
+			Unit:      it.Unit,
+			Qty:       it.Qty,
+			Remark:    it.Remark,
+		})
+	}
+	if err := s.docs.CreateWithItems(ctx, doc, items); err != nil {
+		return nil, err
+	}
+	// 立刻确认：复用 Confirm 那一条路径（含写流水与更新快照），
+	// 不另写一份"建单并直接置为已确认"的逻辑，否则两处的流水字段迟早不一致。
+	return s.Confirm(ctx, doc.ID)
 }
 
 // resolvePosting 算出一行明细该产生什么方向、多少数量的流水。

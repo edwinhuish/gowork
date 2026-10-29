@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
@@ -30,6 +32,8 @@ type shipmentFixture struct {
 	draftOrder *model.SalesOrder
 	// orderC 属于第二个客户，用来验证一票不能装两个客户的货。
 	orderC *model.SalesOrder
+	// db 供 T-40 直接查「出库单有没有生成、流水落在哪」。
+	db *gorm.DB
 }
 
 func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
@@ -41,7 +45,10 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
 		&model.SalesOrderChange{}, &model.SalesOrderChangeLine{},
 		&model.Shipment{}, &model.ShipmentAllocation{},
-		&model.ShipmentCharge{}, &model.CustomsDeclaration{})
+		&model.ShipmentCharge{}, &model.CustomsDeclaration{},
+		// T-40：出货确认会出一张销售出库单并写流水，缺表会让确认整条失败。
+		&model.StockDocument{}, &model.StockDocumentItem{},
+		&model.StockMovement{}, &model.StockSnapshot{})
 
 	clock := func() time.Time { return *now }
 	currencyRepo := repository.NewCurrencyRepository(db)
@@ -130,6 +137,9 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 			repository.NewShipmentChargeRepository(db),
 			repository.NewCustomsDeclarationRepository(db),
 			docNoSvc,
+			repository.NewTxManager(db),
+			NewStockDocumentService(
+				repository.NewStockDocumentRepository(db), productRepo, partnerRepo, docNoSvc),
 			WithShipmentClock(clock),
 			WithShipmentLogger(slog.New(slog.DiscardHandler)),
 		),
@@ -142,6 +152,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		orderB:       orderB,
 		draftOrder:   draftOrder,
 		orderC:       orderC,
+		db:           db,
 	}
 }
 
@@ -674,4 +685,14 @@ func TestSalesOrderChangeRespectsShippedQty(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("改到高于已出货量应允许: %v", err)
 	}
+}
+
+// stubSalesOut 给"不涉及出库"的用例用：一旦被调用，说明这条用例走到了不该走的分支。
+type stubSalesOut struct{ t *testing.T }
+
+func (s stubSalesOut) IssueSalesOut(
+	context.Context, dto.SalesOutIssueInput,
+) (*model.StockDocument, error) {
+	s.t.Fatal("这条用例不该触发出库")
+	return nil, nil
 }

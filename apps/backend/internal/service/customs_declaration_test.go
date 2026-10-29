@@ -43,6 +43,7 @@ func newCustomsFixture(t *testing.T, now time.Time) customsFixture {
 		shipments: NewShipmentService(
 			shipmentRepo, repository.NewSalesOrderRepository(db), chargeRepo, customsRepo,
 			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
+			repository.NewTxManager(db), stubSalesOut{t},
 			WithShipmentClock(clock),
 		),
 		draftID:     mkShipment("SH-2610-011", model.DocumentStatusDraft),

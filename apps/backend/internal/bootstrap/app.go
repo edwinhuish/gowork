@@ -227,10 +227,6 @@ func New(cfg *config.Config) (*App, error) {
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, purchaseMilestoneRepo,
 		currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
-	// 出货批次管的是"订单行已经被出掉多少"，所以它依赖销售订单仓储（读行与状态），
-	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
-	shipmentSvc := service.NewShipmentService(
-		shipmentRepo, orderRepo, chargeRepo, customsRepo, docNoSvc, service.WithShipmentLogger(log))
 	// 运费杂费只依赖出货仓储（确认这票存在）与币种服务（折本币），
 	// 不依赖出货服务：它要的是"这票还在不在"，不是"这票能不能改"。
 	chargeSvc := service.NewShipmentChargeService(
@@ -260,6 +256,13 @@ func New(cfg *config.Config) (*App, error) {
 	stockDocSvc := service.NewStockDocumentService(
 		stockDocRepo, productRepo, partnerRepo, docNoSvc,
 		service.WithStockDocumentLogger(log))
+	// 出货批次管的是"订单行已经被出掉多少"，所以它依赖销售订单仓储（读行与状态），
+	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
+	// 出货确认会调 StockDocumentService 出一张销售出库单（T-40），
+	// 所以它必须排在这之后装配。
+	shipmentSvc := service.NewShipmentService(
+		shipmentRepo, orderRepo, chargeRepo, customsRepo, docNoSvc, txs, stockDocSvc,
+		service.WithShipmentLogger(log))
 	// 附件不依赖任何业务服务：它能挂在哪由仓储里的那张清单判定，
 	// 加一个可挂载的实体不用改这里的装配。
 	attachmentSvc := service.NewAttachmentService(

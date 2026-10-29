@@ -88,6 +88,7 @@ func newChargeFixture(t *testing.T, now time.Time) chargeFixture {
 			shipmentRepo, repository.NewSalesOrderRepository(db), chargeRepo,
 			repository.NewCustomsDeclarationRepository(db),
 			NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock)),
+			repository.NewTxManager(db), stubSalesOut{t},
 			WithShipmentClock(clock),
 		),
 		draftShipmentID:     draftID,

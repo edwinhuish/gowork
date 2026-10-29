@@ -50,8 +50,21 @@ type shipmentService struct {
 	charges repository.ShipmentChargeRepository
 	customs repository.CustomsDeclarationRepository
 	docNos  DocNoService
-	clock   func() time.Time
-	log     *slog.Logger
+	// txs 只用在「出货确认即出库」（T-40）：状态变更与库存流水必须落在一起。
+	txs repository.TxManager
+	// stockOut 负责建那张销售出库单。用窄接口而不是整个出入库服务：
+	// 出货只做一件事——出一张销售出库。
+	stockOut SalesOutIssuer
+	clock    func() time.Time
+	log      *slog.Logger
+}
+
+// SalesOutIssuer 把一次出货写成一张已确认的销售出库单（T-40）。
+//
+// 定义在出货这一侧：调用方只需要"给我出库"，不需要知道出入库单怎么建、
+// 流水怎么写、快照怎么更新。
+type SalesOutIssuer interface {
+	IssueSalesOut(ctx context.Context, in dto.SalesOutIssueInput) (*model.StockDocument, error)
 }
 
 type ShipmentOption func(*shipmentService)
@@ -71,6 +84,8 @@ func NewShipmentService(
 	charges repository.ShipmentChargeRepository,
 	customs repository.CustomsDeclarationRepository,
 	docNos DocNoService,
+	txs repository.TxManager,
+	stockOut SalesOutIssuer,
 	opts ...ShipmentOption,
 ) ShipmentService {
 	s := &shipmentService{
@@ -79,6 +94,8 @@ func NewShipmentService(
 		charges:   charges,
 		customs:   customs,
 		docNos:    docNos,
+		txs:       txs,
+		stockOut:  stockOut,
 		clock:     time.Now,
 		log:       slog.Default(),
 	}
@@ -301,11 +318,91 @@ func (s *shipmentService) UpdateStatus(
 	if err := checkDocumentTransit(existing.Status, next); err != nil {
 		return nil, err
 	}
+	// 已出货这一刻才是真正动库存的时刻（T-40）：出货单在草稿阶段只是"打算出"，
+	// 取消或改数量都不该留下流水。所以出库只挂在这一个跃迁上。
+	if next == model.DocumentStatusShipped {
+		return s.shipAndIssue(ctx, existing)
+	}
 	if err := s.shipments.Update(ctx, id, map[string]any{"status": next}); err != nil {
 		return nil, err
 	}
 	s.log.Info("出货批次状态变更", "id", id, "from", existing.Status, "to", next)
 	return s.shipments.FindByID(ctx, id)
+}
+
+// shipAndIssue 把「标记已出货」与「生成销售出库」放进同一个事务（T-40）。
+//
+// 顺序是先出库、后改状态：出库失败（比如这票已经出过库）时状态没动，
+// 用户看到的是"这次确认没成功"，而不是一张已出货但库存没减的单。
+func (s *shipmentService) shipAndIssue(
+	ctx context.Context, sh *model.Shipment,
+) (*model.Shipment, error) {
+	in, err := s.salesOutInput(sh)
+	if err != nil {
+		return nil, err
+	}
+
+	var doc *model.StockDocument
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		issued, err := s.stockOut.IssueSalesOut(ctx, in)
+		if err != nil {
+			return err
+		}
+		doc = issued
+		return s.shipments.Update(ctx, sh.ID, map[string]any{
+			"status": model.DocumentStatusShipped,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Info("出货已确认并出库", "id", sh.ID, "doc_no", sh.DocNo,
+		"stock_doc", doc.DocNo, "rows", len(in.Items))
+	return s.shipments.FindByID(ctx, sh.ID)
+}
+
+// salesOutInput 把一张出货单摊成出库单的入参。
+//
+// 客户从订单上取：出货批次本身没有客户字段（一票可能拼几家的货），
+// 而目前一张出货单只装一张订单的行，取第一条分配行的订单即可。
+// 将来若允许一票拼多单，这里要按客户拆成多张出库单——先留这句话在这里。
+func (s *shipmentService) salesOutInput(sh *model.Shipment) (dto.SalesOutIssueInput, error) {
+	in := dto.SalesOutIssueInput{
+		ShipmentID: sh.ID,
+		ShipmentNo: sh.DocNo,
+		DocDate:    model.DateOnly(sh.ShipDate),
+	}
+	if len(sh.Allocations) == 0 {
+		return in, errs.BadRequest("这次出货没有分配行，不能确认出货")
+	}
+
+	items := make([]dto.SalesOutIssueItem, 0, len(sh.Allocations))
+	for _, alloc := range sh.Allocations {
+		if !alloc.Qty.IsPositive() {
+			continue
+		}
+		item := alloc.SalesOrderItem
+		if item == nil {
+			// 没有订单行就不知道是哪个产品，出库单会缺行；宁可报错也不要出一张残缺的账。
+			return in, errs.BadRequest("出货分配行缺少订单行信息，无法生成出库单")
+		}
+		if in.PartnerID == nil && item.SalesOrder != nil {
+			partnerID := item.SalesOrder.PartnerID
+			in.PartnerID = &partnerID
+		}
+		items = append(items, dto.SalesOutIssueItem{
+			ProductID: item.ProductID,
+			SKUCode:   alloc.SKUCode,
+			NameCN:    alloc.NameCN,
+			Spec:      alloc.Spec,
+			Unit:      alloc.Unit,
+			Qty:       alloc.Qty,
+			Remark:    alloc.Remark,
+		})
+	}
+	in.Items = items
+	return in, nil
 }
 
 // UpdateLogistics 只改物流节点，任何状态都能改。

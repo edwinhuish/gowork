@@ -51,6 +51,9 @@ type StockDocumentRepository interface {
 	Delete(ctx context.Context, id uint) error
 	// CurrentQty 返回某个产品当前的库存（没有快照视为 0），盘点确认时用来取账面数。
 	CurrentQty(ctx context.Context, productID uint) (money.Decimal, error)
+	// ExistsBySource 报告某类单据是否已经由这个来源单号生成过。
+	// 出货确认据此挡住重复出库（T-40）：同一票货只能出一张销售出库单。
+	ExistsBySource(ctx context.Context, t model.StockDocType, sourceDocNo string) (bool, error)
 	// Post 把单据置为已确认、回写账面数、写入流水并更新快照，全部在一个事务里。
 	//
 	// 拆成多次调用就会出现"单据已确认但库存没动"的中间态，
@@ -189,6 +192,22 @@ func (r *stockDocumentRepo) CurrentQty(
 		return money.Zero(), fmt.Errorf("查询当前库存 product_id=%d: %w", productID, err)
 	}
 	return row.Qty, nil
+}
+
+func (r *stockDocumentRepo) ExistsBySource(
+	ctx context.Context, t model.StockDocType, sourceDocNo string,
+) (bool, error) {
+	if sourceDocNo == "" {
+		return false, nil
+	}
+	var count int64
+	err := r.conn(ctx).Model(&model.StockDocument{}).
+		Where("type = ? AND source_doc_no = ?", t, sourceDocNo).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("检查来源单号 %s 是否已出库: %w", sourceDocNo, err)
+	}
+	return count > 0, nil
 }
 
 func (r *stockDocumentRepo) Post(
