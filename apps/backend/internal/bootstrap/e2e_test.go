@@ -646,3 +646,71 @@ func TestE2EStockDocuments(t *testing.T) {
 		}
 	})
 }
+
+// 打印链路：报价单 PDF。
+//
+// 这条特别值得验，因为"没有中文字体"不会让服务起不来（代码里明确降级），
+// 于是最坏的情况是：上线后点打印，界面弹一句看不懂的错，而没人知道是字体问题。
+// 用例把两种可接受的结果都钉住——能打印就断言是真 PDF；不能打印就必须是
+// 一句能照着做的提示，而不是 500 或者空文件。
+func TestE2EPdf(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	productID := firstID(t, srv, token, "/api/v1/products?page_size=1")
+	customerID := firstID(t, srv, token, "/api/v1/partners?role=1&page_size=1")
+	supplierID := firstID(t, srv, token, "/api/v1/partners?role=2&page_size=1")
+
+	// 报价要先有货源（没有成本就没法算毛利，服务层会拒）。
+	res := call(t, srv, http.MethodPost, "/api/v1/product-sources", token,
+		[]byte(fmt.Sprintf(`{"product_id":%d,"partner_id":%d,"purchase_price":"60","moq":1,"delivery_days":7}`,
+			productID, supplierID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建货源失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost, "/api/v1/quotations", token,
+		[]byte(fmt.Sprintf(`{"partner_id":%d,"trade_term":"FOB","currency_code":"USD",
+			"valid_until":"2026-12-31","items":[{"product_id":%d,"qty":"10","unit_price":"100"}]}`,
+			customerID, productID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建报价失败: %d %s", res.StatusCode, msg)
+	}
+	quotationID := idOf(t, res)
+
+	res = call(t, srv, http.MethodGet,
+		fmt.Sprintf("/api/v1/quotations/%d/pdf", quotationID), token, nil)
+	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusOK {
+		t.Log("本机有可用中文字体：走的是渲染分支")
+		if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "application/pdf") {
+			t.Errorf("Content-Type = %q，期望 application/pdf", ct)
+		}
+		if cd := res.Header.Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+			t.Errorf("Content-Disposition = %q，期望附件下载", cd)
+		}
+		raw, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("读 PDF 失败: %v", err)
+		}
+		if !bytes.HasPrefix(raw, []byte("%PDF")) {
+			t.Errorf("返回的不是 PDF（前 8 字节 %q）", raw[:min(8, len(raw))])
+		}
+		// 一页带表格的报价单不可能只有几百字节；太小说明模板渲染出了空文档。
+		if len(raw) < 1024 {
+			t.Errorf("PDF 只有 %d 字节，像是渲染失败", len(raw))
+		}
+		return
+	}
+
+	// 不能打印时必须说清楚原因，而不是让用户对着 500 猜。
+	t.Log("本机没有候选中文字体：走的是降级分支（渲染分支在有字体的机器上才会被执行）")
+	_, msg, _ := decodeEnvelope(t, res)
+	if !strings.Contains(msg, "字体") {
+		t.Errorf("打印不可用时应提示字体未配置，实际：%d %q", res.StatusCode, msg)
+	}
+}
