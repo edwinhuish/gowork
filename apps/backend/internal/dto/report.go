@@ -169,6 +169,100 @@ type ExchangeGainReport struct {
 	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }
 
+// Partner360Query 是客户 360 的查询条件。
+type Partner360Query struct {
+	PartnerID uint `form:"partner_id" binding:"required"`
+	// Limit 是每个列表的行数上限，留空 10；0 取内部上限 50。
+	Limit *int `form:"limit"`
+	// AsOf 是超期判断的截止日，留空取今天。
+	AsOf string `form:"as_of" binding:"max=10"`
+}
+
+// Partner360Totals 是一个主体的关键数字。金额全部本币（外币之间只有折本币才能相加）。
+type Partner360Totals struct {
+	OrderCount      int64         `json:"order_count"`
+	OrderAmountBase money.Decimal `json:"order_amount_base"`
+	LastOrderDate   string        `json:"last_order_date"`
+
+	// ShipmentCount 是**含该客户订单行**的出货票数（去重）：拼柜时一票里还有别的客户的货。
+	ShipmentCount int64 `json:"shipment_count"`
+
+	ActivityCount  int64  `json:"activity_count"`
+	LastActivityAt string `json:"last_activity_at"`
+
+	// 商机只算未终结的：已赢的变成订单了，已输的不该再占预测。
+	OpenOpportunityCount      int64         `json:"open_opportunity_count"`
+	OpenOpportunityAmountBase money.Decimal `json:"open_opportunity_amount_base"`
+
+	ReceivableOutstandingBase money.Decimal `json:"receivable_outstanding_base"`
+	ReceivableOverdueBase     money.Decimal `json:"receivable_overdue_base"`
+}
+
+type Partner360Activity struct {
+	ID           uint   `json:"id"`
+	Type         string `json:"type"`
+	Subject      string `json:"subject"`
+	OccurredAt   string `json:"occurred_at"`
+	NextFollowAt string `json:"next_follow_at"`
+}
+
+type Partner360Opportunity struct {
+	ID                uint          `json:"id"`
+	Subject           string        `json:"subject"`
+	Stage             int8          `json:"stage"`
+	AmountBase        money.Decimal `json:"amount_base"`
+	Probability       int           `json:"probability"`
+	ExpectedCloseDate string        `json:"expected_close_date"`
+}
+
+type Partner360Order struct {
+	ID              uint          `json:"id"`
+	DocNo           string        `json:"doc_no"`
+	OrderDate       string        `json:"order_date"`
+	Status          int8          `json:"status"`
+	CurrencyCode    string        `json:"currency_code"`
+	AmountBaseTotal money.Decimal `json:"amount_base_total"`
+}
+
+type Partner360Shipment struct {
+	ID       uint   `json:"id"`
+	DocNo    string `json:"doc_no"`
+	ShipDate string `json:"ship_date"`
+	Status   int8   `json:"status"`
+}
+
+type Partner360Receivable struct {
+	ID              uint          `json:"id"`
+	DocNo           string        `json:"doc_no"`
+	CurrencyCode    string        `json:"currency_code"`
+	DueDate         string        `json:"due_date"`
+	Outstanding     money.Decimal `json:"outstanding"`
+	OutstandingBase money.Decimal `json:"outstanding_base"`
+	OverdueDays     int           `json:"overdue_days"`
+}
+
+// Partner360 是一个主体的全貌：抬头数字 + 五块明细（各带 id 与单号，能点进源单据）。
+//
+// 每块都**截断**（默认 10 条）：这一页是用来判断"接下来该跟哪一条"的，
+// 全量明细去各自的列表页看。合计（Totals）永远是全量，不受截断影响。
+type Partner360 struct {
+	PartnerID   uint   `json:"partner_id"`
+	PartnerCode string `json:"partner_code"`
+	PartnerName string `json:"partner_name"`
+	Country     string `json:"country"`
+	// Role 是角色位掩码：同一家可能既是客户又是供应商。
+	Role int8   `json:"role"`
+	AsOf string `json:"as_of"`
+
+	Totals Partner360Totals `json:"totals"`
+
+	Activities    []Partner360Activity    `json:"activities"`
+	Opportunities []Partner360Opportunity `json:"opportunities"`
+	Orders        []Partner360Order       `json:"orders"`
+	Shipments     []Partner360Shipment    `json:"shipments"`
+	Receivables   []Partner360Receivable  `json:"receivables"`
+}
+
 // CollectionQuery 是回款与超期报表的查询条件。
 type CollectionQuery struct {
 	// Direction 10 应收回款 / 20 应付付款，留空按应收。

@@ -4175,6 +4175,42 @@
         }
       }
     },
+    "/api/v1/reports/partner-360": {
+      "get": {
+        "operationId": "GET_handler_ReportHandler_Partner360-fm",
+        "tags": [
+          "reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/api/v1/reports/sales-dashboard": {
       "get": {
         "operationId": "GET_handler_ReportHandler_SalesDashboard-fm",

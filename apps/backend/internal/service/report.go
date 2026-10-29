@@ -33,6 +33,8 @@ type ReportService interface {
 	SalesDashboard(ctx context.Context, q dto.SalesDashboardQuery) (*dto.SalesDashboard, error)
 	// Collection 给出期间回款率与截至 as_of 的超期明细（T-29）。
 	Collection(ctx context.Context, q dto.CollectionQuery) (*dto.CollectionReport, error)
+	// Partner360 聚一个主体的订单、出货、应收、跟进、商机（T-30）。
+	Partner360(ctx context.Context, q dto.Partner360Query) (*dto.Partner360, error)
 }
 
 type reportService struct {

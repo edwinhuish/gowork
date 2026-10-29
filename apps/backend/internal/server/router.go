@@ -333,6 +333,8 @@ func New(
 		reports.GET("/sales-dashboard", h.Report.SalesDashboard)
 		// 回款与超期：期间回款率（流量）+ 截至 as_of 的超期明细（存量）。
 		reports.GET("/collection", h.Report.Collection)
+		// 客户 360：一个主体的订单 / 出货 / 应收 / 跟进 / 商机，各块带 id 可点回源单据。
+		reports.GET("/partner-360", h.Report.Partner360)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)

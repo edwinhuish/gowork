@@ -36,6 +36,23 @@ func (h *ReportHandler) ExchangeGains(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Partner360 GET /api/v1/reports/partner-360
+//
+// 参数：partner_id（必填）、limit（每块行数，留空 10，0 取上限 50）、
+// as_of（超期判断的截止日，留空取今天）。主体不存在返回 404。
+func (h *ReportHandler) Partner360(c *gin.Context) {
+	var q dto.Partner360Query
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.Partner360(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Collection GET /api/v1/reports/collection
 //
 // 参数：direction=10|20（留空按应收）、from / to（按到期日，闭区间）、

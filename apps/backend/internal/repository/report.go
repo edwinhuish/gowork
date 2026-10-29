@@ -66,6 +66,24 @@ type ReportRepository interface {
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
 	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]money.Decimal, error)
 
+	// ---- 客户 360（T-30）----
+
+	// GetPartnerBrief 取主体抬头（编码 / 名称 / 国别 / 角色位），不存在返回 ErrNotFound。
+	GetPartnerBrief(ctx context.Context, id uint) (*PartnerBrief, error)
+	// Partner360Totals 汇总订单、出货、应收、跟进、商机五个口径的关键数字。
+	Partner360Totals(ctx context.Context, partnerID uint) (*Partner360Totals, error)
+
+	ListPartnerActivities(ctx context.Context, partnerID uint, limit int) ([]Partner360Activity, error)
+	ListPartnerOpportunities(
+		ctx context.Context, partnerID uint, limit int,
+	) ([]Partner360Opportunity, error)
+	ListPartnerOrders(ctx context.Context, partnerID uint, limit int) ([]Partner360Order, error)
+	ListPartnerShipments(ctx context.Context, partnerID uint, limit int) ([]Partner360Shipment, error)
+	// ListPartnerOutstandingReceivables 取全部未结清应收（不截断），合计要用。
+	ListPartnerOutstandingReceivables(
+		ctx context.Context, partnerID uint,
+	) ([]PartnerOutstandingReceivable, error)
+
 	// ---- 回款与超期（T-29）----
 
 	// SumSettlementDue 汇总期间内到期的应收 / 应付金额（本币），回款率的分母。
