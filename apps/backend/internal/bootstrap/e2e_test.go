@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -297,7 +298,8 @@ func TestE2ESalesChain(t *testing.T) {
 	orderID := firstID(t, srv, token, "/api/v1/sales-orders?page_size=1")
 	var order struct {
 		Items []struct {
-			ID uint `json:"id"`
+			ID         uint   `json:"id"`
+			AmountBase string `json:"amount_base"`
 		} `json:"items"`
 	}
 	res = call(t, srv, http.MethodGet, fmt.Sprintf("/api/v1/sales-orders/%d", orderID), token, nil)
@@ -306,6 +308,7 @@ func TestE2ESalesChain(t *testing.T) {
 		t.Fatalf("订单详情里没有明细: %s", data)
 	}
 	itemID := order.Items[0].ID
+	itemAmountBase := order.Items[0].AmountBase
 
 	// 转出来的订单还是草稿：草稿订单不能出货（数量还没算数）。
 	res = call(t, srv, http.MethodPut,
@@ -354,6 +357,35 @@ func TestE2ESalesChain(t *testing.T) {
 		_, _, snapData := decodeEnvelope(t, res)
 		if !bytes.Contains(snapData, []byte("\"-10")) {
 			t.Errorf("确认出货后库存应变为 -10，实际: %s", snapData)
+		}
+
+		// 金额一致性：整行 10 件全出，这票的收入应等于订单行的本币金额。
+		// 报价 → 订单 → 出货 → 报表，汇率被锁在报价那一刻；只要中间任何一处
+		// 重算过汇率或截过精度，这里就对不上。
+		res = call(t, srv, http.MethodGet,
+			"/api/v1/reports/shipment-profits?page_size=5", token, nil)
+		_, _, profitData := decodeEnvelope(t, res)
+		var profits struct {
+			List []struct {
+				ShipmentID uint   `json:"shipment_id"`
+				Revenue    string `json:"revenue"`
+			} `json:"list"`
+		}
+		if err := json.Unmarshal(profitData, &profits); err != nil {
+			t.Fatalf("单票毛利不是预期格式: %s", profitData)
+		}
+		var revenue string
+		for _, row := range profits.List {
+			if row.ShipmentID == shipmentID {
+				revenue = row.Revenue
+			}
+		}
+		if revenue == "" {
+			t.Fatalf("单票毛利里没有这一票: %s", profitData)
+		}
+		if !sameAmount(revenue, itemAmountBase) {
+			t.Errorf("出货收入 %s 与订单行本币金额 %s 不一致（汇率或精度在某处被重算了）",
+				revenue, itemAmountBase)
 		}
 	})
 
@@ -410,4 +442,15 @@ func idOf(t *testing.T, res *http.Response) uint {
 		t.Fatalf("响应里没有 id: %s", data)
 	}
 	return obj.ID
+}
+
+// sameAmount 比较两个定点金额字符串是否相等（容忍 1 分以内的舍入差）。
+func sameAmount(a, b string) bool {
+	x, errA := strconv.ParseFloat(a, 64)
+	y, errB := strconv.ParseFloat(b, 64)
+	if errA != nil || errB != nil {
+		return false
+	}
+	d := x - y
+	return d < 0.01 && d > -0.01
 }
