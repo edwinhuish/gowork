@@ -135,6 +135,8 @@ func New(
 			exports.GET("/products", h.Product.Export)
 			// 出货台账（T-63）：参数与列表一致，导出的就是列表上那一批。
 			exports.GET("/shipments", h.Shipment.ExportShipments)
+			exports.GET("/sales-orders", h.SalesOrder.ExportSalesOrders)
+			exports.GET("/payments", h.Payment.ExportPayments)
 		}
 
 		// 导入（T-35）：先 dry_run 出报告，确认后再落库。导出文件可直接当模板。

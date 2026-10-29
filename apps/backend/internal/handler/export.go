@@ -199,3 +199,100 @@ func dateOrEmpty(t *time.Time) string {
 	}
 	return model.DateOnly(*t).Format("2006-01-02")
 }
+
+// ExportSalesOrders GET /api/v1/exports/sales-orders
+//
+// 参数与订单列表一致（status / partner_id / keyword），导出的就是列表上那一批。
+// 原币与本币各一列：业务员看原币，老板看本币，两列都印比事后换算省事。
+func (h *SalesOrderHandler) ExportSalesOrders(c *gin.Context) {
+	var q dto.SalesOrderQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+
+	list, err := fetchAll(func(page, size int) ([]model.SalesOrder, int64, error) {
+		q.Page, q.PageSize = page, size
+		res, err := h.orders.List(c.Request.Context(), q)
+		if err != nil {
+			return nil, 0, err
+		}
+		return res.List, res.Total, nil
+	})
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	out := make([][]string, 0, len(list))
+	for _, o := range list {
+		partner := ""
+		if o.Partner != nil {
+			partner = o.Partner.Name
+		}
+		out = append(out, []string{
+			o.DocNo,
+			model.DateOnly(o.OrderDate).Format("2006-01-02"),
+			partner,
+			string(o.TradeTerm),
+			o.CurrencyCode,
+			o.AmountTotal.String(),
+			o.AmountBaseTotal.String(),
+			o.Status.Label(),
+		})
+	}
+
+	writeCSV(c, "sales-orders",
+		[]string{"单号", "下单日", "客户", "贸易术语", "币种", "金额(原币)", "金额(本币)", "状态"},
+		out)
+}
+
+// ExportPayments GET /api/v1/exports/payments?direction=10
+//
+// 收付款台账：direction=10 是收款、20 是付款，与列表筛的是同一批。
+// 汇率一行一列：这张单锁定的是哪个价，对账时这是唯一能解释差额的数字。
+func (h *PaymentHandler) ExportPayments(c *gin.Context) {
+	var q dto.PaymentQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+
+	list, err := fetchAll(func(page, size int) ([]model.Payment, int64, error) {
+		q.Page, q.PageSize = page, size
+		res, err := h.payments.List(c.Request.Context(), q)
+		if err != nil {
+			return nil, 0, err
+		}
+		return res.List, res.Total, nil
+	})
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	out := make([][]string, 0, len(list))
+	for _, m := range list {
+		partner := ""
+		if m.Partner != nil {
+			partner = m.Partner.Name
+		}
+		dir := "收款"
+		if m.Direction != model.PaymentDirectionIn {
+			dir = "付款"
+		}
+		out = append(out, []string{
+			m.DocNo,
+			dir,
+			model.DateOnly(m.PayDate).Format("2006-01-02"),
+			partner,
+			m.CurrencyCode,
+			m.Amount.String(),
+			m.ExchangeRate.String(),
+			m.AmountBase.String(),
+			string(m.Method),
+		})
+	}
+
+	writeCSV(c, "payments",
+		[]string{"单号", "方向", "到账日", "对方", "币种", "金额(原币)", "汇率", "金额(本币)", "方式"},
+		out)
+}
