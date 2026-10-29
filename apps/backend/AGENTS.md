@@ -525,6 +525,7 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
 | 业务员能看到别人的单据 | 新列表没接 `ownerScope`（T-32），或接在了 handler 而不是 service | 范围是**身份**决定的：service 里 `filter.OwnerID = ownerScope(ctx)`，仓储用 `repository.OwnerScope("partner_id", id)`；详情另需 `ensurePartnerVisible` |
+| 接口偶发 504 或"请求处理超时" | 单个请求有 30s 上限（`middleware.RequestTimeout`），慢查询会以 `ctx` 取消的方式收场 | 不是 bug 而是保护：504 与 500 要分开看——504 重试或缩范围，500 才是查代码。查慢的根因看日志里的 request_id，别把上限调大了事 |
 | 某个接口收到超大请求把进程内存吃光 | 请求体上限挂在**引擎**上（`middleware.BodyLimit`，32MB），别在个别路由上另设一套 | 上限是兜底，不是业务规则：附件另有 10MB 业务上限（`service.MaxAttachmentSize`）。新写"收文件"的接口时两层都要有；超限返回 413 而不是 400 |
 | 出货确认了但库存没减 | 出库被跳过，或事务没提交 | 出库只挂在「备货中 → 已出货」这一个跃迁上（`shipAndIssue`）；`txs` 与 `stockOut` 在 bootstrap 里装配，且 `stockDocSvc` 必须先于 `shipmentSvc` 创建——反了就只能拿到 nil |
 | 主体列表报 `ambiguous column name: role` | 列表 LEFT JOIN 了 `sys_user` 取负责人登录名，两个表都有 `role` / `status` | `PartnerFilter` 里的列名一律带 `md_partner.` 前缀 |
