@@ -140,6 +140,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
+| GET | `/api/v1/reports/sales-dashboard` | `Report.SalesDashboard` | `ReportService.SalesDashboard`：`dimension=customer\|product\|country\|month`，收入 / 成本 / 运杂费先摊到**出货行**再分组，四个维度合计必然相等且等于单票毛利之和；订单额按下单日、毛利按出货日；`salesperson` 回 400（等 T-32 的 `owner_id`）；合计不受 `limit` 截断 |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409）；删除产品在同一事务里清掉它的编号，旧号可立即复用 |
 | POST | `/api/v1/products/:id/restore` | `Product.Restore` | 把软删标记写回 0；`?include_deleted=1` 的列表里能看到已删行。SKU 已被别的产品占用时 409，对未删除的记录调用是 400 |
