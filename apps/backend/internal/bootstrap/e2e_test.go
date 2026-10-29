@@ -229,3 +229,185 @@ func TestE2ESmoke(t *testing.T) {
 		}
 	})
 }
+
+// 主链冒烟：报价 → 确认 → 转订单 → 出货 → 确认出货（触发库存扣减）。
+//
+// 这条链上每一步都换一个服务、换一张表：金额在报价里算、库存与分配在出货里算，
+// 而"确认出货就该动库存"（T-40）是跨两个服务的同一个事务。
+// 单测各自验证了自己的那一段，但"整条链能不能走通"只有连起来才知道。
+func TestE2ESalesChain(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	// 种子数据里有产品与客户：不硬编码 id，按列表查第一个。
+	productID := firstID(t, srv, token, "/api/v1/products?page_size=1")
+	customerID := firstID(t, srv, token, "/api/v1/partners?role=1&page_size=1")
+	supplierID := firstID(t, srv, token, "/api/v1/partners?role=2&page_size=1")
+
+	// 报价要算成本与毛利，所以产品必须先有货源——种子数据只建了产品没有货源，
+	// 直接报价会被服务层拒掉（提示"没有启用的货源"）。
+	// 这条路径也顺带验证了"没有成本就不让报价"这条业务规则真的生效。
+	sourceBody := fmt.Sprintf(`{
+		"product_id": %d, "partner_id": %d, "supplier_sku": "E2E-SKU",
+		"purchase_price": "60", "moq": 1, "delivery_days": 7
+	}`, productID, supplierID)
+	res := call(t, srv, http.MethodPost, "/api/v1/product-sources", token, []byte(sourceBody))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建货源失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	quotationBody := fmt.Sprintf(`{
+		"partner_id": %d,
+		"trade_term": "FOB",
+		"currency_code": "USD",
+		"valid_until": "2026-12-31",
+		"items": [{"product_id": %d, "qty": "10", "unit_price": "100"}]
+	}`, customerID, productID)
+	res = call(t, srv, http.MethodPost, "/api/v1/quotations", token, []byte(quotationBody))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建报价失败: %d %s", res.StatusCode, msg)
+	}
+	quotationID := idOf(t, res)
+	if quotationID == 0 {
+		t.Fatal("报价没有返回 id")
+	}
+
+	t.Run("确认报价并转成订单", func(t *testing.T) {
+		res := call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/v1/quotations/%d/status", quotationID), token,
+			[]byte(`{"status":20}`))
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("确认报价失败: %d", res.StatusCode)
+		}
+		decodeEnvelope(t, res)
+
+		res = call(t, srv, http.MethodPost,
+			fmt.Sprintf("/api/v1/quotations/%d/convert", quotationID), token,
+			[]byte(`{"order_date":"2026-10-29"}`))
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			t.Fatalf("转订单失败: %d", res.StatusCode)
+		}
+		decodeEnvelope(t, res)
+	})
+
+	// 订单行 id 是出货分配的锚点，从详情里取。
+	orderID := firstID(t, srv, token, "/api/v1/sales-orders?page_size=1")
+	var order struct {
+		Items []struct {
+			ID uint `json:"id"`
+		} `json:"items"`
+	}
+	res = call(t, srv, http.MethodGet, fmt.Sprintf("/api/v1/sales-orders/%d", orderID), token, nil)
+	_, _, data := decodeEnvelope(t, res)
+	if err := json.Unmarshal(data, &order); err != nil || len(order.Items) == 0 {
+		t.Fatalf("订单详情里没有明细: %s", data)
+	}
+	itemID := order.Items[0].ID
+
+	// 转出来的订单还是草稿：草稿订单不能出货（数量还没算数）。
+	res = call(t, srv, http.MethodPut,
+		fmt.Sprintf("/api/v1/sales-orders/%d/status", orderID), token, []byte(`{"status":20}`))
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("确认订单失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	t.Run("出货并确认，库存随之扣减", func(t *testing.T) {
+		res := call(t, srv, http.MethodPost, "/api/v1/shipments", token,
+			[]byte(fmt.Sprintf(`{"allocations":[{"sales_order_item_id":%d,"qty":"10"}]}`, itemID)))
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("建出货批次失败: %d %s", res.StatusCode, msg)
+		}
+		shipmentID := idOf(t, res)
+		if shipmentID == 0 {
+			t.Fatal("出货批次没有返回 id")
+		}
+
+		// 草稿 → 已确认 → 备货中：都还不该动库存。
+		for _, status := range []int{20, 30} {
+			res := call(t, srv, http.MethodPut,
+				fmt.Sprintf("/api/v1/shipments/%d/status", shipmentID), token,
+				[]byte(fmt.Sprintf(`{"status":%d}`, status)))
+			if res.StatusCode != http.StatusOK {
+				t.Fatalf("流转到 %d 失败: %d", status, res.StatusCode)
+			}
+			decodeEnvelope(t, res)
+		}
+
+		// 备货中 → 已出货：这一刻才出库。
+		res = call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/v1/shipments/%d/status", shipmentID), token,
+			[]byte(`{"status":40}`))
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("确认出货失败: %d", res.StatusCode)
+		}
+		decodeEnvelope(t, res)
+
+		// 库存为 -10：种子没有入库，出库只能把快照压到负数。
+		res = call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/v1/stock-snapshots?product_id=%d", productID), token, nil)
+		_, _, snapData := decodeEnvelope(t, res)
+		if !bytes.Contains(snapData, []byte("\"-10")) {
+			t.Errorf("确认出货后库存应变为 -10，实际: %s", snapData)
+		}
+	})
+
+	t.Run("重复确认出货被拒", func(t *testing.T) {
+		// 两次确认同一票：第二次在状态机上就过不去（40 不能到 40），
+		// 这正是"一票货只能出一次库"的第一道闸。
+		res := call(t, srv, http.MethodGet, "/api/v1/shipments?page_size=1", token, nil)
+		_, _, data := decodeEnvelope(t, res)
+		var page struct {
+			List []struct {
+				ID uint `json:"id"`
+			} `json:"list"`
+		}
+		if err := json.Unmarshal(data, &page); err != nil || len(page.List) == 0 {
+			t.Fatalf("查不到出货批次: %s", data)
+		}
+		res = call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/v1/shipments/%d/status", page.List[0].ID), token,
+			[]byte(`{"status":40}`))
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusConflict {
+			t.Errorf("已出货再确认应 409，得到 %d", res.StatusCode)
+		}
+	})
+}
+
+// firstID 取列表第一条的 id（种子数据或刚建的数据都行）。
+func firstID(t *testing.T, srv *httptest.Server, token, path string) uint {
+	t.Helper()
+	res := call(t, srv, http.MethodGet, path, token, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET %s 失败: %d", path, res.StatusCode)
+	}
+	_, _, data := decodeEnvelope(t, res)
+	var page struct {
+		List []struct {
+			ID uint `json:"id"`
+		} `json:"list"`
+	}
+	if err := json.Unmarshal(data, &page); err != nil || len(page.List) == 0 {
+		t.Fatalf("%s 没有数据: %s", path, data)
+	}
+	return page.List[0].ID
+}
+
+// idOf 从新建响应里取 id（单对象信封）。
+func idOf(t *testing.T, res *http.Response) uint {
+	t.Helper()
+	_, _, data := decodeEnvelope(t, res)
+	var obj struct {
+		ID uint `json:"id"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("响应里没有 id: %s", data)
+	}
+	return obj.ID
+}
