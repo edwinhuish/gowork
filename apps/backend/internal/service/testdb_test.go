@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/infra/database"
 	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"github.com/edwinhuish/gowork/internal/repository"
 )
 
 // openTestDB 起一个临时 sqlite 并建好给定的表。
@@ -49,6 +52,24 @@ func wantDecimal(t *testing.T, label string, got money.Decimal, want string) {
 	if got.Cmp(w) != 0 {
 		t.Errorf("%s 应为 %s，得到 %s", label, w, got)
 	}
+}
+
+// errCommitFailed 是"事务提交阶段失败"的哨兵值。
+var errCommitFailed = errors.New("模拟事务提交失败")
+
+// failingTx 让整笔事务在 fn 成功之后仍然回滚。
+//
+// 用它验的是"这段流程真的在一个事务里"：只要中间有一步走的是池子连接，
+// 那条写入就撤不回来，断言会当场失败。比构造并发更可控，也不用 sleep。
+type failingTx struct{ inner repository.TxManager }
+
+func (f failingTx) Transaction(ctx context.Context, fn func(context.Context) error) error {
+	return f.inner.Transaction(ctx, func(ctx context.Context) error {
+		if err := fn(ctx); err != nil {
+			return err
+		}
+		return errCommitFailed
+	})
 }
 
 // qtyOf 是测试里构造数量的简写：数量也是定点数，字面量写成 qtyOf(100)。

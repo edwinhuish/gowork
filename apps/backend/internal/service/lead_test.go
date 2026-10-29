@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -14,16 +15,29 @@ import (
 
 func newLeadTestService(t *testing.T, now time.Time) (LeadService, repository.PartnerRepository) {
 	t.Helper()
+	return buildLeadService(t, now, nil)
+}
+
+// buildLeadService 建一套线索服务。txs 传 nil 就用真实的事务管理器，
+// 传别的（如提交必失败的包装）用来验转换流程的事务边界。
+func buildLeadService(
+	t *testing.T, now time.Time, txs repository.TxManager,
+) (LeadService, repository.PartnerRepository) {
+	t.Helper()
 	db := openTestDB(t,
 		&model.Partner{}, &model.Product{}, &model.Currency{}, &model.ExchangeRate{}, &model.Lead{})
 
 	partnerRepo := repository.NewPartnerRepository(db)
 	partnerSvc := NewPartnerService(
 		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db))
+	if txs == nil {
+		txs = repository.NewTxManager(db)
+	}
 	svc := NewLeadService(
 		repository.NewLeadRepository(db),
 		partnerSvc,
 		partnerRepo,
+		txs,
 		WithLeadClock(func() time.Time { return now }),
 	)
 	return svc, partnerRepo
@@ -155,4 +169,46 @@ func TestLeadConversion(t *testing.T) {
 			t.Errorf("status = %d，期望跟进中", back.Status)
 		}
 	})
+}
+
+// 转化失败时不能留下孤儿主体：建主体与标记线索必须同生共死。
+func TestLeadConvertRollsBackOnFailure(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+
+	db := openTestDB(t,
+		&model.Partner{}, &model.Product{}, &model.Currency{}, &model.ExchangeRate{}, &model.Lead{})
+	partnerRepo := repository.NewPartnerRepository(db)
+	partnerSvc := NewPartnerService(
+		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db))
+	svc := NewLeadService(
+		repository.NewLeadRepository(db), partnerSvc, partnerRepo,
+		failingTx{inner: repository.NewTxManager(db)},
+		WithLeadClock(func() time.Time { return now }),
+	)
+
+	lead, err := svc.Create(ctx, dto.LeadInput{Company: "Rollback Ltd", Source: "GOOGLE"})
+	if err != nil {
+		t.Fatalf("新建线索失败: %v", err)
+	}
+
+	if _, err := svc.Convert(ctx, lead.ID, dto.LeadConvertInput{Code: "RB001"}); !errors.Is(err, errCommitFailed) {
+		t.Fatalf("期望拿到提交失败的哨兵错误，实际 %v", err)
+	}
+
+	// 主体没留下、线索也没被标成已转化：两者都在同一个事务里。
+	_, total, err := partnerRepo.List(ctx, repository.PartnerFilter{Keyword: "RB001"}, repository.Pagination{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("查主体失败: %v", err)
+	}
+	if total != 0 {
+		t.Fatalf("回滚后不该留下主体，得到 %d 条", total)
+	}
+	reloaded, err := svc.Get(ctx, lead.ID)
+	if err != nil {
+		t.Fatalf("查线索失败: %v", err)
+	}
+	if reloaded.Status == model.LeadStatusConverted {
+		t.Fatal("回滚后线索不该是已转化")
+	}
 }

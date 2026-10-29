@@ -35,8 +35,11 @@ type leadService struct {
 	repo     repository.LeadRepository
 	partners PartnerService
 	partnerQ repository.PartnerRepository
-	clock    func() time.Time
-	log      *slog.Logger
+	// txs 让"建主体 + 标记线索"落在同一个事务里（T-42）：
+	// 拆成两次写，第二次失败就留下一个没人认领的主体。
+	txs   repository.TxManager
+	clock func() time.Time
+	log   *slog.Logger
 }
 
 type LeadOption func(*leadService)
@@ -54,12 +57,14 @@ func NewLeadService(
 	repo repository.LeadRepository,
 	partners PartnerService,
 	partnerQuery repository.PartnerRepository,
+	txs repository.TxManager,
 	opts ...LeadOption,
 ) LeadService {
 	s := &leadService{
 		repo:     repo,
 		partners: partners,
 		partnerQ: partnerQuery,
+		txs:      txs,
 		clock:    time.Now,
 		log:      slog.Default(),
 	}
@@ -225,25 +230,30 @@ func (s *leadService) Convert(
 		entityType = in.EntityType
 	}
 
-	partner, err := s.partners.Create(ctx, dto.PartnerInput{
-		Code:        in.Code,
-		Name:        lead.Company,
-		Role:        &role,
-		EntityType:  entityType,
-		Country:     lead.Country,
-		ContactName: lead.ContactName,
-		Phone:       lead.Phone,
-		Email:       lead.Email,
+	var partner *model.Partner
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		created, err := s.partners.Create(ctx, dto.PartnerInput{
+			Code:        in.Code,
+			Name:        lead.Company,
+			Role:        &role,
+			EntityType:  entityType,
+			Country:     lead.Country,
+			ContactName: lead.ContactName,
+			Phone:       lead.Phone,
+			Email:       lead.Email,
+		})
+		if err != nil {
+			return err
+		}
+		// 并发下另一个请求先转化成功时这里拿到 409：回滚会把刚建的主体一起撤掉，
+		// 不会留下一个没人认领的主体。以前靠事后删或人工清理，两边都可能做错。
+		if err := s.repo.MarkConverted(ctx, id, created.ID, s.clock()); err != nil {
+			return err
+		}
+		partner = created
+		return nil
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.MarkConverted(ctx, id, partner.ID, s.clock()); err != nil {
-		// 走到这里说明并发下另一个请求先转化成功，本次刚建的主体成了孤儿。
-		// 不删它：删错的风险比留一条能看见的重复记录更大。日志里留痕，让人工清理。
-		s.log.Error("线索已被并发转化，本次创建的主体成为孤儿",
-			"lead_id", id, "partner_id", partner.ID)
 		return nil, err
 	}
 

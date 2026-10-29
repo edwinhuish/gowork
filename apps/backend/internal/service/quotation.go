@@ -46,8 +46,11 @@ type quotationService struct {
 	// orders 只用于转订单（T-13）：建单逻辑留在销售订单服务里，
 	// 报价这边只负责判定能不能转、转完之后回填引用。
 	orders SalesOrderService
-	clock  func() time.Time
-	log    *slog.Logger
+	// txs 让"建订单 + 回填报价"落在同一个事务里（T-42）。
+	// 分成两次写的话，回填失败时那张订单草稿已经在库里了，没人认领。
+	txs   repository.TxManager
+	clock func() time.Time
+	log   *slog.Logger
 }
 
 type QuotationOption func(*quotationService)
@@ -69,6 +72,7 @@ func NewQuotationService(
 	currencies CurrencyService,
 	docNos DocNoService,
 	orders SalesOrderService,
+	txs repository.TxManager,
 	opts ...QuotationOption,
 ) QuotationService {
 	s := &quotationService{
@@ -79,6 +83,7 @@ func NewQuotationService(
 		currencies: currencies,
 		docNos:     docNos,
 		orders:     orders,
+		txs:        txs,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -399,32 +404,38 @@ func (s *quotationService) Convert(
 	if _, seq, ok := model.ParseDealDocNo(q.DocNo, model.DocTypeQuotation); ok {
 		dealSeq = seq
 	}
-	order, err := s.orders.CreateFromQuotation(ctx, QuotationOrderInput{
-		PartnerID:    q.PartnerID,
-		BaseNo:       q.BaseNo,
-		DealSeq:      dealSeq,
-		TradeTerm:    q.TradeTerm,
-		CurrencyCode: q.CurrencyCode,
-		ExchangeRate: q.ExchangeRate,
-		OrderDate:    orderDate,
-		DeliveryDate: deliveryDate,
-		Remark:       fmt.Sprintf("由报价单 %s v%d 转入", q.DocNo, q.Version),
-		Items:        lines,
+	var order *model.SalesOrder
+	// 建订单与回填引用写在一个事务里：任一步失败都整体回滚，
+	// 不会出现"报价还挂着、库里多了一张没人认领的订单草稿"。
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		created, err := s.orders.CreateFromQuotation(ctx, QuotationOrderInput{
+			PartnerID:    q.PartnerID,
+			BaseNo:       q.BaseNo,
+			DealSeq:      dealSeq,
+			TradeTerm:    q.TradeTerm,
+			CurrencyCode: q.CurrencyCode,
+			ExchangeRate: q.ExchangeRate,
+			OrderDate:    orderDate,
+			DeliveryDate: deliveryDate,
+			Remark:       fmt.Sprintf("由报价单 %s v%d 转入", q.DocNo, q.Version),
+			Items:        lines,
+		})
+		if err != nil {
+			return err
+		}
+		claimed, err := s.quotations.MarkConverted(ctx, q.ID, created.ID, created.DocNo)
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			// 并发里输的那一方：回滚把刚建的订单一起撤掉，不需要补偿删除。
+			return errs.ErrConflict.WithMsg("该报价单已被转为订单，请刷新后查看")
+		}
+		order = created
+		return nil
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	claimed, err := s.quotations.MarkConverted(ctx, q.ID, order.ID, order.DocNo)
-	if err != nil || !claimed {
-		// 并发里输的那一方：刚建的订单没人认领，删掉再报冲突。
-		if delErr := s.orders.Delete(ctx, order.ID); delErr != nil {
-			s.log.Error("撤销并发转单产生的订单失败", "order_id", order.ID, "err", delErr)
-		}
-		if err != nil {
-			return nil, err
-		}
-		return nil, errs.ErrConflict.WithMsg("该报价单已被转为订单，请刷新后查看")
 	}
 
 	s.log.Info("报价单转订单", "quotation_id", q.ID, "doc_no", q.DocNo,

@@ -136,6 +136,8 @@ func New(cfg *config.Config) (*App, error) {
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
 	attachmentRepo := repository.NewAttachmentRepository(db)
+	// 事务边界只有一个出入口：跨仓储的写入走它，仓储按 ctx 里的连接自动加入。
+	txs := repository.NewTxManager(db)
 
 	// ---- 业务层 ----
 	authSvc := service.NewAuthService(
@@ -164,7 +166,7 @@ func New(cfg *config.Config) (*App, error) {
 	opptySvc := service.NewOpportunityService(
 		opptyRepo, partnerRepo, currencySvc, service.WithOpportunityLogger(log))
 	leadSvc := service.NewLeadService(
-		leadRepo, partnerSvc, partnerRepo, service.WithLeadLogger(log))
+		leadRepo, partnerSvc, partnerRepo, txs, service.WithLeadLogger(log))
 	sourceSvc := service.NewProductSourceService(
 		sourceRepo, productRepo, partnerRepo, currencySvc, service.WithProductSourceLogger(log))
 	// 单号服务在这里落地：T-10 是第一张真正需要 DocNo 的单据。
@@ -179,7 +181,7 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithSalesOrderLogger(log))
 	// 报价单要在转换时建订单，所以它依赖销售订单服务；顺序不能反。
 	quotationSvc := service.NewQuotationService(
-		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc, orderSvc,
+		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc, orderSvc, txs,
 		service.WithQuotationLogger(log))
 	// 合同只从报价单或订单抄快照，读的是两边仓储而不是两个服务：
 	// 它要的是"那张单现在是什么状态、金额多少"，不是"能不能改"。

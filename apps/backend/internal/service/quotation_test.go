@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -15,14 +16,16 @@ import (
 
 type quotationFixture struct {
 	svc         QuotationService
-	orders      SalesOrderService
-	now         *time.Time
-	customerID  uint
-	supplierID  uint
-	productID   uint
-	product2ID  uint
-	cheapSrcID  uint
-	priceySrcID uint
+	orders SalesOrderService
+	// svcFailingTx 是"提交阶段必然失败"的同一个服务：用来验转单真的在一个事务里。
+	svcFailingTx QuotationService
+	now          *time.Time
+	customerID   uint
+	supplierID   uint
+	productID    uint
+	product2ID   uint
+	cheapSrcID   uint
+	priceySrcID  uint
 }
 
 func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
@@ -113,13 +116,19 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		WithSalesOrderClock(clock),
 	)
 
-	return quotationFixture{
-		svc: NewQuotationService(
-			repository.NewQuotationRepository(db), partnerRepo, productRepo, sourceRepo,
-			currencySvc, docNoSvc, orderSvc,
+	quotationRepo := repository.NewQuotationRepository(db)
+	build := func(txs repository.TxManager) QuotationService {
+		return NewQuotationService(
+			quotationRepo, partnerRepo, productRepo, sourceRepo,
+			currencySvc, docNoSvc, orderSvc, txs,
 			WithQuotationClock(clock),
-		),
-		orders:      orderSvc,
+		)
+	}
+
+	return quotationFixture{
+		svc:          build(repository.NewTxManager(db)),
+		svcFailingTx: build(failingTx{inner: repository.NewTxManager(db)}),
+		orders:       orderSvc,
 		now:         now,
 		customerID:  customer.ID,
 		supplierID:  supplier.ID,
@@ -466,6 +475,44 @@ func TestQuotationConvert(t *testing.T) {
 		}
 		if _, err := fx.svc.Update(ctx, q.ID, input); err == nil {
 			t.Fatal("已转单的报价单不该允许修改")
+		}
+	})
+
+	t.Run("转单中途失败不残留订单草稿", func(t *testing.T) {
+		// 事务提交失败是最坏的一种"中途失败"：订单已经写进去了、引用也回填了，
+		// 差最后一步落盘。没有事务边界的话，库里就会留下一张没人认领的草稿单。
+		q, err := fx.svc.Create(ctx, input)
+		if err != nil {
+			t.Fatalf("新建报价单失败: %v", err)
+		}
+		if _, err := fx.svc.UpdateStatus(ctx, q.ID, dto.QuotationStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		}); err != nil {
+			t.Fatalf("确认失败: %v", err)
+		}
+
+		before, err := fx.orders.List(ctx, dto.SalesOrderQuery{})
+		if err != nil {
+			t.Fatalf("查订单列表失败: %v", err)
+		}
+
+		if _, err := fx.svcFailingTx.Convert(ctx, q.ID, dto.QuotationConvertInput{}); !errors.Is(err, errCommitFailed) {
+			t.Fatalf("期望拿到提交失败的哨兵错误，实际 %v", err)
+		}
+
+		after, err := fx.orders.List(ctx, dto.SalesOrderQuery{})
+		if err != nil {
+			t.Fatalf("查订单列表失败: %v", err)
+		}
+		if after.Total != before.Total {
+			t.Fatalf("回滚后不该留下订单草稿：之前 %d 张，之后 %d 张", before.Total, after.Total)
+		}
+		reloaded, err := fx.svc.Get(ctx, q.ID)
+		if err != nil {
+			t.Fatalf("查报价单失败: %v", err)
+		}
+		if reloaded.SalesOrderID != nil {
+			t.Fatalf("回滚后报价单不该指向订单，实际 %d", *reloaded.SalesOrderID)
 		}
 	})
 

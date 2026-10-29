@@ -103,7 +103,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	// 报价服务只用来造来源单据；orders 传 nil 是因为这批测试不做报价转单。
 	quotationSvc := NewQuotationService(
 		quotationRepo, partnerRepo, productRepo, sourceRepo,
-		currencySvc, docNoSvc, nil, WithQuotationClock(clock),
+		currencySvc, docNoSvc, nil, repository.NewTxManager(db), WithQuotationClock(clock),
 	)
 	contractSvc := NewContractService(
 		contractRepo, quotationRepo, orderRepo,
