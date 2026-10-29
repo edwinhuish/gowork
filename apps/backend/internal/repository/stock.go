@@ -152,10 +152,13 @@ func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) 
 func addToSnapshot(
 	tx *gorm.DB, productID uint, delta money.Decimal, movementID uint, occurredAt time.Time,
 ) error {
+	// 仓库维度取默认仓（T-56）：建单是低频操作，把默认仓 id 一路透传要改三层签名。
+	warehouseID := defaultWarehouseID(tx)
 	delta = delta.Round(3)
 	now := time.Now()
 	row := model.StockSnapshot{
 		ProductID:      productID,
+		WarehouseID:    warehouseID,
 		Qty:            delta,
 		LastMovementID: movementID,
 		LastOccurredAt: &occurredAt,
@@ -164,10 +167,10 @@ func addToSnapshot(
 	row.UpdatedAt = now
 
 	err := tx.Clauses(clause.OnConflict{
-		// 快照的唯一键是 (product_id, deleted_at)：未删除的行 deleted_at 恒为 0，
-		// 所以带上它仍然等价于"每个产品一行"，同时不会与已删除的历史快照相撞。
-		// 只写 product_id 的话 PG/SQLite 会报"ON CONFLICT 不匹配任何唯一约束"。
-		Columns: []clause.Column{{Name: "product_id"}, {Name: "deleted_at"}},
+		// 快照的唯一键是 (warehouse_id, product_id, deleted_at)：同一产品每个仓一行，
+		// 未删除的行 deleted_at 恒为 0。三列缺一列，PG/SQLite 都会报
+		// "ON CONFLICT 不匹配任何唯一约束"——重算那条路径漏过一次，重算一跑就错。
+		Columns: []clause.Column{{Name: "warehouse_id"}, {Name: "product_id"}, {Name: "deleted_at"}},
 		DoUpdates: clause.Assignments(map[string]any{
 			// 右侧不带表名：MySQL 的 ON DUPLICATE KEY UPDATE 与
 			// PostgreSQL 的 DO UPDATE 对表名前缀的接受程度不同，裸列名三库通用。
@@ -288,8 +291,11 @@ func (r *stockRepo) SumMovements(ctx context.Context, productID uint) (StockSum,
 func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum StockSum) error {
 	now := time.Now()
 	qty := sum.Qty.Round(3)
+	// 重算与增量必须用同一个仓库维度，否则同一产品会写成两行快照。
+	warehouseID := defaultWarehouseID(r.conn(ctx))
 	row := model.StockSnapshot{
 		ProductID:      productID,
+		WarehouseID:    warehouseID,
 		Qty:            qty,
 		LastMovementID: sum.LastID,
 		LastOccurredAt: sum.LastDate,
@@ -298,8 +304,9 @@ func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum Sto
 	row.UpdatedAt = now
 
 	err := r.conn(ctx).Clauses(clause.OnConflict{
-		// 同 CalcSnapshot 里的说明：唯一键含 deleted_at。
-		Columns: []clause.Column{{Name: "product_id"}, {Name: "deleted_at"}},
+		// 与 CalcSnapshot 完全一致：唯一键含 warehouse_id 与 deleted_at。
+		// 这两处只要有一处少一列，重算就会报"不匹配任何唯一约束"。
+		Columns: []clause.Column{{Name: "warehouse_id"}, {Name: "product_id"}, {Name: "deleted_at"}},
 		DoUpdates: clause.Assignments(map[string]any{
 			"qty":              qty,
 			"last_movement_id": sum.LastID,
@@ -323,4 +330,19 @@ func (r *stockRepo) ProductsWithMovements(ctx context.Context) ([]uint, error) {
 		return nil, fmt.Errorf("查询有流水的产品: %w", err)
 	}
 	return ids, nil
+}
+
+// defaultWarehouseID 取默认仓 id；没有默认仓时返回 0（等价于"未指定"）。
+//
+// 测试库与全新库没有 md_warehouse 行时返回 0，与迁移前的存量数据同值，
+// 所以单仓下的行为与改造前完全一致。
+func defaultWarehouseID(tx *gorm.DB) uint {
+	ids := make([]uint, 0, 1)
+	err := tx.Model(&model.Warehouse{}).
+		Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+		Order("id ASC").Limit(1).Pluck("id", &ids).Error
+	if err != nil || len(ids) == 0 {
+		return 0
+	}
+	return ids[0]
 }

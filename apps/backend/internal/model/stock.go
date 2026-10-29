@@ -161,12 +161,12 @@ type StockSnapshot struct {
 	Base
 	// 遮蔽 Base 里的同名字段。快照重算是"先删旧行、再按流水重建"，
 	// 单列唯一会让第二步撞上刚被标记删除的那一行——「未删才唯一」才是对的。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:2" json:"deleted_at,omitempty"`
-	ProductID uint      `gorm:"not null;uniqueIndex:uni_stock_snapshot_product,priority:1" json:"product_id"`
-	// WarehouseID 是快照的仓库维度（T-56）。**目前不在唯一索引里**：
-	// 唯一键仍是 (product_id, deleted_at)，因为改唯一索引要显式 DROP + CREATE，
-	// 而 ON CONFLICT 必须匹配到一个真实存在的唯一约束。见 docs/architecture.md。
-	WarehouseID uint `gorm:"index;not null;default:0" json:"warehouse_id"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:3" json:"deleted_at,omitempty"`
+	ProductID uint      `gorm:"not null;uniqueIndex:uni_stock_snapshot_product,priority:2" json:"product_id"`
+	// WarehouseID 是快照的仓库维度（T-56）。唯一键是 (warehouse_id, product_id, deleted_at)：
+	// 同一产品在每个仓各一行。这个索引不能靠 AutoMigrate 建（它只建不存在的），
+	// 迁移函数 MigrateStockWarehouse 会显式 DROP + CREATE。
+	WarehouseID uint `gorm:"not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:1" json:"warehouse_id"`
 	// Qty 可以为负：直发业务里"先出货、后补入库单"是常态，
 	// 硬拦负库存只会逼人先造一张假的入库单。
 	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
