@@ -246,6 +246,20 @@ GET /api/v1/products?page=2&keyword=hinge
 任何一层返回 error，都汇到 `response.Fail`：业务错误按自己码返回，未知错误折叠成 50001，
 内部细节只进日志不进响应体。
 
+### 一次带 Idempotency-Key 的写请求
+
+```
+POST /api/v1/sales-orders   Idempotency-Key: 6f1c…
+ 5 middleware.Auth         身份写入上下文（幂等键按用户隔离，必须排在它之后）
+ 6 middleware.Idempotency  Incr 抢执行权 → 抢到就放行，没抢到看有没有结果
+ 7 handler → service → repository
+ 8 响应写回缓存            {status, content-type, body}，保留 24 小时
+```
+
+要点：只对带该头的 **POST** 生效，不强制（客户端自己生成 UUID）；同一键第二次进来直接回放，
+并带上 `Idempotent-Replay: true`；前一次还在路上时返回 409 而不是空响应；
+**5xx 不缓存**——临时故障时重试应当真的重试；只缓存 JSON 小响应，附件与 PDF 不参与回放。
+
 ### 登录与会话
 
 ```

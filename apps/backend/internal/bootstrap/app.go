@@ -256,7 +256,7 @@ func New(cfg *config.Config) (*App, error) {
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 
 	// ---- HTTP 层 ----
-	engine := server.New(cfg, log, authSvc, server.Handlers{
+	engine := server.New(cfg, log, authSvc, c, server.Handlers{
 		Auth:        handler.NewAuthHandler(authSvc),
 		Product:     handler.NewProductHandler(productSvc),
 		ProductCode: handler.NewProductCodeHandler(productCodeSvc),

@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/handler"
+	"github.com/edwinhuish/gowork/internal/infra/cache"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/server/middleware"
 	"github.com/edwinhuish/gowork/internal/service"
@@ -48,7 +49,9 @@ type Handlers struct {
 }
 
 // New 构建 gin 引擎。
-func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handlers) *gin.Engine {
+func New(
+	cfg *config.Config, log *slog.Logger, auth service.AuthService, c cache.Cache, h Handlers,
+) *gin.Engine {
 	gin.SetMode(ginMode(cfg))
 
 	engine := gin.New()
@@ -70,7 +73,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		authGroup.POST("/logout", middleware.Auth(auth), h.Auth.Logout)
 	}
 
-	secured := api.Group("", middleware.Auth(auth))
+	// 幂等键在鉴权之后：键要按用户隔离，否则 A 的键能回放出 B 的响应。
+	secured := api.Group("", middleware.Auth(auth), middleware.Idempotency(c, log))
 	{
 		secured.GET("/dashboard/summary", h.Dashboard.Summary)
 
