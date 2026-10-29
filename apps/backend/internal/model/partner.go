@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"strings"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // PartnerRole 是商业伙伴在业务中承担的角色，按位定义。
@@ -166,7 +168,7 @@ type Partner struct {
 	CreditDays int `gorm:"not null;default:0" json:"credit_days"`
 	// CreditLimit 信用额度，用本币计。0 表示不限（不是"没有额度"）——
 	// 绝大多数客户不设额度，把 0 解读成"一分不给"会让系统默认拒绝一切订单。
-	CreditLimit float64 `gorm:"type:decimal(14,2);not null;default:0" json:"credit_limit"`
+	CreditLimit money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"credit_limit"`
 	// CurrencyCode 默认结算币种，空表示按报价单或本币。
 	CurrencyCode string `gorm:"size:8" json:"currency_code"`
 }

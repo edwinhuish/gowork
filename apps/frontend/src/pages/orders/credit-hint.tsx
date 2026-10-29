@@ -35,7 +35,9 @@ export function CreditHint({ partnerId }: { partnerId?: number }) {
     )
   }
 
-  const over = data.available < 0
+  // 金额是定点字符串：这里的判断与差额只用于提示，额度拦截在服务端确认那一步。
+  const available = Number(data.available)
+  const over = available < 0
 
   return (
     <Alert
@@ -46,13 +48,15 @@ export function CreditHint({ partnerId }: { partnerId?: number }) {
         <span>
           信用额度 <Money value={data.credit_limit} />，已用 <Money value={data.exposure} />，
           {over ? '已超 ' : '可用 '}
-          <Money value={over ? -data.available : data.available} />
+          <Money value={over ? -available : data.available} />
         </span>
       }
       description={
         over
           ? '客户已超出额度：确认新订单需要管理员强制放行。'
-          : `已用 = 未结清应收 ${data.open_receivable.toFixed(2)} + 未开票订单 ${data.unbilled_order.toFixed(2)}`
+          : `已用 = 未结清应收 ${Number(data.open_receivable).toFixed(2)} + 未开票订单 ${Number(
+              data.unbilled_order,
+            ).toFixed(2)}`
       }
     />
   )

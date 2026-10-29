@@ -60,8 +60,8 @@ export interface Partner {
   settlement_method: string
   /** 账期天数，从出货或开票起算。0 表示款到发货。 */
   credit_days: number
-  /** 信用额度，本币计。0 表示不限（不是「没有额度」）。 */
-  credit_limit: number
+  /** 信用额度，本币计。0 表示不限（不是「没有额度」）。定点字符串。 */
+  credit_limit: string
   /** 默认结算币种，空表示按报价单或本币。 */
   currency_code: string
   created_at: string
@@ -726,14 +726,14 @@ export interface ExchangeGainReport {
  */
 export interface CreditSummary {
   partner_id: number
-  /** 0 表示不限（不是"没有额度"）。 */
-  credit_limit: number
+  /** 0 表示不限（不是"没有额度"）。定点字符串。 */
+  credit_limit: string
   unlimited: boolean
-  open_receivable: number
-  unbilled_order: number
-  exposure: number
-  /** 额度减敞口；超了就是负数。不限额度时为 0。 */
-  available: number
+  open_receivable: string
+  unbilled_order: string
+  exposure: string
+  /** 额度减敞口；超了就是负数。不限额度时为 0。定点字符串。 */
+  available: string
 }
 
 /**

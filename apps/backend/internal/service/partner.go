@@ -10,6 +10,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -261,7 +262,7 @@ type commercialTerms struct {
 	TradeTerm        model.TradeTerm
 	SettlementMethod model.SettlementMethod
 	CreditDays       int
-	CreditLimit      float64
+	CreditLimit      money.Decimal
 	CurrencyCode     string
 }
 
@@ -294,7 +295,7 @@ func (s *partnerService) normCommercialTerms(
 	}
 
 	if in.CreditLimit != nil {
-		if *in.CreditLimit < 0 {
+		if in.CreditLimit.IsNegative() {
 			return out, errs.BadRequest("信用额度不能为负")
 		}
 		out.CreditLimit = *in.CreditLimit

@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // CreditExposure 是客户已经占用的信用：还没收回来的钱 + 已经承诺但还没开票的货。
@@ -15,14 +16,14 @@ import (
 // 开票后还没收到的款——两头都算，才等于"这个客户身上压着多少钱"。
 type CreditExposure struct {
 	// OpenReceivableBase 是未结清应收的本币余额（amount_base − settled_amount_base）。
-	OpenReceivableBase float64
+	OpenReceivableBase money.Decimal
 	// UnbilledOrderBase 是已确认及以上状态、还没生成应收的订单本币金额。
-	UnbilledOrderBase float64
+	UnbilledOrderBase money.Decimal
 }
 
 // Total 是敞口合计，单位本币。
-func (e CreditExposure) Total() float64 {
-	return e.OpenReceivableBase + e.UnbilledOrderBase
+func (e CreditExposure) Total() money.Decimal {
+	return e.OpenReceivableBase.Add(e.UnbilledOrderBase)
 }
 
 // CreditRepository 只负责回答"这个主体占了多少信用"。
@@ -44,8 +45,10 @@ func NewCreditRepository(db *gorm.DB) CreditRepository {
 func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposure, error) {
 	var out CreditExposure
 
-	// 未结清应收：排除作废单，并用 0.0001 余量放过"末位差几分"的已结清单。
-	var open struct{ Amount float64 }
+	// 未结清应收：排除作废单。差值与 0.0001 比较是**存储层**的余量：
+	// sqlite 把 DECIMAL 存成 REAL，同一笔余额减自己可能留下 1e-17 的尾巴，
+	// 那种行不该以"还有 0.00 未结"的身份出现在账龄里。
+	var open struct{ Amount money.Decimal }
 	err := r.DB().WithContext(ctx).
 		Table("biz_receivable").
 		Where("deleted_at IS NULL").
@@ -62,7 +65,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 	// 已承诺未开票：状态在 20~50 之间且没有 source_type=10 的应收单。
 	// 「没有应收单」用 NOT EXISTS 判断，而不是拿订单表去 left join 应收：
 	// 应收是一期一张单，主键之外的任何关联写法都会在将来分期的表结构上演变成重复计数。
-	var unbilled struct{ Amount float64 }
+	var unbilled struct{ Amount money.Decimal }
 	err = r.DB().WithContext(ctx).
 		Table("biz_sales_order AS o").
 		Where("o.deleted_at IS NULL").

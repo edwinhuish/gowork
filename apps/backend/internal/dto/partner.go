@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // PartnerRoleInput 是角色集合的可选入参：1 客户 / 2 供应商 / 3 两者。
 //
 // 用指针区分"没提交"和"提交了某个值"。这条区分是必要的：
@@ -44,7 +46,7 @@ type PartnerInput struct {
 	// 全部清空——而那个页面上根本没有可清空的输入框。
 	TradeTerm        *string  `json:"trade_term"`
 	SettlementMethod *string  `json:"settlement_method"`
-	CreditDays       *int     `json:"credit_days"`
-	CreditLimit      *float64 `json:"credit_limit"`
-	CurrencyCode     *string  `json:"currency_code"`
+	CreditDays       *int           `json:"credit_days"`
+	CreditLimit      *money.Decimal `json:"credit_limit"`
+	CurrencyCode     *string        `json:"currency_code"`
 }

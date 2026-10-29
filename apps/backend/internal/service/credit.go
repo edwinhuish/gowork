@@ -29,7 +29,7 @@ type CreditCheck struct {
 	// DocNo 是订单号，只用于留痕：看清是哪张单放行的。
 	DocNo string
 	// AmountBase 是本单本币金额（订单上锁定的合计）。
-	AmountBase float64
+	AmountBase money.Decimal
 	// Force 强制放行。传了也未必有用——还要看调用者是不是 admin。
 	Force bool
 }
@@ -81,7 +81,7 @@ func (s *creditService) CheckConfirm(ctx context.Context, in CreditCheck) error 
 	if err != nil {
 		return err
 	}
-	if partner.CreditLimit <= 0 {
+	if partner.CreditLimit.Cmp(money.Zero()) <= 0 {
 		return nil
 	}
 
@@ -89,14 +89,15 @@ func (s *creditService) CheckConfirm(ctx context.Context, in CreditCheck) error 
 	if err != nil {
 		return err
 	}
-	total := money.Round(exp.Total()+in.AmountBase, 4)
-	over := money.Round(total-partner.CreditLimit, 4)
-	if over <= 0.0001 {
+	total := exp.Total().Add(in.AmountBase).Round(4)
+	over := total.Sub(partner.CreditLimit).Round(4)
+	// 刚好用满额度是允许的：over 为 0 时不拦。
+	if over.Cmp(money.Zero()) <= 0 {
 		return nil
 	}
 
 	msg := fmt.Sprintf(
-		"超过客户信用额度：额度 %.2f，已用敞口 %.2f，本单 %.2f（超出 %.2f）；如需放行请由管理员强制放行",
+		"超过客户信用额度：额度 %s，已用敞口 %s，本单 %s（超出 %s）；如需放行请由管理员强制放行",
 		partner.CreditLimit, exp.Total(), in.AmountBase, over)
 
 	if !in.Force {
@@ -114,7 +115,7 @@ func (s *creditService) CheckConfirm(ctx context.Context, in CreditCheck) error 
 		"partner_id", in.PartnerID,
 		"partner_code", partner.Code,
 		"credit_limit", partner.CreditLimit,
-		"exposure", money.Round(exp.Total(), 4),
+		"exposure", exp.Total().Round(4),
 		"amount", in.AmountBase,
 		"over", over,
 		"actor_id", actor.UserID,
@@ -124,21 +125,21 @@ func (s *creditService) CheckConfirm(ctx context.Context, in CreditCheck) error 
 }
 
 func buildCreditSummary(
-	partnerID uint, limit float64, exp repository.CreditExposure,
+	partnerID uint, limit money.Decimal, exp repository.CreditExposure,
 ) *dto.CreditSummary {
-	exposure := money.Round(exp.Total(), 4)
+	exposure := exp.Total().Round(4)
 	out := &dto.CreditSummary{
 		PartnerID:      partnerID,
 		CreditLimit:    limit,
-		OpenReceivable: money.Round(exp.OpenReceivableBase, 4),
-		UnbilledOrder:  money.Round(exp.UnbilledOrderBase, 4),
+		OpenReceivable: exp.OpenReceivableBase.Round(4),
+		UnbilledOrder:  exp.UnbilledOrderBase.Round(4),
 		Exposure:       exposure,
 	}
-	if limit <= 0 {
+	if limit.Cmp(money.Zero()) <= 0 {
 		out.Unlimited = true
 		return out
 	}
 	// 超出时给负数：让"已经超了多少"在界面上直接可见，而不是又不给数。
-	out.Available = money.Round(limit-exposure, 4)
+	out.Available = limit.Sub(exposure).Round(4)
 	return out
 }

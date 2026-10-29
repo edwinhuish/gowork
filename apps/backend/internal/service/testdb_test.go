@@ -9,6 +9,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/infra/database"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // openTestDB 起一个临时 sqlite 并建好给定的表。
@@ -36,4 +37,16 @@ func openTestDB(t *testing.T, models ...any) *gorm.DB {
 		t.Fatalf("建表失败: %v", err)
 	}
 	return db
+}
+
+// wantDecimal 断言定点金额等于给定字面量。
+//
+// 定点之后不再有"差一点点算过"：解析出来的表示是精确的整数单位，
+// 比到末位才是它存在的理由。
+func wantDecimal(t *testing.T, label string, got money.Decimal, want string) {
+	t.Helper()
+	w := money.MustParse(want)
+	if got.Cmp(w) != 0 {
+		t.Errorf("%s 应为 %s，得到 %s", label, w, got)
+	}
 }

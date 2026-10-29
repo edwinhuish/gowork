@@ -45,7 +45,7 @@ func newCreditFixture(t *testing.T, now time.Time, limit float64) creditFixture 
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
 		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
-		CreditLimit: limit, CreditDays: 30,
+		CreditLimit: money.FromFloat(limit), CreditDays: 30,
 	}
 	if err := partnerRepo.Create(ctx, customer); err != nil {
 		t.Fatalf("建客户失败: %v", err)
@@ -154,10 +154,10 @@ func TestCreditSummaryCountsOpenReceivableAndUnbilledOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("查额度失败: %v", err)
 	}
-	wantMoney(t, "未结清应收", sum.OpenReceivable, 3000)
-	wantMoney(t, "未开票订单", sum.UnbilledOrder, 2000)
-	wantMoney(t, "敞口", sum.Exposure, 5000)
-	wantMoney(t, "可用额度", sum.Available, 5000)
+	wantDecimal(t, "未结清应收", sum.OpenReceivable, "3000")
+	wantDecimal(t, "未开票订单", sum.UnbilledOrder, "2000")
+	wantDecimal(t, "敞口", sum.Exposure, "5000")
+	wantDecimal(t, "可用额度", sum.Available, "5000")
 	if sum.Unlimited {
 		t.Error("额度 10000 不该标成不限")
 	}
@@ -178,10 +178,10 @@ func TestCreditSummaryUnlimited(t *testing.T) {
 	if !sum.Unlimited {
 		t.Error("额度 0 应标成不限")
 	}
-	if sum.Available != 0 {
-		t.Errorf("不限额度时可用额度应为 0，得到 %.4f", sum.Available)
+	if !sum.Available.IsZero() {
+		t.Errorf("不限额度时可用额度应为 0，得到 %s", sum.Available)
 	}
-	wantMoney(t, "敞口仍照实给出", sum.Exposure, 50000)
+	wantDecimal(t, "敞口仍照实给出", sum.Exposure, "50000")
 }
 
 // TestCreditConfirmBlocksOverLimit 是 T-39 的验收点：超额确认返回 409，

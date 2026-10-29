@@ -40,7 +40,13 @@ export function CustomerShow() {
           {
             key: 'credit_limit',
             label: '信用额度',
-            children: result?.credit_limit ? <Money value={result.credit_limit} /> : '不限',
+            // 定点字符串："0" 也是真值，所以要先转 number 再判断"不限"。
+            children:
+              result && Number(result.credit_limit) > 0 ? (
+                <Money value={result.credit_limit} />
+              ) : (
+                '不限'
+              ),
           },
           { key: 'currency_code', label: '默认币种', children: result?.currency_code || <Empty /> },
           { key: 'address', label: '地址', span: 2, children: result?.address || <Empty /> },

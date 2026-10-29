@@ -279,8 +279,7 @@ func (s *salesOrderService) UpdateStatus(
 		if err := s.credits.CheckConfirm(ctx, CreditCheck{
 			PartnerID: existing.PartnerID,
 			DocNo:     existing.DocNo,
-			// 敞口与额度（partner.credit_limit）还是 float64，改造到资金那一片时删掉。
-			AmountBase: existing.AmountBaseTotal.Float64(),
+			AmountBase: existing.AmountBaseTotal,
 			Force:      in.ForceCredit,
 		}); err != nil {
 			return nil, err

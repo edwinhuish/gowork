@@ -99,7 +99,14 @@ export function CustomerFormFields() {
         initialValue={0}
         tooltip="0 表示不限，而不是一分不给"
       >
-        <InputNumber style={{ width: '100%' }} min={0} step={1000} precision={2} placeholder="0.00" />
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          step={1000}
+          precision={2}
+          stringMode
+          placeholder="0.00"
+        />
       </Form.Item>
 
       <Form.Item name="currency_code" label="默认结算币种" tooltip="留空表示按报价单，再退到本币">
