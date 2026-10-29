@@ -20,6 +20,7 @@ import (
 const (
 	salesDimCustomer = "customer"
 	salesDimProduct  = "product"
+	salesDimCategory = "category"
 	salesDimCountry  = "country"
 	salesDimMonth    = "month"
 )
@@ -42,6 +43,8 @@ type salesAxis struct {
 	productID   uint
 	skuCode     string
 	productName string
+	// category 是产品当前所属品类：品类是归类不是成交条件，不做快照（见 SalesShipmentLine.Category）。
+	category string
 	// date 对该行自己的业务日期：出货行是出货日，订单行是下单日。
 	date time.Time
 }
@@ -61,6 +64,13 @@ func (a salesAxis) keyOf(dim string) (string, string) {
 			label = "未填产品"
 		}
 		return strconv.FormatUint(uint64(a.productID), 10), label
+	case salesDimCategory:
+		code := strings.TrimSpace(a.category)
+		if code == "" {
+			// 没归类产品照常要出现在表里：藏起来会让"品类毛利"加起来不等于总额。
+			return "", "未分类"
+		}
+		return code, code
 	case salesDimCountry:
 		country := strings.TrimSpace(a.country)
 		if country == "" {
@@ -119,101 +129,13 @@ func (s *reportService) SalesDashboard(
 		return nil, err
 	}
 
-	lines, err := s.repo.ListSalesShipmentLines(ctx, filter)
+	lines, err := s.computeSalesLines(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
-
-	itemIDs := make([]uint, 0, len(lines))
 	shipmentIDs := make([]uint, 0, len(lines))
-	seenItem := make(map[uint]struct{}, len(lines))
-	seenShipment := make(map[uint]struct{}, len(lines))
 	for _, l := range lines {
-		if _, ok := seenItem[l.SalesOrderItemID]; !ok {
-			seenItem[l.SalesOrderItemID] = struct{}{}
-			itemIDs = append(itemIDs, l.SalesOrderItemID)
-		}
-		if _, ok := seenShipment[l.ShipmentID]; !ok {
-			seenShipment[l.ShipmentID] = struct{}{}
-			shipmentIDs = append(shipmentIDs, l.ShipmentID)
-		}
-	}
-
-	costs, err := s.repo.PurchaseCostBySalesItem(ctx, itemIDs)
-	if err != nil {
-		return nil, err
-	}
-	charges, err := s.repo.SumChargesByShipment(ctx, shipmentIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	// 第一遍：收入与成本，同时把每票的收入合计出来——运杂费要按它分摊。
-	type computedLine struct {
-		axis       salesAxis
-		shipmentID uint
-		revenue    money.Decimal
-		cost       money.Decimal
-		missing    bool
-	}
-	computed := make([]computedLine, 0, len(lines))
-	revenueByShipment := make(map[uint]money.Decimal, len(shipmentIDs))
-	for _, l := range lines {
-		revenue := money.Zero()
-		// 分摊比例也走定点：数量与金额都已是 Decimal，比例不必再绕 float64。
-		if l.ItemQty.Cmp(money.Zero()) > 0 {
-			revenue = l.ItemAmountBase.Mul(l.Qty.Div(l.ItemQty))
-		}
-
-		cost := money.Zero()
-		missing := false
-		pc, ok := costs[l.SalesOrderItemID]
-		if !ok || pc.Qty.Cmp(money.Zero()) <= 0 {
-			// 没有采购记录不等于成本为 0：这一行的毛利算不出来，标出来比给个漂亮的数字有用。
-			missing = true
-		} else {
-			cost = pc.AmountBase.Mul(l.Qty.Div(pc.Qty))
-		}
-
-		revenueByShipment[l.ShipmentID] = revenueByShipment[l.ShipmentID].Add(revenue)
-		computed = append(computed, computedLine{
-			axis: salesAxis{
-				partnerID: l.PartnerID, partnerCode: l.PartnerCode, partnerName: l.PartnerName,
-				country: l.Country, productID: l.ProductID,
-				skuCode: l.SKUCode, productName: l.ProductName, date: l.ShipDate,
-			},
-			shipmentID: l.ShipmentID,
-			revenue:    revenue,
-			cost:       cost,
-			missing:    missing,
-		})
-	}
-
-	// 运杂费按票发生，但看板要按行归集：按收入占比摊到每行。
-	// 每票最后一行的份额取「票上总额 − 已经摊出去的」，这样四舍五入的零头不会丢，
-	// 各维度算出来的运杂费合计与单票毛利逐票相加完全相等。
-	remaining := make(map[uint]money.Decimal, len(charges))
-	for id, v := range charges {
-		remaining[id] = v
-	}
-	lastIndex := make(map[uint]int, len(shipmentIDs))
-	for i, l := range computed {
-		lastIndex[l.shipmentID] = i
-	}
-	lineCharge := make([]money.Decimal, len(computed))
-	for i, l := range computed {
-		if lastIndex[l.shipmentID] == i {
-			lineCharge[i] = remaining[l.shipmentID]
-			continue
-		}
-		total := charges[l.shipmentID]
-		base := revenueByShipment[l.shipmentID]
-		share := money.Zero()
-		if total.IsPositive() && base.IsPositive() {
-			share = total.Mul(l.revenue.Div(base)).Round(4)
-		}
-		lineCharge[i] = share
-		remaining[l.shipmentID] = remaining[l.shipmentID].Sub(share)
+		shipmentIDs = append(shipmentIDs, l.shipmentID)
 	}
 
 	buckets := make(map[string]*salesBucket, 16)
@@ -226,12 +148,12 @@ func (s *reportService) SalesDashboard(
 		return b
 	}
 
-	for i, l := range computed {
+	for _, l := range lines {
 		key, label := l.axis.keyOf(dim)
 		b := bucket(key, label)
 		b.revenue = b.revenue.Add(l.revenue)
 		b.cost = b.cost.Add(l.cost)
-		b.charge = b.charge.Add(lineCharge[i])
+		b.charge = b.charge.Add(l.charge)
 		b.shipments[l.shipmentID] = struct{}{}
 		if l.missing {
 			b.missing = true
@@ -337,6 +259,8 @@ func salesDimension(raw string) (string, error) {
 		return salesDimCustomer, nil
 	case salesDimProduct:
 		return salesDimProduct, nil
+	case salesDimCategory:
+		return salesDimCategory, nil
 	case salesDimCountry:
 		return salesDimCountry, nil
 	case salesDimMonth:
@@ -355,6 +279,120 @@ func salesDateRange(from, to string) (repository.SalesFilter, string, string, er
 		return repository.SalesFilter{}, "", "", err
 	}
 	return repository.SalesFilter{From: fromPtr, To: toPtr}, labelFrom, labelTo, nil
+}
+
+// salesLine 是一条摊好之后的出货行：收入、成本、摊到的运杂费，加上维度坐标。
+type salesLine struct {
+	axis        salesAxis
+	shipmentID  uint
+	shipmentNo  string
+	partnerName string
+	qty         money.Decimal
+	revenue     money.Decimal
+	cost        money.Decimal
+	charge      money.Decimal
+	missing     bool
+}
+
+// computeSalesLines 把出货分配行摊成"每行都有收入、成本、运杂费"的明细。
+//
+// 看板与产品下钻共用这一份：两个页面对同一票必须算出同一个毛利，
+// 各写一遍迟早在某个边界（分批出货、部分采购、零收入行）分叉，
+// 而看报表的人只会得出"系统不可信"。
+func (s *reportService) computeSalesLines(
+	ctx context.Context, filter repository.SalesFilter,
+) ([]salesLine, error) {
+	rows, err := s.repo.ListSalesShipmentLines(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	itemIDs := make([]uint, 0, len(rows))
+	shipmentIDs := make([]uint, 0, len(rows))
+	seenItem := make(map[uint]struct{}, len(rows))
+	seenShipment := make(map[uint]struct{}, len(rows))
+	for _, r := range rows {
+		if _, ok := seenItem[r.SalesOrderItemID]; !ok {
+			seenItem[r.SalesOrderItemID] = struct{}{}
+			itemIDs = append(itemIDs, r.SalesOrderItemID)
+		}
+		if _, ok := seenShipment[r.ShipmentID]; !ok {
+			seenShipment[r.ShipmentID] = struct{}{}
+			shipmentIDs = append(shipmentIDs, r.ShipmentID)
+		}
+	}
+
+	costs, err := s.repo.PurchaseCostBySalesItem(ctx, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	charges, err := s.repo.SumChargesByShipment(ctx, shipmentIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := make([]salesLine, 0, len(rows))
+	revenueByShipment := make(map[uint]money.Decimal, len(shipmentIDs))
+	for _, r := range rows {
+		revenue := money.Zero()
+		// 分摊比例也走定点：数量与金额都已是 Decimal，比例不必再绕 float64。
+		if r.ItemQty.Cmp(money.Zero()) > 0 {
+			revenue = r.ItemAmountBase.Mul(r.Qty.Div(r.ItemQty))
+		}
+
+		cost := money.Zero()
+		missing := false
+		pc, ok := costs[r.SalesOrderItemID]
+		if !ok || pc.Qty.Cmp(money.Zero()) <= 0 {
+			// 没有采购记录不等于成本为 0：这一行的毛利算不出来，标出来比给个漂亮的数字有用。
+			missing = true
+		} else {
+			cost = pc.AmountBase.Mul(r.Qty.Div(pc.Qty))
+		}
+
+		revenueByShipment[r.ShipmentID] = revenueByShipment[r.ShipmentID].Add(revenue)
+		lines = append(lines, salesLine{
+			axis: salesAxis{
+				partnerID: r.PartnerID, partnerCode: r.PartnerCode, partnerName: r.PartnerName,
+				country: r.Country, productID: r.ProductID, skuCode: r.SKUCode,
+				productName: r.ProductName, category: r.Category, date: r.ShipDate,
+			},
+			shipmentID:  r.ShipmentID,
+			shipmentNo:  r.ShipmentDocNo,
+			partnerName: r.PartnerName,
+			qty:         r.Qty,
+			revenue:     revenue,
+			cost:        cost,
+			missing:     missing,
+		})
+	}
+
+	// 运杂费按票发生，但要按行归集：按收入占比摊到每行。
+	// 每票最后一行的份额取「票上总额 − 已经摊出去的」，这样四舍五入的零头不会丢，
+	// 各行相加精确等于票面，各维度算出来的运杂费合计与单票毛利逐票相加完全相等。
+	remaining := make(map[uint]money.Decimal, len(charges))
+	for id, v := range charges {
+		remaining[id] = v
+	}
+	lastIndex := make(map[uint]int, len(shipmentIDs))
+	for i, l := range lines {
+		lastIndex[l.shipmentID] = i
+	}
+	for i, l := range lines {
+		if lastIndex[l.shipmentID] == i {
+			lines[i].charge = remaining[l.shipmentID]
+			continue
+		}
+		total := charges[l.shipmentID]
+		base := revenueByShipment[l.shipmentID]
+		share := money.Zero()
+		if total.IsPositive() && base.IsPositive() {
+			share = total.Mul(l.revenue.Div(base)).Round(4)
+		}
+		lines[i].charge = share
+		remaining[l.shipmentID] = remaining[l.shipmentID].Sub(share)
+	}
+	return lines, nil
 }
 
 func salesLimit(raw *int) (int, error) {

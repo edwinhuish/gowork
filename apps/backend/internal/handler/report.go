@@ -36,6 +36,23 @@ func (h *ReportHandler) ExchangeGains(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// ProductProfit GET /api/v1/reports/product-profit
+//
+// 参数：product_id（必填）、from / to（按出货日，闭区间）。
+// 某产品逐票的收入、成本、摊到的运杂费与毛利，按出货日倒序。
+func (h *ReportHandler) ProductProfit(c *gin.Context) {
+	var q dto.ProductProfitQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.ProductProfit(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Todos GET /api/v1/reports/todos
 //
 // 参数：limit（每类行数，留空 20，0 取上限 100）、as_of（"今天"，留空取服务器当天）。

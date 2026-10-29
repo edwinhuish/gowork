@@ -37,6 +37,10 @@ type ReportService interface {
 	Partner360(ctx context.Context, q dto.Partner360Query) (*dto.Partner360, error)
 	// Todos 汇总今天该处理的事：待跟进、应收待催、缺当日汇率（T-34）。
 	Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoReport, error)
+	// ProductProfit 是某个产品逐票的获利情况（T-31 的下钻）。
+	ProductProfit(
+		ctx context.Context, q dto.ProductProfitQuery,
+	) (*dto.ProductProfitReport, error)
 }
 
 type reportService struct {

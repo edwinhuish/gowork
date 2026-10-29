@@ -169,6 +169,47 @@ type ExchangeGainReport struct {
 	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }
 
+// ProductProfitQuery 是产品毛利下钻的查询条件。
+type ProductProfitQuery struct {
+	ProductID uint   `form:"product_id" binding:"required"`
+	From      string `form:"from" binding:"max=10"`
+	To        string `form:"to" binding:"max=10"`
+}
+
+// ProductProfitRow 是某个产品在**一票**货里的获利情况。
+// 按票聚合而不是按订单行：分批出货时同一产品在一票里可能出现两次，
+// 拆成两行就看不出"这一票赚了多少"。
+type ProductProfitRow struct {
+	ShipmentID  uint          `json:"shipment_id"`
+	DocNo       string        `json:"doc_no"`
+	ShipDate    string        `json:"ship_date"`
+	PartnerID   uint          `json:"partner_id"`
+	PartnerName string        `json:"partner_name"`
+	Qty         money.Decimal `json:"qty"`
+	Revenue     money.Decimal `json:"revenue"`
+	Cost        money.Decimal `json:"cost"`
+	Charge      money.Decimal `json:"charge"`
+	Profit      money.Decimal `json:"profit"`
+	// CostMissing 表示这一票里有出货行没有可用采购成本，成本与毛利因此偏高。
+	CostMissing bool `json:"cost_missing"`
+}
+
+// ProductProfitReport 是产品毛利下钻的结果，行按出货日倒序。
+type ProductProfitReport struct {
+	ProductID uint   `json:"product_id"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+
+	Rows []ProductProfitRow `json:"rows"`
+
+	Revenue     money.Decimal `json:"revenue"`
+	Cost        money.Decimal `json:"cost"`
+	Charge      money.Decimal `json:"charge"`
+	Profit      money.Decimal `json:"profit"`
+	Margin      money.Decimal `json:"margin"`
+	CostMissing bool          `json:"cost_missing"`
+}
+
 // TodoQuery 是待办清单的查询条件。
 type TodoQuery struct {
 	// Limit 是每类清单的行数上限，留空 20；0 取内部上限 100。

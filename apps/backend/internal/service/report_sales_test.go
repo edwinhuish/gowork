@@ -28,7 +28,7 @@ func newSalesFixture(t *testing.T, now time.Time) salesFixture {
 	t.Helper()
 
 	db := openTestDB(t,
-		&model.Partner{}, &model.SalesOrder{}, &model.SalesOrderItem{},
+		&model.Partner{}, &model.Product{}, &model.SalesOrder{}, &model.SalesOrderItem{},
 		&model.PurchaseOrder{}, &model.PurchaseOrderItem{},
 		&model.Shipment{}, &model.ShipmentAllocation{}, &model.ShipmentCharge{})
 
@@ -39,6 +39,15 @@ func newSalesFixture(t *testing.T, now time.Time) salesFixture {
 		db:  db,
 		now: now,
 	}
+}
+
+func (f *salesFixture) addProduct(t *testing.T, sku, name, category string) uint {
+	t.Helper()
+	p := &model.Product{SKUCode: sku, NameCN: name, Category: category, Unit: "PCS"}
+	if err := f.db.Create(p).Error; err != nil {
+		t.Fatalf("建产品失败: %v", err)
+	}
+	return p.ID
 }
 
 func (f *salesFixture) addPartner(t *testing.T, code, name, country string) uint {

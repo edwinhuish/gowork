@@ -16,6 +16,9 @@ import (
 type SalesFilter struct {
 	From *time.Time
 	To   *time.Time
+	// ProductID 只看一个产品：产品毛利行情的下钻要它（T-31）。
+	// 订单行不按它筛——订单额那一路是按产品分组的另一个问题。
+	ProductID *uint
 }
 
 // SalesShipmentLine 是一条出货分配行在报表里的原料。
@@ -24,15 +27,20 @@ type SalesFilter struct {
 // 换维度就只是换分组键。若按维度分别写 SQL，四个维度就有四份口径，
 // 迟早出现"按客户看是 21%，按产品看是 19%"这种谁也解释不清的差。
 type SalesShipmentLine struct {
-	ShipmentID       uint
-	ShipDate         time.Time
-	PartnerID        uint
-	PartnerCode      string
-	PartnerName      string
-	Country          string
-	ProductID        uint
-	SKUCode          string
-	ProductName      string
+	ShipmentID    uint
+	ShipmentDocNo string
+	ShipDate      time.Time
+	PartnerID     uint
+	PartnerCode   string
+	PartnerName   string
+	Country       string
+	ProductID     uint
+	SKUCode       string
+	ProductName   string
+	// Category 是产品当前所属品类（按 md_product 现查）。
+	// 订单行上没有品类快照：品类是产品的一种归类，不是成交条件，
+	// 给它做快照只会让"改了归类之后老单据算哪个品类"变成一道必答题。
+	Category         string
 	SalesOrderItemID uint
 	// Qty 是本票出货数量；ItemQty / ItemAmountBase 是所属销售行的整行数量与本币金额。
 	Qty            money.Decimal
@@ -51,6 +59,7 @@ func (r *reportRepo) ListSalesShipmentLines(
 	q := r.conn(ctx).
 		Table("biz_shipment_allocation AS a").
 		Select(`a.shipment_id,
+			s.doc_no AS shipment_doc_no,
 			s.ship_date,
 			o.partner_id,
 			COALESCE(pt.code, '') AS partner_code,
@@ -59,6 +68,7 @@ func (r *reportRepo) ListSalesShipmentLines(
 			i.product_id,
 			i.sku_code,
 			i.name_cn AS product_name,
+			COALESCE(prod.category, '') AS category,
 			a.sales_order_item_id,
 			a.qty,
 			i.qty AS item_qty,
@@ -67,6 +77,7 @@ func (r *reportRepo) ListSalesShipmentLines(
 		Joins("JOIN biz_sales_order_item AS i ON i.id = a.sales_order_item_id AND i.deleted_at = 0").
 		Joins("JOIN biz_sales_order AS o ON o.id = i.sales_order_id AND o.deleted_at = 0").
 		Joins("LEFT JOIN md_partner AS pt ON pt.id = o.partner_id AND pt.deleted_at = 0").
+		Joins("LEFT JOIN md_product AS prod ON prod.id = i.product_id AND prod.deleted_at = 0").
 		Where("a.deleted_at = 0").
 		Where("s.status NOT IN ?", []model.DocumentStatus{
 			model.DocumentStatusDraft, model.DocumentStatusCancelled,
@@ -76,6 +87,9 @@ func (r *reportRepo) ListSalesShipmentLines(
 	}
 	if f.To != nil {
 		q = q.Where("s.ship_date <= ?", *f.To)
+	}
+	if f.ProductID != nil {
+		q = q.Where("i.product_id = ?", *f.ProductID)
 	}
 
 	if err := q.Scan(&lines).Error; err != nil {

@@ -354,6 +354,8 @@ func New(
 		reports.GET("/partner-360", h.Report.Partner360)
 		// 待办清单：待跟进、应收待催、缺当日汇率，每类给全量条数 + 前 N 条。
 		reports.GET("/todos", h.Report.Todos)
+		// 产品毛利下钻：某个产品逐票的收入 / 成本 / 运杂费 / 毛利（看板点开用）。
+		reports.GET("/product-profit", h.Report.ProductProfit)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)
