@@ -31,7 +31,10 @@ type productService struct {
 	// codes 是产品的别名编号（旧 SKU、客户号、供应商货号）：
 	// 改 SKU 时要沉淀旧码，新建与改 SKU 时要拦住「SKU 撞上别人用过的编号」。
 	codes repository.ProductCodeRepository
-	log   *slog.Logger
+	// txs 让「清编号 + 删产品」落在同一个事务里：只删产品会留下孤儿编号，
+	// 它仍会被「新 SKU 不得等于别人用过的编号」算进去。
+	txs repository.TxManager
+	log *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -46,10 +49,12 @@ func NewProductService(
 	partners repository.PartnerRepository,
 	sources repository.ProductSourceRepository,
 	codes repository.ProductCodeRepository,
+	txs repository.TxManager,
 	opts ...ProductOption,
 ) ProductService {
 	s := &productService{
-		repo: repo, partners: partners, sources: sources, codes: codes, log: slog.Default(),
+		repo: repo, partners: partners, sources: sources, codes: codes, txs: txs,
+		log: slog.Default(),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -185,7 +190,15 @@ func (s *productService) Delete(ctx context.Context, id uint) error {
 		return errs.ErrConflict.WithMsg(
 			fmt.Sprintf("该产品还有 %d 条货源记录，请先在产品详情页删除货源", n))
 	}
-	return s.repo.Delete(ctx, id)
+	// 编号必须跟着产品一起消失。产品是软删，编号行却不在软删范围内：
+	// 留下的孤儿行没有任何入口能删掉（编号面板按 product_id 查，产品已不在了），
+	// 却会让「新 SKU 不得等于任何产品用过的编号」永久拒绝那个号。
+	return s.txs.Transaction(ctx, func(ctx context.Context) error {
+		if err := s.codes.DeleteByProductID(ctx, id); err != nil {
+			return err
+		}
+		return s.repo.Delete(ctx, id)
+	})
 }
 
 func (s *productService) Get(ctx context.Context, id uint) (*model.Product, error) {

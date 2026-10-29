@@ -21,6 +21,12 @@ type ProductCodeRepository interface {
 	// 软删会让「删掉再加回来」撞上 (product_id, code_norm) 的唯一索引——
 	// 表现是加不回去，而列表里又看不见它，只能去库里找那行已删记录。
 	Delete(ctx context.Context, id uint) error
+	// DeleteByProductID 硬删某个产品的全部编号，供产品删除时清理。
+	//
+	// 与 Delete 同为硬删：编号是标签，产品没了标签也不该留着。留下孤儿行
+	// 的后果不是"多几行"，而是「新 SKU 不得等于别人用过的编号」会把那个号
+	// 永久占住——而界面上再也看不见它（编号面板按 product_id 查，产品已不在）。
+	DeleteByProductID(ctx context.Context, productID uint) error
 	// ExistsNorm 判断同一产品下是否已有这个归一化编号（excludeID 供编辑排除自身）。
 	ExistsNorm(ctx context.Context, productID uint, codeNorm string, excludeID uint) (bool, error)
 	// ExistsNormAnywhere 判断**任何产品**是否已有这个归一化编号，供「新 SKU 不得
@@ -85,6 +91,16 @@ func (r *productCodeRepo) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
+func (r *productCodeRepo) DeleteByProductID(ctx context.Context, productID uint) error {
+	err := r.conn(ctx).Unscoped().
+		Where("product_id = ?", productID).
+		Delete(&model.ProductCode{}).Error
+	if err != nil {
+		return fmt.Errorf("清理产品 id=%d 的编号: %w", productID, err)
+	}
+	return nil
+}
+
 func (r *productCodeRepo) ExistsNorm(
 	ctx context.Context, productID uint, codeNorm string, excludeID uint,
 ) (bool, error) {
@@ -101,7 +117,14 @@ func (r *productCodeRepo) ExistsNormAnywhere(
 	ctx context.Context, codeNorm string, excludeProductID uint,
 ) (bool, error) {
 	return r.Exists(ctx, func(db *gorm.DB) *gorm.DB {
-		q := db.Where("code_norm = ?", codeNorm)
+		q := db.Where("code_norm = ?", codeNorm).
+			// 已软删产品留下的编号不该再占号：清理只在删除那条路径上做，
+			// 历史数据里可能已经有孤儿行，而它们没有任何入口能删掉。
+			//
+			// 子查询手写而不交给 gorm：在 scope 里用同一个 *gorm.DB 构造子查询
+			// 会污染外层语句（gorm 把 IN 的参数当成同一张表的延续），
+			// 生成的 SQL 会自引用并带上残缺的 IN ()。
+			Where("product_id IN (SELECT id FROM md_product WHERE deleted_at IS NULL)")
 		if excludeProductID > 0 {
 			q = q.Where("product_id <> ?", excludeProductID)
 		}

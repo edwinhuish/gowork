@@ -11,12 +11,16 @@ import (
 )
 
 type productCodeFixture struct {
-	products   ProductService
-	codes      ProductCodeService
-	sources    repository.ProductSourceRepository
-	productA   uint
-	productB   uint
-	supplierID uint
+	products ProductService
+	codes    ProductCodeService
+	sources  repository.ProductSourceRepository
+	// 仓储本身也留着：有的用例要绕过 service 造出"历史遗留"的数据形态，
+	// 比如产品已软删、编号行却还在的孤儿。
+	productRepo repository.ProductRepository
+	codeRepo    repository.ProductCodeRepository
+	productA    uint
+	productB    uint
+	supplierID  uint
 }
 
 func newProductCodeFixture(t *testing.T) productCodeFixture {
@@ -51,12 +55,15 @@ func newProductCodeFixture(t *testing.T) productCodeFixture {
 	}
 
 	return productCodeFixture{
-		products:   NewProductService(productRepo, partnerRepo, sourceRepo, codeRepo),
-		codes:      NewProductCodeService(codeRepo, productRepo),
-		sources:    sourceRepo,
-		productA:   a.ID,
-		productB:   b.ID,
-		supplierID: supplier.ID,
+		products: NewProductService(
+			productRepo, partnerRepo, sourceRepo, codeRepo, repository.NewTxManager(db)),
+		codes:       NewProductCodeService(codeRepo, productRepo),
+		sources:     sourceRepo,
+		productRepo: productRepo,
+		codeRepo:    codeRepo,
+		productA:    a.ID,
+		productB:    b.ID,
+		supplierID:  supplier.ID,
 	}
 }
 
@@ -234,6 +241,63 @@ func TestProductListFindsBySupplierSKU(t *testing.T) {
 	}
 	if got := merged.List[0].MatchedCodes; len(got) != 1 {
 		t.Errorf("命中编号 = %v，期望去重后只剩 1 条", got)
+	}
+}
+
+// 产品删掉时它的编号必须一起清掉：孤儿编号没有入口能删，
+// 却会让「新 SKU 不得等于任何产品用过的编号」永久拒绝那个号。
+func TestProductDeleteReleasesItsCodes(t *testing.T) {
+	ctx := context.Background()
+	f := newProductCodeFixture(t)
+
+	if _, err := f.codes.Create(ctx, dto.ProductCodeInput{
+		ProductID: f.productA, Code: "KT-7788", Source: model.ProductCodeSourceCustomer,
+	}); err != nil {
+		t.Fatalf("新增编号失败: %v", err)
+	}
+
+	if err := f.products.Delete(ctx, f.productA); err != nil {
+		t.Fatalf("删除产品失败: %v", err)
+	}
+
+	left, err := f.codeRepo.ListByProductID(ctx, f.productA)
+	if err != nil {
+		t.Fatalf("查编号失败: %v", err)
+	}
+	if len(left) != 0 {
+		t.Fatalf("产品删除后仍留下 %d 条编号", len(left))
+	}
+
+	if _, err := f.products.Create(ctx, dto.ProductInput{
+		SKUCode: "KT-7788", NameCN: "同号新产品", Unit: "PCS",
+	}); err != nil {
+		t.Errorf("用已删产品的旧编号做新 SKU 应被允许: %v", err)
+	}
+}
+
+// 历史数据里可能已经躺着"产品已删、编号还在"的孤儿（清理只在删除那条路径上做），
+// 孤儿不该再占号：它没有任何界面入口，占着号等于那个号凭空消失。
+func TestSoftDeletedProductCodesDoNotReserveSKU(t *testing.T) {
+	ctx := context.Background()
+	f := newProductCodeFixture(t)
+
+	if err := f.codeRepo.Create(ctx, &model.ProductCode{
+		ProductID: f.productA,
+		Code:      "ZZ-9",
+		CodeNorm:  codenorm.Normalize("ZZ-9"),
+		Source:    model.ProductCodeSourceOther,
+	}); err != nil {
+		t.Fatalf("造孤儿编号失败: %v", err)
+	}
+	// 绕过 service 直接软删产品，编号就留在库里了。
+	if err := f.productRepo.Delete(ctx, f.productA); err != nil {
+		t.Fatalf("软删产品失败: %v", err)
+	}
+
+	if _, err := f.products.Create(ctx, dto.ProductInput{
+		SKUCode: "ZZ-9", NameCN: "新产品", Unit: "PCS",
+	}); err != nil {
+		t.Errorf("已删产品的孤儿编号仍占着号: %v", err)
 	}
 }
 

@@ -151,7 +151,7 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithAuthLogger(log),
 	)
 	productSvc := service.NewProductService(
-		productRepo, partnerRepo, sourceRepo, productCodeRepo, service.WithProductLogger(log))
+		productRepo, partnerRepo, sourceRepo, productCodeRepo, txs, service.WithProductLogger(log))
 	// 编号自己一套读写：它是产品的别名，不是产品的一个字段，
 	// 前端在产品详情页当成一个面板用，产品表单不参与。
 	productCodeSvc := service.NewProductCodeService(

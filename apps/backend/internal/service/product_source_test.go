@@ -90,6 +90,7 @@ func newSourceFixture(t *testing.T, now time.Time) sourceFixture {
 		),
 		products: NewProductService(
 			productRepo, partnerRepo, sourceRepo, repository.NewProductCodeRepository(db),
+			repository.NewTxManager(db),
 		),
 		productID:  p1.ID,
 		product2ID: p2.ID,
