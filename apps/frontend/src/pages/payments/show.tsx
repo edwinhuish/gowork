@@ -3,6 +3,7 @@ import { Show } from '@refinedev/antd'
 import { Button, Descriptions, Popconfirm, Table, Tag, Typography, message } from 'antd'
 
 import { paymentApi } from '@/api/payments'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
   paymentDirectionColor,
@@ -181,6 +182,12 @@ export function PaymentShow() {
           },
         ]}
       />
+
+      {/* 银行回单与水单是收付款的凭据：没有它，核销只能靠人记得"这笔钱是谁打的"，
+          对账时双方各执一份、谁也说服不了谁。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="payment" entityId={result.id} title="银行回单" />
+      ) : null}
     </Show>
   )
 }
