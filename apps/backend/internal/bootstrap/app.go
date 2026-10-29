@@ -292,6 +292,9 @@ func New(cfg *config.Config) (*App, error) {
 	attachmentSvc := service.NewAttachmentService(
 		attachmentRepo, service.WithAttachmentLogger(log))
 	// 贷项通知单（T-52b）：冲减应收，核销校验会把它算进未结清额。
+	// 客户对账单（T-53）：纯聚合，不落表、不发号。
+	statementSvc := service.NewStatementService(
+		repository.NewStatementRepository(db), partnerRepo, service.WithStatementLogger(log))
 	// 借项通知单（T-52b3）：冲减应付，与贷项对称。
 	debitNoteSvc := service.NewDebitNoteService(
 		repository.NewDebitNoteRepository(db), payableRepo, docNoSvc,
@@ -334,6 +337,7 @@ func New(cfg *config.Config) (*App, error) {
 		Customs:         handler.NewCustomsDeclarationHandler(customsSvc),
 		Receivable:      handler.NewReceivableHandler(receivableSvc),
 		CreditNote:      handler.NewCreditNoteHandler(creditNoteSvc),
+		Statement:       handler.NewStatementHandler(statementSvc),
 		DebitNote:       handler.NewDebitNoteHandler(debitNoteSvc),
 		Payable:         handler.NewPayableHandler(payableSvc),
 		Payment:         handler.NewPaymentHandler(paymentSvc),

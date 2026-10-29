@@ -49,6 +49,7 @@ type Handlers struct {
 	Payable         *handler.PayableHandler
 	Payment         *handler.PaymentHandler
 	Report          *handler.ReportHandler
+	Statement       *handler.StatementHandler
 	Stock           *handler.StockHandler
 	StockDoc        *handler.StockDocumentHandler
 	Dashboard       *handler.DashboardHandler
@@ -448,6 +449,8 @@ func New(
 		// 报表：跨表聚合，统一走 /reports，不散成各资源后面的 -summary。
 		// 账龄按主体给出未核销金额的 30/60/90+ 分桶（T-22）。
 		reports := secured.Group("/reports")
+		// 客户对账单（T-53）：期初 / 本期发生 / 本期收款 / 期末，逐笔可追到单据。
+		reports.GET("/receivable-statement", h.Statement.Receivable)
 		reports.GET("/aging", h.Report.Aging)
 		// 单票毛利：收入 − 采购成本 − 运杂费（本币）。?shipment_id= 取单票，供详情页面板用。
 		reports.GET("/shipment-profits", h.Report.ShipmentProfits)
