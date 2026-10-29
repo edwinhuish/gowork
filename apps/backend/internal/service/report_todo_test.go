@@ -22,7 +22,7 @@ type todoFixture struct {
 func newTodoFixture(t *testing.T, now time.Time) todoFixture {
 	t.Helper()
 	db := openTestDB(t,
-		&model.Partner{}, &model.Activity{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{},
+		&model.Partner{}, &model.Activity{}, &model.PurchaseMilestone{}, &model.PurchaseOrder{}, &model.PurchaseOrderItem{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{},
 		&model.Currency{}, &model.ExchangeRate{})
 	return todoFixture{
 		reports: NewReportService(

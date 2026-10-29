@@ -258,8 +258,22 @@ type TodoCurrency struct {
 //
 // 每类都给「全量条数 + 前 N 条」：条数是"还剩多少事没做"，
 // 清单是"先做哪几件"——只给清单会让人以为做完就没事了。
+// TodoInspection 是一条已过计划日、还没做完成的验货节点（T-62）。
+type TodoInspection struct {
+	ID              uint   `json:"id"`
+	PurchaseOrderID uint   `json:"purchase_order_id"`
+	DocNo           string `json:"doc_no"`
+	PartnerName     string `json:"partner_name"`
+	SKUCode         string `json:"sku_code"`
+	PlanDate        string `json:"plan_date"`
+	OverdueDays     int    `json:"overdue_days"`
+}
+
 type TodoReport struct {
 	AsOf string `json:"as_of"`
+
+	Inspections     []TodoInspection `json:"inspections"`
+	InspectionCount int64            `json:"inspection_count"`
 
 	Followups     []TodoFollowup `json:"followups"`
 	FollowupCount int64          `json:"followup_count"`

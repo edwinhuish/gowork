@@ -113,6 +113,65 @@ func (r *reportRepo) ListTodoReceivables(
 	return rows, total, nil
 }
 
+// TodoInspection 是一条已过计划日的验货节点。
+type TodoInspection struct {
+	ID              uint
+	PurchaseOrderID uint
+	DocNo           string
+	PartnerName     string
+	SKUCode         string
+	PlanDate        time.Time
+}
+
+// ListTodoInspections 取已过计划日、还没做完成的验货节点（T-62）。
+//
+// 口径：plan_date <= asOf 且 done_date 为空，只看 node = 验货。
+// 计划日为空的不算——还没跟工厂谈定日期的节点，说"逾期"没有依据。
+//
+// 数据范围与其它待办一致：采购单经 partner_id 继承归属，业务员只看自己的
+// （与未分配的）。
+func (r *reportRepo) ListTodoInspections(
+	ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+) ([]TodoInspection, int64, error) {
+	base := func() *gorm.DB {
+		q := r.conn(ctx).
+			Table("biz_purchase_milestone AS m").
+			Joins("JOIN biz_purchase_order AS o ON o.id = m.purchase_order_id AND o.deleted_at = 0").
+			Joins("JOIN biz_purchase_order_item AS i ON i.id = m.purchase_order_item_id AND i.deleted_at = 0").
+			Joins("LEFT JOIN md_partner AS p ON p.id = o.supplier_id AND p.deleted_at = 0").
+			Where("m.deleted_at = 0").
+			Where("m.node = ?", model.PurchaseNodeInspected).
+			Where("m.done_date IS NULL").
+			Where("m.plan_date IS NOT NULL").
+			Where("m.plan_date <= ?", asOf).
+			// 草稿与已取消的采购单不催验货：货还没让工厂做，验什么。
+			Where("o.status NOT IN ?", []model.DocumentStatus{
+				model.DocumentStatusDraft, model.DocumentStatusCancelled,
+			})
+		if ownerID != nil {
+			q = q.Where("(p.owner_id = ? OR p.owner_id = 0)", *ownerID)
+		}
+		return q
+	}
+
+	var total int64
+	if err := base().Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("统计待验货: %w", err)
+	}
+
+	rows := make([]TodoInspection, 0, limit)
+	err := base().
+		Select(`m.id, m.purchase_order_id, o.doc_no,
+			COALESCE(p.name, '') AS partner_name, i.sku_code, m.plan_date`).
+		Order("m.plan_date ASC, m.id ASC").
+		Limit(limit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询待验货: %w", err)
+	}
+	return rows, total, nil
+}
+
 // ListMissingRates 取今天还没有汇率的外币。
 //
 // 缺汇率不是"看着不舒服"：报价与开单都要拿当天的汇率锁定本币金额，

@@ -80,6 +80,13 @@ type ReportRepository interface {
 	ListTodoReceivables(
 		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
 	) ([]TodoReceivable, int64, error)
+	// ListTodoInspections 取已过计划日、还没做完成的验货节点（T-62）。
+	//
+	// 只取「验货」这一个节点，不是全部节点：下单、生产、入仓都是内部动作，
+	// 而验货是代理采购唯一能对客户承诺的事——「我验过」这句话要有日期撑着。
+	ListTodoInspections(
+		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+	) ([]TodoInspection, int64, error)
 	// ListMissingRates 取今天还没有汇率的外币。
 	ListMissingRates(ctx context.Context, asOf time.Time) ([]TodoCurrency, error)
 

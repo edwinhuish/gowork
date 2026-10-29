@@ -50,11 +50,18 @@ func (s *reportService) Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoRe
 	if err != nil {
 		return nil, err
 	}
+	// 验货到期（T-62）：代理采购唯一能对客户承诺的事，逾期没验意味着交期要出问题。
+	inspections, inspectionCount, err := s.repo.ListTodoInspections(ctx, asOf, scope, limit)
+	if err != nil {
+		return nil, err
+	}
 
 	report := &dto.TodoReport{
 		AsOf:            asOf.Format(rateDateLayout),
 		FollowupCount:   followupCount,
 		ReceivableCount: receivableCount,
+		InspectionCount: inspectionCount,
+		Inspections:     make([]dto.TodoInspection, 0, len(inspections)),
 		Followups:       make([]dto.TodoFollowup, 0, len(followups)),
 		Receivables:     make([]dto.TodoReceivable, 0, len(receivables)),
 		MissingRates:    []dto.TodoCurrency{},
@@ -79,6 +86,18 @@ func (s *reportService) Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoRe
 			DueDate:         model.DateOnly(r.DueDate).Format(rateDateLayout),
 			OutstandingBase: r.OutstandingBase.Round(4),
 			OverdueDays:     max(agingDays(asOf, model.DateOnly(r.DueDate)), 0),
+		})
+	}
+
+	for _, m := range inspections {
+		report.Inspections = append(report.Inspections, dto.TodoInspection{
+			ID:              m.ID,
+			PurchaseOrderID: m.PurchaseOrderID,
+			DocNo:           m.DocNo,
+			PartnerName:     m.PartnerName,
+			SKUCode:         m.SKUCode,
+			PlanDate:        model.DateOnly(m.PlanDate).Format(rateDateLayout),
+			OverdueDays:     max(agingDays(asOf, model.DateOnly(m.PlanDate)), 0),
 		})
 	}
 
