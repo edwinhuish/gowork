@@ -144,6 +144,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/exports/partners`、`/exports/products` | `Partner.Export` / `Product.Export` | 列表导出 CSV（T-35）：参数与各自列表一致，按 200 一页翻完全部结果（上限 10000 行）后写出；带 UTF-8 BOM（否则 Excel 中文乱码）；成本价按 T-36 权限留空。**导入尚未实现** |
 | GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403。只有列表——建号 / 改角色 / 重置密码属于用户维护模块，尚未做 |
 | PUT | `/api/v1/partners/:id/owner` | `Partner.TransferOwner` | 转移负责人（T-32）：仅 admin / manager，业务员 403；`owner_id=0` 退回未分配（公共池）；校验接手账号存在且启用；带 `updated_at` 走乐观锁 |
+| GET/POST/PUT/DELETE | `/api/v1/clauses`、`/clauses/:id[/restore]` | `Clause.*` | 条款模板库（T-27，主数据 `md_clause`）：编码唯一（重复 409）、软删可恢复。**与 `biz_contract_term`（付款分期）不是一回事**；合同生成时按 `clause_ids` 抄快照进 `biz_contract_clause`，改模板不影响已生成的合同 |
 | GET | `/api/v1/audit-logs` | `Audit.List` | 操作日志（T-33）：写操作由 `middleware.Audit` 统一记录，本接口只读、仅管理员（`RequireAdmin`）；筛选 `entity` / `entity_id` / `action` / `actor_id` / `from`+`to`（含当天）/ `keyword`（路径+请求体+操作人） |
 | GET | `/api/v1/reports/product-profit` | `Report.ProductProfit` | 产品毛利下钻（T-31）：`product_id` 必填，返回该产品**逐票**的收入 / 成本 / 摊到的运杂费 / 毛利，按出货日倒序；与看板共用 `computeSalesLines`，两处合计必须相等 |
 | GET | `/api/v1/reports/todos` | `Report.Todos` | 待办清单（T-34）：待跟进（`next_follow_at` **早于**今天，当天不算）、应收待催（`due_date <= 今天` 且未结清，当天就算）、缺当日汇率（外币今天没有汇率记录）；每类给全量条数 + 前 N 条；范围与列表一致，汇率只对有全局视野的角色提示 |
