@@ -93,7 +93,7 @@ func (s *reportService) Collection(
 			CurrencyCode:    d.CurrencyCode,
 			DueDate:         model.DateOnly(d.DueDate).Format(rateDateLayout),
 			OverdueDays:     days,
-			Outstanding:     d.Amount.Sub(d.SettledAmount).Round(4),
+			Outstanding:     d.Amount.Sub(d.SettledAmount).Sub(d.Credited).Round(4),
 			OutstandingBase: outstandingBase,
 		})
 	}

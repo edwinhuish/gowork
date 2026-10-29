@@ -56,8 +56,8 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 		Where("status <> ?", model.SettlementStatusVoid).
 		// 已开的贷项要扣掉（T-52b）：客户退货冲减掉的那部分不该再算进他的敞口，
 		// 否则一张退过货的单会让这个客户看起来像欠着钱，下一次下单被信用额度拦住。
-		Where("amount_base - settled_amount_base - "+creditBaseSubquery+" > ?", 0.0001).
-		Select("COALESCE(SUM(amount_base - settled_amount_base - " + creditBaseSubquery + "), 0) AS amount").
+		Where("amount_base - settled_amount_base - "+creditBaseSubquery("biz_receivable")+" > ?", 0.0001).
+		Select("COALESCE(SUM(amount_base - settled_amount_base - " + creditBaseSubquery("biz_receivable") + "), 0) AS amount").
 		Scan(&open).Error
 	if err != nil {
 		return out, fmt.Errorf("汇总未结清应收: %w", err)
@@ -96,5 +96,15 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 //
 // 写成常量是为了让用到它的地方拼的是同一段 SQL：敞口、账龄、回款率
 // 三处各抄一遍，改一处忘两处就会变成"三个地方算出三个余额"。
-const creditBaseSubquery = "COALESCE((SELECT SUM(c.amount_base) FROM biz_credit_note c " +
-	"WHERE c.receivable_id = biz_receivable.id AND c.deleted_at = 0), 0)"
+//
+// 按别名生成而不是写成常量：账龄那边用 `s` 作为表别名，写死 biz_receivable
+// 会让子查询指向一张不在 FROM 里的表。
+func creditSubquery(alias string) string {
+	return "COALESCE((SELECT SUM(c.amount) FROM biz_credit_note c WHERE c.receivable_id = " +
+		alias + ".id AND c.deleted_at = 0), 0)"
+}
+
+func creditBaseSubquery(alias string) string {
+	return "COALESCE((SELECT SUM(c.amount_base) FROM biz_credit_note c WHERE c.receivable_id = " +
+		alias + ".id AND c.deleted_at = 0), 0)"
+}

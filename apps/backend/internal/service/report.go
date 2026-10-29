@@ -397,7 +397,7 @@ func aggregateAging(
 
 		due := model.DateOnly(d.DueDate)
 		bucket := agingBucket(agingDays(asOf, due))
-		row.Amount.Add(bucket, d.Amount.Sub(d.SettledAmount).Round(4))
+		row.Amount.Add(bucket, d.Amount.Sub(d.SettledAmount).Sub(d.Credited).Round(4))
 		row.AmountBase.Add(bucket, d.AmountBase.Sub(d.SettledAmountBase).Round(4))
 
 		if cur, ok := earliest[key]; !ok || due.Before(cur) {

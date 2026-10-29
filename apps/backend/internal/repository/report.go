@@ -28,6 +28,10 @@ type OutstandingSettlement struct {
 	SettledAmount     money.Decimal
 	AmountBase        money.Decimal
 	SettledAmountBase money.Decimal
+	// Credited 是这张单已开的贷项合计（T-52b2）。未结清额 =
+	// Amount − SettledAmount − Credited，三处报表与核销校验必须同口径。
+	Credited     money.Decimal
+	CreditedBase money.Decimal
 	// DueDate 只用到日期部分；分桶按整天算，带时分秒会让边界日期飘到隔壁桶。
 	DueDate time.Time
 }
@@ -223,11 +227,15 @@ func (r *reportRepo) ListOutstandingSettlements(
 			s.settled_amount,
 			s.amount_base,
 			s.settled_amount_base,
+			`+creditSubquery("s")+` AS credited,
+			`+creditBaseSubquery("s")+` AS credited_base,
 			s.due_date`).
 		Joins("LEFT JOIN md_partner AS p ON p.id = s.partner_id AND p.deleted_at = 0").
 		Where("s.deleted_at = 0").
 		Where("s.status <> ?", model.SettlementStatusVoid).
-		Where("s.amount - s.settled_amount > ?", 0.0001).
+		// 扣掉贷项：退过货的单只剩很小一笔未结时会掉出账龄，
+		// 这正是它该有的样子——那部分钱客户不用付了。
+		Where("s.amount - s.settled_amount - "+creditSubquery("s")+" > ?", 0.0001).
 		Find(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("查询未结清单据(%s): %w", table, err)
