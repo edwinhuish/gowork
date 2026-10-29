@@ -29,7 +29,7 @@ type SalesOrderItemInput struct {
 // 前端即使把总额塞进请求体，绑定阶段就会被丢弃——比"接收了再判空"更彻底，
 // 因为没有任何代码路径能读到它，也就不可能有人哪天一顺手把它存进库。
 type SalesOrderInput struct {
-	PartnerID    uint   `json:"partner_id" binding:"required"`
+	PartnerID uint `json:"partner_id" binding:"required"`
 	// TradeTerm 不再必填：留空取客户默认（md_partner.trade_term）。
 	TradeTerm    string `json:"trade_term" binding:"max=8"`
 	CurrencyCode string `json:"currency_code" binding:"max=8"`

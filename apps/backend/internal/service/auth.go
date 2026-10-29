@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

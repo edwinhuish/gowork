@@ -134,13 +134,13 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		orders:       orderSvc,
 		partners: NewPartnerService(
 			partnerRepo, productRepo, currencyRepo, repository.NewUserRepository(db)),
-		now:          now,
-		customerID:   customer.ID,
-		supplierID:   supplier.ID,
-		productID:    p1.ID,
-		product2ID:   p2.ID,
-		cheapSrcID:   cheap.ID,
-		priceySrcID:  pricey.ID,
+		now:         now,
+		customerID:  customer.ID,
+		supplierID:  supplier.ID,
+		productID:   p1.ID,
+		product2ID:  p2.ID,
+		cheapSrcID:  cheap.ID,
+		priceySrcID: pricey.ID,
 	}
 }
 

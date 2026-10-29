@@ -102,8 +102,8 @@ type PartnerInput struct {
 	CustomerGroup *string `json:"customer_group" binding:"omitempty,max=64"`
 	Region        *string `json:"region" binding:"omitempty,max=64"`
 	// Grade 只接受 "" / A / B / C（大小写不敏感，service 统一转大写）。
-	Grade *string `json:"grade" binding:"omitempty,max=2"`
-	Remark      string                 `json:"remark" binding:"max=255"`
+	Grade  *string `json:"grade" binding:"omitempty,max=2"`
+	Remark string  `json:"remark" binding:"max=255"`
 
 	// 商务条件全部用指针：nil 表示"这次不改"，与 Role / EntityType 同一套规则。
 	//
