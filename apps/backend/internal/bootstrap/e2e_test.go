@@ -813,11 +813,13 @@ func TestE2EPaymentAllocation(t *testing.T) {
 	}
 
 	t.Run("收款 300 核销到这张应收", func(t *testing.T) {
+		// 到账日取"今天"而不是写死某一天：汇率 fixture 插的是当天，
+		// 写死日期会让这个测试在第二天全线变红——它验的是核销，不是日期。
 		body := fmt.Sprintf(`{
-			"direction": 10, "partner_id": %d, "pay_date": "2026-10-29",
+			"direction": 10, "partner_id": %d, "pay_date": "%s",
 			"currency_code": "USD", "amount": "300", "method": "TT",
 			"allocations": [{"target_type": 10, "target_id": %d, "amount": "300"}]
-		}`, customerID, receivableID)
+		}`, customerID, time.Now().Format("2006-01-02"), receivableID)
 		res := call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
 		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
 			_, msg, _ := decodeEnvelope(t, res)

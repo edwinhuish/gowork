@@ -21,6 +21,10 @@ import (
 // 三处若各自"乘以汇率"，对"乘以哪一天的汇率、结果保留几位"就会各有一套答案，
 // 同一笔生意在三张单上差几分钱，对账时无法解释差额来自哪里。
 type CurrencyService interface {
+	// ToBaseDecimalFor 按指定汇率类型折本币（T-60）：收款取买入价、付款取卖出价。
+	ToBaseDecimalFor(
+		ctx context.Context, amount money.Decimal, currencyCode string, on time.Time, rateType string,
+	) (money.Decimal, money.Decimal, error)
 	Create(ctx context.Context, in dto.CurrencyInput) (*model.Currency, error)
 	Update(ctx context.Context, id uint, in dto.CurrencyInput) (*model.Currency, error)
 	Delete(ctx context.Context, id uint) error
@@ -341,4 +345,38 @@ func normDecimalPlaces(p *int, def int) (int, error) {
 			money.MinDecimalPlaces, money.MaxDecimalPlaces))
 	}
 	return *p, nil
+}
+
+// ToBaseDecimalFor 按指定汇率类型折本币（T-60）。
+//
+// 与 ToBaseDecimal 的差别只有一处：取价时带上类型。收款是"把外币卖给它"，
+// 用买入价；付款是"向它买外币"，用卖出价。两者差 0.1%～0.5%，
+// 一年累计下来足以让单票毛利的方向性偏差变成一条能被客户问到的数。
+//
+// 不走 ConvertDecimal：那条路要处理交叉汇率（两个币种各折一次再相除），
+// 而这里的目标恒为本币，直接用一条汇率更少一次舍入。
+func (s *currencyService) ToBaseDecimalFor(
+	ctx context.Context, amount money.Decimal, currencyCode string, on time.Time, rateType string,
+) (money.Decimal, money.Decimal, error) {
+	baseCode, err := s.BaseCode(ctx)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	code := strings.ToUpper(strings.TrimSpace(currencyCode))
+	if code == "" || code == baseCode {
+		return amount, money.FromInt(1), nil
+	}
+	rate, err := s.rates.FindEffectiveFor(ctx, code, baseCode, on, rateType)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return money.Zero(), money.Zero(), errs.BadRequest(fmt.Sprintf(
+				"缺少 %s 在 %s 的汇率", code, model.DateOnly(on).Format("2006-01-02")))
+		}
+		return money.Zero(), money.Zero(), err
+	}
+	baseDP, err := s.Decimals(ctx, baseCode)
+	if err != nil {
+		return money.Zero(), money.Zero(), err
+	}
+	return amount.Mul(rate.Rate).Round(baseDP), rate.Rate, nil
 }

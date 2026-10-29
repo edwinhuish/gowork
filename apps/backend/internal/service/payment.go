@@ -174,6 +174,9 @@ func (s *paymentService) Create(
 	}
 
 	// 汇率取**到账日**的，不是应收开单时锁的：两者的差就是汇兑损益。
+	// 仍走中间价：ToBaseDecimalFor 已就位，但接入后 e2e 取不到汇率
+	// （测试库里老汇率行的 rate_type 为空，按类型过滤会全部落空）。
+	// 先保持改造前行为，等把"空类型视为中间价"的迁移补齐再接（T-60 剩余部分）。
 	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, amount, currency, payDate)
 	if err != nil {
 		return nil, err
@@ -333,4 +336,15 @@ func (s *paymentService) targetInfo(
 	default:
 		return "", "", 0, errs.BadRequest("核销对象类型不合法：10=应收单，20=应付单")
 	}
+}
+
+// paymentRateType 决定收付款取哪一侧的汇率（T-60）。
+//
+// 收款是把外币卖给银行，用买入价；付款是向银行买外币，用卖出价。
+// 中间价只在单据锁汇率与报表折算时用——它不是任何一笔实际兑换的价格。
+func paymentRateType(d model.PaymentDirection) string {
+	if d == model.PaymentDirectionIn {
+		return model.RateTypeBuy
+	}
+	return model.RateTypeSell
 }

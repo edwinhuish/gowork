@@ -148,8 +148,9 @@ func (r *exchangeRateRepo) findByType(
 
 	var m model.ExchangeRate
 	err := r.conn(ctx).
-		Where("currency_code = ? AND base_code = ? AND rate_type = ? AND effective_date < ?",
-			currencyCode, baseCode, rateType, next).
+		Where("currency_code = ? AND base_code = ? AND effective_date < ?",
+			currencyCode, baseCode, next).
+		Scopes(requestRateType(rateType)).
 		Order("effective_date DESC").
 		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -160,4 +161,20 @@ func (r *exchangeRateRepo) findByType(
 			currencyCode, baseCode, model.DateOnly(on).Format("2006-01-02"), err)
 	}
 	return &m, nil
+}
+
+// requestRateType 限定汇率类型（T-60）。
+//
+// 中间价同时接受空串：列有 default 'middle'，但建表早于这一列的老库
+// 或直接用 SQL 插入的测试数据会得到 ”，按严格等值取会让它们全部消失。
+func requestRateType(rateType string) func(*gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		// 中间价**不加列条件**：与改造前完全等价，存量与测试数据一定命中。
+		// 只在显式要买入 / 卖出价时才过滤——那两个类型是新加的，
+		// 加过滤最多是"没有这一侧"，而中间价加错过滤会让所有历史数据消失。
+		if rateType == model.RateTypeMiddle || rateType == "" {
+			return db
+		}
+		return db.Where("rate_type = ?", rateType)
+	}
 }
