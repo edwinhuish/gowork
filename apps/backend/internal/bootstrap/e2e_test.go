@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -868,6 +869,156 @@ func TestE2EPaymentAllocation(t *testing.T) {
 		_, _, data := decodeEnvelope(t, res)
 		if !bytes.Contains(data, []byte(`"received_base"`)) {
 			t.Errorf("回款报表缺少 received_base: %s", data)
+		}
+	})
+}
+
+// 主体导入：两阶段（先报告后落库）、失败行带行号、重导不会重复建。
+//
+// 这一段走 multipart，而之前的单测是直接调 service 传结构体——文件解析、
+// BOM 剥离、表头映射、空行跳过这些都在 HTTP 这一侧，出错了只会表现成
+// "导进去的东西少了几行"。
+func TestE2EPartnerImport(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	// 第二行故意缺名称：它必须出现在失败行里，且行号指向文件里的第 3 行。
+	csvBody := "\ufeff编码,名称,角色,国家/地区\n" +
+		"IMP001,导入客户甲,customer,智利\n" +
+		"IMP002,,customer,智利\n"
+
+	type report struct {
+		DryRun   bool `json:"dry_run"`
+		Total    int  `json:"total"`
+		Created  int  `json:"created"`
+		Failures []struct {
+			Line   int    `json:"line"`
+			Reason string `json:"reason"`
+		} `json:"failures"`
+	}
+
+	upload := func(dryRun bool) report {
+		t.Helper()
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		part, err := w.CreateFormFile("file", "partners.csv")
+		if err != nil {
+			t.Fatalf("构造 multipart 失败: %v", err)
+		}
+		if _, err := part.Write([]byte(csvBody)); err != nil {
+			t.Fatalf("写文件内容失败: %v", err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatalf("关闭 multipart 失败: %v", err)
+		}
+
+		url := fmt.Sprintf("%s/api/v1/imports/partners?dry_run=%t", srv.URL, dryRun)
+		req, err := http.NewRequest(http.MethodPost, url, &buf)
+		if err != nil {
+			t.Fatalf("构造请求失败: %v", err)
+		}
+		req.Header.Set("Content-Type", w.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+token)
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatalf("上传失败: %v", err)
+		}
+		if res.StatusCode != http.StatusOK {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("导入失败: %d %s", res.StatusCode, msg)
+		}
+		_, _, data := decodeEnvelope(t, res)
+		var out report
+		if err := json.Unmarshal(data, &out); err != nil {
+			t.Fatalf("报告不是预期格式: %s", data)
+		}
+		return out
+	}
+
+	count := func(keyword string) int {
+		t.Helper()
+		res := call(t, srv, http.MethodGet,
+			"/api/v1/partners?page_size=50&keyword="+keyword, token, nil)
+		_, _, data := decodeEnvelope(t, res)
+		var page struct {
+			List []struct{ ID uint } `json:"list"`
+		}
+		if err := json.Unmarshal(data, &page); err != nil {
+			t.Fatalf("列表不是预期格式: %s", data)
+		}
+		return len(page.List)
+	}
+
+	t.Run("校验阶段不落库", func(t *testing.T) {
+		r := upload(true)
+		if !r.DryRun {
+			t.Error("报告应标明这是 dry_run")
+		}
+		if r.Created != 0 {
+			t.Errorf("校验阶段不该建数据，created=%d", r.Created)
+		}
+		if r.Total != 2 {
+			t.Errorf("应读到 2 行数据，得到 %d", r.Total)
+		}
+		if len(r.Failures) != 1 {
+			t.Fatalf("缺名称那行应报失败，得到 %+v", r.Failures)
+		}
+		if r.Failures[0].Line != 3 {
+			t.Errorf("行号应指向文件第 3 行，得到 %d", r.Failures[0].Line)
+		}
+		if n := count("IMP001"); n != 0 {
+			t.Errorf("校验阶段不该把数据写进去，查到 %d 条", n)
+		}
+	})
+
+	t.Run("确认后才落库，失败行不连累其他行", func(t *testing.T) {
+		r := upload(false)
+		if r.Created != 1 {
+			t.Errorf("应只建成 1 家（另一行缺名称），created=%d", r.Created)
+		}
+		if n := count("IMP001"); n != 1 {
+			t.Errorf("导入的那家应能查到，得到 %d 条", n)
+		}
+		if n := count("IMP002"); n != 0 {
+			t.Errorf("失败行不该被建出来，查到 %d 条", n)
+		}
+	})
+
+	t.Run("重导同一份文件不会建重复", func(t *testing.T) {
+		r := upload(false)
+		if r.Created != 0 {
+			t.Errorf("编码已存在，不该再建，created=%d", r.Created)
+		}
+		// 两行都失败：一行编码已存在、一行缺名称。
+		if len(r.Failures) != 2 {
+			t.Errorf("应报 2 条失败，得到 %+v", r.Failures)
+		}
+		if n := count("IMP001"); n != 1 {
+			t.Errorf("重导之后仍应只有 1 家，得到 %d", n)
+		}
+	})
+
+	t.Run("缺少必需列时拒绝整份文件", func(t *testing.T) {
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		part, _ := w.CreateFormFile("file", "bad.csv")
+		_, _ = part.Write([]byte("名称,角色\n没有编码列,customer\n"))
+		_ = w.Close()
+
+		url := srv.URL + "/api/v1/imports/partners?dry_run=true"
+		req, _ := http.NewRequest(http.MethodPost, url, &buf)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+token)
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatalf("上传失败: %v", err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusOK {
+			t.Fatal("缺「编码」列时不该成功")
+		}
+		if _, msg, _ := decodeEnvelope(t, res); !strings.Contains(msg, "编码") {
+			t.Errorf("提示应指出缺哪一列，得到 %q", msg)
 		}
 	})
 }
