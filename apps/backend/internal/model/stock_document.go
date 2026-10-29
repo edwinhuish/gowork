@@ -150,9 +150,12 @@ type StockDocument struct {
 	//
 	// 红冲生成的是**一张新单据**而不是把原单改废：原单是"当时确实这么动过"的
 	// 事实，改它等于改历史；而库存要回到动之前，所以新单的方向与原单相反。
-	ReversalOfID *uint               `gorm:"index" json:"reversal_of_id"`
-	PostedAt     *time.Time          `json:"posted_at"`
-	Items        []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
+	ReversalOfID *uint `gorm:"index" json:"reversal_of_id"`
+	// Reversed 表示这张单已被红冲。**不落库**：它是查询时现算的，
+	// 存下来就要维护"红冲单被删了怎么办"，而红冲单本就不允许删。
+	Reversed bool                `gorm:"-" json:"reversed"`
+	PostedAt *time.Time          `json:"posted_at"`
+	Items    []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
 }
 
 func (StockDocument) TableName() string { return "inv_stock_document" }

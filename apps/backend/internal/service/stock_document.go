@@ -111,7 +111,15 @@ func (s *stockDocumentService) List(
 }
 
 func (s *stockDocumentService) Get(ctx context.Context, id uint) (*model.StockDocument, error) {
-	return s.docs.FindByID(ctx, id)
+	doc, err := s.docs.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 已被红冲的单要能一眼看出来：否则用户会重复点红冲，然后撞 409。
+	if doc.Reversed, err = s.docs.ExistsReversal(ctx, doc.ID); err != nil {
+		return nil, err
+	}
+	return doc, nil
 }
 
 func (s *stockDocumentService) Create(
