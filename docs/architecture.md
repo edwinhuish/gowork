@@ -119,7 +119,19 @@ service.NewProductService(repo, service.WithProductLogger(log))
 
 ### 7. 软删除
 
-所有模型嵌入 `gorm.DeletedAt`。ERP 里删除往来单位或产品不能真的删——历史订单、对账、追溯都还引用着它。删除只置位，查询自动过滤。
+ERP 里删除往来单位或产品不能真的删——历史订单、对账、追溯都还引用着它。删除只置位，查询自动过滤。所有模型嵌入 `model.Base`，标记字段是 `DeletedAt`（`gorm.io/plugin/soft_delete`）。
+
+**标记用整数，不用 NULL。** 未删除 = `0`，删除 = Unix 毫秒。不用 `gorm.DeletedAt` 的原因是它把"未删除"表示成 NULL，而 **NULL 在唯一索引里互不相等**：两行未删记录各自是 NULL，可以共用同一个编码，"同一编码只能有一行未删除"这条规则在数据库层根本落不下去。整数标记是常量，能直接进索引。
+
+**唯一索引一律带上 `deleted_at`。** `(sku_code, deleted_at)` 在未删除时等价于 `(sku_code, 0)`——同编码只能有一行未删；删掉之后那一行变成 `(sku_code, <毫秒>)`，与新建的 `(sku_code, 0)` 不再冲突。这就是"未删才唯一"，也是"删掉产品后同 SKU 能立刻重建"的实现方式。
+
+代价与边界，都是刻意的：
+
+- **恢复会撞车**：恢复一条软删记录时，如果同编码已经建了新记录，唯一索引会拒绝并返回 409。想恢复就得先处理占用者，而不是让它悄悄变成两行同编码。
+- **模型要重复声明一次**：Go 的嵌入式字段带不了索引 tag，所以有业务唯一键的模型各自声明 `DeletedAt` 遮蔽 `Base` 那份（gorm 只认外层，仍是一列）。新增模型时照抄这一行，否则唯一约束退回单列。
+- **不是所有表都参与**：`sys_doc_seq`、`sys_doc_no_rename` 不嵌 `Base`（号段与旧号对照不可删）；应收应付的 `DocNo` 在共用的 `Settlement` 里，两张表会撞索引名，保持单列唯一。
+
+存量库由 `database.AutoMigrate` 内的 `prepareSoftDelete` 自动升级：先删旧索引、再把 timestamp 换成年月日毫秒，最后才同步结构。顺序是写死的——反了的话 PG 会因为类型不能自动转换而失败，sqlite 会因为列上还挂着索引而拒绝删列。
 
 ### 8. 按层分包，不按域分包
 
@@ -236,7 +248,7 @@ postgres 的 params 是 `key=value`，mysql 的是 query string。想完全掌�
 | 关键字搜索大小写 | pg 的 `LIKE` 区分大小写 | `likeAny` 在 pg 上用 `ILIKE` |
 | 用户输入含 `%` `_` | 各库转义符不同 | 统一转义并 `ESCAPE '!'`（避开反斜杠在 mysql 字符串里的二次转义） |
 | 时间 | pg/pgx、mysql parseTime、sqlite 文本 | 驱动层统一 `parseTime=True&loc=Local` |
-| 软删除 | 一致 | `gorm.DeletedAt` |
+| 软删除 | 一致：未删 `0`、删除 Unix 毫秒 | 整数标记（`soft_delete` 插件），见第 7 节；不让 NULL 参与唯一索引 |
 | 自增主键 | bigserial / auto_increment / rowid | 统一 `uint` 主键，业务层不关心 |
 
 `internal/repository/storage_test.go` 用同一套断言跑三种库（`task test:storage`），

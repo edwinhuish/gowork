@@ -452,7 +452,7 @@ repository 不得 import service              （已有）
 | # | 问题 | 证据 | 后果 | 方向 |
 |---|---|---|---|---|
 | 1 | 金额与汇率全是 `float64` | 11 个 model 文件；`pkg/money` 只有一个 `Round` | 分账、核销、汇兑累计误差 | T-37 |
-| 2 | 软删除 × 唯一索引互斥 | 除 `sys_doc_seq` 外所有 `uniqueIndex` 表都嵌 `DeletedAt`；`repository/stock.go:277-281` 的注释已承认快照这个坑 | 删掉一个产品后无法用同一个 SKU 重建；`service` 的前置查重看不到软删行，冲突走到 DB 变成 500 而不是 409 | T-45 |
+| 2 | 软删除 × 唯一索引互斥 | 除 `sys_doc_seq` 外所有 `uniqueIndex` 表都嵌 `DeletedAt`；`repository/stock.go:277-281` 的注释已承认快照这个坑 | 删掉一个产品后无法用同一个 SKU 重建；`service` 的前置查重看不到软删行，冲突走到 DB 变成 500 而不是 409 | T-45（已修：唯一索引改为 `(业务列, deleted_at)`，标记用整数，见 `docs/architecture.md` 第 7 节） |
 | 3 | 派生数据与事实数据混放的风险点 | 目前守得住（无「最近跟进时间」列），但 `md_partner.contact` 已是冗余的主联系人姓名 | 一旦有人给它加同步逻辑，就会出现两个来源 | 维持现状，写进评审清单 |
 
 结构缺口：
@@ -483,7 +483,7 @@ gorm 的 embed 与软删、索引、`TableName` 的交互有坑（`apps/backend/
 | **查询参数白名单有两份实现**，前端那份会静默丢参数 | `providers/dataProvider.ts:30-46` 的 14 项白名单里没有 `from` / `to` / `sales_order_id`，而后端支持（`service/stock.go:85-94`、`service/shipment.go:161-164`） | T-43：白名单补齐并加一条「每个资源的筛选参数都有用例」的测试 |
 | 无 OpenAPI / 无契约测试 | 只有手写文档表 | T-46：从路由表生成 `openapi.json`，CI 校验与路由一致 |
 | 写操作无幂等键 | 只有转单、转化两处用条件更新兜住 | T-46：`Idempotency-Key` 头 + 缓存去重 |
-| DB 唯一冲突 → 500 而不是 409 | 前置查重看不到软删行（见 5.3） | T-45：把驱动错误翻译成 `errs.ErrConflict` |
+| DB 唯一冲突 → 500 而不是 409 | 前置查重看不到软删行（见 5.3） | T-45（已修：gorm 回调里统一翻译成 `errs.ErrConflict`） |
 | 无乐观锁 | 两个人同时编辑同一张报价单，后者覆盖前者 | 随 T-33 一起：`updated_at` 做 `If-Match` |
 | 无批量接口 | 导入导出与批量确认都要逐条打 | T-35（已有）前置：批量确认 |
 | 无 `/reports` 命名空间规划 | 报表落地时容易散在 `/xxx-summary` 这类前缀里 | T-28 之前定：聚合查询统一 `/api/v1/reports/*`，与资源分离 |

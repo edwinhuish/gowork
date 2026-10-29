@@ -362,6 +362,34 @@ task backend:test       # go test ./... -count=1
    业务规则（唯一性、状态归一、跨表校验）都在这里。
 5. `internal/handler/xxx.go` + `server/router.go` 挂路由 + `bootstrap/app.go` 装配。
 
+### 软删除
+
+标记是整数：未删除 `0`，删除 Unix 毫秒（`model.DeletedAt`，`gorm.io/plugin/soft_delete`）。
+为什么不沿用 `gorm.DeletedAt` 的 NULL 语义、以及它跟唯一索引的关系，见
+`docs/architecture.md` 第 7 节；这里只写怎么用。
+
+| 动作 | 写法 | 说明 |
+|---|---|---|
+| 删除 | `repo.Delete(ctx, id)` | gorm 写 `deleted_at = 毫秒`，不是物理删 |
+| 查询 | 不用写条件 | gorm 自动补 `deleted_at = 0` |
+| 手写 SQL | `deleted_at = 0` | **不能写 `IS NULL`**：列是整数，NULL 判断会静默查不到任何行 |
+| 要看已删的 | `db.Unscoped()` | 迁移读旧表、审计、恢复时用 |
+| 恢复 | `Unscoped().Model(&x{}).Where("id = ?", id).Update("deleted_at", 0)` | 同编码已有未删记录时撞唯一索引（409），这是设计 |
+| 物理删除 | `Unscoped().Delete(&x{}, id)` | 只在确实没有追溯价值时用 |
+
+**新增带唯一键的模型**时，除了嵌 `Base`，还要在自己的结构体里再声明一次 `DeletedAt`：
+
+```go
+DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_xxx_code,priority:2" json:"-"`
+Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1" json:"code"`
+```
+
+外层遮蔽 `Base` 那份，gorm 只认外层，库里仍是一列。漏了这行，唯一约束就退回单列，
+删掉的记录会永久占着那个编码——而界面上已经看不到它，等于编码凭空消失。
+
+`ON CONFLICT` 的 `Columns` 要把 `deleted_at` 一起写上（未删时恒为 0，等价于只按业务列），
+否则 PG / SQLite 会报"不匹配任何唯一约束"；`repository/stock.go` 的快照 upsert 就是例子。
+
 ### 单号
 
 两种形态，别混：
