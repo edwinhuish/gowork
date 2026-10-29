@@ -15,6 +15,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/infra/database"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // storageTarget 描述一个待验证的数据库实例。
@@ -271,6 +272,68 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 		if total != 1 {
 			t.Fatalf("列表应只剩 1 条，得到 %d", total)
+		}
+	})
+
+	t.Run("定点金额跨库逐位往返", func(t *testing.T) {
+		// 三种库对 DECIMAL 的落地方式不同（sqlite 实际存 REAL），
+		// 所以定点改造必须在三库上都验一遍：写进去什么样，读出来就什么样，
+		// 求和之后也不得多出末位。
+		if err := database.AutoMigrate(db,
+			&model.Partner{}, &model.Receivable{}); err != nil {
+			t.Fatalf("迁移应收表失败: %v", err)
+		}
+		receivables := NewReceivableRepository(db)
+		customer := &model.Partner{
+			Code: "CUS-" + mark, Name: "测试客户",
+			Role: model.PartnerRoleCustomer, Status: model.EnableStatusOn,
+		}
+		if err := partnerRepo.Create(ctx, customer); err != nil {
+			t.Fatalf("创建客户: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = db.Unscoped().Where("partner_id = ?", customer.ID).Delete(&model.Receivable{}).Error
+			_ = db.Unscoped().Where("id = ?", customer.ID).Delete(&model.Partner{}).Error
+		})
+
+		// 0.1 + 0.2 是浮点的经典反例：定点之后 SUM 必须正好是 0.3。
+		// SourceID 用本次新建客户的主键，圈住数据集，SUM 只可能来自这两行。
+		for i, amount := range []string{"0.1", "0.2"} {
+			row := &model.Receivable{Settlement: model.Settlement{
+				DocNo:        fmt.Sprintf("RC-%s-%d", mark, i),
+				PartnerID:    customer.ID,
+				SourceType:   model.SettlementSourceSalesOrder,
+				SourceID:     customer.ID,
+				CurrencyCode: "CNY",
+				ExchangeRate: money.FromInt(1),
+				Amount:       money.MustParse(amount),
+				AmountBase:   money.MustParse(amount),
+				DueDate:      time.Now(),
+				Status:       model.SettlementStatusOpen,
+			}}
+			if err := receivables.Create(ctx, row); err != nil {
+				t.Fatalf("创建应收 %s: %v", amount, err)
+			}
+		}
+
+		got, err := receivables.SumAmountBySource(
+			ctx, model.SettlementSourceSalesOrder, customer.ID, 0)
+		if err != nil {
+			t.Fatalf("汇总应收: %v", err)
+		}
+		if got.Cmp(money.MustParse("0.3")) != 0 {
+			t.Fatalf("应收合计应为 0.1 + 0.2 = 0.3，得到 %s", got)
+		}
+
+		var stored model.Receivable
+		if err := db.Where("doc_no = ?", fmt.Sprintf("RC-%s-0", mark)).First(&stored).Error; err != nil {
+			t.Fatalf("读回应收: %v", err)
+		}
+		if stored.Amount.Cmp(money.MustParse("0.1")) != 0 {
+			t.Fatalf("读回金额应为 0.1，得到 %s", stored.Amount)
+		}
+		if stored.Outstanding().Cmp(money.MustParse("0.1")) != 0 {
+			t.Fatalf("未核销金额应为 0.1，得到 %s", stored.Outstanding())
 		}
 	})
 }
