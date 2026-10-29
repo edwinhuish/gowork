@@ -80,6 +80,11 @@ tasks:
     cmds:
       - go test ./... -count=1
 
+  openapi:
+    desc: 按当前路由表重新生成 docs/openapi.json（改过 server/router.go 就必须跑一次）
+    cmds:
+      - go test ./internal/server -run TestOpenAPIMatchesRoutes -update -count=1
+
   test:storage:
     desc: 存储一致性测试：同一套断言跑 SQLite/PostgreSQL/MySQL 与 memory/redis
     env:

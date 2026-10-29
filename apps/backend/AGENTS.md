@@ -122,6 +122,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 
 统一前缀 `/api/v1`。除 `POST /auth/login` 与 `/healthz` 外都要 `Authorization: Bearer <token>`。
 
+机器可读的完整清单是 `docs/openapi.json`（从路由表生成、CI 校验，`task backend:openapi` 重新生成）。
+下面这张表是给人看的：它额外记了每个接口背后的 service 方法与行为约束，那些生成不出来。
+
 域归属见 `docs/glossary.md` 第三节：`products` 与 `partners` 会被 ERP、CRM 两侧引用。
 新增接口时先确认它落在哪个域，再决定表前缀。
 
@@ -377,6 +380,8 @@ task backend:test       # go test ./... -count=1
 4. `internal/service/xxx.go`：`XxxService` 接口 + 私有实现 + `WithXxxLogger` Option；
    业务规则（唯一性、状态归一、跨表校验）都在这里。
 5. `internal/handler/xxx.go` + `server/router.go` 挂路由 + `bootstrap/app.go` 装配。
+   **挂完路由跑一次 `task backend:openapi`**：`docs/openapi.json` 是从路由表生成的，
+   测试按字节比对，忘了重新生成 CI 会直接红（这是故意的——它拦的就是"加了接口没更新文档"）。
 
 ### 软删除
 

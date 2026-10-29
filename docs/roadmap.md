@@ -234,7 +234,10 @@ migrate 回填），复制一份到 `md_product_code` 就成了两处真相，�
 - **规则**：编辑页用一个 `hidden` 的 `Form.Item name="updated_at"` 把打开时的版本原样带回。
   antd 只提交已注册的字段，光靠 `initialValues` 带着它会在提交时被丢掉。
 - **不带的请求照旧**：脚本、迁移、老客户端不传 `updated_at` 时按普通更新处理。
-- **OpenAPI**：未开始。
+- **OpenAPI**：`docs/openapi.json` 由 `internal/server` 的路由表生成
+  （`BuildOpenAPI(engine.Routes())`），测试 `TestOpenAPIMatchesRoutes` 按字节比对，
+  漂移即失败；改完接口跑 `task backend:openapi` 重新生成。文档只描述路径 / 方法 / 鉴权 /
+  响应形状，**不展开请求体字段**——那是各 handler 的 dto 的事，抄一遍必然漂移。
 
 ### 阶段 9 · 权限与协作
 
