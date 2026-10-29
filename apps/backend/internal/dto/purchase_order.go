@@ -11,6 +11,9 @@ type PurchaseOrderQuery struct {
 	PageQuery
 	SupplierID *uint `form:"supplier_id"`
 	Status     *int8 `form:"status"`
+	// OverdueNode 筛"这个跟单节点已逾期（计划日已过、还没完成）"的采购单（T-38）。
+	// 取 10 下单 / 20 生产完成 / 30 验货 / 40 入仓 / 50 出运。
+	OverdueNode *int8 `form:"overdue_node"`
 }
 
 // PurchaseOrderItemInput 是一条采购明细。

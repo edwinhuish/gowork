@@ -30,6 +30,42 @@ func (h *PurchaseOrderHandler) List(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Milestones GET /api/v1/purchase-orders/:id/milestones
+//
+// 跟单节点（T-38）：一行一个节点，计划日与实际完成日分开。
+func (h *PurchaseOrderHandler) Milestones(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	res, err := h.orders.Milestones(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
+// SaveMilestones PUT /api/v1/purchase-orders/:id/milestones
+//
+// 只处理提交上来的那几条：跟单是随手补录的，整体替换会把别人刚填的覆盖掉。
+func (h *PurchaseOrderHandler) SaveMilestones(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.PurchaseMilestoneSaveInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	res, err := h.orders.SaveMilestones(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Get GET /api/v1/purchase-orders/:id
 func (h *PurchaseOrderHandler) Get(c *gin.Context) {
 	id, ok := parseID(c)

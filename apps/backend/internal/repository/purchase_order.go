@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -16,6 +17,11 @@ type PurchaseOrderFilter struct {
 	Keyword    string
 	SupplierID *uint
 	Status     *model.DocumentStatus
+	// OverdueNode 只留"这个节点已逾期（计划日已过、还没完成）"的采购单（T-38）。
+	// 逾期是相对某个截止日算的，所以必须一起给 AsOf——用 time.Now() 兜底会让
+	// 测试与跨时区的调用在午夜前后给出不同结果。
+	OverdueNode *model.PurchaseNode
+	AsOf        time.Time
 }
 
 func (f PurchaseOrderFilter) scopes() []Scope {
@@ -33,6 +39,21 @@ func (f PurchaseOrderFilter) scopes() []Scope {
 		st := *f.Status
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("status = ?", st)
+		})
+	}
+	if f.OverdueNode != nil {
+		node := *f.OverdueNode
+		asOf := f.AsOf
+		// 子查询而不是 JOIN：跟单节点一行一个节点，JOIN 会让同一张采购单在结果里
+		// 出现多次（这台单同时有两个节点逾期时尤甚），分页总数跟着虚高。
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where(`EXISTS (
+				SELECT 1 FROM biz_purchase_milestone m
+				WHERE m.purchase_order_id = biz_purchase_order.id
+				  AND m.deleted_at = 0 AND m.node = ?
+				  AND m.done_date IS NULL
+				  AND m.plan_date IS NOT NULL AND m.plan_date < ?
+			)`, node, asOf)
 		})
 	}
 	return scopes

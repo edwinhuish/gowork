@@ -290,6 +290,10 @@ func New(
 		purchases.GET("", h.Purchase.List)
 		purchases.POST("", h.Purchase.Create)
 		purchases.GET("/:id", h.Purchase.Get)
+		// 采购跟单节点（T-38）：货在工厂还是已经进仓、验货过没过。
+		// 挂在行上，所以按订单取整表、按节点补录。
+		purchases.GET("/:id/milestones", h.Purchase.Milestones)
+		purchases.PUT("/:id/milestones", h.Purchase.SaveMilestones)
 		purchases.PUT("/:id", h.Purchase.Update)
 		purchases.DELETE("/:id", h.Purchase.Delete)
 		purchases.PUT("/:id/status", h.Purchase.UpdateStatus)

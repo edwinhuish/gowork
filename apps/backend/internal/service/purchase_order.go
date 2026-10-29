@@ -28,14 +28,22 @@ type PurchaseOrderService interface {
 	UpdateStatus(
 		ctx context.Context, id uint, in dto.PurchaseOrderStatusInput,
 	) (*model.PurchaseOrder, error)
+	// Milestones 取一张采购单的跟单节点（T-38）。
+	Milestones(ctx context.Context, orderID uint) ([]model.PurchaseMilestone, error)
+	// SaveMilestones 补录节点：只处理提交上来的那几条。
+	SaveMilestones(
+		ctx context.Context, orderID uint, in dto.PurchaseMilestoneSaveInput,
+	) ([]model.PurchaseMilestone, error)
 }
 
 type purchaseOrderService struct {
-	orders     repository.PurchaseOrderRepository
-	partners   repository.PartnerRepository
-	products   repository.ProductRepository
-	sources    repository.ProductSourceRepository
-	salesOrds  repository.SalesOrderRepository
+	orders    repository.PurchaseOrderRepository
+	partners  repository.PartnerRepository
+	products  repository.ProductRepository
+	sources   repository.ProductSourceRepository
+	salesOrds repository.SalesOrderRepository
+	// milestones 是采购跟单节点（T-38）：挂在行上，不挂订单头。
+	milestones repository.PurchaseMilestoneRepository
 	currencies CurrencyService
 	docNos     DocNoService
 	clock      func() time.Time
@@ -59,6 +67,7 @@ func NewPurchaseOrderService(
 	products repository.ProductRepository,
 	sources repository.ProductSourceRepository,
 	salesOrds repository.SalesOrderRepository,
+	milestones repository.PurchaseMilestoneRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
 	opts ...PurchaseOrderOption,
@@ -69,6 +78,7 @@ func NewPurchaseOrderService(
 		products:   products,
 		sources:    sources,
 		salesOrds:  salesOrds,
+		milestones: milestones,
 		currencies: currencies,
 		docNos:     docNos,
 		clock:      time.Now,
@@ -184,7 +194,16 @@ func (s *purchaseOrderService) List(
 ) (*dto.PageResult[model.PurchaseOrder], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.PurchaseOrderFilter{Keyword: q.Keyword, SupplierID: q.SupplierID}
+	filter := repository.PurchaseOrderFilter{
+		Keyword: q.Keyword, SupplierID: q.SupplierID, AsOf: model.DateOnly(s.clock()),
+	}
+	if q.OverdueNode != nil {
+		node := model.PurchaseNode(*q.OverdueNode)
+		if !node.IsValid() {
+			return nil, errs.BadRequest("overdue_node 不是合法的跟单节点")
+		}
+		filter.OverdueNode = &node
+	}
 	if q.Status != nil {
 		st := model.DocumentStatus(*q.Status)
 		if !st.IsValid() {
@@ -196,6 +215,10 @@ func (s *purchaseOrderService) List(
 
 	list, total, err := s.orders.List(ctx, filter, page)
 	if err != nil {
+		return nil, err
+	}
+	// 逾期节点是投影列：一次查完这一页再填，不按单循环。
+	if err := s.attachOverdueNodes(ctx, list); err != nil {
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil

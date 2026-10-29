@@ -40,6 +40,12 @@ type PurchaseOrder struct {
 
 	Supplier *Partner            `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 	Items    []PurchaseOrderItem `gorm:"foreignKey:PurchaseOrderID" json:"items,omitempty"`
+
+	// OverdueNode 是列表投影出来的「最靠前的逾期未完成节点」文案（T-38），
+	// 如「验货」；没有逾期时为空。只读、不建列：它由 service 按截止日批量算出来。
+	OverdueNode string `gorm:"->;-:migration" json:"overdue_node,omitempty"`
+	// Milestones 只有详情带（跟单节点）。
+	Milestones []PurchaseMilestone `gorm:"foreignKey:PurchaseOrderID" json:"milestones,omitempty"`
 }
 
 func (PurchaseOrder) TableName() string { return "biz_purchase_order" }

@@ -151,6 +151,8 @@ func New(cfg *config.Config) (*App, error) {
 	clauseRepo := repository.NewClauseRepository(db)
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
+	// 采购跟单节点（T-38）：挂在采购订单行上，随详情一起读、单独补录。
+	purchaseMilestoneRepo := repository.NewPurchaseMilestoneRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
 	chargeRepo := repository.NewShipmentChargeRepository(db)
 	customsRepo := repository.NewCustomsDeclarationRepository(db)
@@ -222,7 +224,8 @@ func New(cfg *config.Config) (*App, error) {
 	pdfSvc := buildPDFService(
 		cfg, log, quotationRepo, orderRepo, contractRepo, shipmentRepo, currencySvc)
 	purchaseSvc := service.NewPurchaseOrderService(
-		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, currencySvc, docNoSvc,
+		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, purchaseMilestoneRepo,
+		currencySvc, docNoSvc,
 		service.WithPurchaseOrderLogger(log))
 	// 出货批次管的是"订单行已经被出掉多少"，所以它依赖销售订单仓储（读行与状态），
 	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。

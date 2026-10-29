@@ -31,6 +31,8 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.ProductSource{}, &model.SalesOrder{}, &model.SalesOrderItem{},
 		&model.PurchaseOrder{}, &model.PurchaseOrderItem{}, &model.DocSeq{},
+		// 跟单节点（T-38）：详情/列表都会读它，少了这张表一半用例跑不起来。
+		&model.PurchaseMilestone{},
 		&model.Shipment{}, &model.ShipmentAllocation{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
@@ -97,7 +99,8 @@ func newPurchaseFixture(t *testing.T, now *time.Time) purchaseFixture {
 	return purchaseFixture{
 		svc: NewPurchaseOrderService(
 			repository.NewPurchaseOrderRepository(db), partnerRepo, productRepo, sourceRepo,
-			orderRepo, currencySvc, docNoSvc, WithPurchaseOrderClock(clock),
+			orderRepo, repository.NewPurchaseMilestoneRepository(db),
+			currencySvc, docNoSvc, WithPurchaseOrderClock(clock),
 		),
 		sales: NewSalesOrderService(
 			orderRepo, partnerRepo, productRepo, repository.NewShipmentRepository(db),
