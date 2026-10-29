@@ -27,7 +27,7 @@ func buildOpenAPIFromRoutes(t *testing.T) []byte {
 	t.Cleanup(func() { _ = c.Close() })
 
 	// 空 Handlers 就够：注册路由只取方法值，不解引用，所以不需要真的 service。
-	engine := New(&config.Config{}, slog.New(slog.DiscardHandler), nil, c, Handlers{})
+	engine := New(&config.Config{}, slog.New(slog.DiscardHandler), nil, nil, c, Handlers{})
 	doc := BuildOpenAPI(engine.Routes())
 
 	data, err := json.MarshalIndent(doc, "", "  ")

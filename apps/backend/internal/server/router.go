@@ -46,11 +46,13 @@ type Handlers struct {
 	StockDoc    *handler.StockDocumentHandler
 	Dashboard   *handler.DashboardHandler
 	Attachment  *handler.AttachmentHandler
+	Audit       *handler.AuditHandler
 }
 
 // New 构建 gin 引擎。
 func New(
-	cfg *config.Config, log *slog.Logger, auth service.AuthService, c cache.Cache, h Handlers,
+	cfg *config.Config, log *slog.Logger, auth service.AuthService,
+	audit service.AuditService, c cache.Cache, h Handlers,
 ) *gin.Engine {
 	gin.SetMode(ginMode(cfg))
 
@@ -74,9 +76,18 @@ func New(
 	}
 
 	// 幂等键在鉴权之后：键要按用户隔离，否则 A 的键能回放出 B 的响应。
-	secured := api.Group("", middleware.Auth(auth), middleware.Idempotency(c, log))
+	// 审计排在最后：它要读身份、也要读最终状态码；而幂等回放在它之前就短路了，
+	// 重放的请求因此不会被重复记成两次写操作。
+	secured := api.Group("",
+		middleware.Auth(auth),
+		middleware.Idempotency(c, log),
+		middleware.Audit(audit, log),
+	)
 	{
 		secured.GET("/dashboard/summary", h.Dashboard.Summary)
+
+		// 操作日志：只读，且只有管理员能看——里面装着全公司单据的提交内容。
+		secured.GET("/audit-logs", middleware.RequireAdmin(), h.Audit.List)
 
 		products := secured.Group("/products")
 		products.GET("", h.Product.List)

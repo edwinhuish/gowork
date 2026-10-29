@@ -106,6 +106,7 @@ func New(cfg *config.Config) (*App, error) {
 		&model.StockDocumentItem{},
 		&model.Attachment{},
 		&model.AttachmentContent{},
+		&model.AuditLog{},
 	}
 
 	if cfg.Database.AutoMigrate {
@@ -157,6 +158,7 @@ func New(cfg *config.Config) (*App, error) {
 	stockRepo := repository.NewStockRepository(db)
 	stockDocRepo := repository.NewStockDocumentRepository(db)
 	attachmentRepo := repository.NewAttachmentRepository(db)
+	auditRepo := repository.NewAuditLogRepository(db)
 	// 事务边界只有一个出入口：跨仓储的写入走它，仓储按 ctx 里的连接自动加入。
 	txs := repository.NewTxManager(db)
 
@@ -257,9 +259,12 @@ func New(cfg *config.Config) (*App, error) {
 	// 报表只读不写，也不缓存：数字要能和明细逐笔对上。
 	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
+	// 审计服务只被中间件写、被一个只读接口读：业务代码不调用它，
+	// 所以它不挂在任何业务服务上。
+	auditSvc := service.NewAuditService(auditRepo, service.WithAuditLogger(log))
 
 	// ---- HTTP 层 ----
-	engine := server.New(cfg, log, authSvc, c, server.Handlers{
+	engine := server.New(cfg, log, authSvc, auditSvc, c, server.Handlers{
 		Auth:        handler.NewAuthHandler(authSvc),
 		Product:     handler.NewProductHandler(productSvc),
 		ProductCode: handler.NewProductCodeHandler(productCodeSvc),
@@ -287,6 +292,7 @@ func New(cfg *config.Config) (*App, error) {
 		StockDoc:    handler.NewStockDocumentHandler(stockDocSvc),
 		Dashboard:   handler.NewDashboardHandler(dashboardSvc),
 		Attachment:  handler.NewAttachmentHandler(attachmentSvc),
+		Audit:       handler.NewAuditHandler(auditSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
