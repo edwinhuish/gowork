@@ -525,7 +525,7 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
 | 业务员能看到别人的单据 | 新列表没接 `ownerScope`（T-32），或接在了 handler 而不是 service | 范围是**身份**决定的：service 里 `filter.OwnerID = ownerScope(ctx)`，仓储用 `repository.OwnerScope("partner_id", id)`；详情另需 `ensurePartnerVisible` |
-| 新装一台机器起不来，或起来后列表全空 | 跑 `go test ./internal/bootstrap/ -run TestE2ESmoke`：它从**空库**走完整装配 | 这条用例覆盖 AutoMigrate + 数据迁移 + 种子。手拼 `config.Config` 字面量会绕过 `applyDefaults`（`auto_migrate` / `seed` 变成 false），表与管理员都不会有——要真配置就写 YAML 走 `config.Load` |
+| 新装一台机器起不来，或起来后列表全空 | 跑 `go test ./internal/bootstrap/`：`TestE2ESmoke` 从**空库**走完整装配，`TestE2ESalesChain` 走报价→订单→出货→出库 | 这条用例覆盖 AutoMigrate + 数据迁移 + 种子。手拼 `config.Config` 字面量会绕过 `applyDefaults`（`auto_migrate` / `seed` 变成 false），表与管理员都不会有——要真配置就写 YAML 走 `config.Load` |
 | 登录失败几次后，本人带着正确密码也进不来 | 锁定被写成了"先看计数再验密码" | 计数只挡**猜**：`Login` 里先验密码，对了就放行并清计数，错了才计数并在跨过阈值时 403。反过来写（先按计数拒），任何人连错 5 次就能把别人的账号锁 15 分钟 |
 | 接口偶发 504 或"请求处理超时" | 单个请求有 30s 上限（`middleware.RequestTimeout`），慢查询会以 `ctx` 取消的方式收场 | 不是 bug 而是保护：504 与 500 要分开看——504 重试或缩范围，500 才是查代码。查慢的根因看日志里的 request_id，别把上限调大了事 |
 | 某个接口收到超大请求把进程内存吃光 | 请求体上限挂在**引擎**上（`middleware.BodyLimit`，32MB），别在个别路由上另设一套 | 上限是兜底，不是业务规则：附件另有 10MB 业务上限（`service.MaxAttachmentSize`）。新写"收文件"的接口时两层都要有；超限返回 413 而不是 400 |
