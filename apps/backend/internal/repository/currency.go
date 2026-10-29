@@ -73,7 +73,7 @@ func (r *currencyRepo) FindByID(ctx context.Context, id uint) (*model.Currency, 
 
 func (r *currencyRepo) FindByCode(ctx context.Context, code string) (*model.Currency, error) {
 	var m model.Currency
-	err := r.DB().WithContext(ctx).Where("code = ?", code).First(&m).Error
+	err := r.conn(ctx).Where("code = ?", code).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -85,7 +85,7 @@ func (r *currencyRepo) FindByCode(ctx context.Context, code string) (*model.Curr
 
 func (r *currencyRepo) FindBase(ctx context.Context) (*model.Currency, error) {
 	var m model.Currency
-	err := r.DB().WithContext(ctx).Where("is_base = ?", true).First(&m).Error
+	err := r.conn(ctx).Where("is_base = ?", true).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -119,7 +119,7 @@ func (r *currencyRepo) Count(ctx context.Context) (int64, error) {
 // 一旦第二步失败，库里会没有任何本币，之后所有折算都报错，而错误信息指向的是
 // 汇率缺失——排查会走很远。
 func (r *currencyRepo) SetBase(ctx context.Context, id uint) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Currency{}).
 			Where("is_base = ? AND id <> ?", true, id).
 			Update("is_base", false).Error; err != nil {

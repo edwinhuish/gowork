@@ -114,7 +114,7 @@ func (r *productRepo) Delete(ctx context.Context, id uint) error {
 // FindByID 覆盖基类实现，带出供应商信息供列表展示。
 func (r *productRepo) FindByID(ctx context.Context, id uint) (*model.Product, error) {
 	var m model.Product
-	err := r.DB().WithContext(ctx).Preload("Supplier").First(&m, id).Error
+	err := r.conn(ctx).Preload("Supplier").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}

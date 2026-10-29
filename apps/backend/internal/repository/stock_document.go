@@ -81,7 +81,7 @@ func (r *stockDocumentRepo) List(
 
 func (r *stockDocumentRepo) FindByID(ctx context.Context, id uint) (*model.StockDocument, error) {
 	var d model.StockDocument
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		Preload("Items", preloadItems).
 		First(&d, id).Error
@@ -97,7 +97,7 @@ func (r *stockDocumentRepo) FindByID(ctx context.Context, id uint) (*model.Stock
 func (r *stockDocumentRepo) CreateWithItems(
 	ctx context.Context, doc *model.StockDocument, items []model.StockDocumentItem,
 ) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(doc).Error; err != nil {
 			return fmt.Errorf("写入出入库单: %w", err)
 		}
@@ -116,7 +116,7 @@ func (r *stockDocumentRepo) CreateWithItems(
 func (r *stockDocumentRepo) UpdateWithItems(
 	ctx context.Context, id uint, fields map[string]any, items []model.StockDocumentItem,
 ) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if len(fields) > 0 {
 			res := tx.Model(&model.StockDocument{}).Where("id = ?", id).Updates(fields)
 			if res.Error != nil {
@@ -148,7 +148,7 @@ func (r *stockDocumentRepo) Update(ctx context.Context, id uint, fields map[stri
 }
 
 func (r *stockDocumentRepo) Delete(ctx context.Context, id uint) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Delete(&model.StockDocument{}, id)
 		if res.Error != nil {
 			return fmt.Errorf("删除出入库单 id=%d: %w", id, res.Error)
@@ -170,7 +170,7 @@ func (r *stockDocumentRepo) CurrentQty(
 	var row struct {
 		Qty money.Decimal
 	}
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Table("inv_stock_snapshot").
 		Select("qty").
 		Where("product_id = ? AND deleted_at IS NULL", productID).
@@ -186,7 +186,7 @@ func (r *stockDocumentRepo) Post(
 	ctx context.Context, id uint, postedAt time.Time, items []model.StockDocumentItem,
 	movements []model.StockMovement,
 ) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.StockDocument{}).Where("id = ?", id).Updates(map[string]any{
 			"status":    model.DocumentStatusConfirmed,
 			"posted_at": postedAt,

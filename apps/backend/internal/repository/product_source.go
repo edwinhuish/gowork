@@ -95,7 +95,7 @@ func (r *productSourceRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *productSourceRepo) FindByID(ctx context.Context, id uint) (*model.ProductSource, error) {
 	var m model.ProductSource
-	err := r.DB().WithContext(ctx).Preload("Product").Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Product").Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -139,7 +139,7 @@ func (r *productSourceRepo) FindCheapestByProductID(
 	ctx context.Context, productID uint,
 ) (*model.ProductSource, error) {
 	var m model.ProductSource
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		Where("product_id = ? AND status = ?", productID, model.EnableStatusOn).
 		Order("purchase_price_base ASC, id ASC").

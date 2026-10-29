@@ -109,7 +109,7 @@ func (r *exchangeRateRepo) FindEffective(
 	next := model.DateOnly(on).AddDate(0, 0, 1)
 
 	var m model.ExchangeRate
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("currency_code = ? AND base_code = ? AND effective_date < ?", currencyCode, baseCode, next).
 		Order("effective_date DESC").
 		First(&m).Error

@@ -72,7 +72,7 @@ func (r *contactRepo) Delete(ctx context.Context, id uint) error {
 // FindByID 带出主体，详情页与列表都要显示"这个人是哪家的"。
 func (r *contactRepo) FindByID(ctx context.Context, id uint) (*model.Contact, error) {
 	var m model.Contact
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -101,7 +101,7 @@ func (r *contactRepo) CountByPartnerID(ctx context.Context, partnerID uint) (int
 // "一个主体没有主联系人"或"两个主联系人"的状态，而列表页看起来完全正常，
 // 只有发邮件选收件人时才会发现选错了人。
 func (r *contactRepo) SetPrimary(ctx context.Context, partnerID, id uint) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Contact{}).
 			Where("partner_id = ? AND is_primary = ? AND id <> ?", partnerID, true, id).
 			Update("is_primary", false).Error; err != nil {

@@ -95,7 +95,7 @@ func (r *opportunityRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *opportunityRepo) FindByID(ctx context.Context, id uint) (*model.Opportunity, error) {
 	var m model.Opportunity
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -128,7 +128,7 @@ func (r *opportunityRepo) Summary(
 		AmountBase  money.Decimal
 		Probability int
 	}
-	err := r.DB().WithContext(ctx).Model(&model.Opportunity{}).
+	err := r.conn(ctx).Model(&model.Opportunity{}).
 		Scopes(f.scopes()...).
 		Select("stage, amount_base, probability").
 		Find(&rows).Error

@@ -58,7 +58,7 @@ func (r *docSeqRepo) Next(ctx context.Context, docType model.DocType, period str
 func (r *docSeqRepo) nextOnce(ctx context.Context, docType model.DocType, period string) (uint, error) {
 	var seq uint
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := dbFor(ctx, r.db).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.DocSeq{}).
 			Where("doc_type = ? AND period = ?", docType, period).
 			Update("seq", gorm.Expr("seq + 1"))

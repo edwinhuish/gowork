@@ -58,7 +58,7 @@ var attachTargets = map[string]any{
 }
 
 func (r *attachmentRepo) Create(ctx context.Context, m *model.Attachment, content []byte) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(m).Error; err != nil {
 			return fmt.Errorf("保存附件: %w", err)
 		}
@@ -73,7 +73,7 @@ func (r *attachmentRepo) Create(ctx context.Context, m *model.Attachment, conten
 
 func (r *attachmentRepo) FindByID(ctx context.Context, id uint) (*model.Attachment, error) {
 	var m model.Attachment
-	err := r.DB().WithContext(ctx).First(&m, id).Error
+	err := r.conn(ctx).First(&m, id).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, errs.ErrNotFound
 	}
@@ -85,7 +85,7 @@ func (r *attachmentRepo) FindByID(ctx context.Context, id uint) (*model.Attachme
 
 func (r *attachmentRepo) FindContent(ctx context.Context, id uint) ([]byte, error) {
 	var row model.AttachmentContent
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("attachment_id = ?", id).
 		Take(&row).Error
 	if err == gorm.ErrRecordNotFound {
@@ -100,7 +100,7 @@ func (r *attachmentRepo) FindContent(ctx context.Context, id uint) ([]byte, erro
 
 func (r *attachmentRepo) List(ctx context.Context, f AttachmentFilter) ([]model.Attachment, error) {
 	list := make([]model.Attachment, 0, 8)
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("entity_type = ? AND entity_id = ?", f.EntityType, f.EntityID).
 		// 新的在上：单据页面里刚传完的那份应当第一眼看到。
 		Order("id DESC").
@@ -127,7 +127,7 @@ func (r *attachmentRepo) EntityExists(
 		return false, nil
 	}
 	var n int64
-	err := r.DB().WithContext(ctx).Model(target).Where("id = ?", id).Count(&n).Error
+	err := r.conn(ctx).Model(target).Where("id = ?", id).Count(&n).Error
 	if err != nil {
 		return false, fmt.Errorf("查询附件目标 %s=%d: %w", entityType, id, err)
 	}

@@ -58,7 +58,7 @@ func NewPaymentRepository(db *gorm.DB) PaymentRepository {
 }
 
 func (r *paymentRepo) Create(ctx context.Context, p *model.Payment) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		// Omit 掉关联：gorm 默认会在 Create 时顺手把 Allocations 也插进去，
 		// 那样下面的循环会对着同一批行再插一次（主键冲突），而且拿不到
 		// 「逐行校验再回写目标」的机会——核销必须自己控制写入顺序。
@@ -80,7 +80,7 @@ func (r *paymentRepo) Create(ctx context.Context, p *model.Payment) error {
 }
 
 func (r *paymentRepo) Delete(ctx context.Context, id uint) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		var p model.Payment
 		err := tx.Preload("Allocations").First(&p, id).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -112,7 +112,7 @@ func (r *paymentRepo) Update(ctx context.Context, id uint, fields map[string]any
 
 func (r *paymentRepo) FindByID(ctx context.Context, id uint) (*model.Payment, error) {
 	var m model.Payment
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 		First(&m, id).Error

@@ -97,7 +97,7 @@ func (r *receivableRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *receivableRepo) FindByID(ctx context.Context, id uint) (*model.Receivable, error) {
 	var m model.Receivable
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -123,7 +123,7 @@ func (r *receivableRepo) SumAmountBySource(
 	// 扫进结构体而不是标量：SUM 出来的列要落到 money.Decimal 上，
 	// 它靠 Scan 实现收数，走 gorm 的字段映射比裸标量稳。
 	var row struct{ Total money.Decimal }
-	q := r.DB().WithContext(ctx).
+	q := r.conn(ctx).
 		Model(&model.Receivable{}).
 		Where("source_type = ? AND source_id = ? AND status <> ?",
 			sourceType, sourceID, model.SettlementStatusVoid)

@@ -75,7 +75,7 @@ func (r *shipmentChargeRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *shipmentChargeRepo) FindByID(ctx context.Context, id uint) (*model.ShipmentCharge, error) {
 	var m model.ShipmentCharge
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -106,7 +106,7 @@ func (r *shipmentChargeRepo) SumBaseByShipmentID(
 	ctx context.Context, shipmentID uint,
 ) (money.Decimal, error) {
 	var row struct{ Total money.Decimal }
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Model(&model.ShipmentCharge{}).
 		Where("shipment_id = ?", shipmentID).
 		Select("COALESCE(SUM(amount_base), 0) AS total").

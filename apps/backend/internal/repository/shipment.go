@@ -115,7 +115,7 @@ func NewShipmentRepository(db *gorm.DB) ShipmentRepository {
 func (r *shipmentRepo) CreateWithAllocations(
 	ctx context.Context, s *model.Shipment, rows []model.ShipmentAllocation,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(s).Error; err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func (r *shipmentRepo) CreateWithAllocations(
 func (r *shipmentRepo) UpdateWithAllocations(
 	ctx context.Context, id uint, fields map[string]any, rows []model.ShipmentAllocation,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.Shipment{}).Where("id = ?", id).Updates(fields)
 		if res.Error != nil {
 			return res.Error
@@ -175,7 +175,7 @@ func (r *shipmentRepo) Delete(ctx context.Context, id uint) error {
 }
 
 func (r *shipmentRepo) BumpInvoiceRevision(ctx context.Context, id uint) (int, error) {
-	db := r.DB().WithContext(ctx)
+	db := r.conn(ctx)
 	res := db.Model(&model.Shipment{}).Where("id = ?", id).
 		Update("invoice_revision", gorm.Expr("invoice_revision + 1"))
 	if res.Error != nil {
@@ -196,7 +196,7 @@ func (r *shipmentRepo) BumpInvoiceRevision(ctx context.Context, id uint) (int, e
 
 func (r *shipmentRepo) FindByID(ctx context.Context, id uint) (*model.Shipment, error) {
 	var m model.Shipment
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 		Preload("Allocations.SalesOrderItem").
 		Preload("Allocations.SalesOrderItem.SalesOrder").
@@ -226,7 +226,7 @@ func (r *shipmentRepo) List(
 func (r *shipmentRepo) AllocatedQty(
 	ctx context.Context, salesOrderItemID uint, excludeShipmentID uint,
 ) (money.Decimal, error) {
-	q := r.DB().WithContext(ctx).
+	q := r.conn(ctx).
 		Model(&model.ShipmentAllocation{}).
 		Joins("JOIN biz_shipment ON biz_shipment.id = biz_shipment_allocation.shipment_id").
 		Where("biz_shipment_allocation.sales_order_item_id = ?", salesOrderItemID).
@@ -253,7 +253,7 @@ func (r *shipmentRepo) ShippedQtyByOrder(
 		SalesOrderItemID uint
 		Qty              money.Decimal
 	}
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Model(&model.ShipmentAllocation{}).
 		Joins("JOIN biz_shipment ON biz_shipment.id = biz_shipment_allocation.shipment_id").
 		Joins(`JOIN biz_sales_order_item ON biz_sales_order_item.id = biz_shipment_allocation.sales_order_item_id`).
@@ -281,7 +281,7 @@ func (r *shipmentRepo) ShippedQtyByOrder(
 func (r *shipmentRepo) ListShippableItems(
 	ctx context.Context, keyword string, excludeShipmentID uint, limit int,
 ) ([]ShippableItem, error) {
-	shippedQ := r.DB().Table("biz_shipment_allocation AS a").
+	shippedQ := r.conn(ctx).Table("biz_shipment_allocation AS a").
 		Joins("JOIN biz_shipment AS s ON s.id = a.shipment_id").
 		Where("a.deleted_at IS NULL").
 		Where("s.deleted_at IS NULL").
@@ -293,7 +293,7 @@ func (r *shipmentRepo) ListShippableItems(
 		Group("a.sales_order_item_id").
 		Select("a.sales_order_item_id AS sales_order_item_id, COALESCE(SUM(a.qty), 0) AS shipped_qty")
 
-	q := r.DB().WithContext(ctx).
+	q := r.conn(ctx).
 		Table("biz_sales_order_item AS i").
 		Joins("JOIN biz_sales_order AS o ON o.id = i.sales_order_id").
 		Joins("LEFT JOIN md_partner AS p ON p.id = o.partner_id").

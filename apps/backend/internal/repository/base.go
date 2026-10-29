@@ -52,14 +52,15 @@ type Base[T any] struct {
 
 func NewBase[T any](db *gorm.DB) *Base[T] { return &Base[T]{db: db} }
 
-// WithTx 返回绑定事务的副本，让仓储保持无状态。
-func (r *Base[T]) WithTx(tx *gorm.DB) *Base[T] { return &Base[T]{db: tx} }
-
-// DB 暴露底层连接，仅供本包内的具体仓储做复杂查询。
-func (r *Base[T]) DB() *gorm.DB { return r.db }
+// conn 取这次操作该用的连接：ctx 里带着事务就用事务，否则用池子。
+//
+// 所有仓储方法都走它，所以"要不要进事务"由调用方在 TxManager 处决定，
+// 仓储本身仍然无状态。反过来做（让仓储持有事务副本）就要在每个调用点
+// 判断该拿哪个仓储，漏一处就是一次写到事务外面。
+func (r *Base[T]) conn(ctx context.Context) *gorm.DB { return dbFor(ctx, r.db) }
 
 func (r *Base[T]) Create(ctx context.Context, m *T) error {
-	if err := r.db.WithContext(ctx).Create(m).Error; err != nil {
+	if err := r.conn(ctx).Create(m).Error; err != nil {
 		return fmt.Errorf("创建记录: %w", err)
 	}
 	return nil
@@ -70,7 +71,7 @@ func (r *Base[T]) UpdateFields(ctx context.Context, id uint, fields map[string]a
 	if len(fields) == 0 {
 		return nil
 	}
-	res := r.db.WithContext(ctx).Model(new(T)).Where("id = ?", id).Updates(fields)
+	res := r.conn(ctx).Model(new(T)).Where("id = ?", id).Updates(fields)
 	if res.Error != nil {
 		return fmt.Errorf("更新记录 id=%d: %w", id, res.Error)
 	}
@@ -82,7 +83,7 @@ func (r *Base[T]) UpdateFields(ctx context.Context, id uint, fields map[string]a
 
 // DeleteByID 执行软删除，历史单据与追溯链不受影响。
 func (r *Base[T]) DeleteByID(ctx context.Context, id uint) error {
-	res := r.db.WithContext(ctx).Delete(new(T), id)
+	res := r.conn(ctx).Delete(new(T), id)
 	if res.Error != nil {
 		return fmt.Errorf("删除记录 id=%d: %w", id, res.Error)
 	}
@@ -94,7 +95,7 @@ func (r *Base[T]) DeleteByID(ctx context.Context, id uint) error {
 
 func (r *Base[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 	var m T
-	err := r.db.WithContext(ctx).First(&m, id).Error
+	err := r.conn(ctx).First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -106,7 +107,7 @@ func (r *Base[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 
 func (r *Base[T]) Exists(ctx context.Context, scopes ...Scope) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).Limit(1).Count(&count).Error
+	err := r.conn(ctx).Model(new(T)).Scopes(scopes...).Limit(1).Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("统计记录: %w", err)
 	}
@@ -115,7 +116,7 @@ func (r *Base[T]) Exists(ctx context.Context, scopes ...Scope) (bool, error) {
 
 func (r *Base[T]) Count(ctx context.Context, scopes ...Scope) (int64, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).Count(&count).Error; err != nil {
+	if err := r.conn(ctx).Model(new(T)).Scopes(scopes...).Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("统计记录: %w", err)
 	}
 	return count, nil
@@ -137,14 +138,14 @@ func (r *Base[T]) PaginateOrderedWithPreload(
 	p = p.normalize()
 
 	var total int64
-	if err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).Count(&total).Error; err != nil {
+	if err := r.conn(ctx).Model(new(T)).Scopes(scopes...).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("统计记录: %w", err)
 	}
 	if total == 0 {
 		return []T{}, 0, nil
 	}
 
-	q := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...)
+	q := r.conn(ctx).Model(new(T)).Scopes(scopes...)
 	for _, name := range preloads {
 		q = q.Preload(name)
 	}
@@ -168,7 +169,7 @@ func (r *Base[T]) PaginateOrdered(
 	p = p.normalize()
 
 	var total int64
-	if err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).Count(&total).Error; err != nil {
+	if err := r.conn(ctx).Model(new(T)).Scopes(scopes...).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("统计记录: %w", err)
 	}
 	if total == 0 {
@@ -176,7 +177,7 @@ func (r *Base[T]) PaginateOrdered(
 	}
 
 	var list []T
-	err := r.db.WithContext(ctx).Model(new(T)).Scopes(scopes...).
+	err := r.conn(ctx).Model(new(T)).Scopes(scopes...).
 		Order(order).
 		Offset(p.Offset()).
 		Limit(p.PageSize).

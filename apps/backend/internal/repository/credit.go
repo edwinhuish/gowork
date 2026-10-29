@@ -49,7 +49,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 	// sqlite 把 DECIMAL 存成 REAL，同一笔余额减自己可能留下 1e-17 的尾巴，
 	// 那种行不该以"还有 0.00 未结"的身份出现在账龄里。
 	var open struct{ Amount money.Decimal }
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Table("biz_receivable").
 		Where("deleted_at IS NULL").
 		Where("partner_id = ?", partnerID).
@@ -66,7 +66,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 	// 「没有应收单」用 NOT EXISTS 判断，而不是拿订单表去 left join 应收：
 	// 应收是一期一张单，主键之外的任何关联写法都会在将来分期的表结构上演变成重复计数。
 	var unbilled struct{ Amount money.Decimal }
-	err = r.DB().WithContext(ctx).
+	err = r.conn(ctx).
 		Table("biz_sales_order AS o").
 		Where("o.deleted_at IS NULL").
 		Where("o.partner_id = ?", partnerID).

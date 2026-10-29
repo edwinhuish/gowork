@@ -154,7 +154,7 @@ func (r *reportRepo) ListOutstandingSettlements(
 	rows := make([]OutstandingSettlement, 0, 64)
 	// 用 Table 而不是 Model：两张表结构相同，写成 Model(&model.Receivable{}) +
 	// 切表名反而绕。代价是软删除条件要自己写 —— 漏了就会把已删的单据算进账龄。
-	err = r.DB().WithContext(ctx).
+	err = r.conn(ctx).
 		Table(table+" AS s").
 		Select(`s.partner_id,
 			p.code AS partner_code,
@@ -184,7 +184,7 @@ func (r *reportRepo) ListShipments(
 	// 两次查询的条件必须一致（先 count 再取页），所以收成一个闭包：
 	// 复制一份条件出来改，迟早会出现"count 的与查出来的不是同一批"。
 	base := func() *gorm.DB {
-		q := r.DB().WithContext(ctx).
+		q := r.conn(ctx).
 			Table("biz_shipment AS s").
 			Where("s.deleted_at IS NULL").
 			Where("s.status NOT IN ?", []model.DocumentStatus{
@@ -221,7 +221,7 @@ func (r *reportRepo) ListShipmentLines(
 	}
 
 	lines := make([]ShipmentLine, 0, len(shipmentIDs)*4)
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Table("biz_shipment_allocation AS a").
 		Select(`a.shipment_id,
 			a.sales_order_item_id,
@@ -251,7 +251,7 @@ func (r *reportRepo) PurchaseCostBySalesItem(
 		Qty              money.Decimal
 		AmountBase       money.Decimal
 	}
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Table("biz_purchase_order_item AS i").
 		Select("i.sales_order_item_id, SUM(i.qty) AS qty, SUM(i.amount_base) AS amount_base").
 		Joins("JOIN biz_purchase_order AS o ON o.id = i.purchase_order_id AND o.deleted_at IS NULL").
@@ -283,7 +283,7 @@ func (r *reportRepo) SumChargesByShipment(
 		ShipmentID uint
 		AmountBase money.Decimal
 	}
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Table("biz_shipment_charge AS c").
 		Select("c.shipment_id, SUM(c.amount_base) AS amount_base").
 		Where("c.deleted_at IS NULL").
@@ -314,7 +314,7 @@ func (r *reportRepo) ListExchangeGains(
 
 	lines := make([]ExchangeGainLine, 0, 64)
 	for _, t := range targets {
-		q := r.DB().WithContext(ctx).
+		q := r.conn(ctx).
 			Table("biz_payment_allocation AS a").
 			Select(`p.id AS payment_id,
 				p.doc_no AS payment_doc_no,

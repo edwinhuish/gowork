@@ -31,7 +31,7 @@ func (r *userRepo) Create(ctx context.Context, m *model.User) error {
 
 func (r *userRepo) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var u model.User
-	err := r.DB().WithContext(ctx).Where("username = ?", username).First(&u).Error
+	err := r.conn(ctx).Where("username = ?", username).First(&u).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}

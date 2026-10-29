@@ -49,7 +49,7 @@ func (r *productCodeRepo) Create(ctx context.Context, m *model.ProductCode) erro
 
 func (r *productCodeRepo) FindByID(ctx context.Context, id uint) (*model.ProductCode, error) {
 	var m model.ProductCode
-	err := r.DB().WithContext(ctx).First(&m, id).Error
+	err := r.conn(ctx).First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -63,7 +63,7 @@ func (r *productCodeRepo) ListByProductID(
 	ctx context.Context, productID uint,
 ) ([]model.ProductCode, error) {
 	list := make([]model.ProductCode, 0, 4)
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("product_id = ?", productID).
 		// 新的在上：刚加的那条应当第一眼看到。
 		Order("id DESC").
@@ -75,7 +75,7 @@ func (r *productCodeRepo) ListByProductID(
 }
 
 func (r *productCodeRepo) Delete(ctx context.Context, id uint) error {
-	res := r.DB().WithContext(ctx).Unscoped().Delete(&model.ProductCode{}, id)
+	res := r.conn(ctx).Unscoped().Delete(&model.ProductCode{}, id)
 	if res.Error != nil {
 		return fmt.Errorf("删除产品编号 id=%d: %w", id, res.Error)
 	}
@@ -118,7 +118,7 @@ func (r *productCodeRepo) MatchByKeyword(
 	}
 
 	var rows []model.ProductCode
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("product_id IN ?", productIDs).
 		Scopes(func(db *gorm.DB) *gorm.DB {
 			return db.Where(likeClause(db, "code_norm"), likePattern(code.Normalize(keyword)))

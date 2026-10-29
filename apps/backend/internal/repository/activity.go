@@ -81,7 +81,7 @@ func (r *activityRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *activityRepo) FindByID(ctx context.Context, id uint) (*model.Activity, error) {
 	var m model.Activity
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").Preload("Contact").
 		First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

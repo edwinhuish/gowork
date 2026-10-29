@@ -90,7 +90,7 @@ func (r *leadRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *leadRepo) FindByID(ctx context.Context, id uint) (*model.Lead, error) {
 	var m model.Lead
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -109,7 +109,7 @@ func (r *leadRepo) List(ctx context.Context, f LeadFilter, p Pagination) ([]mode
 }
 
 func (r *leadRepo) MarkConverted(ctx context.Context, id, partnerID uint, at time.Time) error {
-	res := r.DB().WithContext(ctx).Model(&model.Lead{}).
+	res := r.conn(ctx).Model(&model.Lead{}).
 		Where("id = ? AND status <> ?", id, model.LeadStatusConverted).
 		Updates(map[string]any{
 			"status":       model.LeadStatusConverted,

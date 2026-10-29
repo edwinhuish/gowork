@@ -110,7 +110,7 @@ func (r *stockRepo) ListMovements(
 // 产品后来改了单位也不影响这条流水的历史说法。
 func (r *stockRepo) FindMovementByID(ctx context.Context, id uint) (*model.StockMovement, error) {
 	var m model.StockMovement
-	err := r.DB().WithContext(ctx).Preload("Product").First(&m, id).Error
+	err := r.conn(ctx).Preload("Product").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -121,7 +121,7 @@ func (r *stockRepo) FindMovementByID(ctx context.Context, id uint) (*model.Stock
 }
 
 func (r *stockRepo) CreateMovement(ctx context.Context, m *model.StockMovement) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(m).Error; err != nil {
 			return fmt.Errorf("写入库存流水: %w", err)
 		}
@@ -131,7 +131,7 @@ func (r *stockRepo) CreateMovement(ctx context.Context, m *model.StockMovement) 
 }
 
 func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) error {
-	return r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Delete(&model.StockMovement{}, m.ID)
 		if res.Error != nil {
 			return fmt.Errorf("删除库存流水 id=%d: %w", m.ID, res.Error)
@@ -190,7 +190,7 @@ func (r *stockRepo) ListSnapshots(
 	p = p.normalize()
 
 	base := func() *gorm.DB {
-		q := r.DB().WithContext(ctx).
+		q := r.conn(ctx).
 			Table("inv_stock_snapshot AS s").
 			Joins("LEFT JOIN md_product AS p ON p.id = s.product_id AND p.deleted_at IS NULL").
 			Where("s.deleted_at IS NULL")
@@ -233,7 +233,7 @@ func (r *stockRepo) FindSnapshot(
 	ctx context.Context, productID uint,
 ) (*model.StockSnapshot, error) {
 	var s model.StockSnapshot
-	err := r.DB().WithContext(ctx).Where("product_id = ?", productID).First(&s).Error
+	err := r.conn(ctx).Where("product_id = ?", productID).First(&s).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -245,7 +245,7 @@ func (r *stockRepo) FindSnapshot(
 
 // SumMovements 把某个产品的全部流水折成一个数，是"库存的权威答案"。
 func (r *stockRepo) SumMovements(ctx context.Context, productID uint) (StockSum, error) {
-	db := r.DB().WithContext(ctx)
+	db := r.conn(ctx)
 
 	var agg struct {
 		Qty   money.Decimal
@@ -294,7 +294,7 @@ func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum Sto
 	row.CreatedAt = now
 	row.UpdatedAt = now
 
-	err := r.DB().WithContext(ctx).Clauses(clause.OnConflict{
+	err := r.conn(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "product_id"}},
 		DoUpdates: clause.Assignments(map[string]any{
 			"qty":              qty,
@@ -311,7 +311,7 @@ func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum Sto
 
 func (r *stockRepo) ProductsWithMovements(ctx context.Context) ([]uint, error) {
 	var ids []uint
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Model(&model.StockMovement{}).
 		Distinct("product_id").
 		Pluck("product_id", &ids).Error

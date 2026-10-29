@@ -62,7 +62,7 @@ func NewSalesOrderRepository(db *gorm.DB) SalesOrderRepository {
 func (r *salesOrderRepo) CreateWithItems(
 	ctx context.Context, o *model.SalesOrder, items []model.SalesOrderItem,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(o).Error; err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (r *salesOrderRepo) CreateWithItems(
 func (r *salesOrderRepo) UpdateWithItems(
 	ctx context.Context, id uint, fields map[string]any, items []model.SalesOrderItem,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.SalesOrder{}).Where("id = ?", id).Updates(fields)
 		if res.Error != nil {
 			return res.Error
@@ -123,7 +123,7 @@ func (r *salesOrderRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *salesOrderRepo) FindByID(ctx context.Context, id uint) (*model.SalesOrder, error) {
 	var m model.SalesOrder
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		Preload("Items", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 		Preload("Items.Product").
@@ -141,7 +141,7 @@ func (r *salesOrderRepo) FindItemByID(
 	ctx context.Context, itemID uint,
 ) (*model.SalesOrderItem, error) {
 	var m model.SalesOrderItem
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("SalesOrder").
 		First(&m, itemID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -78,7 +78,7 @@ func (r *payableRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *payableRepo) FindByID(ctx context.Context, id uint) (*model.Payable, error) {
 	var m model.Payable
-	err := r.DB().WithContext(ctx).Preload("Partner").First(&m, id).Error
+	err := r.conn(ctx).Preload("Partner").First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
 	}
@@ -102,7 +102,7 @@ func (r *payableRepo) SumAmountBySource(
 	ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
 ) (money.Decimal, error) {
 	var row struct{ Total money.Decimal }
-	q := r.DB().WithContext(ctx).
+	q := r.conn(ctx).
 		Model(&model.Payable{}).
 		Where("source_type = ? AND source_id = ? AND status <> ?",
 			sourceType, sourceID, model.SettlementStatusVoid)

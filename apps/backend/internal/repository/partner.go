@@ -115,7 +115,7 @@ func (r *partnerRepo) FindByNameAndCountry(
 	ctx context.Context, name, country string,
 ) (*model.Partner, error) {
 	var m model.Partner
-	q := r.DB().WithContext(ctx).Where("name = ?", name)
+	q := r.conn(ctx).Where("name = ?", name)
 	if country != "" {
 		q = q.Where("country = ?", country)
 	}

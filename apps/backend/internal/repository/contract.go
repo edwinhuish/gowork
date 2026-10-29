@@ -74,7 +74,7 @@ func NewContractRepository(db *gorm.DB) ContractRepository {
 func (r *contractRepo) CreateWithTerms(
 	ctx context.Context, c *model.Contract, terms []model.ContractTerm,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(c).Error; err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func (r *contractRepo) CreateWithTerms(
 func (r *contractRepo) UpdateWithTerms(
 	ctx context.Context, id uint, fields map[string]any, terms []model.ContractTerm,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.Contract{}).Where("id = ?", id).Updates(fields)
 		if res.Error != nil {
 			return res.Error
@@ -135,7 +135,7 @@ func (r *contractRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *contractRepo) FindByID(ctx context.Context, id uint) (*model.Contract, error) {
 	var m model.Contract
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		// 条款按支付顺序排，而不是按 id：先订金后尾款，插入顺序不保证就是付款顺序。
 		Preload("Terms", func(db *gorm.DB) *gorm.DB { return db.Order("seq ASC, id ASC") }).
@@ -165,7 +165,7 @@ func (r *contractRepo) FindBySource(
 	ct model.ContractType,
 ) (*model.Contract, error) {
 	var m model.Contract
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Where("source_type = ? AND source_id = ? AND type = ?", sourceType, sourceID, ct).
 		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

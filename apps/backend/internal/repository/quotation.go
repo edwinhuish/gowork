@@ -74,7 +74,7 @@ func NewQuotationRepository(db *gorm.DB) QuotationRepository {
 func (r *quotationRepo) CreateWithItems(
 	ctx context.Context, q *model.Quotation, items []model.QuotationItem,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(q).Error; err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func (r *quotationRepo) CreateWithItems(
 func (r *quotationRepo) UpdateWithItems(
 	ctx context.Context, id uint, fields map[string]any, items []model.QuotationItem,
 ) error {
-	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&model.Quotation{}).Where("id = ?", id).Updates(fields)
 		if res.Error != nil {
 			return res.Error
@@ -135,7 +135,7 @@ func (r *quotationRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *quotationRepo) FindByID(ctx context.Context, id uint) (*model.Quotation, error) {
 	var m model.Quotation
-	err := r.DB().WithContext(ctx).
+	err := r.conn(ctx).
 		Preload("Partner").
 		Preload("Items", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 		Preload("Items.Product").
@@ -163,7 +163,7 @@ func (r *quotationRepo) List(
 func (r *quotationRepo) MarkConverted(
 	ctx context.Context, quotationID, orderID uint, orderDocNo string,
 ) (bool, error) {
-	res := r.DB().WithContext(ctx).Model(&model.Quotation{}).
+	res := r.conn(ctx).Model(&model.Quotation{}).
 		Where("id = ? AND sales_order_id IS NULL", quotationID).
 		Updates(map[string]any{
 			"sales_order_id":     orderID,
@@ -177,7 +177,7 @@ func (r *quotationRepo) MarkConverted(
 
 func (r *quotationRepo) MaxVersionByDocNo(ctx context.Context, docNo string) (int, error) {
 	var max int
-	err := r.DB().WithContext(ctx).Model(&model.Quotation{}).
+	err := r.conn(ctx).Model(&model.Quotation{}).
 		Where("doc_no = ?", docNo).
 		Select("COALESCE(MAX(version), 0)").
 		Scan(&max).Error
