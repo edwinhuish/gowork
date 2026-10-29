@@ -19,6 +19,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/bootstrap"
 	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/server/middleware"
 )
 
 // 这一组是**跨层冒烟**：走真实装配（配置 → 数据库 → 仓储 → 服务 → 中间件 → 路由），
@@ -49,6 +50,11 @@ database:
   seed: true
 cache:
   driver: memory
+  # 关掉落盘：默认会写 data/cache.snapshot，于是幂等结果与会话跨测试、跨运行残留，
+  # 用例变成"第一次跑过、第二次就不对"（幂等键命中上次的回放，数据一行没建）。
+  # 生产上落盘是对的（重启后会话与幂等结果仍在），测试里必须隔离。
+  memory:
+    persist: false
 jwt:
   secret: %s
   expire: 1
@@ -1021,4 +1027,90 @@ func TestE2EPartnerImport(t *testing.T) {
 			t.Errorf("提示应指出缺哪一列，得到 %q", msg)
 		}
 	})
+}
+
+// 幂等键（T-46）：同一个「意图」重复提交只落一次库，换一个键就是新意图。
+//
+// 这条以前只在一次手工验证里验过（起真进程 + python 脚本），没进测试套件。
+// 而幂等一旦失效，表现是"多了一张单"，事后只能靠人删——前端每个新建页
+// 都挂着这个键，失效一次会连着所有页面一起失效。
+func TestE2EIdempotency(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	body := []byte(`{"code":"IDEM001","name":"幂等测试客户","role":1,"entity_type":1}`)
+
+	send := func(key string) (*http.Response, []byte) {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/partners", bytes.NewReader(body))
+		if err != nil {
+			t.Fatalf("构造请求失败: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(middleware.IdempotencyKeyHeader, key)
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatalf("请求失败: %v", err)
+		}
+		defer res.Body.Close()
+		raw, _ := io.ReadAll(res.Body)
+		return res, raw
+	}
+
+	first, firstBody := send("e2e-key-1")
+	if first.StatusCode != http.StatusOK && first.StatusCode != http.StatusCreated {
+		t.Fatalf("首次提交失败: %d %s", first.StatusCode, firstBody)
+	}
+	if first.Header.Get(middleware.IdempotentReplayHeader) != "" {
+		t.Error("首次提交不该带重放标记")
+	}
+
+	t.Run("同一个键再发一次是回放，不会建第二家", func(t *testing.T) {
+		second, secondBody := send("e2e-key-1")
+		if second.Header.Get(middleware.IdempotentReplayHeader) != "true" {
+			t.Errorf("重复提交应带 Idempotent-Replay: true，实际 %q",
+				second.Header.Get(middleware.IdempotentReplayHeader))
+		}
+		if second.StatusCode != first.StatusCode {
+			t.Errorf("回放的状态码应与首次一致：%d vs %d", second.StatusCode, first.StatusCode)
+		}
+		if !bytes.Equal(firstBody, secondBody) {
+			t.Errorf("回放应返回与首次相同的响应体\nfirst:  %s\nsecond: %s", firstBody, secondBody)
+		}
+		if n := countByKeyword(t, srv, token, "IDEM001"); n != 1 {
+			t.Errorf("同一个键重复提交后应只有 1 家，得到 %d", n)
+		}
+	})
+
+	t.Run("换一个键就是新意图，靠唯一约束拦住重复", func(t *testing.T) {
+		// 不是幂等键挡住了它，而是编码唯一——两种保护分别覆盖不同的错误：
+		// 键挡"网络抖动后的重试"，唯一索引挡"真的重复录入"。
+		third, thirdBody := send("e2e-key-2")
+		defer third.Body.Close()
+		if third.StatusCode != http.StatusConflict {
+			t.Errorf("换键重复录入应 409，得到 %d（%s）", third.StatusCode, thirdBody)
+		}
+		if n := countByKeyword(t, srv, token, "IDEM001"); n != 1 {
+			t.Errorf("仍应只有 1 家，得到 %d", n)
+		}
+	})
+}
+
+// countByKeyword 按关键字数主体条数。
+func countByKeyword(t *testing.T, srv *httptest.Server, token, keyword string) int {
+	t.Helper()
+	res := call(t, srv, http.MethodGet,
+		"/api/v1/partners?page_size=50&keyword="+keyword, token, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("查列表失败: %d", res.StatusCode)
+	}
+	_, _, data := decodeEnvelope(t, res)
+	var page struct {
+		List []struct{ ID uint } `json:"list"`
+	}
+	if err := json.Unmarshal(data, &page); err != nil {
+		t.Fatalf("列表不是预期格式: %s", data)
+	}
+	return len(page.List)
 }
