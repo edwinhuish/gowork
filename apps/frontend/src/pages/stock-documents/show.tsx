@@ -54,6 +54,23 @@ export function StockDocumentShow() {
     }
   }
 
+  // 红冲（T-52c）：生成反向单据，库存回到本次确认之前。
+  const reverse = async () => {
+    if (!d) return
+    setActing(true)
+    try {
+      await stockDocApi.reverse(d.id)
+      message.success('已生成红冲单，库存已恢复')
+      await invalidate({ resource: 'stock-documents', invalidates: ['detail', 'list'] })
+      await invalidate({ resource: 'stock-snapshots', invalidates: ['list'] })
+      await invalidate({ resource: 'stock-movements', invalidates: ['list'] })
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '红冲失败')
+    } finally {
+      setActing(false)
+    }
+  }
+
   return (
     <Show
       isLoading={query.isLoading}
@@ -75,6 +92,21 @@ export function StockDocumentShow() {
             >
               <Button type="primary" loading={acting}>
                 确认
+              </Button>
+            </Popconfirm>
+          )}
+          {/* 红冲只给"已确认、没被红冲过、自己也不是红冲单"的单据：
+              盘点单按差异生成流水，再冲一次等于抵消差异而不是改回库存。 */}
+          {d?.status === 20 && !d.reversed && !d.reversal_of_id && !isCount && (
+            <Popconfirm
+              title="红冲这张单据？"
+              description="会生成一张方向相反的单据并立即确认，库存回到本次确认之前；原单保留可查。"
+              okText="红冲"
+              cancelText="返回"
+              onConfirm={reverse}
+            >
+              <Button danger loading={acting}>
+                红冲
               </Button>
             </Popconfirm>
           )}
@@ -125,6 +157,25 @@ export function StockDocumentShow() {
             label: '确认时间',
             children: d?.posted_at ? formatTime(d.posted_at) : <Empty />,
           },
+          // 两个标识（T-52c）：红冲单要能看出冲的是谁，原单要能看出已被冲过。
+          ...(d?.reversal_of_id
+            ? [
+                {
+                  key: 'reversal',
+                  label: '红冲自',
+                  children: <Mono>{d.source_doc_no}</Mono>,
+                },
+              ]
+            : []),
+          ...(d?.reversed
+            ? [
+                {
+                  key: 'reversed',
+                  label: '红冲状态',
+                  children: <Tag color="error">已被红冲</Tag>,
+                },
+              ]
+            : []),
           { key: 'remark', label: '备注', span: 2, children: d?.remark || <Empty /> },
         ]}
       />

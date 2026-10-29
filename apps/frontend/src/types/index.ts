@@ -1410,6 +1410,10 @@ export interface StockDocumentItem {
  * 要纠正就做一张反向单。
  */
 export interface StockDocument {
+  /** 被红冲的原单 id；为空表示这是普通单据（T-52c）。 */
+  reversal_of_id: number | null
+  /** 这张单是否已被红冲：由后端现算，用来避免重复点红冲。 */
+  reversed: boolean
   id: number
   doc_no: string
   /** 10 采购入库 / 20 销售出库 / 40 盘点 / 50 采购退货（30 调拨预留，尚未实现）。 */
