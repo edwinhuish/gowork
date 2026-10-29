@@ -27,7 +27,7 @@ func newPartnerMergeFixture(t *testing.T) partnerMergeFixture {
 		&model.Contact{}, &model.Activity{}, &model.Lead{}, &model.Opportunity{},
 		&model.ProductSource{}, &model.Attachment{},
 		&model.Quotation{}, &model.SalesOrder{}, &model.PurchaseOrder{}, &model.Contract{},
-		&model.Receivable{}, &model.Payable{}, &model.Payment{},
+		&model.Receivable{}, &model.CreditNote{}, &model.Payable{}, &model.Payment{},
 		&model.ShipmentCharge{}, &model.StockDocument{}, &model.User{},
 	)
 	return partnerMergeFixture{
