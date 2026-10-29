@@ -80,7 +80,17 @@ export const salesOrderApi = {
   /** 变更历史，按序号倒序：最近一次改了什么，是翻旧账时的第一个问题。 */
   listChanges: (id: number) => http.get<SalesOrderChange[]>(`/sales-orders/${id}/changes`),
 
-  /** 提交一次变更：订单更新到新值，同时留下改前改后与原因。 */
-  change: (id: number, body: SalesOrderChangeInput) =>
-    http.post<SalesOrderChange>(`/sales-orders/${id}/changes`, body),
+  /**
+   * 提交一次变更：订单更新到新值，同时留下改前改后与原因。
+   *
+   * key 是幂等键（T-46）：这个接口每次调用都会**新建一条变更记录**，
+   * 网络抖动后用户再点一次就会多出一条永远解释不清的变更单。
+   * 提交成功后由调用方换新键；失败时保持不变，重试才会命中去重。
+   */
+  change: (id: number, body: SalesOrderChangeInput, key?: string) =>
+    http.post<SalesOrderChange>(
+      `/sales-orders/${id}/changes`,
+      body,
+      key ? { 'Idempotency-Key': key } : undefined,
+    ),
 }

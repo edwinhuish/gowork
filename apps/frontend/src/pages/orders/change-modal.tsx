@@ -3,6 +3,7 @@ import { Form, Input, InputNumber, Modal, Table, Typography, message } from 'ant
 
 import { salesOrderApi, type SalesOrderChangeInput } from '@/api/sales-orders'
 import { Empty, Mono } from '@/components/fields'
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { SalesOrder, SalesOrderItem } from '@/types'
 import { formatQty } from '@/utils/format'
 
@@ -46,6 +47,9 @@ export function ChangeModal({
 }) {
   const [form] = Form.useForm<ChangeDraft>()
   const [submitting, setSubmitting] = useState(false)
+  // 每次变更都是"一次新的操作"：键在用户意图这一层生成，失败时保持不变——
+  // 失败后重试命中的是同一次意图，服务端若上次其实已经成功会直接回放。
+  const { key: idempotencyKey, rotate } = useIdempotencyKey()
 
   const items = order.items ?? []
   const originDate = order.delivery_date ? order.delivery_date.slice(0, 10) : ''
@@ -83,8 +87,9 @@ export function ChangeModal({
 
     setSubmitting(true)
     try {
-      await salesOrderApi.change(order.id, body)
+      await salesOrderApi.change(order.id, body, idempotencyKey)
       message.success('变更已记录，订单已更新')
+      rotate()
       form.resetFields()
       onClose()
       await onChanged()
