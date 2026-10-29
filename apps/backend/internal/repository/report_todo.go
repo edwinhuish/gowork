@@ -197,3 +197,62 @@ func (r *reportRepo) ListMissingRates(
 	}
 	return rows, nil
 }
+
+// TodoContractTerm 是一条已到期、还没收到的合同分期。
+type TodoContractTerm struct {
+	ID          uint
+	ContractID  uint
+	DocNo       string
+	PartnerName string
+	Seq         int
+	Name        string
+	DueDate     time.Time
+	AmountBase  money.Decimal
+}
+
+// ListTodoContractTerms 取已到期的合同分期，还没收到的那些（T-61）。
+//
+// 「收到」看这一期挂的应收单：没开票（receivable_id 为空）算未收，
+// 开了票但还有未结清余额（amount − settled − credited）也算未收。
+// 不存一个 paid 布尔值：录错了无从纠正，也解释不了"显示已收但账上还有余额"。
+func (r *reportRepo) ListTodoContractTerms(
+	ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+) ([]TodoContractTerm, int64, error) {
+	base := func() *gorm.DB {
+		q := r.conn(ctx).
+			Table("biz_contract_term AS t").
+			Joins("JOIN biz_contract AS c ON c.id = t.contract_id AND c.deleted_at = 0").
+			Joins("LEFT JOIN md_partner AS p ON p.id = c.partner_id AND p.deleted_at = 0").
+			Joins("LEFT JOIN biz_receivable AS r ON r.id = t.receivable_id AND r.deleted_at = 0").
+			Where("t.deleted_at = 0").
+			Where("t.due_date IS NOT NULL").
+			Where("t.due_date <= ?", asOf).
+			// 没开票，或开了票还有余额，都算没收到。
+			Where("(t.receivable_id IS NULL OR r.id IS NULL OR r.amount - r.settled_amount - "+
+				creditSubquery("r")+" > ?)", 0.0001).
+			Where("c.status NOT IN ?", []model.DocumentStatus{
+				model.DocumentStatusDraft, model.DocumentStatusCancelled,
+			})
+		if ownerID != nil {
+			q = q.Where("(p.owner_id = ? OR p.owner_id = 0)", *ownerID)
+		}
+		return q
+	}
+
+	var total int64
+	if err := base().Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("统计待收合同分期: %w", err)
+	}
+
+	rows := make([]TodoContractTerm, 0, limit)
+	err := base().
+		Select(`t.id, t.contract_id, c.doc_no, COALESCE(p.name, '') AS partner_name,
+			t.seq, t.name, t.due_date, t.amount_base`).
+		Order("t.due_date ASC, t.id ASC").
+		Limit(limit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询待收合同分期: %w", err)
+	}
+	return rows, total, nil
+}

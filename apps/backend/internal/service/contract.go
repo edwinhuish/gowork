@@ -520,12 +520,13 @@ func (s *contractService) buildTerms(
 		}
 		amount := row.Amount.Round(billDP)
 		terms = append(terms, model.ContractTerm{
-			Seq:        i + 1,
-			Name:       name,
-			Amount:     amount,
-			AmountBase: amount.Mul(src.exchangeRate).Round(baseDP),
-			DueDate:    due,
-			Trigger:    strings.TrimSpace(row.Trigger),
+			Seq:          i + 1,
+			Name:         name,
+			Amount:       amount,
+			AmountBase:   amount.Mul(src.exchangeRate).Round(baseDP),
+			DueDate:      due,
+			Trigger:      strings.TrimSpace(row.Trigger),
+			ReceivableID: row.ReceivableID,
 		})
 	}
 

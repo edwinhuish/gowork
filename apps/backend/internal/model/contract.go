@@ -133,6 +133,13 @@ type ContractTerm struct {
 	// 两者可同时存在：有具体日期就填，没有就把条件写清楚。
 	DueDate *time.Time `gorm:"type:date" json:"due_date"`
 	Trigger string     `gorm:"size:128" json:"trigger"`
+
+	// ReceivableID 是这一期开出的应收单（T-61）。为空表示还没开票。
+	//
+	// 有了它，「这期收没收」才有依据：已收 = 应收的已核销 + 已开贷项，
+	// 与账龄、核销校验同一口径。只存一个 paid 布尔值的话，录错了无从纠正，
+	// 也解释不了"为什么这期显示已收但账上还有余额"。
+	ReceivableID *uint `gorm:"index" json:"receivable_id"`
 }
 
 func (ContractTerm) TableName() string { return "biz_contract_term" }

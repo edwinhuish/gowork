@@ -269,8 +269,24 @@ type TodoInspection struct {
 	OverdueDays     int    `json:"overdue_days"`
 }
 
+// TodoContractTerm 是一条已到期、还没收到的合同分期（T-61）。
+type TodoContractTerm struct {
+	ID          uint          `json:"id"`
+	ContractID  uint          `json:"contract_id"`
+	DocNo       string        `json:"doc_no"`
+	PartnerName string        `json:"partner_name"`
+	Seq         int           `json:"seq"`
+	Name        string        `json:"name"`
+	DueDate     string        `json:"due_date"`
+	OverdueDays int           `json:"overdue_days"`
+	AmountBase  money.Decimal `json:"amount_base"`
+}
+
 type TodoReport struct {
-	AsOf string `json:"as_of"`
+	// ContractTerms 是已到期的合同分期（T-61）。
+	ContractTerms     []TodoContractTerm `json:"contract_terms"`
+	ContractTermCount int64              `json:"contract_term_count"`
+	AsOf              string             `json:"as_of"`
 
 	Inspections     []TodoInspection `json:"inspections"`
 	InspectionCount int64            `json:"inspection_count"`

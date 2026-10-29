@@ -4,7 +4,7 @@ import { Alert, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection } from '@/types'
+import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection, TodoContractTerm } from '@/types'
 import { formatTime } from '@/utils/format'
 
 /**
@@ -184,6 +184,63 @@ export function TodoPage() {
             render={(value: number) =>
               value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天</Tag>
             }
+          />
+        </Table>
+      </Card>
+
+      {/* 合同分期待收（T-61）：订金没到账就先开工，是这类生意最常见的现金流断裂。 */}
+      <Card
+        variant="borderless"
+        title="合同分期待收"
+        extra={<span className="cell-sub">{'约定付款日 <= 今天且未收到'}</span>}
+      >
+        <Table<TodoContractTerm>
+          size="small"
+          rowKey="id"
+          loading={isLoading}
+          dataSource={data?.contract_terms ?? []}
+          pagination={false}
+          locale={{ emptyText: '没有逾期未收的合同分期' }}
+        >
+          <Table.Column
+            dataIndex="doc_no"
+            title="合同"
+            width={160}
+            render={(value: string, row: TodoContractTerm) => (
+              <Typography.Link onClick={() => show('contracts', row.contract_id)}>
+                <Mono>{value}</Mono>
+              </Typography.Link>
+            )}
+          />
+          <Table.Column
+            title="分期"
+            width={140}
+            render={(_, row: TodoContractTerm) => `${row.seq}. ${row.name}`}
+          />
+          <Table.Column
+            title="客户"
+            width={200}
+            render={(_, row: TodoContractTerm) => row.partner_name || <Empty />}
+          />
+          <Table.Column dataIndex="due_date" title="约定付款日" width={120} />
+          <Table.Column
+            dataIndex="overdue_days"
+            title="逾期"
+            width={100}
+            align="right"
+            render={(value: number) =>
+              value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天</Tag>
+            }
+          />
+          <Table.Column
+            title="金额（本币）"
+            width={150}
+            align="right"
+            render={(_, row: TodoContractTerm) => (
+              <span className="cell-strong">
+                <Money value={row.amount_base} />
+              </span>
+            )}
           />
         </Table>
       </Card>

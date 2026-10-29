@@ -87,6 +87,10 @@ type ReportRepository interface {
 	ListTodoInspections(
 		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
 	) ([]TodoInspection, int64, error)
+	// ListTodoContractTerms 取已到期、还没收到的合同分期（T-61）。
+	ListTodoContractTerms(
+		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+	) ([]TodoContractTerm, int64, error)
 	// ListMissingRates 取今天还没有汇率的外币。
 	ListMissingRates(ctx context.Context, asOf time.Time) ([]TodoCurrency, error)
 

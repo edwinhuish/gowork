@@ -55,16 +55,23 @@ func (s *reportService) Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoRe
 	if err != nil {
 		return nil, err
 	}
+	// 合同分期待收（T-61）：订金没到账就先开工，是这类生意最常见的现金流断裂。
+	terms, termCount, err := s.repo.ListTodoContractTerms(ctx, asOf, scope, limit)
+	if err != nil {
+		return nil, err
+	}
 
 	report := &dto.TodoReport{
-		AsOf:            asOf.Format(rateDateLayout),
-		FollowupCount:   followupCount,
-		ReceivableCount: receivableCount,
-		InspectionCount: inspectionCount,
-		Inspections:     make([]dto.TodoInspection, 0, len(inspections)),
-		Followups:       make([]dto.TodoFollowup, 0, len(followups)),
-		Receivables:     make([]dto.TodoReceivable, 0, len(receivables)),
-		MissingRates:    []dto.TodoCurrency{},
+		AsOf:              asOf.Format(rateDateLayout),
+		FollowupCount:     followupCount,
+		ReceivableCount:   receivableCount,
+		InspectionCount:   inspectionCount,
+		ContractTermCount: termCount,
+		ContractTerms:     make([]dto.TodoContractTerm, 0, len(terms)),
+		Inspections:       make([]dto.TodoInspection, 0, len(inspections)),
+		Followups:         make([]dto.TodoFollowup, 0, len(followups)),
+		Receivables:       make([]dto.TodoReceivable, 0, len(receivables)),
+		MissingRates:      []dto.TodoCurrency{},
 	}
 
 	for _, f := range followups {
@@ -98,6 +105,16 @@ func (s *reportService) Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoRe
 			SKUCode:         m.SKUCode,
 			PlanDate:        model.DateOnly(m.PlanDate).Format(rateDateLayout),
 			OverdueDays:     max(agingDays(asOf, model.DateOnly(m.PlanDate)), 0),
+		})
+	}
+
+	for _, t := range terms {
+		report.ContractTerms = append(report.ContractTerms, dto.TodoContractTerm{
+			ID: t.ID, ContractID: t.ContractID, DocNo: t.DocNo,
+			PartnerName: t.PartnerName, Seq: t.Seq, Name: t.Name,
+			DueDate:     model.DateOnly(t.DueDate).Format(rateDateLayout),
+			OverdueDays: max(agingDays(asOf, model.DateOnly(t.DueDate)), 0),
+			AmountBase:  t.AmountBase.Round(4),
 		})
 	}
 

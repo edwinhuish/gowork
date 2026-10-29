@@ -30,6 +30,8 @@ type ContractTermInput struct {
 	DueDate string `json:"due_date"`
 	// Trigger 付款条件，与 DueDate 可同时存在。
 	Trigger string `json:"trigger" binding:"max=128"`
+	// ReceivableID 是这一期对应的应收单（T-61），可留空表示还没开票。
+	ReceivableID *uint `json:"receivable_id"`
 }
 
 // ContractGenerateInput 是从来源单据生成合同的入参。

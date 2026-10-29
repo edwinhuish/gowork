@@ -1012,6 +1012,19 @@ export interface TodoInspection {
   overdue_days: number
 }
 
+/** 一条已到期、还没收到的合同分期（T-61）。 */
+export interface TodoContractTerm {
+  id: number
+  contract_id: number
+  doc_no: string
+  partner_name: string
+  seq: number
+  name: string
+  due_date: string
+  overdue_days: number
+  amount_base: string
+}
+
 export interface TodoReport {
   as_of: string
   followups: TodoFollowup[]
@@ -1020,6 +1033,8 @@ export interface TodoReport {
   receivable_count: number
   inspections: TodoInspection[]
   inspection_count: number
+  contract_terms: TodoContractTerm[]
+  contract_term_count: number
   missing_rates: TodoCurrency[]
 }
 
