@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // ReceivableQuery 是应收单的查询条件。
 type ReceivableQuery struct {
@@ -37,6 +41,8 @@ type ReceivableInput struct {
 	// Status 只在编辑时用于作废；新建恒为未结清。
 	Status *int8  `json:"status"`
 	Remark string `json:"remark" binding:"max=255"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PayableInput 新建与编辑共用，规则同应收，来源是采购订单。
@@ -47,4 +53,6 @@ type PayableInput struct {
 	DueDate    string        `json:"due_date"`
 	Status     *int8         `json:"status"`
 	Remark     string        `json:"remark" binding:"max=255"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }

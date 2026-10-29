@@ -143,6 +143,9 @@ func (s *payableService) Update(
 		"status":        status,
 		"remark":        in.Remark,
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
 	}

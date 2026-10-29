@@ -1,4 +1,4 @@
-import { Alert, Divider, Form } from 'antd'
+import { Alert, Divider, Form, Input } from 'antd'
 import { useOne } from '@refinedev/core'
 import { Edit, useForm } from '@refinedev/antd'
 import { useParams } from 'react-router'
@@ -44,6 +44,13 @@ export function ShipmentEdit() {
       )}
 
       <Form {...formProps} layout="vertical" className="entity-form">
+
+        {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
+
+        <Form.Item name="updated_at" hidden>
+          <Input />
+
+        </Form.Item>
         <ShipmentFormFields />
 
         <Divider orientation="left" style={{ margin: '8px 0 16px' }}>

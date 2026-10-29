@@ -1,6 +1,6 @@
 import type { HttpError } from '@refinedev/core'
 import { Edit, useForm } from '@refinedev/antd'
-import { Alert, Form } from 'antd'
+import { Alert, Form, Input } from 'antd'
 
 import type { PaymentUpdateInput } from '@/api/payments'
 import type { Payment } from '@/types'
@@ -35,6 +35,13 @@ export function PaymentEdit() {
       />
 
       <Form {...formProps} layout="vertical" className="entity-form">
+
+        {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
+
+        <Form.Item name="updated_at" hidden>
+          <Input />
+
+        </Form.Item>
         <PaymentMetaFields />
       </Form>
     </Edit>

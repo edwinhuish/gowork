@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // PaymentQuery 是收付款单的查询条件。
 type PaymentQuery struct {
@@ -47,4 +51,6 @@ type PaymentUpdateInput struct {
 	Method    string `json:"method" binding:"max=8"`
 	Reference string `json:"reference" binding:"max=64"`
 	Remark    string `json:"remark" binding:"max=255"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }

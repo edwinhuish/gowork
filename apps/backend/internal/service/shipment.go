@@ -142,6 +142,9 @@ func (s *shipmentService) Update(
 		"ship_date": shipDate,
 		"remark":    in.Remark,
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.shipments.UpdateWithAllocations(ctx, id, fields, rows); err != nil {
 		return nil, err
 	}

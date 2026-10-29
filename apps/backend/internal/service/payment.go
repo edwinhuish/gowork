@@ -224,6 +224,9 @@ func (s *paymentService) Update(
 		}
 		fields["pay_date"] = d
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
 	}

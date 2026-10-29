@@ -227,14 +227,13 @@ migrate 回填），复制一份到 `md_product_code` 就成了两处真相，�
 - **乐观锁的机制**：`repository.FieldUpdatedAt` + `takeOptimisticLock`，只要 `fields` 里带了
   `updated_at` 就变成条件更新，命中不到返回 409。走 `Base.UpdateFields` 的资源自动受益，
   单据那几条自定义事务（`UpdateWithItems`）要各自调一次同一个辅助函数。
-- **铺开程度**：已在 dto、service、编辑页三处接通的资源——**报价单、销售订单、采购订单、
-  合同、产品、往来单位、出入库单**。产品与往来单位走 `Base.UpdateFields`，其余走各自的事务
-  （`UpdateWithItems` / `UpdateWithTerms`），两条路径共用 `takeOptimisticLock`，
-  各有一个用例（报价单与产品各一条）。
-- **还没接的**：出货、收付款、应收应付、币种。行为与改造前一致（后保存的静默覆盖先保存的）。
-  补法一样：dto 的 Input 加 `UpdatedAt` → service 塞进 `fields` → 编辑页加一个
-  `hidden` 的 `Form.Item name="updated_at"`（币种的删除还被"本币不能删 / 有汇率不能删"保护着，
-  优先级最低）。
+- **铺开程度**：**全部可编辑资源都已接通**——报价单、销售订单、采购订单、合同、出货、
+  收付款、应收、应付、出入库单、产品、往来单位、币种。其中产品与往来单位等走
+  `Base.UpdateFields`，单据走各自的事务（`UpdateWithItems` / `UpdateWithAllocations` /
+  `UpdateWithTerms`），两条路径共用 `takeOptimisticLock`；用例覆盖两条路径各一次。
+- **规则**：编辑页用一个 `hidden` 的 `Form.Item name="updated_at"` 把打开时的版本原样带回。
+  antd 只提交已注册的字段，光靠 `initialValues` 带着它会在提交时被丢掉。
+- **不带的请求照旧**：脚本、迁移、老客户端不传 `updated_at` 时按普通更新处理。
 - **OpenAPI**：未开始。
 
 ### 阶段 9 · 权限与协作

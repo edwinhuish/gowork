@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // CurrencyQuery 是币种列表的查询条件。
 type CurrencyQuery struct {
@@ -20,6 +24,8 @@ type CurrencyInput struct {
 	IsBase        *bool             `json:"is_base"`
 	Status        EnableStatusInput `json:"status"`
 	Remark        string            `json:"remark" binding:"max=255"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // ExchangeRateQuery 是汇率列表的查询条件。
