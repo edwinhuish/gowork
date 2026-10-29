@@ -249,7 +249,7 @@ func New(cfg *config.Config) (*App, error) {
 	// 采购单上取供应商与采购币种，两边汇率互不影响。
 	receivableSvc := service.NewReceivableService(
 		receivableRepo, orderRepo, partnerRepo, docNoSvc,
-		service.WithReceivableLogger(log))
+		service.WithReceivableLogger(log), service.WithReceivableShipments(shipmentRepo))
 	payableSvc := service.NewPayableService(
 		payableRepo, purchaseRepo, partnerRepo, docNoSvc,
 		service.WithPayableLogger(log))

@@ -33,12 +33,20 @@ type receivableService struct {
 	repo     repository.ReceivableRepository
 	orders   repository.SalesOrderRepository
 	partners repository.PartnerRepository
-	docNos   DocNoService
-	clock    func() time.Time
-	log      *slog.Logger
+	// shipments 供「按出货开票」用（T-53）。为 nil 时那条来源返回明确的错误，
+	// 而不是 panic——老的装配与测试不必为它准备仓储。
+	shipments repository.ShipmentRepository
+	docNos    DocNoService
+	clock     func() time.Time
+	log       *slog.Logger
 }
 
 type ReceivableOption func(*receivableService)
+
+// WithReceivableShipments 注入出货仓储，启用「按出货开票」（T-53）。
+func WithReceivableShipments(repo repository.ShipmentRepository) ReceivableOption {
+	return func(s *receivableService) { s.shipments = repo }
+}
 
 func WithReceivableClock(now func() time.Time) ReceivableOption {
 	return func(s *receivableService) { s.clock = now }
@@ -220,11 +228,15 @@ func (s *receivableService) buildTerms(
 ) (receivableTerms, error) {
 	var out receivableTerms
 
-	// 只能由销售订单生成。出货批次作为来源要先把"一票装了哪些订单行、各多少钱"
-	// 算出来，而拼柜可能跨币种——那条路等 T-22 需要按票算毛利时再开，
-	// 现在硬加上去只会得到一个"只在单币种整票时才对"的金额。
-	if model.SettlementSource(in.SourceType) != model.SettlementSourceSalesOrder {
-		return out, errs.BadRequest("应收只能由销售订单生成（source_type=10）")
+	switch model.SettlementSource(in.SourceType) {
+	case model.SettlementSourceSalesOrder:
+		// 走下面的订单路径。
+	case model.SettlementSourceShipment:
+		// 按出货开票（T-53）：分批出货按票收款是外贸常态，
+		// 一张订单分三批走，客户也是分三次付钱。
+		return s.shipmentTerms(ctx, in, excludeID)
+	default:
+		return out, errs.BadRequest("应收只能由销售订单（source_type=10）或出货批次（20）生成")
 	}
 
 	order, err := s.orders.FindByID(ctx, in.SourceID)
@@ -290,6 +302,101 @@ func (s *receivableService) buildTerms(
 //
 // 账期为 0 表示即期结清，到期日就等于单据日——这不是"没设置"，
 // 而是最常见的一种约定，所以不能拿它当错误。
+// shipmentTerms 按一票出货算应收（T-53）。
+//
+// 金额 = Σ(出货数量 × 订单行单价)。汇率取**订单锁定的那个**，而不是出货日汇率：
+// 同一张订单分三批出货时，用当天汇率会得到三个汇率，客户对账时同一张订单
+// 出现三个折人民币的数，谁也解释不清。这一点与 roadmap 的原写法不同，
+// 取舍写在 T-53 的注释里。
+func (s *receivableService) shipmentTerms(
+	ctx context.Context, in dto.ReceivableInput, excludeID uint,
+) (receivableTerms, error) {
+	var out receivableTerms
+	if s.shipments == nil {
+		return out, errs.New(errs.CodeInternal, "按出货开票未接装配，请检查 bootstrap")
+	}
+
+	sd, err := s.shipments.FindByID(ctx, in.SourceID)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return out, errs.BadRequest("来源出货单不存在")
+		}
+		return out, err
+	}
+	if sd.Status == model.DocumentStatusDraft || sd.Status == model.DocumentStatusCancelled {
+		return out, errs.BadRequest(
+			fmt.Sprintf("出货单 %s 是%s，不能开应收", sd.DocNo, sd.Status.Label()))
+	}
+	if len(sd.Allocations) == 0 {
+		return out, errs.BadRequest(fmt.Sprintf("出货单 %s 没有分配行，不能开应收", sd.DocNo))
+	}
+
+	// 一票同客户同币种是 T-14 的约束；这里仍逐行校验，因为约束在写入侧，
+	// 而历史数据可能早于那条约束。
+	total := money.Zero()
+	var partnerID uint
+	var currency string
+	var rate money.Decimal
+	for _, a := range sd.Allocations {
+		item := a.SalesOrderItem
+		if item == nil || item.SalesOrder == nil {
+			return out, errs.BadRequest("出货明细缺少对应的订单行，无法按出货开票")
+		}
+		order := item.SalesOrder
+		if currency == "" {
+			currency, rate, partnerID = order.CurrencyCode, order.ExchangeRate, order.PartnerID
+		} else if order.CurrencyCode != currency || order.PartnerID != partnerID {
+			return out, errs.ErrConflict.WithMsg(
+				"这一票出货包含不同客户或不同币种的订单行，不能按票开一张应收")
+		}
+		total = total.Add(item.UnitPrice.Mul(a.Qty))
+	}
+	total = total.Round(4)
+	if total.Cmp(money.Zero()) <= 0 {
+		return out, errs.BadRequest(fmt.Sprintf("出货单 %s 的可开票金额为 0", sd.DocNo))
+	}
+
+	issued, err := s.repo.SumAmountBySource(
+		ctx, model.SettlementSourceShipment, sd.ID, excludeID)
+	if err != nil {
+		return out, err
+	}
+	remaining := total.Sub(issued).Round(4)
+	if remaining.Cmp(money.Zero()) <= 0 {
+		return out, errs.ErrConflict.WithMsg(
+			fmt.Sprintf("出货单 %s 已全额开票（%s %s）", sd.DocNo, currency, issued))
+	}
+
+	amount := in.Amount
+	if amount.IsZero() {
+		amount = remaining
+	}
+	if amount.IsNegative() {
+		return out, errs.BadRequest("应收金额不能为负；要冲减请开贷项通知单")
+	}
+	amount = amount.Round(4)
+	if amount.Cmp(remaining) > 0 {
+		return out, errs.BadRequest(
+			fmt.Sprintf("金额超出未开票余额：%s 最多可开 %s", sd.DocNo, remaining))
+	}
+
+	dueDate, err := s.resolveDueDate(ctx, in.DueDate, sd.ShipDate, partnerID)
+	if err != nil {
+		return out, err
+	}
+
+	out = receivableTerms{
+		PartnerID:    partnerID,
+		SourceDocNo:  sd.DocNo,
+		CurrencyCode: currency,
+		ExchangeRate: rate,
+		Amount:       amount,
+		AmountBase:   amount.Mul(rate).Round(4),
+		DueDate:      dueDate,
+	}
+	return out, nil
+}
+
 func (s *receivableService) resolveDueDate(
 	ctx context.Context, raw string, base time.Time, partnerID uint,
 ) (time.Time, error) {
