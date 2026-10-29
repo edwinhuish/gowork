@@ -69,6 +69,25 @@ type CustomsDeclaration struct {
 	// 每加一种都要发一次版本，而它只是个四位数字。
 	SupervisionMode string `gorm:"size:8" json:"supervision_mode"`
 	Remark          string `gorm:"size:255" json:"remark"`
+
+	// Items 只在详情接口里回填，不落库（见 CustomsDeclarationItem）。
+	Items []CustomsDeclarationItem `gorm:"-" json:"items,omitempty"`
+}
+
+// CustomsDeclarationItem 是报关单上的商品明细（T-55），**不落库**。
+//
+// 它由这票出货分配行的报关要素快照投影出来：一票货出什么，分配行已经说完了，
+// 再存一份独立明细就要同步两处，而两处必然漂移。所以没有 biz_customs_item 表。
+type CustomsDeclarationItem struct {
+	SKUCode        string `json:"sku_code"`
+	NameCN         string `json:"name_cn"`
+	// Qty 按定点字符串透传（与金额同一约定），前端直接格式化显示。
+	Qty            string `json:"qty"`
+	Unit           string `json:"unit"`
+	HSCode         string `json:"hs_code"`
+	DeclaredNameCN string `json:"declared_name_cn"`
+	OriginCountry  string `json:"origin_country"`
+	LegalUnit      string `json:"legal_unit"`
 }
 
 func (CustomsDeclaration) TableName() string { return "biz_customs_declaration" }

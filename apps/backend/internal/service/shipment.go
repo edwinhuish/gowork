@@ -613,11 +613,42 @@ func (s *shipmentService) buildAllocations(
 		if s.products != nil {
 			if p, err := s.products.FindByID(ctx, item.ProductID); err == nil {
 				fillPackingFromProduct(&alloc, p)
+				// 报关要素**总是**快照，不受「人工填了装箱数据」影响：
+				// 一个是装箱方案，一个是申报口径，两件事互不相干。
+				snapshotCustoms(&alloc, p)
 			}
 		}
 		rows = append(rows, alloc)
 	}
 	return rows, nil
+}
+
+// snapshotCustoms 把产品的报关要素抄到分配行上（T-55）。
+//
+// 已经填过的不覆盖：同一批货里用途不同要分票申报时，人会在分配行上改 HS，
+// 那种改动比产品上的默认值更贴近实际。
+func snapshotCustoms(a *model.ShipmentAllocation, p *model.Product) {
+	if p == nil {
+		return
+	}
+	if a.HSCode == "" {
+		a.HSCode = p.HSCode
+	}
+	if a.DeclaredNameCN == "" {
+		a.DeclaredNameCN = p.DeclaredNameCN
+	}
+	if a.DeclaredNameEN == "" {
+		a.DeclaredNameEN = p.DeclaredNameEN
+	}
+	if a.Material == "" {
+		a.Material = p.Material
+	}
+	if a.OriginCountry == "" {
+		a.OriginCountry = p.OriginCountry
+	}
+	if a.LegalUnit == "" {
+		a.LegalUnit = p.LegalUnit
+	}
 }
 
 // fillPackingFromProduct 按产品箱规补全分配行的装箱数据。

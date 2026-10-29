@@ -111,6 +111,17 @@ type ShipmentAllocation struct {
 	// 按错规格算出来的数更有用，装箱单上那一栏也就不印。
 	Volume money.Decimal `gorm:"type:decimal(12,6);not null;default:0" json:"volume"`
 
+	// 报关要素快照（T-55）。出货时从产品抄一份，之后不再跟随产品变化。
+	//
+	// 不快照的后果：产品上改一次 HS 编码，历史出货的报关单与产地证就
+	// 复现不出当时的申报内容——而报关资料是要留档备查的，改一个字都算改单。
+	HSCode         string `gorm:"size:16" json:"hs_code"`
+	DeclaredNameCN string `gorm:"size:128" json:"declared_name_cn"`
+	DeclaredNameEN string `gorm:"size:128" json:"declared_name_en"`
+	Material       string `gorm:"size:255" json:"material"`
+	OriginCountry  string `gorm:"size:64" json:"origin_country"`
+	LegalUnit      string `gorm:"size:16" json:"legal_unit"`
+
 	// SalesOrderItem 只用于展示"这行来自哪张订单"（单号在它下面一层），
 	// 不参与任何计算。
 	SalesOrderItem *SalesOrderItem `gorm:"foreignKey:SalesOrderItemID" json:"sales_order_item,omitempty"`

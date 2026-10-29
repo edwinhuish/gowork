@@ -122,7 +122,34 @@ func (s *customsDeclarationService) Delete(ctx context.Context, id uint) error {
 func (s *customsDeclarationService) Get(
 	ctx context.Context, id uint,
 ) (*model.CustomsDeclaration, error) {
-	return s.repo.FindByID(ctx, id)
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 商品明细由出货分配行的报关要素快照投影（T-55）。取不到票不报错：
+	// 报关单本身仍然可读，明细缺失比整页 500 好。
+	if sd, err := s.shipments.FindByID(ctx, m.ShipmentID); err == nil {
+		m.Items = customsItems(sd.Allocations)
+	}
+	return m, nil
+}
+
+// customsItems 把分配行的要素快照转成报关明细。
+func customsItems(allocs []model.ShipmentAllocation) []model.CustomsDeclarationItem {
+	items := make([]model.CustomsDeclarationItem, 0, len(allocs))
+	for _, a := range allocs {
+		items = append(items, model.CustomsDeclarationItem{
+			SKUCode:        a.SKUCode,
+			NameCN:         a.NameCN,
+			Qty:            a.Qty.String(),
+			Unit:           a.Unit,
+			HSCode:         a.HSCode,
+			DeclaredNameCN: a.DeclaredNameCN,
+			OriginCountry:  a.OriginCountry,
+			LegalUnit:      a.LegalUnit,
+		})
+	}
+	return items
 }
 
 func (s *customsDeclarationService) List(
