@@ -1,9 +1,7 @@
-import { useMemo } from 'react'
-import { useList } from '@refinedev/core'
-import { Button, Col, Form, Input, InputNumber, Row, Select, Tag, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Tag, Typography } from 'antd'
 
 import { ProductSelect, type ProductHint } from '@/components/product-select'
-import type { ProductSource } from '@/types'
+import { SourceSelect } from '@/components/product-source-select'
 
 export interface LineItemRow {
   product_id?: number
@@ -43,26 +41,6 @@ export function LineItemsEditor({
 }) {
   const form = Form.useFormInstance()
   const rows = Form.useWatch<LineItemRow[]>('items', form) ?? []
-
-  // 订单用不到货源，但 hook 不能条件调用，用 enabled 把它停掉。
-  const { query: sourcesQuery } = useList<ProductSource>({
-    resource: 'product-sources',
-    pagination: { mode: 'off' },
-    queryOptions: { enabled: showSource },
-  })
-
-  const sources = sourcesQuery.data?.data ?? []
-
-  const sourcesByProduct = useMemo(() => {
-    const map = new Map<number, ProductSource[]>()
-    for (const s of sources) {
-      if (s.status !== 1) continue
-      const list = map.get(s.product_id) ?? []
-      list.push(s)
-      map.set(s.product_id, list)
-    }
-    return map
-  }, [sources])
 
   /**
    * 行的回显信息：优先用后端带回的产品关联，其次用行上的 SKU 快照。
@@ -125,9 +103,6 @@ export function LineItemsEditor({
           <>
             {fields.map((field) => {
               const row = rows[field.name] ?? {}
-              const rowSources = row.product_id
-                ? (sourcesByProduct.get(row.product_id) ?? [])
-                : []
               // 只用于界面提示：真实金额由服务端按「数量 × 单价 × 汇率」算，
               // 这里转成 number 只是为了让用户边填边看个大概。
               const subtotal = Number(row.qty ?? 0) * Number(row.unit_price ?? 0)
@@ -185,19 +160,7 @@ export function LineItemsEditor({
                   {showSource && (
                     <Col span={spans.source}>
                       <Form.Item name={[field.name, 'source_id']}>
-                        <Select
-                          placeholder={
-                            row.product_id && rowSources.length === 0 ? '该产品还没有货源' : '最低价'
-                          }
-                          allowClear
-                          disabled={!row.product_id || rowSources.length === 0}
-                          options={rowSources.map((s) => ({
-                            value: s.id,
-                            label: `${s.partner?.name ?? '供应商'} · ${Number(s.purchase_price_base).toFixed(
-                              2,
-                            )}${s.supplier_sku ? ` · ${s.supplier_sku}` : ''}`,
-                          }))}
-                        />
+                        <SourceSelect productId={row.product_id} />
                       </Form.Item>
                     </Col>
                   )}

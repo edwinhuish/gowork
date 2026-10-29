@@ -61,7 +61,8 @@ apps/frontend/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
-    │   └── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
+    │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
+    │   └── product-source-select.tsx  明细行的成本货源：按产品现查，不再全量取数
     ├── constants/catalog.ts 产品类别字典、启用状态、主体类型选项、角色位常量
     ├── utils/format.ts      时间格式化
     └── pages/
@@ -178,6 +179,7 @@ api/client.ts
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
 | `components/product-select.tsx` | 任何「选一个产品」的下拉（明细行、库存流水、出入库单明细） | 搜索走后端 `/products?keyword=`，不要退化成 `useSelect` 取满 200 条——本地过滤筛不出客户报的编号，产品过两百条之后后半段还会选不到 |
+| `components/product-source-select.tsx` | 明细行的成本货源（报价单） | 按 `product_id` 现查、只列启用货源；已选的那条停用或被删时仍占位显示，别让它变成一个光秃秃的 id |
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量 + 装箱数据） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId`；装箱数据（箱数 / 毛净重 / 尺寸）可留空，净重大于毛重由后端拒 |
 | `pages/products/code-panel.tsx` | 产品详情页的「其他编号」面板 | 行内表单录入（一次要补三五个号，弹窗比敲键盘还慢）；没有编辑，改写法就删掉重录；归一化与唯一性由服务端判 |
 | `components/attachment-panel.tsx` | 通用附件面板（上传 / 下载 / 删除） | 挂在任何详情页，传 `entityType` + `entityId`（取值见 `AttachmentEntity`）；上传走 `http.postForm`——multipart 的 `Content-Type` 必须由浏览器生成，手写会让服务端解析不出字段；已挂在出货详情与客户 / 供应商详情 |
