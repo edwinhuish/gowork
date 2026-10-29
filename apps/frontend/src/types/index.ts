@@ -24,6 +24,18 @@ export interface LoginResponse {
  * 比 UserInfo 多一个 status：登录响应里只带启用账号，维护页要看到停用的。
  * 密码永远不会出现在任何响应里，后端字段标了 json:"-"。
  */
+/** 仓库（T-56）：主数据，只有默认仓会被新流水自动使用。 */
+export interface Warehouse {
+  id: number
+  code: string
+  name: string
+  address: string
+  is_default: boolean
+  /** 1 启用 / 0 停用 */
+  status: number
+  remark: string
+}
+
 export interface SystemUser {
   id: number
   username: string

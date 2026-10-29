@@ -48,6 +48,7 @@ import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { AuditLogList } from '@/pages/audit-logs'
 import { UserAccountList } from '@/pages/user-accounts/list'
+import { WarehouseList } from '@/pages/warehouses/list'
 import { ClauseList } from '@/pages/clauses'
 import { CollectionPage } from '@/pages/collection'
 import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
@@ -330,6 +331,12 @@ export default function App() {
                 meta: { label: '汇率', icon: <SwapOutlined /> },
               },
               {
+                // 仓库（T-56）：主数据维护，建仓与设默认。
+                name: 'warehouses',
+                list: '/warehouses',
+                meta: { label: '仓库', icon: <ShopOutlined /> },
+              },
+              {
                 // 账号维护同样只有管理员能用；菜单对所有人可见，权限由接口兜底。
                 name: 'user-accounts',
                 list: '/user-accounts',
@@ -517,6 +524,10 @@ export default function App() {
                   <Route path="exchange-rates">
                     <Route index element={<ExchangeRateList />} />
                     <Route path="create" element={<ExchangeRateCreate />} />
+                  </Route>
+
+                  <Route path="warehouses">
+                    <Route index element={<WarehouseList />} />
                   </Route>
 
                   <Route path="user-accounts">

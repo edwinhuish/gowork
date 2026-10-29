@@ -40,6 +40,7 @@ type Handlers struct {
 	Purchase        *handler.PurchaseOrderHandler
 	PurchaseReceipt *handler.PurchaseReceiptHandler
 	Inspection      *handler.InspectionHandler
+	Warehouse       *handler.WarehouseHandler
 	Shipment        *handler.ShipmentHandler
 	Charge          *handler.ShipmentChargeHandler
 	Customs         *handler.CustomsDeclarationHandler
@@ -498,6 +499,12 @@ func New(
 		stockDocs.POST("/:id/confirm", h.StockDoc.Confirm)
 		// 红冲（T-52c）：生成一张方向相反的单据，库存回到原单确认前。
 		stockDocs.POST("/:id/reverse", h.StockDoc.Reverse)
+
+		// 仓库（T-56）：主数据。建仓、改名、设默认；编码不可改。
+		warehouses := secured.Group("/warehouses")
+		warehouses.GET("", h.Warehouse.List)
+		warehouses.POST("", h.Warehouse.Create)
+		warehouses.PUT("/:id", h.Warehouse.Update)
 
 		// 附件：横切的归档能力，不挂在任何业务前缀下——挂什么由 entity_type 决定。
 		// 列表与上传共用同一个入口，且 entity_type + entity_id 都是必填：

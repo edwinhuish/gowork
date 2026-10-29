@@ -308,6 +308,9 @@ func New(cfg *config.Config) (*App, error) {
 		log.Error("汇率类型索引迁移失败；同一天只能存一条汇率", "err", err)
 	}
 
+	warehouseSvc := service.NewWarehouseService(
+		repository.NewWarehouseRepository(db), service.WithWarehouseLogger(log))
+
 	// 库存切到仓库维度（T-56 第二步）：回填存量并把快照唯一键换成
 	// (warehouse_id, product_id, deleted_at)。两步都幂等。
 	if err := repository.MigrateStockWarehouse(db); err != nil {
@@ -353,6 +356,7 @@ func New(cfg *config.Config) (*App, error) {
 		Purchase:        handler.NewPurchaseOrderHandler(purchaseSvc),
 		PurchaseReceipt: handler.NewPurchaseReceiptHandler(receiptSvc),
 		Inspection:      handler.NewInspectionHandler(inspectionSvc),
+		Warehouse:       handler.NewWarehouseHandler(warehouseSvc),
 		Shipment:        handler.NewShipmentHandler(shipmentSvc),
 		Charge:          handler.NewShipmentChargeHandler(chargeSvc),
 		Customs:         handler.NewCustomsDeclarationHandler(customsSvc),
