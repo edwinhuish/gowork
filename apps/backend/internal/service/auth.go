@@ -25,6 +25,12 @@ const (
 	loginFailPrefix  = "login_fail:"
 )
 
+// errLoginTooManyFails 是"猜错太多次"的统一出口。
+//
+// 已知账号与不存在的账号必须回同一句：否则连续尝试几下就能从
+// "403 过多"与"401 密码错误"的差别里看出账号是否存在。
+var errLoginTooManyFails = errs.New(errs.CodeForbidden, "登录失败次数过多，请 15 分钟后再试")
+
 // AuthConfig 是鉴权相关的可调参数。
 type AuthConfig struct {
 	Secret       string
@@ -93,21 +99,42 @@ func (s *authService) HashPassword(plain string) (string, error) {
 
 func (s *authService) Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error) {
 	failKey := loginFailPrefix + req.Username
-	if n, err := s.failCount(ctx, failKey); err == nil && n >= int64(s.cfg.MaxLoginFail) {
-		return nil, errs.New(errs.CodeForbidden, "登录失败次数过多，请 15 分钟后再试")
+	// 失败计数只决定"还能不能继续猜"，**不预先拒绝请求**。
+	//
+	// 早先的写法是先看计数、超了直接 403，于是任何人连错 5 次就能把某个账号
+	// 锁在门外 15 分钟——被锁的人手里握着正确密码，却什么也做不了。
+	// 现在把密码校验放在前面：密码对就放行并清计数，密码错才计数、超了才 403。
+	// 攻击者仍然无法继续猜（错就到 403），但锁不住知道密码的人。
+	//
+	// 代价：锁定期内每次错误尝试仍要算一次 bcrypt（约为一次正常登录的开销）。
+	// 这是为了让"手里有正确密码的人"能进来——省掉这次计算就得先拒请求，
+	// 而那正是把账号锁死的写法。
+	over, err := s.loginLocked(ctx, failKey)
+	if err != nil {
+		// 计数读不出来不该把登录整体拦死（缓存抖动时用户还是要能进来），
+		// 但要在日志里留下痕迹。
+		s.log.Warn("读取登录失败次数出错", "key", failKey, "err", err)
 	}
 
 	user, err := s.users.FindByUsername(ctx, req.Username)
 	if err != nil {
 		s.markLoginFail(ctx, failKey)
 		// 用户不存在与密码错误返回同一文案，避免账号枚举。
+		if over {
+			return nil, errLoginTooManyFails
+		}
 		return nil, errs.New(errs.CodeUnauthorized, "用户名或密码错误")
 	}
 	if !user.IsEnabled() {
 		return nil, errs.New(errs.CodeForbidden, "账号已被禁用")
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
-		s.markLoginFail(ctx, failKey)
+		n := s.markLoginFail(ctx, failKey)
+		// 这一次让计数跨过阈值时也报"过多"：否则第 6 次仍是"密码错误"，
+		// 而用户已经无法再试了，提示与实际状态不一致。
+		if over || n >= int64(s.cfg.MaxLoginFail) {
+			return nil, errLoginTooManyFails
+		}
 		return nil, errs.New(errs.CodeUnauthorized, "用户名或密码错误")
 	}
 
@@ -245,10 +272,23 @@ func (s *authService) failCount(ctx context.Context, key string) (int64, error) 
 	return strconv.ParseInt(v, 10, 64)
 }
 
-func (s *authService) markLoginFail(ctx context.Context, key string) {
-	if _, err := s.sessions.Incr(ctx, key, 15*time.Minute); err != nil {
-		s.log.Warn("记录登录失败次数出错", "key", key, "err", err)
+// loginLocked 报告这个账号是否已经用完猜密码的次数。
+func (s *authService) loginLocked(ctx context.Context, key string) (bool, error) {
+	n, err := s.failCount(ctx, key)
+	if err != nil {
+		return false, err
 	}
+	return n >= int64(s.cfg.MaxLoginFail), nil
+}
+
+// markLoginFail 记一次失败并返回累计次数（读不出累计值时返回 0）。
+func (s *authService) markLoginFail(ctx context.Context, key string) int64 {
+	n, err := s.sessions.Incr(ctx, key, 15*time.Minute)
+	if err != nil {
+		s.log.Warn("记录登录失败次数出错", "key", key, "err", err)
+		return 0
+	}
+	return n
 }
 
 type tokenClaims struct {

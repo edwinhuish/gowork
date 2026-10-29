@@ -102,30 +102,64 @@ func TestLoginSameMessageForUnknownUserAndWrongPassword(t *testing.T) {
 	}
 }
 
-// 连续失败到阈值后锁定；成功登录会清零失败计数。
-func TestLoginLockoutAndReset(t *testing.T) {
+// 失败计数挡住的是"继续猜"，不是"把人锁在门外"。
+func TestLoginLockoutStopsGuessing(t *testing.T) {
 	f := newAuthFixture(t, 3)
 	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
 	ctx := context.Background()
 
-	for i := 0; i < 3; i++ {
+	// 阈值前：普通"密码错误"。
+	for i := 0; i < 2; i++ {
 		_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
 		wantCode(t, err, errs.CodeUnauthorized, "密码错误")
 	}
 
-	// 达到阈值后，即使密码正确也被挡（403，文案说明多久后重试）。
-	_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"})
-	wantCode(t, err, errs.CodeForbidden, "锁定后即使密码正确")
+	// 跨过阈值的那一次就报"过多"：否则用户已经不能再试，提示却还是"密码错误"。
+	_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+	wantCode(t, err, errs.CodeForbidden, "第 3 次错误")
+
+	// 之后继续猜也一样被挡住。
+	_, err = f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+	wantCode(t, err, errs.CodeForbidden, "锁定后继续猜")
 	if !strings.Contains(err.Error(), "过多") {
-		t.Errorf("锁定文案应说明原因，得到 %q", err.Error())
+		t.Errorf("提示应说明原因，得到 %q", err.Error())
 	}
 
-	t.Run("另一个账号不受影响", func(t *testing.T) {
-		f.addUser(t, "bob", "right", model.RoleStaff, model.EnableStatusOn)
-		if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "bob", Password: "right"}); err != nil {
-			t.Errorf("锁定按账号计数，不该连坐别的账号: %v", err)
-		}
-	})
+	// 不存在的账号同样报"过多"，否则能从两种提示的差别里看出账号是否存在。
+	_, err = f.svc.Login(ctx, dto.LoginRequest{Username: "nobody", Password: "x"})
+	wantCode(t, err, errs.CodeUnauthorized, "未知账号首次")
+	for i := 0; i < 3; i++ {
+		_, err = f.svc.Login(ctx, dto.LoginRequest{Username: "nobody", Password: "x"})
+	}
+	wantCode(t, err, errs.CodeForbidden, "未知账号达阈值")
+	if err.Error() != errLoginTooManyFails.Error() {
+		t.Errorf("已知与未知账号的提示必须一致：%q vs %q",
+			err.Error(), errLoginTooManyFails.Error())
+	}
+}
+
+// 关键：打印"锁"不能成为攻击手段。
+// 手里握着正确密码的人，不该因为别人连错几次就进不来。
+func TestLoginCorrectPasswordNotLockedOut(t *testing.T) {
+	f := newAuthFixture(t, 3)
+	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		_, _ = f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+	}
+	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
+		t.Fatalf("正确密码必须仍能登录（否则任何人连错几次就能把别人锁在门外）: %v", err)
+	}
+
+	// 成功登录会清零计数：之后再错两次也不该被挡。
+	for i := 0; i < 2; i++ {
+		_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+		wantCode(t, err, errs.CodeUnauthorized, "清零后再错两次")
+	}
+	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
+		t.Errorf("计数应已清零，正确密码仍可登录: %v", err)
+	}
 }
 
 func TestLoginRejectsDisabledUser(t *testing.T) {
@@ -189,26 +223,4 @@ func TestVerifyRejectsBadTokens(t *testing.T) {
 		_, err = f.svc.Verify(ctx, tampered)
 		wantCode(t, err, errs.CodeUnauthorized, "签名被改")
 	})
-}
-
-func TestLoginClearsFailCountAfterSuccess(t *testing.T) {
-	f := newAuthFixture(t, 3)
-	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
-	ctx := context.Background()
-
-	// 两次失败后成功：计数应清零，再失败两次也还不该被锁。
-	for i := 0; i < 2; i++ {
-		if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "bad"}); err == nil {
-			t.Fatal("错误密码不该登录成功")
-		}
-	}
-	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
-		t.Fatalf("正确密码应当成功: %v", err)
-	}
-	for i := 0; i < 2; i++ {
-		_, _ = f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "bad"})
-	}
-	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
-		t.Errorf("成功登录后计数应清零，两次失败不该导致锁定: %v", err)
-	}
 }
