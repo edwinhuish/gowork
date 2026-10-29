@@ -38,6 +38,13 @@ export function SupplierFormFields() {
         <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
       </Form.Item>
 
+      {/* 国家/地区必须在这里也能改：客户与供应商是同一行记录，
+          供应商页面不提交它的话，从供应商侧保存一次就会把国家清空
+          （PUT 是全量覆盖，未提交的字符串字段按空值写入）。 */}
+      <Form.Item name="country" label="国家/地区" rules={[{ max: 64, message: '最多 64 个字符' }]}>
+        <Input placeholder="中国" />
+      </Form.Item>
+
       <Form.Item
         name="tax_id"
         label="税号"
