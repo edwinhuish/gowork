@@ -2,145 +2,213 @@ package service
 
 import (
 	"context"
-	"errors"
-	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/config"
+	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/infra/cache"
+	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/repository"
 )
 
-const (
-	testSecret = "test-secret-at-least-32-chars-long-abcdef"
-	testExpire = time.Hour
-)
+type authFixture struct {
+	svc AuthService
+	db  *gorm.DB
+}
 
-// newTestAuth 构造一个只依赖内存缓存的鉴权服务，并返回缓存实例用于摆放会话。
-func newTestAuth(t *testing.T) (AuthService, cache.Cache) {
+func newAuthFixture(t *testing.T, maxFail int) authFixture {
 	t.Helper()
-
-	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
-	sessions, err := cache.New(config.Cache{Driver: config.CacheMemory}, discard)
+	db := openTestDB(t, &model.User{})
+	c, err := cache.New(config.Cache{Driver: config.CacheMemory},
+		slog.New(slog.DiscardHandler))
 	if err != nil {
-		t.Fatalf("创建内存缓存: %v", err)
+		t.Fatalf("建缓存失败: %v", err)
 	}
-	t.Cleanup(func() { _ = sessions.Close() })
-
-	return NewAuthService(nil, sessions, AuthConfig{Secret: testSecret, Expire: testExpire},
-		WithAuthLogger(discard)), sessions
+	return authFixture{
+		db: db,
+		svc: NewAuthService(repository.NewUserRepository(db), c, AuthConfig{
+			Secret:       "test-secret",
+			Expire:       time.Hour,
+			MaxLoginFail: maxFail,
+		}),
+	}
 }
 
-// signTestToken 按指定剩余有效期签发令牌，ttl 传负值即已过期。
-func signTestToken(t *testing.T, tokenID string, ttl time.Duration) string {
+func (f authFixture) addUser(t *testing.T, username, password, role string, status model.EnableStatus) *model.User {
 	t.Helper()
-
-	now := time.Now()
-	claims := tokenClaims{
-		UserID:   7,
-		Username: "edwin",
-		Nickname: "Edwin",
-		Role:     "admin",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        tokenID,
-			Subject:   "7",
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
-		},
-	}
-	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	hash, err := f.svc.HashPassword(password)
 	if err != nil {
-		t.Fatalf("签发测试令牌: %v", err)
+		t.Fatalf("哈希密码失败: %v", err)
 	}
-	return signed
+	u := &model.User{Username: username, Password: hash, Nickname: username, Role: role,
+		Status: model.EnableStatusOn}
+	if err := f.db.Create(u).Error; err != nil {
+		t.Fatalf("建账号失败: %v", err)
+	}
+	// Status 带 default:1，零值会被 gorm 省略并由库填 1，所以停用要单独写一次。
+	if status != model.EnableStatusOn {
+		if err := f.db.Model(&model.User{}).Where("id = ?", u.ID).
+			Update("status", status).Error; err != nil {
+			t.Fatalf("改账号状态失败: %v", err)
+		}
+	}
+	return u
 }
 
-func TestVerifyNoRenewWhenFresh(t *testing.T) {
-	auth, sessions := newTestAuth(t)
-	ctx := context.Background()
+// 密码哈希这条路径没有别的入口，写错了没人发现——所以至少钉住"能验回去"与"每次都不同"。
+func TestHashPassword(t *testing.T) {
+	f := newAuthFixture(t, 5)
 
-	// 剩余 1h，超过 Expire/2 的阈值，不该续期。
-	token := signTestToken(t, "tok-fresh", testExpire)
-	if err := sessions.Set(ctx, sessionKeyPrefix+"tok-fresh", "7", testExpire); err != nil {
-		t.Fatalf("写入会话: %v", err)
-	}
-
-	p, err := auth.Verify(ctx, token)
+	first, err := f.svc.HashPassword("s3cret")
 	if err != nil {
-		t.Fatalf("Verify: %v", err)
+		t.Fatalf("哈希失败: %v", err)
 	}
-	if p.RenewedToken != "" {
-		t.Fatalf("剩余有效期充足却触发了续期")
-	}
-	if p.TokenID != "tok-fresh" {
-		t.Fatalf("TokenID = %q, 期望 tok-fresh", p.TokenID)
-	}
-}
-
-func TestVerifyRenewsWhenNearlyExpired(t *testing.T) {
-	auth, sessions := newTestAuth(t)
-	ctx := context.Background()
-
-	// 只剩 5 分钟，低于 Expire/2，应续期。
-	token := signTestToken(t, "tok-renew", 5*time.Minute)
-	if err := sessions.Set(ctx, sessionKeyPrefix+"tok-renew", "7", 5*time.Minute); err != nil {
-		t.Fatalf("写入会话: %v", err)
-	}
-
-	p, err := auth.Verify(ctx, token)
+	second, err := f.svc.HashPassword("s3cret")
 	if err != nil {
-		t.Fatalf("Verify: %v", err)
+		t.Fatalf("哈希失败: %v", err)
 	}
-	if p.RenewedToken == "" {
-		t.Fatal("临近过期却未续期")
+	if first == second {
+		t.Error("同一密码两次哈希应不同（各自带盐）；相同说明没加盐")
 	}
-	if p.TokenID != "tok-renew" {
-		t.Fatalf("续期后 TokenID 应保持不变，实际 = %q", p.TokenID)
+	if !strings.HasPrefix(first, "$2") {
+		t.Errorf("应是 bcrypt 摘要，得到 %q", first[:min(6, len(first))])
 	}
-	// 续期后的有效期应接近完整的 testExpire，而不是原令牌剩余的 5 分钟。
-	if p.ExpiresAt.Before(time.Now().Add(testExpire - time.Minute)) {
-		t.Fatalf("续期后有效期只到 %v，不足 %v", p.ExpiresAt, testExpire)
-	}
-
-	// 新令牌必须自洽：能通过校验、jti 不变、不再触发第二次续期。
-	p2, err := auth.Verify(ctx, p.RenewedToken)
-	if err != nil {
-		t.Fatalf("用续期后的令牌再校验失败: %v", err)
-	}
-	if p2.TokenID != "tok-renew" {
-		t.Fatalf("续期令牌的 jti 变了: %q", p2.TokenID)
-	}
-	if p2.RenewedToken != "" {
-		t.Fatal("新令牌有效期充足，不应再次续期")
+	if strings.Contains(first, "s3cret") {
+		// 反向断言：摘要里不该出现明文。
+		t.Error("摘要里出现了明文密码")
 	}
 }
 
-func TestVerifyRejectsRevokedSession(t *testing.T) {
-	auth, _ := newTestAuth(t)
+// 账号不存在与密码错误必须返回**同一句话**，否则等于给了账号枚举的入口。
+func TestLoginSameMessageForUnknownUserAndWrongPassword(t *testing.T) {
+	f := newAuthFixture(t, 5)
+	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
 	ctx := context.Background()
 
-	// 签名有效但会话不存在（等价于已登出），必须拒绝。
-	token := signTestToken(t, "tok-logged-out", testExpire)
-	if _, err := auth.Verify(ctx, token); !errors.Is(err, errs.ErrUnauthorized) {
-		t.Fatalf("会话缺失应返回 ErrUnauthorized，实际: %v", err)
+	_, errUnknown := f.svc.Login(ctx, dto.LoginRequest{Username: "nobody", Password: "x"})
+	_, errWrong := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+	wantCode(t, errUnknown, errs.CodeUnauthorized, "账号不存在")
+	wantCode(t, errWrong, errs.CodeUnauthorized, "密码错误")
+
+	if errUnknown.Error() != errWrong.Error() {
+		t.Errorf("两种失败必须同一文案（防账号枚举）：%q vs %q",
+			errUnknown.Error(), errWrong.Error())
 	}
 }
 
-func TestVerifyRejectsExpiredToken(t *testing.T) {
-	auth, sessions := newTestAuth(t)
+// 连续失败到阈值后锁定；成功登录会清零失败计数。
+func TestLoginLockoutAndReset(t *testing.T) {
+	f := newAuthFixture(t, 3)
+	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
 	ctx := context.Background()
 
-	token := signTestToken(t, "tok-expired", -time.Minute)
-	if err := sessions.Set(ctx, sessionKeyPrefix+"tok-expired", "7", testExpire); err != nil {
-		t.Fatalf("写入会话: %v", err)
+	for i := 0; i < 3; i++ {
+		_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "wrong"})
+		wantCode(t, err, errs.CodeUnauthorized, "密码错误")
 	}
 
-	if _, err := auth.Verify(ctx, token); !errors.Is(err, errs.ErrTokenExpired) {
-		t.Fatalf("过期令牌应返回 ErrTokenExpired，实际: %v", err)
+	// 达到阈值后，即使密码正确也被挡（403，文案说明多久后重试）。
+	_, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"})
+	wantCode(t, err, errs.CodeForbidden, "锁定后即使密码正确")
+	if !strings.Contains(err.Error(), "过多") {
+		t.Errorf("锁定文案应说明原因，得到 %q", err.Error())
+	}
+
+	t.Run("另一个账号不受影响", func(t *testing.T) {
+		f.addUser(t, "bob", "right", model.RoleStaff, model.EnableStatusOn)
+		if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "bob", Password: "right"}); err != nil {
+			t.Errorf("锁定按账号计数，不该连坐别的账号: %v", err)
+		}
+	})
+}
+
+func TestLoginRejectsDisabledUser(t *testing.T) {
+	f := newAuthFixture(t, 5)
+	f.addUser(t, "gone", "right", model.RoleStaff, model.EnableStatusOff)
+
+	_, err := f.svc.Login(context.Background(),
+		dto.LoginRequest{Username: "gone", Password: "right"})
+	// 停用不是"密码错"：文案要能让人找管理员，而不是反复试密码。
+	wantCode(t, err, errs.CodeForbidden, "停用账号")
+}
+
+// 登录签发的令牌要能验回身份；登出之后同一个令牌立刻失效（会话落缓存的意义）。
+func TestLoginVerifyLogout(t *testing.T) {
+	f := newAuthFixture(t, 5)
+	user := f.addUser(t, "alice", "right", model.RoleManager, model.EnableStatusOn)
+	ctx := context.Background()
+
+	res, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"})
+	if err != nil {
+		t.Fatalf("登录失败: %v", err)
+	}
+	if res.Token == "" || res.ExpiresAt == 0 {
+		t.Fatalf("登录应返回令牌与过期时间: %+v", res)
+	}
+	if res.User == nil || res.User.ID != user.ID || res.User.Role != model.RoleManager {
+		t.Errorf("返回的身份不对: %+v", res.User)
+	}
+
+	principal, err := f.svc.Verify(ctx, res.Token)
+	if err != nil {
+		t.Fatalf("验令牌失败: %v", err)
+	}
+	if principal.UserID != user.ID || principal.Username != "alice" {
+		t.Errorf("解出的身份不对: %+v", principal)
+	}
+
+	if err := f.svc.Logout(ctx, principal.TokenID); err != nil {
+		t.Fatalf("登出失败: %v", err)
+	}
+	_, err = f.svc.Verify(ctx, res.Token)
+	wantCode(t, err, errs.CodeUnauthorized, "登出后令牌应失效")
+}
+
+func TestVerifyRejectsBadTokens(t *testing.T) {
+	f := newAuthFixture(t, 5)
+	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
+	ctx := context.Background()
+
+	t.Run("空令牌", func(t *testing.T) {
+		_, err := f.svc.Verify(ctx, "")
+		wantCode(t, err, errs.CodeUnauthorized, "空令牌")
+	})
+
+	t.Run("签名被改", func(t *testing.T) {
+		res, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"})
+		if err != nil {
+			t.Fatalf("登录失败: %v", err)
+		}
+		tampered := res.Token[:len(res.Token)-2] + "xy"
+		_, err = f.svc.Verify(ctx, tampered)
+		wantCode(t, err, errs.CodeUnauthorized, "签名被改")
+	})
+}
+
+func TestLoginClearsFailCountAfterSuccess(t *testing.T) {
+	f := newAuthFixture(t, 3)
+	f.addUser(t, "alice", "right", model.RoleStaff, model.EnableStatusOn)
+	ctx := context.Background()
+
+	// 两次失败后成功：计数应清零，再失败两次也还不该被锁。
+	for i := 0; i < 2; i++ {
+		if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "bad"}); err == nil {
+			t.Fatal("错误密码不该登录成功")
+		}
+	}
+	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
+		t.Fatalf("正确密码应当成功: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		_, _ = f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "bad"})
+	}
+	if _, err := f.svc.Login(ctx, dto.LoginRequest{Username: "alice", Password: "right"}); err != nil {
+		t.Errorf("成功登录后计数应清零，两次失败不该导致锁定: %v", err)
 	}
 }
