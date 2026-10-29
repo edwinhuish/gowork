@@ -2,7 +2,7 @@ import { useSelect } from '@refinedev/core'
 import { Form, Input, Select } from 'antd'
 
 import { ACTIVITY_TYPE_OPTIONS } from '@/constants/catalog'
-import type { Contact, Partner } from '@/types'
+import type { Contact, Opportunity, Partner } from '@/types'
 
 /** 今天的 YYYY-MM-DD。跟进九成是"记今天发生的"，给个默认值少三次点击。 */
 function today(): string {
@@ -30,6 +30,16 @@ export function ActivityFormFields({ partnerReadOnly = false }: { partnerReadOnl
   const { options: contactOptions, query: contactQuery } = useSelect<Contact>({
     resource: 'contacts',
     optionLabel: (item) => (item.title ? `${item.name}（${item.title}）` : item.name),
+    optionValue: 'id',
+    pagination: { mode: 'off' },
+    filters: partnerId ? [{ field: 'partner_id', operator: 'eq', value: partnerId }] : [],
+  })
+
+  // 商机跟着客户走（T-62）：先选往来单位，商机下拉只列这一家的。
+  // 与联系人同一套路，理由也一样——不让用户先撞一次"商机不属于该客户"。
+  const { options: oppOptions, query: oppQuery } = useSelect<Opportunity>({
+    resource: 'opportunities',
+    optionLabel: (item) => item.subject,
     optionValue: 'id',
     pagination: { mode: 'off' },
     filters: partnerId ? [{ field: 'partner_id', operator: 'eq', value: partnerId }] : [],
@@ -116,6 +126,27 @@ export function ActivityFormFields({ partnerReadOnly = false }: { partnerReadOnl
 
       <Form.Item name="content" label="内容" className="form-item-full">
         <Input.TextArea rows={4} showCount maxLength={2000} placeholder="客户说了什么、答应什么、下一步做什么" />
+      </Form.Item>
+      {/* 商机可留空：例行回访不属于任何一次询价，硬要求挂商机只会逼人随便选一个。
+          但挂上之后，商机详情里就能看到"这次询价谈了几轮"。 */}
+      <Form.Item
+        name="opportunity_id"
+        label="关联商机"
+        extra="留空表示这条跟进不属于任何一次询价"
+      >
+        <Select
+          placeholder={partnerId ? '可不选' : '先选往来单位'}
+          allowClear
+          showSearch
+          disabled={!partnerId}
+          options={oppOptions}
+          loading={oppQuery.isLoading}
+          filterOption={(input, option) =>
+            String(option?.label ?? '')
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
+        />
       </Form.Item>
     </>
   )
