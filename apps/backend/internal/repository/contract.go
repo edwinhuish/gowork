@@ -48,14 +48,21 @@ func (f ContractFilter) scopes() []Scope {
 }
 
 type ContractRepository interface {
-	// CreateWithTerms 在一个事务里写表头与付款条款。
+	// CreateWithTerms 在一个事务里写表头、付款分期与条款快照。
 	//
-	// 拆成两次调用会留下"有合同没有分期"的半张单，而分期合计等于总额
+	// 拆成多次调用会留下"有合同没有分期/没有条款"的半张单，而分期合计等于总额
 	// 正是这份单据的验收条件——半张单看起来像条款被谁删了。
-	CreateWithTerms(ctx context.Context, c *model.Contract, terms []model.ContractTerm) error
-	// UpdateWithTerms 整体替换条款：旧行软删、新行插入，同一事务。
-	// 条款行没有稳定身份（用户删一行加一行后谁是谁只能靠猜），不做增量更新。
-	UpdateWithTerms(ctx context.Context, id uint, fields map[string]any, terms []model.ContractTerm) error
+	// clauses 是**快照**（见 model.ContractClause），由 service 从模板抄好再传进来。
+	CreateWithTerms(
+		ctx context.Context, c *model.Contract,
+		terms []model.ContractTerm, clauses []model.ContractClause,
+	) error
+	// UpdateWithTerms 整体替换分期与条款：旧行软删、新行插入，同一事务。
+	// 两类行都没有稳定身份（用户删一行加一行后谁是谁只能靠猜），不做增量更新。
+	UpdateWithTerms(
+		ctx context.Context, id uint, fields map[string]any,
+		terms []model.ContractTerm, clauses []model.ContractClause,
+	) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Contract, error)
@@ -77,29 +84,40 @@ func NewContractRepository(db *gorm.DB) ContractRepository {
 }
 
 func (r *contractRepo) CreateWithTerms(
-	ctx context.Context, c *model.Contract, terms []model.ContractTerm,
+	ctx context.Context, c *model.Contract,
+	terms []model.ContractTerm, clauses []model.ContractClause,
 ) error {
 	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(c).Error; err != nil {
 			return err
 		}
-		if len(terms) == 0 {
-			return nil
+		if len(terms) > 0 {
+			for i := range terms {
+				terms[i].ContractID = c.ID
+			}
+			if err := tx.Create(&terms).Error; err != nil {
+				return err
+			}
 		}
-		for i := range terms {
-			terms[i].ContractID = c.ID
+		if len(clauses) > 0 {
+			for i := range clauses {
+				clauses[i].ContractID = c.ID
+			}
+			return tx.Create(&clauses).Error
 		}
-		return tx.Create(&terms).Error
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("创建合同: %w", err)
 	}
 	c.Terms = terms
+	c.Clauses = clauses
 	return nil
 }
 
 func (r *contractRepo) UpdateWithTerms(
-	ctx context.Context, id uint, fields map[string]any, terms []model.ContractTerm,
+	ctx context.Context, id uint, fields map[string]any,
+	terms []model.ContractTerm, clauses []model.ContractClause,
 ) error {
 	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
 		q := tx.Model(&model.Contract{}).Where("id = ?", id)
@@ -118,17 +136,28 @@ func (r *contractRepo) UpdateWithTerms(
 			}
 			return errs.ErrNotFound
 		}
-		// 软删旧条款：合同的旧版本要能追溯，硬删会把签过的那份分期抹掉。
+		// 软删旧分期与旧条款：合同的旧版本要能追溯，硬删会把签过的那份抹掉。
 		if err := tx.Where("contract_id = ?", id).Delete(&model.ContractTerm{}).Error; err != nil {
 			return err
 		}
-		if len(terms) == 0 {
-			return nil
+		if err := tx.Where("contract_id = ?", id).Delete(&model.ContractClause{}).Error; err != nil {
+			return err
 		}
-		for i := range terms {
-			terms[i].ContractID = id
+		if len(terms) > 0 {
+			for i := range terms {
+				terms[i].ContractID = id
+			}
+			if err := tx.Create(&terms).Error; err != nil {
+				return err
+			}
 		}
-		return tx.Create(&terms).Error
+		if len(clauses) > 0 {
+			for i := range clauses {
+				clauses[i].ContractID = id
+			}
+			return tx.Create(&clauses).Error
+		}
+		return nil
 	})
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
@@ -151,8 +180,10 @@ func (r *contractRepo) FindByID(ctx context.Context, id uint) (*model.Contract, 
 	var m model.Contract
 	err := r.conn(ctx).
 		Preload("Partner").
-		// 条款按支付顺序排，而不是按 id：先订金后尾款，插入顺序不保证就是付款顺序。
+		// 分期按支付顺序排，而不是按 id：先订金后尾款，插入顺序不保证就是付款顺序。
 		Preload("Terms", func(db *gorm.DB) *gorm.DB { return db.Order("seq ASC, id ASC") }).
+		// 条款同理：纸面上"以第 3 条为准"，顺序必须与生成时一致。
+		Preload("Clauses", func(db *gorm.DB) *gorm.DB { return db.Order("seq ASC, id ASC") }).
 		First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound

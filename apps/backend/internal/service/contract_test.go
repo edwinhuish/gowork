@@ -21,9 +21,11 @@ type contractFixture struct {
 	quotationRepo repository.QuotationRepository
 	contractRepo  repository.ContractRepository
 	currencySvc   CurrencyService
-	now           time.Time
-	customerID    uint
-	productID     uint
+	// clauseSvc 是条款模板库（T-27）：合同只存快照，模板本身走它维护。
+	clauseSvc  ClauseService
+	now        time.Time
+	customerID uint
+	productID  uint
 	// orderSeq 给每张测试订单发一个不重复的单号：doc_no 上有唯一索引，
 	// 两个子测试各造一张同号订单，第二个会死在约束上而不是死在断言上。
 	orderSeq *int
@@ -37,7 +39,10 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.ProductSource{}, &model.Quotation{}, &model.QuotationItem{},
 		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
-		&model.Contract{}, &model.ContractTerm{})
+		&model.Contract{}, &model.ContractTerm{},
+		// 条款模板与合同条款快照（T-27）：少了这两张表，生成合同时的
+		// 快照写入与 Preload("Clauses") 都会失败。
+		&model.Clause{}, &model.ContractClause{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -107,7 +112,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	)
 	contractSvc := NewContractService(
 		contractRepo, quotationRepo, orderRepo,
-		currencySvc, docNoSvc, partnerRepo,
+		currencySvc, docNoSvc, partnerRepo, repository.NewClauseRepository(db),
 		WithContractClock(clock),
 	)
 
@@ -118,6 +123,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 		quotationRepo: quotationRepo,
 		contractRepo:  contractRepo,
 		currencySvc:   currencySvc,
+		clauseSvc:     NewClauseService(repository.NewClauseRepository(db)),
 		now:           now,
 		customerID:    customer.ID,
 		productID:     product.ID,

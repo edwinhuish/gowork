@@ -85,6 +85,8 @@ func New(cfg *config.Config) (*App, error) {
 		&model.QuotationItem{},
 		&model.Contract{},
 		&model.ContractTerm{},
+		&model.ContractClause{},
+		&model.Clause{},
 		&model.DocNoRename{},
 		&model.SalesOrder{},
 		&model.SalesOrderItem{},
@@ -146,6 +148,7 @@ func New(cfg *config.Config) (*App, error) {
 	leadRepo := repository.NewLeadRepository(db)
 	quotationRepo := repository.NewQuotationRepository(db)
 	contractRepo := repository.NewContractRepository(db)
+	clauseRepo := repository.NewClauseRepository(db)
 	orderRepo := repository.NewSalesOrderRepository(db)
 	purchaseRepo := repository.NewPurchaseOrderRepository(db)
 	shipmentRepo := repository.NewShipmentRepository(db)
@@ -211,7 +214,9 @@ func New(cfg *config.Config) (*App, error) {
 	// 它要的是"那张单现在是什么状态、金额多少"，不是"能不能改"。
 	contractSvc := service.NewContractService(
 		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc, partnerRepo,
-		service.WithContractLogger(log))
+		clauseRepo, service.WithContractLogger(log))
+	// 条款模板库（T-27）：主数据，只被合同生成时读取，不被任何业务流转依赖。
+	clauseSvc := service.NewClauseService(clauseRepo, service.WithClauseLogger(log))
 
 	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
 	pdfSvc := buildPDFService(
@@ -296,6 +301,7 @@ func New(cfg *config.Config) (*App, error) {
 		Attachment:  handler.NewAttachmentHandler(attachmentSvc),
 		Audit:       handler.NewAuditHandler(auditSvc),
 		User:        handler.NewUserHandler(userSvc),
+		Clause:      handler.NewClauseHandler(clauseSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}

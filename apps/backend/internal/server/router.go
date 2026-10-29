@@ -48,6 +48,7 @@ type Handlers struct {
 	Attachment  *handler.AttachmentHandler
 	Audit       *handler.AuditHandler
 	User        *handler.UserHandler
+	Clause      *handler.ClauseHandler
 }
 
 // New 构建 gin 引擎。
@@ -262,6 +263,15 @@ func New(
 		contracts.DELETE("/:id", h.Contract.Delete)
 		contracts.PUT("/:id/status", h.Contract.UpdateStatus)
 		contracts.GET("/:id/pdf", h.PDF.Contract)
+
+		// 条款模板库（T-27）：主数据，不属于任何一份合同。
+		// 名字别与 biz_contract_term（付款分期）混了——两套东西。
+		clauses := secured.Group("/clauses")
+		clauses.GET("", h.Clause.List)
+		clauses.POST("", h.Clause.Create)
+		clauses.PUT("/:id", h.Clause.Update)
+		clauses.DELETE("/:id", h.Clause.Delete)
+		clauses.POST("/:id/restore", h.Clause.Restore)
 
 		// 销售订单：报价谈成后的出货凭证。总额只由明细汇总，状态走完整状态机。
 		orders := secured.Group("/sales-orders")

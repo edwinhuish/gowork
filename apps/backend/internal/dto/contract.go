@@ -50,6 +50,10 @@ type ContractGenerateInput struct {
 	Remark       string `json:"remark" binding:"max=255"`
 	// Terms 至少一条：没有分期的合同没法回答"客户什么时候付这笔钱"。
 	Terms []ContractTermInput `json:"terms" binding:"required,min=1,dive"`
+	// ClauseIDs 是从条款库挑的模板 id，按提交顺序排列（顺序就是合同上的条款顺序）。
+	// 只传 id 不传正文：正文由服务端从模板抄成**快照**，
+	// 前端传正文的话，改模板不会影响已生成的合同这条就没人保证了。
+	ClauseIDs []uint `json:"clause_ids"`
 }
 
 // ContractUpdateInput 是草稿上可改的字段。
@@ -64,6 +68,9 @@ type ContractUpdateInput struct {
 	DeliveryDate string              `json:"delivery_date"`
 	Remark       string              `json:"remark" binding:"max=255"`
 	Terms        []ContractTermInput `json:"terms" binding:"required,min=1,dive"`
+	// ClauseIDs 整体替换合同上的条款（同样从模板抄快照）。留空表示清空条款——
+	// 与 terms 一致：编辑保存就是"这一份现在长这样"，不做增量。
+	ClauseIDs []uint `json:"clause_ids"`
 	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
 	UpdatedAt *time.Time `json:"updated_at"`
 }

@@ -41,8 +41,11 @@ type contractService struct {
 	// partners 只用来判数据范围（T-32）：合同归属跟着客户走，
 	// 而合同的 partner_id 只在库里，服务手上没有别的办法知道这单是谁的。
 	partners repository.PartnerRepository
-	clock    func() time.Time
-	log      *slog.Logger
+	// clauseRepo 用来把条款模板抄成快照（T-27）。合同服务不依赖条款服务的
+	// 业务逻辑，只读模板正文，所以直接拿仓储。
+	clauseRepo repository.ClauseRepository
+	clock      func() time.Time
+	log        *slog.Logger
 }
 
 type ContractOption func(*contractService)
@@ -63,6 +66,7 @@ func NewContractService(
 	currencies CurrencyService,
 	docNos DocNoService,
 	partners repository.PartnerRepository,
+	clauseRepo repository.ClauseRepository,
 	opts ...ContractOption,
 ) ContractService {
 	s := &contractService{
@@ -72,6 +76,7 @@ func NewContractService(
 		currencies: currencies,
 		docNos:     docNos,
 		partners:   partners,
+		clauseRepo: clauseRepo,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -121,6 +126,11 @@ func (s *contractService) Generate(
 	if err != nil {
 		return nil, err
 	}
+	// 条款在生成时**抄成快照**：之后模板怎么改，这份合同上写的还是当时那几句话。
+	clauses, err := s.buildClauses(ctx, in.ClauseIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	// 取号排在最后：前面任何一步失败都不该消耗掉一个单号。
 	docNo, err := s.docNos.Next(ctx, contractDocType(ct))
@@ -144,7 +154,7 @@ func (s *contractService) Generate(
 		AmountBaseTotal: src.amountBase,
 		Remark:          in.Remark,
 	}
-	if err := s.contracts.CreateWithTerms(ctx, c, terms); err != nil {
+	if err := s.contracts.CreateWithTerms(ctx, c, terms, clauses); err != nil {
 		return nil, err
 	}
 
@@ -196,10 +206,15 @@ func (s *contractService) Update(
 	if err != nil {
 		return nil, err
 	}
+	// 条款整体替换（同样是快照）：草稿阶段改条款是正常的，确认之后就没得改了。
+	clauses, err := s.buildClauses(ctx, in.ClauseIDs)
+	if err != nil {
+		return nil, err
+	}
 	if in.UpdatedAt != nil {
 		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
 	}
-	if err := s.contracts.UpdateWithTerms(ctx, id, fields, terms); err != nil {
+	if err := s.contracts.UpdateWithTerms(ctx, id, fields, terms, clauses); err != nil {
 		return nil, err
 	}
 
@@ -326,6 +341,61 @@ type contractSource struct {
 }
 
 // loadSource 读来源单据并校验它此刻能不能出合同。
+// buildClauses 把选中的模板抄成合同上的条款快照。
+//
+// 抄而不是引用：模板改了、停用了、甚至删了，已经签出去的合同都写着当时那几句话。
+// 这也是"改动不影响已确认的合同"这条验收的结构性保证——不是靠校验，是靠没有引用。
+//
+// 顺序按提交顺序（不是按 id、也不是按模板的排序）：条款顺序是谈出来的，
+// "以第 3 条为准"这类话得对得上纸面。
+func (s *contractService) buildClauses(
+	ctx context.Context, ids []uint,
+) ([]model.ContractClause, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	// 去重但保序：同一模板选两次是无意义的重复，顺序则是用户排的。
+	seen := make(map[uint]struct{}, len(ids))
+	ordered := make([]uint, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ordered = append(ordered, id)
+	}
+
+	templates, err := s.clauseRepo.FindByIDs(ctx, ordered)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[uint]model.Clause, len(templates))
+	for _, t := range templates {
+		byID[t.ID] = t
+	}
+
+	out := make([]model.ContractClause, 0, len(ordered))
+	for i, id := range ordered {
+		t, ok := byID[id]
+		if !ok {
+			// 选了不存在的模板：报具体哪一条，而不是"参数错误"。
+			return nil, errs.BadRequest(fmt.Sprintf("条款模板不存在或已删除：id=%d", id))
+		}
+		if t.Status != model.EnableStatusOn {
+			return nil, errs.BadRequest("条款模板已停用，不能再用它生成合同：" + t.Code)
+		}
+		clauseID := t.ID
+		out = append(out, model.ContractClause{
+			ClauseID: &clauseID,
+			Seq:      i + 1,
+			Title:    t.Title,
+			Body:     t.Body,
+		})
+	}
+	return out, nil
+}
+
 func (s *contractService) loadSource(
 	ctx context.Context, st model.ContractSourceType, id uint,
 ) (*contractSource, error) {
