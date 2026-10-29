@@ -7,6 +7,7 @@ import type {
   Partner360,
   SalesDashboard,
   ShipmentProfit,
+  TodoReport,
 } from '@/types'
 
 export interface AgingParams {
@@ -49,6 +50,13 @@ export interface CollectionParams {
   as_of?: string
   /** 超期明细行数上限，留空 50；0 取后端上限 500。 */
   limit?: number
+}
+
+export interface TodoParams {
+  /** 每类清单的行数上限，留空 20；0 取后端上限 100。 */
+  limit?: number
+  /** 超期判断的截止日，留空取服务器当天。 */
+  as_of?: string
 }
 
 export interface Partner360Params {
@@ -94,6 +102,10 @@ export const reportApi = {
    */
   partner360: (params: Partner360Params) =>
     http.get<Partner360>(`/reports/partner-360${toQuery({ ...params })}`),
+
+  /** 待办清单：待跟进、应收待催、缺当日汇率（T-34）。 */
+  todos: (params: TodoParams = {}) =>
+    http.get<TodoReport>(`/reports/todos${toQuery({ ...params })}`),
 
   /** 销售看板：按维度汇总订单额与毛利，口径与单票毛利同源。 */
   salesDashboard: (params: SalesDashboardParams = {}) =>

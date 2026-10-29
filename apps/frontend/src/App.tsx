@@ -2,6 +2,7 @@ import {
   AccountBookOutlined,
   AlertOutlined,
   AppstoreOutlined,
+  BellOutlined,
   BarChartOutlined,
   LineChartOutlined,
   CommentOutlined,
@@ -90,6 +91,7 @@ import {
   StockDocumentShow,
 } from '@/pages/stock-documents'
 import { StockMovementCreate, StockMovementList } from '@/pages/stock-movements'
+import { TodoPage } from '@/pages/todos'
 import { SalesDashboardPage } from '@/pages/sales-dashboard'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
@@ -121,6 +123,12 @@ export default function App() {
                 name: 'dashboard',
                 list: '/',
                 meta: { label: '概览', icon: <DashboardOutlined /> },
+              },
+              {
+                // 待办：待跟进、应收待催、缺当日汇率。三类各有明确口径，页面上写清。
+                name: 'todos',
+                list: '/todos',
+                meta: { label: '待办', icon: <BellOutlined /> },
               },
               {
                 name: 'products',
@@ -333,6 +341,10 @@ export default function App() {
               >
                 <Route element={<AppLayout />}>
                   <Route index element={<DashboardPage />} />
+
+                  <Route path="todos">
+                    <Route index element={<TodoPage />} />
+                  </Route>
 
                   <Route path="products">
                     <Route index element={<ProductList />} />

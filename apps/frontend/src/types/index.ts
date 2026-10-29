@@ -793,6 +793,48 @@ export interface CollectionReport {
   truncated: boolean
 }
 
+/** 一条该跟进的记录（T-34）。到期当天不算，所以 overdue_days 从 1 起。 */
+export interface TodoFollowup {
+  id: number
+  partner_id: number
+  partner_name: string
+  subject: string
+  next_follow_at: string
+  overdue_days: number
+}
+
+/** 一张该催的应收。到期当天就算，所以 overdue_days 可能是 0。 */
+export interface TodoReceivable {
+  id: number
+  doc_no: string
+  partner_id: number
+  partner_name: string
+  due_date: string
+  outstanding_base: string
+  overdue_days: number
+}
+
+/** 一个今天没有汇率的外币。 */
+export interface TodoCurrency {
+  code: string
+  name: string
+}
+
+/**
+ * 待办清单。
+ *
+ * 每类都给「全量条数 + 前 N 条」：条数回答"还剩多少事没做完"，
+ * 清单回答"先做哪几件"。
+ */
+export interface TodoReport {
+  as_of: string
+  followups: TodoFollowup[]
+  followup_count: number
+  receivables: TodoReceivable[]
+  receivable_count: number
+  missing_rates: TodoCurrency[]
+}
+
 /** 客户 360 的抬头数字，全部本币。 */
 export interface Partner360Totals {
   order_count: number
