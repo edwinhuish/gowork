@@ -48,6 +48,8 @@ type PaymentRepository interface {
 	Create(ctx context.Context, p *model.Payment) error
 	// Delete 在一个事务里删除收付款单与核销行，并把目标的已核销金额减回去。
 	Delete(ctx context.Context, id uint) error
+	// RemoveAllocation 撤销一条核销行（T-52 的第一块）。
+	RemoveAllocation(ctx context.Context, paymentID, allocationID uint) error
 	// Update 只改不涉及金额的字段（日期、方式、水单号、备注）。
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	FindByID(ctx context.Context, id uint) (*model.Payment, error)
@@ -106,6 +108,33 @@ func (r *paymentRepo) Delete(ctx context.Context, id uint) error {
 		}
 		if err := tx.Delete(&model.Payment{}, id).Error; err != nil {
 			return fmt.Errorf("删除收付款单 id=%d: %w", id, err)
+		}
+		return nil
+	})
+}
+
+// RemoveAllocation 撤销单条核销（T-52）。
+//
+// 在此之前撤销核销只有一条路：删掉整张收付款单。于是一笔核销录错，
+// 同一张单上其它正确的核销也一起消失——审计里只剩一条"删除"。
+//
+// 只反转这一行、只删这一行：收付款单本身不动，金额也不必回写——
+// 单子上的已核销总额是查询时现算的，没有一份会过期的冗余。
+func (r *paymentRepo) RemoveAllocation(ctx context.Context, paymentID, allocationID uint) error {
+	return r.conn(ctx).Transaction(func(tx *gorm.DB) error {
+		var a model.PaymentAllocation
+		err := tx.Where("id = ? AND payment_id = ?", allocationID, paymentID).First(&a).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("查询核销行 id=%d: %w", allocationID, err)
+		}
+		if err := reverseAllocation(tx, a); err != nil {
+			return err
+		}
+		if err := tx.Delete(&model.PaymentAllocation{}, a.ID).Error; err != nil {
+			return fmt.Errorf("删除核销行 id=%d: %w", a.ID, err)
 		}
 		return nil
 	})

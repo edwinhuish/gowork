@@ -3371,6 +3371,42 @@
         }
       }
     },
+    "/api/v1/payments/{id}/allocations/{allocationId}": {
+      "delete": {
+        "operationId": "DELETE_handler_PaymentHandler_RemoveAllocation-fm",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/api/v1/product-codes": {
       "get": {
         "operationId": "GET_handler_ProductCodeHandler_List-fm",

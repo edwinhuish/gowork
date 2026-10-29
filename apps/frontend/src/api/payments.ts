@@ -49,6 +49,15 @@ export interface PaymentUpdateInput {
 }
 
 export const paymentApi = {
+  /**
+   * 撤销单条核销（T-52）。
+   *
+   * 只回滚这一行：目标单据的已核销额减回去，收付款单本身与其它核销行都不动。
+   * 在此之前撤销核销只能删整张单——一笔录错，同单上其它正确的核销也一起消失。
+   */
+  removeAllocation: (paymentId: number, allocationId: number) =>
+    http.delete<Payment>(`/payments/${paymentId}/allocations/${allocationId}`),
+
   create: (body: PaymentInput) => http.post<Payment>('/payments', body),
   update: (id: number, body: PaymentUpdateInput) => http.put<Payment>(`/payments/${id}`, body),
   remove: (id: number) => http.delete<{ deleted: boolean }>(`/payments/${id}`),

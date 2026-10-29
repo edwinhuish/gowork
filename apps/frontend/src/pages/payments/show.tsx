@@ -1,7 +1,8 @@
 import { useShow } from '@refinedev/core'
 import { Show } from '@refinedev/antd'
-import { Descriptions, Table, Tag, Typography } from 'antd'
+import { Button, Descriptions, Popconfirm, Table, Tag, Typography, message } from 'antd'
 
+import { paymentApi } from '@/api/payments'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
   paymentDirectionColor,
@@ -24,6 +25,18 @@ export function PaymentShow() {
 
   // 金额是定点字符串：下面的合计只用于显示，服务端按末位精确算。
   const allocations = result?.allocations ?? []
+
+  // 撤销核销后重取详情：这笔钱的核销行与目标单据的已核销额都变了。
+  const removeAllocation = async (allocationId: number) => {
+    if (!result) return
+    try {
+      await paymentApi.removeAllocation(result.id, allocationId)
+      message.success('已撤销这条核销')
+      await query.refetch()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '撤销失败')
+    }
+  }
   const allocated = allocations.reduce((sum, a) => sum + Number(a.amount), 0)
   const outstanding = Number(result?.amount ?? 0) - allocated
 
@@ -147,6 +160,24 @@ export function PaymentShow() {
             width: 180,
             align: 'right',
             render: (value: string) => <Money value={value} />,
+          },
+          {
+            // 撤销一条核销（T-52）：不删整张单，只回滚这一行。
+            title: '操作',
+            width: 90,
+            render: (_: unknown, record: PaymentAllocation) => (
+              <Popconfirm
+                title="撤销这条核销？"
+                description="只回滚这一行：目标单据的已核销额减回去，收付款单本身不变。"
+                okText="撤销"
+                cancelText="返回"
+                onConfirm={() => void removeAllocation(record.id)}
+              >
+                <Button size="small" type="link" danger>
+                  撤销
+                </Button>
+              </Popconfirm>
+            ),
           },
         ]}
       />

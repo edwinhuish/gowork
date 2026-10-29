@@ -28,6 +28,8 @@ type PaymentService interface {
 	Create(ctx context.Context, in dto.PaymentInput) (*model.Payment, error)
 	Update(ctx context.Context, id uint, in dto.PaymentUpdateInput) (*model.Payment, error)
 	Delete(ctx context.Context, id uint) error
+	// RemoveAllocation 撤销单条核销：只动这一行，整张收付款单保持不变。
+	RemoveAllocation(ctx context.Context, paymentID, allocationID uint) (*model.Payment, error)
 	Get(ctx context.Context, id uint) (*model.Payment, error)
 	List(ctx context.Context, q dto.PaymentQuery) (*dto.PageResult[model.Payment], error)
 }
@@ -241,6 +243,20 @@ func (s *paymentService) Update(
 // 这就是"核销不是冲销"的另一面——撤销是删除，不是再记一笔负数。
 func (s *paymentService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
+}
+
+// RemoveAllocation 撤销一条核销行（T-52）。
+//
+// 不删整张单：一笔核销录错连累同单上其它正确的核销，是这条业务里最难解释的
+// 一种损失——客户对账时看到的是"那笔款子没收到过"。
+func (s *paymentService) RemoveAllocation(
+	ctx context.Context, paymentID, allocationID uint,
+) (*model.Payment, error) {
+	if err := s.repo.RemoveAllocation(ctx, paymentID, allocationID); err != nil {
+		return nil, err
+	}
+	s.log.Info("撤销核销", "payment_id", paymentID, "allocation_id", allocationID)
+	return s.Get(ctx, paymentID)
 }
 
 func (s *paymentService) Get(ctx context.Context, id uint) (*model.Payment, error) {

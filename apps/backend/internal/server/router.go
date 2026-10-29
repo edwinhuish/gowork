@@ -428,6 +428,8 @@ func New(
 		payments.GET("/:id", h.Payment.Get)
 		payments.PUT("/:id", h.Payment.Update)
 		payments.DELETE("/:id", h.Payment.Delete)
+		// 撤销单条核销（T-52）：一笔核销录错，不该逼人删掉整张收付款单。
+		payments.DELETE("/:id/allocations/:allocationId", h.Payment.RemoveAllocation)
 
 		// 报表：跨表聚合，统一走 /reports，不散成各资源后面的 -summary。
 		// 账龄按主体给出未核销金额的 30/60/90+ 分桶（T-22）。
