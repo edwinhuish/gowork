@@ -714,3 +714,160 @@ func TestE2EPdf(t *testing.T) {
 		t.Errorf("打印不可用时应提示字体未配置，实际：%d %q", res.StatusCode, msg)
 	}
 }
+
+// 收款与核销：钱到账之后，应收的未结清额与账龄要跟着变。
+//
+// 这是"钱"的另一半——上一轮的主链验的是"货出去、毛利算对"，
+// 这一段验的是"钱进来、应收销掉"。两者的共同点是：每一步都返回 200，
+// 而数字错在哪一步只能靠对账发现。
+func TestE2EPaymentAllocation(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	customerID := firstID(t, srv, token, "/api/v1/partners?role=1&page_size=1")
+	productID := firstID(t, srv, token, "/api/v1/products?page_size=1")
+	supplierID := firstID(t, srv, token, "/api/v1/partners?role=2&page_size=1")
+
+	// 先凑一张已确认的销售订单：应收的来源只能是销售订单。
+	res := call(t, srv, http.MethodPost, "/api/v1/product-sources", token,
+		[]byte(fmt.Sprintf(`{"product_id":%d,"partner_id":%d,"purchase_price":"60","moq":1,"delivery_days":7}`,
+			productID, supplierID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建货源失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost, "/api/v1/quotations", token,
+		[]byte(fmt.Sprintf(`{"partner_id":%d,"trade_term":"FOB","currency_code":"USD",
+			"valid_until":"2026-12-31","items":[{"product_id":%d,"qty":"10","unit_price":"100"}]}`,
+			customerID, productID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建报价失败: %d %s", res.StatusCode, msg)
+	}
+	quotationID := idOf(t, res)
+
+	res = call(t, srv, http.MethodPut,
+		fmt.Sprintf("/api/v1/quotations/%d/status", quotationID), token, []byte(`{"status":20}`))
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("确认报价失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost,
+		fmt.Sprintf("/api/v1/quotations/%d/convert", quotationID), token,
+		[]byte(`{"order_date":"2026-10-01"}`))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("转订单失败: %d %s", res.StatusCode, msg)
+	}
+	orderID := idOf(t, res)
+
+	res = call(t, srv, http.MethodPut,
+		fmt.Sprintf("/api/v1/sales-orders/%d/status", orderID), token, []byte(`{"status":20}`))
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("确认订单失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	// 开一张应收：金额留 0 = 把来源的未开票余额全开出来（1000 USD）。
+	res = call(t, srv, http.MethodPost, "/api/v1/receivables", token,
+		[]byte(fmt.Sprintf(`{"source_type":10,"source_id":%d,"due_date":"2026-10-20"}`, orderID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("开应收失败: %d %s", res.StatusCode, msg)
+	}
+	receivableID := idOf(t, res)
+
+	receivable := func() (amount, settled string) {
+		t.Helper()
+		res := call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/v1/receivables/%d", receivableID), token, nil)
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("查应收失败: %d", res.StatusCode)
+		}
+		_, _, data := decodeEnvelope(t, res)
+		var m struct {
+			Amount        string `json:"amount"`
+			SettledAmount string `json:"settled_amount"`
+		}
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Fatalf("应收不是预期格式: %s", data)
+		}
+		return m.Amount, m.SettledAmount
+	}
+
+	amount, settled := receivable()
+	if !sameAmount(amount, "1000") || !sameAmount(settled, "0") {
+		t.Fatalf("应收应为 1000 且未核销，实际 %s / %s", amount, settled)
+	}
+
+	t.Run("收款 300 核销到这张应收", func(t *testing.T) {
+		body := fmt.Sprintf(`{
+			"direction": 10, "partner_id": %d, "pay_date": "2026-10-29",
+			"currency_code": "USD", "amount": "300", "method": "TT",
+			"allocations": [{"target_type": 10, "target_id": %d, "amount": "300"}]
+		}`, customerID, receivableID)
+		res := call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("收款失败: %d %s", res.StatusCode, msg)
+		}
+		decodeEnvelope(t, res)
+
+		_, settled := receivable()
+		if !sameAmount(settled, "300") {
+			t.Errorf("核销后已收应为 300，实际 %s", settled)
+		}
+	})
+
+	t.Run("超额核销被拒", func(t *testing.T) {
+		// 只剩 700 可核销，收 800 等于替客户多记了一笔回款。
+		body := fmt.Sprintf(`{
+			"direction": 10, "partner_id": %d, "pay_date": "2026-10-29",
+			"currency_code": "USD", "amount": "800", "method": "TT",
+			"allocations": [{"target_type": 10, "target_id": %d, "amount": "800"}]
+		}`, customerID, receivableID)
+		res := call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {
+			t.Fatal("超额核销不该成功")
+		}
+		if _, settled := receivable(); !sameAmount(settled, "300") {
+			t.Errorf("失败之后不该改已收金额，实际 %s", settled)
+		}
+	})
+
+	// 收款要折本币，所以必须有**那天**的汇率。这条规则写在服务层，
+	// 而"待办"页的"缺当日汇率"提醒正是为它服务的——这里把两头连起来验一次。
+	t.Run("没有当日汇率不能收款", func(t *testing.T) {
+		body := fmt.Sprintf(`{
+			"direction": 10, "partner_id": %d, "pay_date": "2026-06-01",
+			"currency_code": "USD", "amount": "100", "method": "TT"
+		}`, customerID)
+		res := call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {
+			t.Fatal("缺汇率时不该收款成功")
+		}
+		if _, msg, _ := decodeEnvelope(t, res); !strings.Contains(msg, "汇率") {
+			t.Errorf("提示应指出缺汇率，实际 %q", msg)
+		}
+	})
+
+	t.Run("回款报表认这笔钱", func(t *testing.T) {
+		res := call(t, srv, http.MethodGet,
+			"/api/v1/reports/collection?direction=10&from=2026-10-01&to=2026-10-31", token, nil)
+		if res.StatusCode != http.StatusOK {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("取回款报表失败: %d %s", res.StatusCode, msg)
+		}
+		_, _, data := decodeEnvelope(t, res)
+		if !bytes.Contains(data, []byte(`"received_base"`)) {
+			t.Errorf("回款报表缺少 received_base: %s", data)
+		}
+	})
+}
