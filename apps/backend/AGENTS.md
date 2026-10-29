@@ -512,6 +512,7 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
+| 合并主体之后，某张单据的客户变成空白 | 新加的外键没进 `repository/partnerRefTables` | 任何指向 `md_partner` 的外键都要在 `partnerRefTables` 与 `service/partner_merge_test.go` 的 `partnerRefTablesForTest` 各补一行；后者故意不引用前者，就是为了独立兜底 |
 | 盘点单的差异跟心里算的不一样 | 账面数取的是**建单时**的库存，而不是确认时的 | `resolvePosting` 里现查 `CurrentQty`；盘点单搁了半天，中途别的单据动过货 |
 | 确认了入库单，库存没变 | 单据与流水没在同一个事务里，或确认时漏了 `addToSnapshot` | 走 `StockDocumentRepository.Post`，它是「状态 + 账面 + 流水 + 快照」的唯一入口 |
 | 入库之后库存列表里看不到那个产品 | 快照行被软删了，upsert 撞唯一索引更新到那条已删行上 | 快照永不软删：重算时写 `qty=0` 保留行（`ReplaceSnapshot` 的注释说了原因） |

@@ -192,6 +192,8 @@ api/client.ts
 | `pages/stock-documents/` | 出入库单（列表 / 新建 / 编辑 / 详情 + 确认） | 类型切换会换往来单位的下拉源（供应商 / 客户）；盘点明细填实盘数，账面由后端确认时取 |
 | `pages/contracts/` | 合同（PI / 销售合同）+ `terms-editor.tsx` 付款分期 | 新建页只能"从来源单据生成"：选了来源后用它的总额预填一期全额；金额与汇率没有输入框，改金额请改来源单据 |
 | `pages/orders/change-modal.tsx` | 已确认订单的变更（改量 / 改价 / 改交期 + 必填原因），详情页另有变更历史卡片 | 只提交真的变了的行；交期没变就**不带** `delivery_date`（字段省略 = 不动它，空串 = 清掉）；不能增删明细行，要加减货请作废重下 |
+| `components/partner-duplicate-hint.tsx` | 客户 / 供应商 / 货代三个表单的「可能已存在同一家」提示 | 挂在 `form-fields` 里、四个参与查重的字段之后；防抖 500ms 调 `/partner-duplicates/candidates`；**只提示不阻断**，编辑时靠 `useWatch('id')` 自动排除自身；失败静默，编码唯一索引仍兜底 |
+| `components/partner-merge-modal.tsx` | 主体详情页的「合并到其他主体」 | 方向固定为「当前这条被并走」，即接口的路径 id 是选中的那条、`source_id` 是当前这条——两个 id 是换位的；三道闸（说明、勾选确认、成功后跳到留下的那条）不要省，合并不逆 |
 
 ### 一个主数据模块的标准四件套
 
