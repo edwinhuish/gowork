@@ -191,6 +191,9 @@ func (s *contractService) Update(
 	if err != nil {
 		return nil, err
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.contracts.UpdateWithTerms(ctx, id, fields, terms); err != nil {
 		return nil, err
 	}

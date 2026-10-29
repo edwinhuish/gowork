@@ -81,11 +81,20 @@ func (r *purchaseOrderRepo) UpdateWithItems(
 	ctx context.Context, id uint, fields map[string]any, items []model.PurchaseOrderItem,
 ) error {
 	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&model.PurchaseOrder{}).Where("id = ?", id).Updates(fields)
+		q := tx.Model(&model.PurchaseOrder{}).Where("id = ?", id)
+		// 与 Base.UpdateFields 同一套乐观锁：明细整体替换之后无从恢复。
+		expected, hasLock := takeOptimisticLock(fields)
+		if hasLock {
+			q = q.Where("updated_at = ?", expected)
+		}
+		res := q.Updates(fields)
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
+			if hasLock {
+				return errs.ErrConflict.WithMsg("这条记录已被他人修改，请刷新后重试")
+			}
 			return errs.ErrNotFound
 		}
 		if err := tx.Where("purchase_order_id = ?", id).

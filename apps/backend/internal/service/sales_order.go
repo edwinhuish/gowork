@@ -192,6 +192,9 @@ func (s *salesOrderService) Update(
 		"amount_base_total": totals.AmountBase,
 		"remark":            terms.Remark,
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.orders.UpdateWithItems(ctx, id, fields, items); err != nil {
 		return nil, err
 	}

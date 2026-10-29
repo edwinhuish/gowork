@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // PartnerRoleInput 是角色集合的可选入参：1 客户 / 2 供应商 / 3 两者。
 //
@@ -51,4 +55,6 @@ type PartnerInput struct {
 	CreditDays       *int           `json:"credit_days"`
 	CreditLimit      *money.Decimal `json:"credit_limit"`
 	CurrencyCode     *string        `json:"currency_code"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }

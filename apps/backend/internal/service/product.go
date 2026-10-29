@@ -162,6 +162,9 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		"status": status,
 		"remark": in.Remark,
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
 	}

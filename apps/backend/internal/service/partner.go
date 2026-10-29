@@ -206,6 +206,9 @@ func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInpu
 		fields["entity_type"] = entityType
 	}
 
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
 		return nil, err
 	}

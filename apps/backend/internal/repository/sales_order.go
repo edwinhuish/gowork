@@ -85,11 +85,20 @@ func (r *salesOrderRepo) UpdateWithItems(
 	ctx context.Context, id uint, fields map[string]any, items []model.SalesOrderItem,
 ) error {
 	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&model.SalesOrder{}).Where("id = ?", id).Updates(fields)
+		q := tx.Model(&model.SalesOrder{}).Where("id = ?", id)
+		// 与 Base.UpdateFields 同一套乐观锁：明细整体替换之后无从恢复。
+		expected, hasLock := takeOptimisticLock(fields)
+		if hasLock {
+			q = q.Where("updated_at = ?", expected)
+		}
+		res := q.Updates(fields)
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
+			if hasLock {
+				return errs.ErrConflict.WithMsg("这条记录已被他人修改，请刷新后重试")
+			}
 			return errs.ErrNotFound
 		}
 		// 明细整体替换：行没有稳定身份，按 id 做增量更新会张冠李戴。

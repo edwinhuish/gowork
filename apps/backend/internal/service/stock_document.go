@@ -179,6 +179,9 @@ func (s *stockDocumentService) Update(
 		"source_doc_no": strings.TrimSpace(in.SourceDocNo),
 		"remark":        strings.TrimSpace(in.Remark),
 	}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.docs.UpdateWithItems(ctx, id, fields, items); err != nil {
 		return nil, err
 	}

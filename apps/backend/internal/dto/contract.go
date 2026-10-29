@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // ContractQuery 是合同列表的查询条件。
 //
@@ -60,6 +64,8 @@ type ContractUpdateInput struct {
 	DeliveryDate string              `json:"delivery_date"`
 	Remark       string              `json:"remark" binding:"max=255"`
 	Terms        []ContractTermInput `json:"terms" binding:"required,min=1,dive"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // ContractStatusInput 只接受合同真正会走到的两个状态：已确认（20）与已取消（90）。

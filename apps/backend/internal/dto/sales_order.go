@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // SalesOrderQuery 是销售订单列表的查询条件。
 type SalesOrderQuery struct {
@@ -34,6 +38,8 @@ type SalesOrderInput struct {
 	DeliveryDate string                `json:"delivery_date"`
 	Remark       string                `json:"remark" binding:"max=255"`
 	Items        []SalesOrderItemInput `json:"items" binding:"required,min=1,dive"`
+	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // SalesOrderStatusInput 走完整的单据状态机，具体能不能跳由 service 判定。
