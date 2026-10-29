@@ -319,7 +319,7 @@ func New(cfg *config.Config) (*App, error) {
 		repository.NewCreditNoteRepository(db), receivableRepo, docNoSvc,
 		service.WithCreditNoteLogger(log))
 	// 报表只读不写，也不缓存：数字要能和明细逐笔对上。
-	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log))
+	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log), service.WithReportCurrencies(currencySvc))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
 	// 审计服务只被中间件写、被一个只读接口读：业务代码不调用它，
 	// 所以它不挂在任何业务服务上。

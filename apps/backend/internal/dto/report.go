@@ -492,3 +492,36 @@ type SalesDashboard struct {
 	// Truncated 表示 Rows 被 limit 截断过。
 	Truncated bool `json:"truncated"`
 }
+
+// RevaluationQuery 是期末重估的入参。
+type RevaluationQuery struct {
+	// Direction 10=应收 20=应付，留空按应收（与账龄一致）。
+	Direction *int8  `form:"direction"`
+	AsOf      string `form:"as_of" binding:"max=10"`
+}
+
+// RevaluationRow 是一张未核销外币单据的重估结果。
+type RevaluationRow struct {
+	DocNo        string        `json:"doc_no"`
+	PartnerName  string        `json:"partner_name"`
+	CurrencyCode string        `json:"currency_code"`
+	Rate         money.Decimal `json:"rate"`
+	// Outstanding 是未核销金额（原币）；CarryingBase 是它现在在账上的本币数，
+	// 按开单时的历史汇率算；RevaluedBase 是按重估日汇率算的数。
+	Outstanding  money.Decimal `json:"outstanding"`
+	CarryingBase money.Decimal `json:"carrying_base"`
+	RevaluedBase money.Decimal `json:"revalued_base"`
+	// Difference 是重估差额（正数表示这笔资产/负债变多了）。
+	Difference money.Decimal `json:"difference"`
+}
+
+// RevaluationReport 是期末重估报表。不落库：它是"按今天的汇率看账面值多少"，
+// 明天汇率一变结论就变，存下来只会有一堆过期的快照。
+type RevaluationReport struct {
+	AsOf            string           `json:"as_of"`
+	BaseCode        string           `json:"base_code"`
+	Direction       int8             `json:"direction"`
+	RowCount        int64            `json:"row_count"`
+	TotalDifference money.Decimal    `json:"total_difference"`
+	Rows            []RevaluationRow `json:"rows"`
+}

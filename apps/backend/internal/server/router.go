@@ -451,6 +451,8 @@ func New(
 		reports := secured.Group("/reports")
 		// 客户对账单（T-53）：期初 / 本期发生 / 本期收款 / 期末，逐笔可追到单据。
 		reports.GET("/receivable-statement", h.Statement.Receivable)
+		// 期末重估（T-60）：未核销外币余额按指定日汇率重算，差额单列。
+		reports.GET("/revaluation", h.Report.Revaluation)
 		reports.GET("/aging", h.Report.Aging)
 		// 单票毛利：收入 − 采购成本 − 运杂费（本币）。?shipment_id= 取单票，供详情页面板用。
 		reports.GET("/shipment-profits", h.Report.ShipmentProfits)

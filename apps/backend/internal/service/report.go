@@ -37,6 +37,9 @@ type ReportService interface {
 	Partner360(ctx context.Context, q dto.Partner360Query) (*dto.Partner360, error)
 	// Todos 汇总今天该处理的事：待跟进、应收待催、缺当日汇率（T-34）。
 	Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoReport, error)
+	// Revaluation 是期末重估（T-60）：未核销外币余额按指定日汇率重算。
+	Revaluation(ctx context.Context, q dto.RevaluationQuery) (*dto.RevaluationReport, error)
+
 	// ProductProfit 是某个产品逐票的获利情况（T-31 的下钻）。
 	ProductProfit(
 		ctx context.Context, q dto.ProductProfitQuery,
@@ -44,12 +47,20 @@ type ReportService interface {
 }
 
 type reportService struct {
-	repo  repository.ReportRepository
-	clock func() time.Time
-	log   *slog.Logger
+	repo repository.ReportRepository
+	// currencies 供期末重估取指定日汇率（T-60）。为 nil 时该报表返回"未接装配"，
+	// 其余报表不受影响。
+	currencies CurrencyService
+	clock      func() time.Time
+	log        *slog.Logger
 }
 
 type ReportOption func(*reportService)
+
+// WithReportCurrencies 注入汇率服务，启用期末重估（T-60）。
+func WithReportCurrencies(c CurrencyService) ReportOption {
+	return func(s *reportService) { s.currencies = c }
+}
 
 func WithReportClock(now func() time.Time) ReportOption {
 	return func(s *reportService) { s.clock = now }

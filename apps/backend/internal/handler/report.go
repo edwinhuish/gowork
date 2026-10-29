@@ -20,6 +20,23 @@ func NewReportHandler(reports service.ReportService) *ReportHandler {
 	return &ReportHandler{reports: reports}
 }
 
+// Revaluation GET /api/v1/reports/revaluation?direction=&as_of=
+//
+// 期末重估（T-60）：把未核销的外币余额按指定日汇率重算，差额单列。
+// 与汇兑损益分工——后者只覆盖已核销部分。
+func (h *ReportHandler) Revaluation(c *gin.Context) {
+	var q dto.RevaluationQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.Revaluation(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // ExchangeGains GET /api/v1/reports/exchange-gains
 //
 // 参数：from / to（按到账日，闭区间，留空不限）、partner_id、currency_code。
