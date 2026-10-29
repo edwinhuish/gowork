@@ -11,8 +11,10 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
 } from 'antd'
 
+import { exportApi } from '@/api/exports'
 import { productApi } from '@/api/products'
 import { CategoryTag, Empty, Mono, Money, StatusTag } from '@/components/fields'
 import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
@@ -33,6 +35,15 @@ interface ProductSearch {
  * keyword / category / status 查询参数（见 providers/dataProvider.ts 的白名单）。
  * syncWithLocation 把分页与筛选写进 URL：从详情页返回时不用重新翻页和重填条件。
  */
+/** 导出产品（成本价按 T-36 的权限留空）。失败时给一句人话。 */
+async function exportProducts() {
+  try {
+    await exportApi.products()
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '导出失败')
+  }
+}
+
 export function ProductList() {
   const { tableProps, searchFormProps } = useTable<Product>({
     resource: 'products',
@@ -74,7 +85,16 @@ export function ProductList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>新建产品</CreateButton>}>
+    <List
+      headerButtons={
+        <Space>
+          <CreateButton>新建产品</CreateButton>
+          <Tooltip title="导出全部产品（CSV，忽略当前筛选，上限 10000 行；成本价按权限留空）">
+            <Button onClick={() => void exportProducts()}>导出 CSV</Button>
+          </Tooltip>
+        </Space>
+      }
+    >
       <Form {...searchFormProps} layout="inline" className="list-filters">
         <Form.Item name="keyword">
           <Input placeholder="搜索 SKU / 中英文品名 / 规格" allowClear style={{ width: 260 }} />

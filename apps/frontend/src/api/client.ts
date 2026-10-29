@@ -142,6 +142,41 @@ export async function download(path: string, fallbackName: string): Promise<void
 
 export const http = {
   get: <T>(path: string) => request<T>(path),
+
+  /**
+   * 下载文件（T-35 的导出）。
+   *
+   * 不能直接用 `window.open(path)`：那样带不上 Authorization 头，只会拿到 401。
+   * 所以走 fetch 取 blob，再用一个临时 <a download> 触发保存。
+   * 文件名优先用响应头里的（后端带日期），拿不到就退回 fallback。
+   */
+  download: async (path: string, fallback: string) => {
+    const headers = new Headers()
+    const token = getToken()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+
+    let res: Response
+    try {
+      res = await fetch(`${BASE_URL}${path}`, { headers })
+    } catch {
+      throw new ApiError('网络异常，请检查后端服务是否已启动', -1)
+    }
+    if (!res.ok) {
+      // 出错时后端返回的是 JSON，读出来给用户看，别丢一个空文件下去。
+      const body = (await res.json().catch(() => null)) as ApiBody<unknown> | null
+      throw new ApiError(body?.message ?? `导出失败（HTTP ${res.status}）`, body?.code ?? res.status)
+    }
+
+    const blob = await res.blob()
+    const name = filenameFrom(res.headers.get('Content-Disposition')) ?? fallback
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    // 不 revoke 会一直占着内存，直到页面关掉。
+    URL.revokeObjectURL(url)
+  },
   /**
    * POST。headers 用来带 Idempotency-Key 这类"这次操作"的标记，
    * 令牌与 Content-Type 由 request() 统一注入，调用方不用管。
@@ -170,4 +205,16 @@ export function toQuery(params: Record<string, unknown>): string {
   })
   const qs = search.toString()
   return qs ? `?${qs}` : ''
+}
+
+/**
+ * 从 Content-Disposition 里取文件名。
+ *
+ * 只处理 `filename="x.csv"` 这一种写法：本项目的导出接口都只用 ASCII 文件名
+ * （中文名要走 RFC 5987 的 `filename*=UTF-8''…`，多一层解码，暂时不需要）。
+ */
+function filenameFrom(disposition: string | null): string | null {
+  if (!disposition) return null
+  const match = /filename="?([^";]+)"?/.exec(disposition)
+  return match?.[1] ?? null
 }

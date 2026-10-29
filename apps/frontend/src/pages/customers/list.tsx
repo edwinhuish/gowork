@@ -11,8 +11,10 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
 } from 'antd'
 
+import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
@@ -32,6 +34,15 @@ interface CustomerSearch {
  * 国家是自由文本（后端也是 string），所以给输入框而不是下拉 ——
  * 做成下拉就得先维护一份国家字典，当前阶段没必要。
  */
+/** 导出客户（角色位 1）。失败时给一句人话，不要把浏览器控制台的异常丢给用户。 */
+async function exportPartners() {
+  try {
+    await exportApi.partners(1)
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '导出失败')
+  }
+}
+
 export function CustomerList() {
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'customers',
@@ -73,7 +84,18 @@ export function CustomerList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>新建客户</CreateButton>}>
+    <List
+      headerButtons={
+        <Space>
+          <CreateButton>新建客户</CreateButton>
+          {/* 导出的是"这一角色下的全部"，不走页面筛选——筛选条件在表格内部，
+              拿不到就不假装能拿到。行数上限 10000（后端另有拦截）。 */}
+          <Tooltip title="导出全部客户（CSV，忽略当前筛选，上限 10000 行）">
+            <Button onClick={() => void exportPartners()}>导出 CSV</Button>
+          </Tooltip>
+        </Space>
+      }
+    >
       <Form {...searchFormProps} layout="inline" className="list-filters">
         <Form.Item name="keyword">
           <Input placeholder="搜索编码 / 名称 / 联系人" allowClear style={{ width: 240 }} />
