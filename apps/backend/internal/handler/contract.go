@@ -112,3 +112,23 @@ func (h *ContractHandler) UpdateStatus(c *gin.Context) {
 	}
 	response.OK(c, m)
 }
+
+// InvoiceTerm POST /api/v1/contracts/:id/terms/:termId/invoice
+//
+// 给合同某一期开票（T-61）：生成一张应收并回写该期，重复开返回 409。
+func (h *ContractHandler) InvoiceTerm(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	termID, ok := parseUintParam(c, "termId", "分期")
+	if !ok {
+		return
+	}
+	r, err := h.contracts.InvoiceTerm(c.Request.Context(), id, termID)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Created(c, r)
+}

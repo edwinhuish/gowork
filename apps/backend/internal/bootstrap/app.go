@@ -225,9 +225,14 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithQuotationLogger(log))
 	// 合同只从报价单或订单抄快照，读的是两边仓储而不是两个服务：
 	// 它要的是"那张单现在是什么状态、金额多少"，不是"能不能改"。
+	// 应收服务在下面才构造，这里先声明它的接口变量：合同开票要用到它，
+	// 而应收的构造不依赖合同，用惰性取值避免为了顺序让步。
+	var receivableSvc service.ReceivableService
 	contractSvc := service.NewContractService(
 		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc, partnerRepo,
-		clauseRepo, service.WithContractLogger(log))
+		clauseRepo, service.WithContractLogger(log),
+		// 分期开票（T-61）：应收服务在后面才构造，这里传取值函数避免为了顺序让步。
+		service.WithContractReceivables(func() service.ReceivableCreator { return receivableSvc }))
 	// 条款模板库（T-27）：主数据，只被合同生成时读取，不被任何业务流转依赖。
 	clauseSvc := service.NewClauseService(clauseRepo, service.WithClauseLogger(log))
 
@@ -248,7 +253,7 @@ func New(cfg *config.Config) (*App, error) {
 		customsRepo, shipmentRepo, service.WithCustomsDeclarationLogger(log))
 	// 应收应付各持自己的订单仓储：销售单上取客户与销售币种，
 	// 采购单上取供应商与采购币种，两边汇率互不影响。
-	receivableSvc := service.NewReceivableService(
+	receivableSvc = service.NewReceivableService(
 		receivableRepo, orderRepo, partnerRepo, docNoSvc,
 		service.WithReceivableLogger(log), service.WithReceivableShipments(shipmentRepo))
 	payableSvc := service.NewPayableService(
@@ -443,6 +448,5 @@ func buildPDFService(
 		// 取不到时 PDF 服务自己回退主体上的那一列，所以这里不必判空。
 		service.WithPDFAddresses(addresses),
 		// 采购订单打印件（T-54）。
-		service.WithPDFPurchases(purchases),
-	)
+		service.WithPDFPurchases(purchases))
 }

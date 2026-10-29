@@ -57,6 +57,8 @@ type ContractRepository interface {
 		ctx context.Context, c *model.Contract,
 		terms []model.ContractTerm, clauses []model.ContractClause,
 	) error
+	// UpdateTermReceivable 回写某一期开出的应收单（T-61）。
+	UpdateTermReceivable(ctx context.Context, termID, receivableID uint) error
 	// UpdateWithTerms 整体替换分期与条款：旧行软删、新行插入，同一事务。
 	// 两类行都没有稳定身份（用户删一行加一行后谁是谁只能靠猜），不做增量更新。
 	UpdateWithTerms(
@@ -220,4 +222,14 @@ func (r *contractRepo) FindBySource(
 		return nil, fmt.Errorf("按来源查合同: %w", err)
 	}
 	return &m, nil
+}
+
+func (r *contractRepo) UpdateTermReceivable(ctx context.Context, termID, receivableID uint) error {
+	err := r.conn(ctx).Model(&model.ContractTerm{}).
+		Where("id = ?", termID).
+		Update("receivable_id", receivableID).Error
+	if err != nil {
+		return fmt.Errorf("回写分期 %d 的应收单: %w", termID, err)
+	}
+	return nil
 }

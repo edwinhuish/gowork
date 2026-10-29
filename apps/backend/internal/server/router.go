@@ -308,6 +308,8 @@ func New(
 		contracts.GET("/:id", h.Contract.Get)
 		contracts.PUT("/:id", h.Contract.Update)
 		contracts.DELETE("/:id", h.Contract.Delete)
+		// 分期开票（T-61）：给合同某一期生成一张应收。
+		contracts.POST("/:id/terms/:termId/invoice", h.Contract.InvoiceTerm)
 		contracts.PUT("/:id/status", h.Contract.UpdateStatus)
 		contracts.GET("/:id/pdf", h.PDF.Contract)
 

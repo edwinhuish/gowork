@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,8 @@ type ContractService interface {
 	// Generate 从报价单或销售订单生成一份合同草稿。
 	// 没有"空白新建"：合同必须有来源单据，否则金额从哪来就答不上。
 	Generate(ctx context.Context, in dto.ContractGenerateInput) (*model.Contract, error)
+	// InvoiceTerm 给合同某一期开票（T-61）：生成一张应收并回写该期。
+	InvoiceTerm(ctx context.Context, contractID, termID uint) (*model.Receivable, error)
 	Update(ctx context.Context, id uint, in dto.ContractUpdateInput) (*model.Contract, error)
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Contract, error)
@@ -41,11 +44,26 @@ type contractService struct {
 	// partners 只用来判数据范围（T-32）：合同归属跟着客户走，
 	// 而合同的 partner_id 只在库里，服务手上没有别的办法知道这单是谁的。
 	partners repository.PartnerRepository
+	// receivables 是惰性取值的应收创建入口（T-61）。
+	//
+	// 用函数而不是直接持有接口：应收服务的构造不依赖合同，而合同的构造依赖应收，
+	// 装配顺序由 bootstrap 决定。传一个取值函数，两边都不必为了顺序让步。
+	receivables func() ReceivableCreator
 	// clauseRepo 用来把条款模板抄成快照（T-27）。合同服务不依赖条款服务的
 	// 业务逻辑，只读模板正文，所以直接拿仓储。
 	clauseRepo repository.ClauseRepository
 	clock      func() time.Time
 	log        *slog.Logger
+}
+
+// ReceivableCreator 是合同分期开票要用的那一件事：给我开一张应收。
+type ReceivableCreator interface {
+	Create(ctx context.Context, in dto.ReceivableInput) (*model.Receivable, error)
+}
+
+// WithContractReceivables 注入应收创建入口（T-61）。
+func WithContractReceivables(f func() ReceivableCreator) ContractOption {
+	return func(s *contractService) { s.receivables = f }
 }
 
 type ContractOption func(*contractService)
@@ -636,4 +654,65 @@ func contractDocType(t model.ContractType) model.DocType {
 		return model.DocTypeSalesContract
 	}
 	return model.DocTypeProformaInvoice
+}
+
+// InvoiceTerm 给合同某一期开票（T-61）。
+//
+// 金额、币种、汇率全部取合同上的值：分期不是新的汇兑事件，它只是合同金额的
+// 一部分，换汇率会让同一份合同的两期折出两个本币数。
+func (s *contractService) InvoiceTerm(
+	ctx context.Context, contractID, termID uint,
+) (*model.Receivable, error) {
+	c, err := s.contracts.FindByID(ctx, contractID)
+	if err != nil {
+		return nil, err
+	}
+	if c.Status == model.DocumentStatusDraft || c.Status == model.DocumentStatusCancelled {
+		return nil, errs.ErrConflict.WithMsg("草稿或已取消的合同不能开票")
+	}
+	var term *model.ContractTerm
+	for i := range c.Terms {
+		if c.Terms[i].ID == termID {
+			term = &c.Terms[i]
+			break
+		}
+	}
+	if term == nil {
+		return nil, errs.BadRequest("这张合同里没有该分期")
+	}
+	if term.ReceivableID != nil {
+		return nil, errs.ErrConflict.WithMsg("这一期已经开过票，不能重复开")
+	}
+	if s.receivables == nil {
+		return nil, errs.New(errs.CodeInternal, "合同开票未接装配，请检查 bootstrap")
+	}
+	creator := s.receivables()
+	if creator == nil {
+		return nil, errs.New(errs.CodeInternal, "合同开票未接装配，请检查 bootstrap")
+	}
+
+	due := ""
+	if term.DueDate != nil {
+		due = model.DateOnly(*term.DueDate).Format("2006-01-02")
+	}
+	partnerID := c.PartnerID
+	rate := c.ExchangeRate
+	r, err := creator.Create(ctx, dto.ReceivableInput{
+		SourceType:   int8(model.SettlementSourceContractTerm),
+		SourceID:     term.ID,
+		Amount:       term.Amount,
+		DueDate:      due,
+		PartnerID:    &partnerID,
+		CurrencyCode: c.CurrencyCode,
+		ExchangeRate: &rate,
+		Remark:       "合同 " + c.DocNo + " 第 " + strconv.Itoa(term.Seq) + " 期：" + term.Name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.contracts.UpdateTermReceivable(ctx, term.ID, r.ID); err != nil {
+		return nil, err
+	}
+	s.log.Info("合同分期开票", "contract", c.DocNo, "term", term.Seq, "receivable", r.DocNo)
+	return r, nil
 }
