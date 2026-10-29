@@ -110,6 +110,7 @@ func New(cfg *config.Config) (*App, error) {
 		&model.PaymentAllocation{},
 		&model.StockMovement{},
 		&model.StockSnapshot{},
+		&model.Warehouse{},
 		&model.StockDocument{},
 		&model.StockDocumentItem{},
 		&model.Attachment{},
@@ -292,6 +293,11 @@ func New(cfg *config.Config) (*App, error) {
 	attachmentSvc := service.NewAttachmentService(
 		attachmentRepo, service.WithAttachmentLogger(log))
 	// 贷项通知单（T-52b）：冲减应收，核销校验会把它算进未结清额。
+	// 仓库至少有一条：存量库存全落在 warehouse_id = 0 上，一条仓库都没有时
+	// 界面看起来像"仓库功能坏了"。
+	if _, err := repository.NewWarehouseRepository(db).EnsureDefault(context.Background()); err != nil {
+		log.Warn("初始化默认仓库失败", "err", err)
+	}
 	// 客户对账单（T-53）：纯聚合，不落表、不发号。
 	statementSvc := service.NewStatementService(
 		repository.NewStatementRepository(db), partnerRepo, service.WithStatementLogger(log))

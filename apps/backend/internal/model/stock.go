@@ -106,15 +106,18 @@ const (
 type StockMovement struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt         `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_movement_doc_no,priority:2" json:"deleted_at,omitempty"`
-	DocNo     string            `gorm:"size:32;not null;uniqueIndex:uni_stock_movement_doc_no,priority:1" json:"doc_no"`
-	ProductID uint              `gorm:"not null;index" json:"product_id"`
-	SKUCode   string            `gorm:"size:32;not null" json:"sku_code"`
-	NameCN    string            `gorm:"size:128" json:"name_cn"`
-	Spec      string            `gorm:"size:255" json:"spec"`
-	Unit      string            `gorm:"size:16" json:"unit"`
-	Type      StockMovementType `gorm:"not null;index" json:"type"`
-	Direction StockDirection    `gorm:"not null" json:"direction"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_movement_doc_no,priority:2" json:"deleted_at,omitempty"`
+	DocNo     string    `gorm:"size:32;not null;uniqueIndex:uni_stock_movement_doc_no,priority:1" json:"doc_no"`
+	// WarehouseID 是这笔流水落在哪个仓（T-56 第一步）。
+	// 现在一律为 0（未指定），读写行为与单仓等价；第二步填默认仓并改快照唯一键。
+	WarehouseID uint              `gorm:"index;not null;default:0" json:"warehouse_id"`
+	ProductID   uint              `gorm:"not null;index" json:"product_id"`
+	SKUCode     string            `gorm:"size:32;not null" json:"sku_code"`
+	NameCN      string            `gorm:"size:128" json:"name_cn"`
+	Spec        string            `gorm:"size:255" json:"spec"`
+	Unit        string            `gorm:"size:16" json:"unit"`
+	Type        StockMovementType `gorm:"not null;index" json:"type"`
+	Direction   StockDirection    `gorm:"not null" json:"direction"`
 	// Qty 始终为正数，方向看 Direction。允许存负数会让"两条 +5 与一条 -10"
 	// 变得同样合法，而对账时分不清是录错了还是故意的。
 	//
@@ -160,6 +163,10 @@ type StockSnapshot struct {
 	// 单列唯一会让第二步撞上刚被标记删除的那一行——「未删才唯一」才是对的。
 	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:2" json:"deleted_at,omitempty"`
 	ProductID uint      `gorm:"not null;uniqueIndex:uni_stock_snapshot_product,priority:1" json:"product_id"`
+	// WarehouseID 是快照的仓库维度（T-56）。**目前不在唯一索引里**：
+	// 唯一键仍是 (product_id, deleted_at)，因为改唯一索引要显式 DROP + CREATE，
+	// 而 ON CONFLICT 必须匹配到一个真实存在的唯一约束。见 docs/architecture.md。
+	WarehouseID uint `gorm:"index;not null;default:0" json:"warehouse_id"`
 	// Qty 可以为负：直发业务里"先出货、后补入库单"是常态，
 	// 硬拦负库存只会逼人先造一张假的入库单。
 	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
