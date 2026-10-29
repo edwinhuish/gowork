@@ -59,19 +59,18 @@ export function QuotationFormFields({ partnerReadOnly = false }: { partnerReadOn
       <Form.Item
         name="trade_term"
         label="贸易术语"
-        rules={[{ required: true, message: '请选择贸易术语' }]}
-        tooltip="FOB 的海运费买方承担、CIF 卖方承担，同一批货两个报价值可以差 10%"
+        tooltip="留空取客户档案上的默认术语；客户也没设才需要手填。FOB 的海运费买方承担、CIF 卖方承担，同一批货两个报价值可以差 10%"
       >
-        <Select options={TRADE_TERM_OPTIONS} />
+        <Select options={TRADE_TERM_OPTIONS} allowClear placeholder="按客户默认" />
       </Form.Item>
 
       <Form.Item
         name="currency_code"
         label="报价币种"
-        tooltip="留空按本币。非本币按当日汇率折本币算毛利，汇率在保存时锁进单据"
+        tooltip="留空取客户的默认结算币种，客户也没设才按本币。非本币按当日汇率折本币算毛利，汇率在保存时锁进单据"
       >
         <Select
-          placeholder="本币"
+          placeholder="按客户默认"
           allowClear
           showSearch
           options={currencyOptions}

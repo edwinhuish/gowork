@@ -56,9 +56,9 @@ export function OrderFormFields({ partnerReadOnly = false }: { partnerReadOnly?:
       <Form.Item
         name="trade_term"
         label="贸易术语"
-        rules={[{ required: true, message: '请选择贸易术语' }]}
+        tooltip="留空取客户档案上的默认术语；客户也没设才需要手填"
       >
-        <Select options={TRADE_TERM_OPTIONS} />
+        <Select options={TRADE_TERM_OPTIONS} allowClear placeholder="按客户默认" />
       </Form.Item>
 
       <Form.Item

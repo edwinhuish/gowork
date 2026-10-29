@@ -30,7 +30,8 @@ type SalesOrderItemInput struct {
 // 因为没有任何代码路径能读到它，也就不可能有人哪天一顺手把它存进库。
 type SalesOrderInput struct {
 	PartnerID    uint   `json:"partner_id" binding:"required"`
-	TradeTerm    string `json:"trade_term" binding:"required,max=8"`
+	// TradeTerm 不再必填：留空取客户默认（md_partner.trade_term）。
+	TradeTerm    string `json:"trade_term" binding:"max=8"`
 	CurrencyCode string `json:"currency_code" binding:"max=8"`
 	// OrderDate 下单日，YYYY-MM-DD；留空为今天。
 	OrderDate string `json:"order_date"`

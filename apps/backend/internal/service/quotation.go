@@ -100,7 +100,7 @@ func (s *quotationService) Create(
 	if err != nil {
 		return nil, err
 	}
-	terms, err := s.buildTerms(ctx, in)
+	terms, err := s.buildTerms(ctx, in, partner)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,13 @@ func (s *quotationService) Update(
 	if in.PartnerID != 0 && in.PartnerID != existing.PartnerID {
 		return nil, errs.BadRequest("报价单不能改客户，请新建一张")
 	}
-	terms, err := s.buildTerms(ctx, in)
+	// 客户不随单改，直接按单据上那个 id 取默认值。
+	// 这里不校验角色：只借它的贸易术语与默认币种，不是在做"换客户"这件事。
+	partner, err := s.partners.FindByID(ctx, existing.PartnerID)
+	if err != nil {
+		return nil, err
+	}
+	terms, err := s.buildTerms(ctx, in, partner)
 	if err != nil {
 		return nil, err
 	}
@@ -538,13 +544,23 @@ type quotationTotals struct {
 	Margin     money.Decimal
 }
 
+// buildTerms 归一化表头字段。
+//
+// p 是报价的客户，用来给"没填的字段"取默认值：贸易术语与默认币种早就存在
+// md_partner 上，但一直没有消费方——"这家客户一贯 FOB、用美元"这个设定
+// 等于没设，每张报价都靠人重填。这里把它接上，显式传值仍然优先。
 func (s *quotationService) buildTerms(
-	ctx context.Context, in dto.QuotationInput,
+	ctx context.Context, in dto.QuotationInput, p *model.Partner,
 ) (quotationTerms, error) {
 	var out quotationTerms
 
 	term := model.TradeTerm(strings.ToUpper(strings.TrimSpace(in.TradeTerm)))
-	if !term.IsValid() {
+	if term == "" && p != nil {
+		term = p.TradeTerm
+	}
+	// 取默认之后仍为空就报错：贸易术语决定运费与保险由谁承担，
+	// 空着印在报价单上，客户会来问这一项到底含不含运费。
+	if !term.IsValid() || term == "" {
 		return out, errInvalidTradeTerm
 	}
 	validUntil, err := s.parseValidUntil(in.ValidUntil)
@@ -552,7 +568,12 @@ func (s *quotationService) buildTerms(
 		return out, err
 	}
 
-	code, rate, curDP, baseDP, err := s.buildCurrency(ctx, in.CurrencyCode)
+	// 币种同理：没填取客户的默认结算币种，再没有才回退本币。
+	currency := strings.TrimSpace(in.CurrencyCode)
+	if currency == "" && p != nil {
+		currency = p.CurrencyCode
+	}
+	code, rate, curDP, baseDP, err := s.buildCurrency(ctx, currency)
 	if err != nil {
 		return out, err
 	}

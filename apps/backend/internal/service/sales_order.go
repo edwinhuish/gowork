@@ -134,7 +134,7 @@ func (s *salesOrderService) Create(
 	if err != nil {
 		return nil, err
 	}
-	terms, err := s.buildTerms(ctx, in)
+	terms, err := s.buildTerms(ctx, in, partner)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,12 @@ func (s *salesOrderService) Update(
 	if in.PartnerID != 0 && in.PartnerID != existing.PartnerID {
 		return nil, errs.BadRequest("订单不能改客户，请新建一张")
 	}
-	terms, err := s.buildTerms(ctx, in)
+	// 默认值按单据上的客户取；不校验角色，只借它的贸易术语与默认币种。
+	partner, err := s.partners.FindByID(ctx, existing.PartnerID)
+	if err != nil {
+		return nil, err
+	}
+	terms, err := s.buildTerms(ctx, in, partner)
 	if err != nil {
 		return nil, err
 	}
@@ -419,13 +424,20 @@ type salesOrderTerms struct {
 	Remark           string
 }
 
+// buildTerms 归一化表头字段；p 是订单客户，用于给没填的贸易术语与币种取默认值。
+//
+// 从报价转来的订单本来就带着这两个值，手工建单才会用到默认。
+// 取完仍为空就报错：贸易术语决定运费谁承担，空着没法报价也没法开票。
 func (s *salesOrderService) buildTerms(
-	ctx context.Context, in dto.SalesOrderInput,
+	ctx context.Context, in dto.SalesOrderInput, p *model.Partner,
 ) (salesOrderTerms, error) {
 	var out salesOrderTerms
 
 	term := model.TradeTerm(strings.ToUpper(strings.TrimSpace(in.TradeTerm)))
-	if !term.IsValid() {
+	if term == "" && p != nil {
+		term = p.TradeTerm
+	}
+	if !term.IsValid() || term == "" {
 		return out, errInvalidTradeTerm
 	}
 
@@ -450,7 +462,11 @@ func (s *salesOrderService) buildTerms(
 		deliveryDate = &d
 	}
 
-	code, rate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
+	currency := strings.TrimSpace(in.CurrencyCode)
+	if currency == "" && p != nil {
+		currency = p.CurrencyCode
+	}
+	code, rate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, currency, s.clock())
 	if err != nil {
 		return out, err
 	}

@@ -17,6 +17,9 @@ import (
 type quotationFixture struct {
 	svc    QuotationService
 	orders SalesOrderService
+	// partners 用来改客户的默认贸易术语 / 默认币种，
+	// 验证"没填就取客户默认"这条链路（T-49）。
+	partners PartnerService
 	// svcFailingTx 是"提交阶段必然失败"的同一个服务：用来验转单真的在一个事务里。
 	svcFailingTx QuotationService
 	now          *time.Time
@@ -129,6 +132,8 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		svc:          build(repository.NewTxManager(db)),
 		svcFailingTx: build(failingTx{inner: repository.NewTxManager(db)}),
 		orders:       orderSvc,
+		partners: NewPartnerService(
+			partnerRepo, productRepo, currencyRepo, repository.NewUserRepository(db)),
 		now:          now,
 		customerID:   customer.ID,
 		supplierID:   supplier.ID,

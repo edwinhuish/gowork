@@ -34,7 +34,9 @@ type QuotationItemInput struct {
 // QuotationInput 新建与编辑共用。编辑只允许发生在草稿上。
 type QuotationInput struct {
 	PartnerID    uint   `json:"partner_id" binding:"required"`
-	TradeTerm    string `json:"trade_term" binding:"required,max=8"`
+	// TradeTerm 不再必填：留空时取客户默认（md_partner.trade_term）。
+	// 取完仍为空才报错——那时说明客户档案也没有，得先补档案。
+	TradeTerm    string `json:"trade_term" binding:"max=8"`
 	CurrencyCode string `json:"currency_code" binding:"max=8"`
 	// ValidUntil 有效期截止日，YYYY-MM-DD，含当天。
 	ValidUntil string `json:"valid_until" binding:"required"`
