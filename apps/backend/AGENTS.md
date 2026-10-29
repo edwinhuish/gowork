@@ -140,6 +140,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
+| GET | `/api/v1/audit-logs` | `Audit.List` | 操作日志（T-33）：写操作由 `middleware.Audit` 统一记录，本接口只读、仅管理员（`RequireAdmin`）；筛选 `entity` / `entity_id` / `action` / `actor_id` / `from`+`to`（含当天）/ `keyword`（路径+请求体+操作人） |
 | GET | `/api/v1/reports/partner-360` | `Report.Partner360` | `ReportService.Partner360`：主体抬头数字 + 订单 / 出货 / 应收 / 跟进 / 商机五块明细（各带 id 与单号，默认 10 条）；出货按**订单行归属**去重计数（拼柜时一票含多家的货）；商机只算未终结的；应收合计按全部未结清单据算，不受明细截断影响；主体不存在 404 |
 | GET | `/api/v1/reports/collection` | `Report.Collection` | `ReportService.Collection`：回款率 = 期间**到账并核销**（按到账日）÷ 期间**到期**（按到期日），两批单据可以不同批，比率可超 100%；超期明细逐笔到单据号，按逾期天数倒序，未到期不计入明细；分桶复用账龄规则；`limit` 截断时合计与分桶仍是全量 |
 | GET | `/api/v1/reports/sales-dashboard` | `Report.SalesDashboard` | `ReportService.SalesDashboard`：`dimension=customer\|product\|country\|month`，收入 / 成本 / 运杂费先摊到**出货行**再分组，四个维度合计必然相等且等于单票毛利之和；订单额按下单日、毛利按出货日；`salesperson` 回 400（等 T-32 的 `owner_id`）；合计不受 `limit` 截断 |
@@ -515,6 +516,7 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 筛选查不到记录，但库里明明有 | 把 `DocumentStatus` 的值传给了 `EnableStatus` 字段（或反过来） | 两者都是小整数，编译器不拦；先按 `docs/glossary.md`「状态」一节确认这个字段属于哪套 |
 | 明明同时是客户和供应商，却在供应商列表里找不到 | 用 `role = ?` 判角色 | 角色是位掩码，必须按位与（`role.Has(...)`）；列表筛选走 `RoleValuesContaining` 展开成 IN，既覆盖 `role=3` 又能命中索引 |
 | 某主体在两个列表里都显示成"未知角色" | 前端写了 `role === 1` / `role === 2` | 同样按位与：`(role & PARTNER_ROLE.supplier) !== 0` |
+| 新增的写接口在操作日志里查不到 | 路由注册在 `secured` 组之外（如 `authGroup`、或直接挂在 `api` 上） | 审计中间件挂在 `secured` 组上；新业务路由一律进这个组，只有登录/登出这类"还没有身份"的接口可以留在外面 |
 | 合并主体之后，某张单据的客户变成空白 | 新加的外键没进 `repository/partnerRefTables` | 任何指向 `md_partner` 的外键都要在 `partnerRefTables` 与 `service/partner_merge_test.go` 的 `partnerRefTablesForTest` 各补一行；后者故意不引用前者，就是为了独立兜底 |
 | 盘点单的差异跟心里算的不一样 | 账面数取的是**建单时**的库存，而不是确认时的 | `resolvePosting` 里现查 `CurrentQty`；盘点单搁了半天，中途别的单据动过货 |
 | 确认了入库单，库存没变 | 单据与流水没在同一个事务里，或确认时漏了 `addToSnapshot` | 走 `StockDocumentRepository.Post`，它是「状态 + 账面 + 流水 + 快照」的唯一入口 |
