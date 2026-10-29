@@ -13,8 +13,11 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/edwinhuish/gowork/internal/bootstrap"
 	"github.com/edwinhuish/gowork/internal/config"
+	"github.com/edwinhuish/gowork/internal/model"
 )
 
 // 这一组是**跨层冒烟**：走真实装配（配置 → 数据库 → 仓储 → 服务 → 中间件 → 路由），
@@ -453,4 +456,108 @@ func sameAmount(a, b string) bool {
 	}
 	d := x - y
 	return d < 0.01 && d > -0.01
+}
+
+// 权限边界放到真实链路上验：单测用的是"假身份"，这里用的是真登录、真令牌、真中间件。
+//
+// T-32 的范围贯穿全部列表与详情，而它每一处都靠 service 里一句
+// `filter.OwnerID = ownerScope(ctx)`；漏接一处的表现是"看不到应该看到的"
+// 或"看得到不该看到的"，两种都不会报错。
+func TestE2EScopeIsolation(t *testing.T) {
+	app, srv := newE2EApp(t)
+	adminToken := login(t, srv)
+
+	// 建一个业务员账号：没有用户维护接口（刻意不做），所以在测试里直接落库。
+	// 密码也真的走 bcrypt——绕过哈希就测不到登录那条路。
+	hash, err := bcrypt.GenerateFromPassword([]byte("staff123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("哈希密码失败: %v", err)
+	}
+	if err := app.DB.Create(&model.User{
+		Username: "staff-e2e", Password: string(hash), Nickname: "业务员",
+		Role: model.RoleStaff, Status: model.EnableStatusOn,
+	}).Error; err != nil {
+		t.Fatalf("建业务员失败: %v", err)
+	}
+
+	// 管理员名下一家、业务员名下一家，编码不同便于按关键字区分。
+	adminPartner := createPartner(t, srv, adminToken, "ADM001", "管理员客户")
+	staffToken := loginAs(t, srv, "staff-e2e", "staff123")
+	staffPartner := createPartner(t, srv, staffToken, "STF001", "业务员客户")
+
+	t.Run("业务员看不到别人的客户", func(t *testing.T) {
+		res := call(t, srv, http.MethodGet, "/api/v1/partners?page_size=100", staffToken, nil)
+		_, _, data := decodeEnvelope(t, res)
+		if bytes.Contains(data, []byte("ADM001")) {
+			t.Errorf("业务员看到了管理员的客户: %s", data)
+		}
+		if !bytes.Contains(data, []byte("STF001")) {
+			t.Errorf("业务员看不到自己的客户: %s", data)
+		}
+	})
+
+	t.Run("管理员看得到全部", func(t *testing.T) {
+		res := call(t, srv, http.MethodGet, "/api/v1/partners?page_size=100", adminToken, nil)
+		_, _, data := decodeEnvelope(t, res)
+		for _, code := range []string{"ADM001", "STF001"} {
+			if !bytes.Contains(data, []byte(code)) {
+				t.Errorf("管理员应看得到 %s: %s", code, data)
+			}
+		}
+	})
+
+	t.Run("越权读详情返回 403 而不是 404", func(t *testing.T) {
+		res := call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/v1/partners/%d", adminPartner), staffToken, nil)
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("读别人的客户应 403，得到 %d", res.StatusCode)
+		}
+	})
+
+	t.Run("业务员不能转移负责人", func(t *testing.T) {
+		res := call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/v1/partners/%d/owner", staffPartner), staffToken,
+			[]byte(`{"owner_id":0}`))
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("业务员转移负责人应 403，得到 %d", res.StatusCode)
+		}
+	})
+
+	t.Run("操作日志只有管理员能看", func(t *testing.T) {
+		res := call(t, srv, http.MethodGet, "/api/v1/audit-logs?page_size=1", staffToken, nil)
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("业务员看操作日志应 403，得到 %d", res.StatusCode)
+		}
+	})
+}
+
+func loginAs(t *testing.T, srv *httptest.Server, username, password string) string {
+	t.Helper()
+	body := fmt.Sprintf(`{"username":%q,"password":%q}`, username, password)
+	res := call(t, srv, http.MethodPost, "/api/v1/auth/login", "", []byte(body))
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("%s 登录失败: %d", username, res.StatusCode)
+	}
+	_, _, data := decodeEnvelope(t, res)
+	var payload struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil || payload.Token == "" {
+		t.Fatalf("登录响应里没有令牌: %s", data)
+	}
+	return payload.Token
+}
+
+func createPartner(t *testing.T, srv *httptest.Server, token, code, name string) uint {
+	t.Helper()
+	body := fmt.Sprintf(`{"code":%q,"name":%q,"role":1,"entity_type":1}`, code, name)
+	res := call(t, srv, http.MethodPost, "/api/v1/partners", token, []byte(body))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建主体 %s 失败: %d %s", code, res.StatusCode, msg)
+	}
+	return idOf(t, res)
 }
