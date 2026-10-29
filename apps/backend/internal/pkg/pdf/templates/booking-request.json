@@ -1,6 +1,6 @@
 {
   "title": "BOOKING REQUEST",
-  "subtitle": "订舱委托书",
+  "subtitle": "",
   "company": [
     "{company_name}",
     "{company_address}",
