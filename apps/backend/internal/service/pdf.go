@@ -39,6 +39,12 @@ type PDFService interface {
 	PackingList(ctx context.Context, id uint) (*RenderedFile, error)
 	// CartonLabels 出箱唛（shipping mark）：一箱一张，主标识是销售订单号。
 	CartonLabels(ctx context.Context, id uint) (*RenderedFile, error)
+	// SalesOrder 与 PurchaseOrder 出订单类打印件（T-54）。
+	//
+	// 采购单没有它，供应商拿不到排产依据——主链在「对外发出一份东西」这一步是断的；
+	// 销售订单没有它，客户要一份书面确认时只能截图。
+	SalesOrder(ctx context.Context, id uint) (*RenderedFile, error)
+	PurchaseOrder(ctx context.Context, id uint) (*RenderedFile, error)
 }
 
 // CompanyInfo 是打印抬头，来自配置。
@@ -59,6 +65,9 @@ type pdfService struct {
 	// addresses 供多地址取址（T-49）。为 nil 时一律回退主体上的那一列地址，
 	// 所以测试与老调用方不必为它准备仓储。
 	addresses repository.PartnerAddressRepository
+	// purchases 供采购订单打印件用（T-54）。为 nil 时那个入口返回"未接"错误，
+	// 而不是 panic——打印是附加能力。
+	purchases repository.PurchaseOrderRepository
 	renderer  *pdf.Renderer
 	company   CompanyInfo
 	log       *slog.Logger
@@ -76,6 +85,11 @@ func WithPDFLogger(l *slog.Logger) PDFOption {
 // bootstrap 与两处测试的调用点，而地址只是"取不到就回退"的可选增强。
 func WithPDFAddresses(repo repository.PartnerAddressRepository) PDFOption {
 	return func(s *pdfService) { s.addresses = repo }
+}
+
+// WithPDFPurchases 注入采购订单仓储（T-54）。
+func WithPDFPurchases(repo repository.PurchaseOrderRepository) PDFOption {
+	return func(s *pdfService) { s.purchases = repo }
 }
 
 func NewPDFService(
@@ -224,6 +238,168 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 //
 // 金额一律按**出货数量**算，不抄订单行的 Amount：分批出货时订单行是一整批的量，
 // 抄过来就等于把没发走的货也开在发票上。单价沿用订单，发票与订单必须对得上。
+// SalesOrder 出销售订单打印件（T-54）。
+//
+// 与报价单的区别只有抬头与几行参考信息，明细结构完全一样——
+// 所以共用 itemDescription / moneyTextD，不另写一套格式化。
+func (s *pdfService) SalesOrder(ctx context.Context, id uint) (*RenderedFile, error) {
+	o, err := s.orders.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.renderOrderPDF(ctx, "sales-order", o.DocNo+"-SO.pdf", "销售订单", orderSheet{
+		DocNo:        o.DocNo,
+		OrderDate:    o.OrderDate,
+		DeliveryDate: o.DeliveryDate,
+		TradeTerm:    string(o.TradeTerm),
+		Status:       o.Status,
+		CurrencyCode: o.CurrencyCode,
+		ExchangeRate: o.ExchangeRate,
+		AmountTotal:  o.AmountTotal,
+		AmountBase:   o.AmountBaseTotal,
+		Remark:       o.Remark,
+		Partner:      o.Partner,
+		buildItems:   func(dp int) []map[string]string { return salesOrderItems(o.Items, dp) },
+	})
+}
+
+// PurchaseOrder 出采购订单打印件（T-54）。
+//
+// 这张单是发给供应商的排产依据。之前系统里没有它，业务只能手工做一份
+// Excel 发出去，而手工那份的价格与系统里的订单对不上。
+func (s *pdfService) PurchaseOrder(ctx context.Context, id uint) (*RenderedFile, error) {
+	if s.purchases == nil {
+		return nil, errs.New(errs.CodeInternal, "采购订单打印未接装配，请检查 bootstrap")
+	}
+	o, err := s.purchases.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.renderOrderPDF(ctx, "purchase-order", o.DocNo+"-PO.pdf", "采购订单", orderSheet{
+		DocNo:        o.DocNo,
+		OrderDate:    o.OrderDate,
+		DeliveryDate: o.DeliveryDate,
+		TradeTerm:    string(o.TradeTerm),
+		Status:       o.Status,
+		CurrencyCode: o.CurrencyCode,
+		ExchangeRate: o.ExchangeRate,
+		AmountTotal:  o.AmountTotal,
+		AmountBase:   o.AmountBaseTotal,
+		Remark:       o.Remark,
+		Partner:      o.Supplier,
+		buildItems:   func(dp int) []map[string]string { return purchaseOrderItems(o.Items, dp) },
+	})
+}
+
+// orderSheet 是销售订单与采购订单打印件的公共视图。
+//
+// 两张单在纸面上是同一个形状：抬头、对方、参考信息、明细、合计、备注。
+// 抽出来不是为了省几行，而是为了让"什么字段该印"只有一个答案——
+// 两份各自拼 values，改了销售单忘了采购单是迟早的事。
+type orderSheet struct {
+	DocNo        string
+	OrderDate    time.Time
+	DeliveryDate *time.Time
+	TradeTerm    string
+	Status       model.DocumentStatus
+	CurrencyCode string
+	ExchangeRate money.Decimal
+	AmountTotal  money.Decimal
+	AmountBase   money.Decimal
+	Remark       string
+	Partner      *model.Partner
+	// buildItems 延迟构造明细：单价与金额要按**这张单的币种小数位**格式化，
+	// 而小数位要查币种才知道。提前在调用方拼好，就只能按 0 位或 2 位猜。
+	buildItems func(dp int) []map[string]string
+}
+
+func (s *pdfService) renderOrderPDF(
+	ctx context.Context, template, filename, name string, sheet orderSheet,
+) (*RenderedFile, error) {
+	curDP, baseDP, baseCode, err := s.decimals(ctx, sheet.CurrencyCode)
+	if err != nil {
+		return nil, err
+	}
+
+	values := s.baseValues(baseCode)
+	values["doc_no"] = sheet.DocNo
+	values["order_date"] = sheet.OrderDate.Format("2006-01-02")
+	values["delivery_date"] = dateText(sheet.DeliveryDate)
+	values["trade_term"] = orDash(sheet.TradeTerm)
+	values["status"] = statusText(sheet.Status)
+	values["currency_code"] = sheet.CurrencyCode
+	values["exchange_rate"] = rateTextD(sheet.ExchangeRate)
+	values["amount_total"] = moneyTextD(sheet.AmountTotal, curDP)
+	values["amount_base_total"] = moneyTextD(sheet.AmountBase, baseDP)
+	values["remark"] = orDash(sheet.Remark)
+	// 结算方式取客户的当下值，与报价单一致：金额是承诺，结算方式是联系方式。
+	values["settlement_method"] = "—"
+	if sheet.Partner != nil {
+		values["settlement_method"] = orDash(string(sheet.Partner.SettlementMethod))
+		s.partnerValues(ctx, values, sheet.Partner, model.PartnerAddressInvoice)
+	}
+
+	data, err := s.render(template, pdf.Data{Values: values, Items: sheet.buildItems(curDP)})
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("生成"+name+" PDF", "doc_no", sheet.DocNo, "bytes", len(data))
+	return &RenderedFile{Filename: filename, Data: data}, nil
+}
+
+func salesOrderItems(items []model.SalesOrderItem, dp int) []map[string]string {
+	out := make([]map[string]string, 0, len(items))
+	for i, it := range items {
+		out = append(out, map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(it.SKUCode, it.NameCN, it.Spec),
+			"qty":         qtyText(it.Qty),
+			"unit":        it.Unit,
+			"unit_price":  moneyTextD(it.UnitPrice, dp),
+			"amount":      moneyTextD(it.Amount, dp),
+		})
+	}
+	return out
+}
+
+func purchaseOrderItems(items []model.PurchaseOrderItem, dp int) []map[string]string {
+	out := make([]map[string]string, 0, len(items))
+	for i, it := range items {
+		out = append(out, map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(it.SKUCode, it.NameCN, it.Spec),
+			"qty":         qtyText(it.Qty),
+			"unit":        it.Unit,
+			"unit_price":  moneyTextD(it.UnitPrice, dp),
+			"amount":      moneyTextD(it.Amount, dp),
+		})
+	}
+	return out
+}
+
+// statusText 把内部状态码翻成单据上印的英文。
+//
+// 直接印 10 / 20 客户看不懂；印中文又与外销单证的语言不一致。
+// 缩写不给业务用（草稿单一般也不发给对方），所以这里只保证有值可印。
+func statusText(s model.DocumentStatus) string {
+	switch s {
+	case model.DocumentStatusDraft:
+		return "Draft"
+	case model.DocumentStatusConfirmed:
+		return "Confirmed"
+	case model.DocumentStatusPreparing:
+		return "In Production"
+	case model.DocumentStatusShipped:
+		return "Shipped"
+	case model.DocumentStatusCompleted:
+		return "Completed"
+	case model.DocumentStatusCancelled:
+		return "Cancelled"
+	default:
+		return "—"
+	}
+}
+
 func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error) {
 	sd, order, err := s.shipmentSource(ctx, id)
 	if err != nil {

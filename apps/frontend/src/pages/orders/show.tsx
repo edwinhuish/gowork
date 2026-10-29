@@ -3,6 +3,7 @@ import { useGetIdentity, useInvalidate, useNavigation, useShow } from '@refinede
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd'
 
+import { download } from '@/api/client'
 import { salesOrderApi } from '@/api/sales-orders'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
@@ -104,6 +105,7 @@ export function OrderShow() {
   const [changeOpen, setChangeOpen] = useState(false)
   const [changes, setChanges] = useState<SalesOrderChange[]>([])
   const [changesLoading, setChangesLoading] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const isAdmin = identity?.role === 'admin'
 
   const o = result
@@ -132,6 +134,19 @@ export function OrderShow() {
     await loadChanges(orderId)
   }
 
+  // 草稿也能打印：客户常常先要一份书面确认再去走内部审批。
+  const printPDF = async () => {
+    if (!o) return
+    setPrinting(true)
+    try {
+      await download(`/sales-orders/${o.id}/pdf`, `${o.doc_no}-SO.pdf`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '下载失败')
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   const changeStatus = async (next: number, okText: string, force = false) => {
     if (!o) return
     setActing(true)
@@ -152,6 +167,9 @@ export function OrderShow() {
       title={o ? `销售订单 ${o.doc_no}` : '销售订单详情'}
       headerButtons={
         <Space wrap>
+          <Button onClick={printPDF} loading={printing}>
+            打印 PDF
+          </Button>
           {o?.status === 10 && <EditButton resource="sales-orders" recordItemId={o.id} />}
           {/* 已确认的订单不能直接改：改价 / 改量 / 改交期都走变更单，留下改前改后与原因。 */}
           {(o?.status === 20 || o?.status === 30) && (

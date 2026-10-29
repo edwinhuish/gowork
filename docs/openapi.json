@@ -4069,6 +4069,42 @@
         }
       }
     },
+    "/api/v1/purchase-orders/{id}/pdf": {
+      "get": {
+        "operationId": "GET_handler_PDFHandler_PurchaseOrder-fm",
+        "tags": [
+          "purchase-orders"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/api/v1/purchase-orders/{id}/status": {
       "put": {
         "operationId": "PUT_handler_PurchaseOrderHandler_UpdateStatus-fm",
@@ -5132,6 +5168,42 @@
       },
       "post": {
         "operationId": "POST_handler_SalesOrderHandler_Change-fm",
+        "tags": [
+          "sales-orders"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
+    "/api/v1/sales-orders/{id}/pdf": {
+      "get": {
+        "operationId": "GET_handler_PDFHandler_SalesOrder-fm",
         "tags": [
           "sales-orders"
         ],

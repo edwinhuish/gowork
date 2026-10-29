@@ -1,0 +1,54 @@
+{
+  "title": "SALES ORDER",
+  "subtitle": "销售订单",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    { "label": "No.", "value": "{doc_no}" },
+    { "label": "Order Date", "value": "{order_date}" },
+    { "label": "Delivery Date", "value": "{delivery_date}" },
+    { "label": "Trade Term", "value": "{trade_term}" }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "REFERENCE",
+      "lines": [
+        "Status: {status}",
+        "Currency: {currency_code} @ {exchange_rate}",
+        "Payment: {settlement_method}",
+        "Delivery: {delivery_date}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      { "title": "No.", "key": "no", "width": 12, "align": "left" },
+      { "title": "Description", "key": "description", "width": 74, "align": "left" },
+      { "title": "Qty", "key": "qty", "width": 20, "align": "right" },
+      { "title": "UOM", "key": "unit", "width": 16, "align": "left" },
+      { "title": "Unit Price", "key": "unit_price", "width": 29, "align": "right" },
+      { "title": "Amount", "key": "amount", "width": 29, "align": "right" }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    { "label": "Total ({currency_code})", "value": "{amount_total}" },
+    { "label": "Total in {base_currency}", "value": "{amount_base_total}" }
+  ],
+  "notes": [
+    "This order is confirmed on the terms stated above. Please quote the order number in all correspondence.",
+    "Remarks: {remark}"
+  ]
+}

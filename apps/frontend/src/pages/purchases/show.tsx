@@ -3,6 +3,7 @@ import { useInvalidate, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
 
+import { download } from '@/api/client'
 import { purchaseOrderApi } from '@/api/purchase-orders'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
@@ -56,9 +57,24 @@ export function PurchaseShow() {
   const { result, query } = useShow<PurchaseOrder>({ resource: 'purchase-orders' })
   const invalidate = useInvalidate()
   const [acting, setActing] = useState(false)
+  const [printing, setPrinting] = useState(false)
 
   const o = result
   const actions = o ? nextActions(o.status) : []
+
+  // 这张单是发给供应商的排产依据：之前只能手工做一份 Excel 发出去，
+  // 而手工那份的价格和系统里的订单对不上。
+  const printPDF = async () => {
+    if (!o) return
+    setPrinting(true)
+    try {
+      await download(`/purchase-orders/${o.id}/pdf`, `${o.doc_no}-PO.pdf`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '下载失败')
+    } finally {
+      setPrinting(false)
+    }
+  }
 
   const changeStatus = async (next: number, okText: string) => {
     if (!o) return
@@ -80,6 +96,9 @@ export function PurchaseShow() {
       title={o ? `采购订单 ${o.doc_no}` : '采购订单详情'}
       headerButtons={
         <Space wrap>
+          <Button onClick={printPDF} loading={printing}>
+            打印 PDF
+          </Button>
           {o?.status === 10 && <EditButton resource="purchase-orders" recordItemId={o.id} />}
           {actions.map((a) =>
             a.danger ? (

@@ -35,6 +35,40 @@ func (h *PDFHandler) ready(c *gin.Context) bool {
 	return true
 }
 
+// SalesOrder GET /api/v1/sales-orders/:id/pdf
+func (h *PDFHandler) SalesOrder(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	f, err := h.pdf.SalesOrder(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	writeFile(c, f)
+}
+
+// PurchaseOrder GET /api/v1/purchase-orders/:id/pdf
+func (h *PDFHandler) PurchaseOrder(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	f, err := h.pdf.PurchaseOrder(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	writeFile(c, f)
+}
+
 // Quotation GET /api/v1/quotations/:id/pdf
 func (h *PDFHandler) Quotation(c *gin.Context) {
 	if !h.ready(c) {

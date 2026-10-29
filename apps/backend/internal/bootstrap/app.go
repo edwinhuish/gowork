@@ -228,7 +228,7 @@ func New(cfg *config.Config) (*App, error) {
 	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
 	pdfSvc := buildPDFService(
 		cfg, log, quotationRepo, orderRepo, contractRepo, shipmentRepo, currencySvc,
-		repository.NewPartnerAddressRepository(db))
+		repository.NewPartnerAddressRepository(db), purchaseRepo)
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, purchaseMilestoneRepo,
 		currencySvc, docNoSvc,
@@ -359,6 +359,7 @@ func buildPDFService(
 	shipments repository.ShipmentRepository,
 	currencies service.CurrencyService,
 	addresses repository.PartnerAddressRepository,
+	purchases repository.PurchaseOrderRepository,
 ) service.PDFService {
 	fontPath := cfg.PDF.FontPath
 	if fontPath == "" {
@@ -393,5 +394,7 @@ func buildPDFService(
 		// 多地址取址（T-49）：CI 与 PL 按用途取发票 / 收货 / 通知方地址。
 		// 取不到时 PDF 服务自己回退主体上的那一列，所以这里不必判空。
 		service.WithPDFAddresses(addresses),
+		// 采购订单打印件（T-54）。
+		service.WithPDFPurchases(purchases),
 	)
 }

@@ -314,6 +314,8 @@ func New(
 		// 已确认订单的变更：不能直接 PUT，改走变更单留痕（T-44）。
 		orders.GET("/:id/changes", h.SalesOrder.Changes)
 		orders.POST("/:id/changes", h.SalesOrder.Change)
+		// 订单打印件（T-54）：客户要一份书面确认时，不必再截图。
+		orders.GET("/:id/pdf", h.PDF.SalesOrder)
 
 		// 采购订单：销售订单的镜像，明细可挂到销售订单行做「以销定采」。
 		purchases := secured.Group("/purchase-orders")
@@ -327,6 +329,8 @@ func New(
 		purchases.PUT("/:id", h.Purchase.Update)
 		purchases.DELETE("/:id", h.Purchase.Delete)
 		purchases.PUT("/:id/status", h.Purchase.UpdateStatus)
+		// 采购单打印件（T-54）：供应商要拿到它才能排产。
+		purchases.GET("/:id/pdf", h.PDF.PurchaseOrder)
 
 		// 出货批次：一票装哪些销售订单行、各多少。数量校验在服务端做
 		// （不得超过该行未出数量），界面上拦不住两个页面同时开着的情况。
