@@ -513,6 +513,48 @@ export interface SalesOrder {
 }
 
 /**
+ * 变更单里的一行：某条订单明细的前后值。
+ *
+ * 只有真正变了的行才有记录——把没动的行也抄一遍，等于每次变更复制整张订单，
+ * 而"哪几行变了"才是这张表要回答的问题。
+ */
+export interface SalesOrderChangeLine {
+  id: number
+  change_id: number
+  sales_order_item_id: number
+  /** 变更当时的 SKU 快照：订单行将来不在了，这条记录仍要能读懂。 */
+  sku_code: string
+  before_qty: string
+  after_qty: string
+  before_unit_price: string
+  after_unit_price: string
+}
+
+/**
+ * 已确认订单的一次变更。
+ *
+ * 订单本身更新到新值，这里只留痕：谁、什么时候、因为什么、把什么改成了什么。
+ * 单号由订单号派生（`{订单号}-CH{n}`），脱离订单没有意义，所以不单独发号。
+ */
+export interface SalesOrderChange {
+  id: number
+  sales_order_id: number
+  /** 同一张订单的第几次变更，从 1 开始。 */
+  seq: number
+  doc_no: string
+  reason: string
+  /** 操作人用户名的快照，不是外键：账号改名后历史仍要读出当时是谁。 */
+  operator: string
+  before_total: string
+  after_total: string
+  before_delivery_date?: string | null
+  after_delivery_date?: string | null
+  lines?: SalesOrderChangeLine[]
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 出货分配行：这票货里有哪些销售订单行、各多少。
  *
  * 挂的是订单**行**而不是订单头：一张订单里两行可能是同一产品的不同包装，

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useGetIdentity, useInvalidate, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd'
@@ -6,8 +6,9 @@ import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table
 import { salesOrderApi } from '@/api/sales-orders'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
-import type { SalesOrder, SalesOrderItem } from '@/types'
+import type { SalesOrder, SalesOrderChange, SalesOrderChangeLine, SalesOrderItem } from '@/types'
 
+import { ChangeModal } from './change-modal'
 import { CreditHint } from './credit-hint'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
@@ -58,6 +59,40 @@ function statusColor(value: number): string {
   return 'default'
 }
 
+/**
+ * 变更明细的「改前 → 改后」。
+ *
+ * 只写真的动了的那一格：数量与单价都列出来会让人以为两处都改了，
+ * 而翻旧账时最想确认的恰恰是"到底动了哪个"。
+ */
+function ChangeLines({ lines }: { lines?: SalesOrderChangeLine[] }) {
+  if (!lines?.length) return <span className="cell-sub">只改了交期</span>
+  return (
+    <div className="cell-stack">
+      {lines.map((line) => {
+        const qtyChanged = Number(line.before_qty) !== Number(line.after_qty)
+        const priceChanged = Number(line.before_unit_price) !== Number(line.after_unit_price)
+        return (
+          <span key={line.id}>
+            <Mono>{line.sku_code}</Mono>{' '}
+            {qtyChanged && (
+              <span>
+                数量 {formatQty(line.before_qty)} → {formatQty(line.after_qty)}
+              </span>
+            )}
+            {qtyChanged && priceChanged ? '，' : null}
+            {priceChanged && (
+              <span>
+                单价 <Money value={line.before_unit_price} /> → <Money value={line.after_unit_price} />
+              </span>
+            )}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 export function OrderShow() {
   const { result, query } = useShow<SalesOrder>({ resource: 'sales-orders' })
   const invalidate = useInvalidate()
@@ -66,10 +101,36 @@ export function OrderShow() {
   const [acting, setActing] = useState(false)
   // 勾了才带 force_credit：默认不勾，防止"手滑确认"变成默认绕过额度。
   const [forceCredit, setForceCredit] = useState(false)
+  const [changeOpen, setChangeOpen] = useState(false)
+  const [changes, setChanges] = useState<SalesOrderChange[]>([])
+  const [changesLoading, setChangesLoading] = useState(false)
   const isAdmin = identity?.role === 'admin'
 
   const o = result
   const actions = o ? nextActions(o.status) : []
+  const orderId = o?.id
+
+  const loadChanges = useCallback(async (id: number) => {
+    setChangesLoading(true)
+    try {
+      setChanges(await salesOrderApi.listChanges(id))
+    } catch (err) {
+      // 历史取不到不该挡住看单据：订单本身仍然可读，提示一次就够。
+      message.error(err instanceof Error ? err.message : '变更历史加载失败')
+    } finally {
+      setChangesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (orderId) void loadChanges(orderId)
+  }, [orderId, loadChanges])
+
+  const afterChange = async () => {
+    if (!orderId) return
+    await invalidate({ resource: 'sales-orders', invalidates: ['detail', 'list'] })
+    await loadChanges(orderId)
+  }
 
   const changeStatus = async (next: number, okText: string, force = false) => {
     if (!o) return
@@ -92,6 +153,12 @@ export function OrderShow() {
       headerButtons={
         <Space wrap>
           {o?.status === 10 && <EditButton resource="sales-orders" recordItemId={o.id} />}
+          {/* 已确认的订单不能直接改：改价 / 改量 / 改交期都走变更单，留下改前改后与原因。 */}
+          {(o?.status === 20 || o?.status === 30) && (
+            <Tooltip title="改价 / 改量 / 改交期都会留痕：原因、改前改后、操作人。不能增删明细行。">
+              <Button onClick={() => setChangeOpen(true)}>变更订单</Button>
+            </Tooltip>
+          )}
           {/* 已确认、备货中才谈得上出货：草稿还没对客户承诺，已出货的再出要新开一票。 */}
           {(o?.status === 20 || o?.status === 30) && (
             <Button onClick={() => create('shipments')}>按这张单出货</Button>
@@ -289,6 +356,94 @@ export function OrderShow() {
           />
         </Table>
       </Card>
+
+      {/* 没改过就不占版面：这张卡片的意义全在"改过什么"，空表只是多一块空白。 */}
+      {changes.length > 0 && (
+        <Card
+          title="变更历史"
+          size="small"
+          style={{ marginTop: 16 }}
+          extra={<span className="cell-sub">共 {changes.length} 次，最近一次在最上面</span>}
+        >
+          <Table
+            rowKey="id"
+            size="small"
+            loading={changesLoading}
+            dataSource={changes}
+            pagination={false}
+            scroll={{ x: 1100 }}
+          >
+            <Table.Column
+              dataIndex="seq"
+              title="次数"
+              width={70}
+              render={(value: number) => <Tag>#{value}</Tag>}
+            />
+            <Table.Column
+              dataIndex="doc_no"
+              title="变更单号"
+              width={170}
+              render={(value: string) => <Mono>{value}</Mono>}
+            />
+            <Table.Column
+              dataIndex="created_at"
+              title="时间"
+              width={170}
+              render={(value: string) => formatTime(value)}
+            />
+            <Table.Column
+              dataIndex="operator"
+              title="操作人"
+              width={110}
+              render={(value: string) => value || <Empty />}
+            />
+            <Table.Column
+              dataIndex="reason"
+              title="原因"
+              render={(value: string) => value || <Empty />}
+            />
+            <Table.Column
+              title="订单总额"
+              width={200}
+              align="right"
+              render={(_, record: SalesOrderChange) => (
+                <Space size={4}>
+                  <Money value={record.before_total} />
+                  <span>→</span>
+                  <Money value={record.after_total} />
+                </Space>
+              )}
+            />
+            <Table.Column
+              title="交期"
+              width={190}
+              render={(_, record: SalesOrderChange) =>
+                // 两边都空 = 一直没定交期，显示一个短横，而不是「— → —」。
+                !record.before_delivery_date && !record.after_delivery_date ? (
+                  <Empty />
+                ) : (
+                  `${formatDate(record.before_delivery_date ?? undefined)} → ${formatDate(
+                    record.after_delivery_date ?? undefined,
+                  )}`
+                )
+              }
+            />
+            <Table.Column
+              title="明细改动"
+              render={(_, record: SalesOrderChange) => <ChangeLines lines={record.lines} />}
+            />
+          </Table>
+        </Card>
+      )}
+
+      {o && (
+        <ChangeModal
+          open={changeOpen}
+          order={o}
+          onClose={() => setChangeOpen(false)}
+          onChanged={afterChange}
+        />
+      )}
     </Show>
   )
 }

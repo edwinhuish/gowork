@@ -74,7 +74,8 @@ apps/frontend/
         ├── contacts/ activities/ leads/ opportunities/   list / create / edit / form-fields
         ├── quotations/       同上 + show / preview（试算页）
         ├── contracts/        list / create（只能从来源单据生成）/ edit / show + terms-editor
-        ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示与 admin 强制放行）
+        ├── orders/ purchases/   list / create / edit / show（+ 明细行编辑器；订单带额度提示、
+        │                       admin 强制放行、已确认后的变更弹窗与变更历史）
         ├── shipments/        同上（+ 分配行编辑器、物流节点卡片与报关单 / 费用 / 毛利三个面板；
         │                      详情页可下载商业发票 / 装箱单 / 箱唛，只能改证重开、不能另开一票）
         ├── settlements/      应收应付共用的 list / form-fields / show
@@ -190,6 +191,7 @@ api/client.ts
 | `pages/stock-movements/` | 库存流水列表 + 手工录入 | 只给期初 / 盘盈亏 / 其它（`MANUAL_STOCK_MOVEMENT_OPTIONS`），其余由单据产生 |
 | `pages/stock-documents/` | 出入库单（列表 / 新建 / 编辑 / 详情 + 确认） | 类型切换会换往来单位的下拉源（供应商 / 客户）；盘点明细填实盘数，账面由后端确认时取 |
 | `pages/contracts/` | 合同（PI / 销售合同）+ `terms-editor.tsx` 付款分期 | 新建页只能"从来源单据生成"：选了来源后用它的总额预填一期全额；金额与汇率没有输入框，改金额请改来源单据 |
+| `pages/orders/change-modal.tsx` | 已确认订单的变更（改量 / 改价 / 改交期 + 必填原因），详情页另有变更历史卡片 | 只提交真的变了的行；交期没变就**不带** `delivery_date`（字段省略 = 不动它，空串 = 清掉）；不能增删明细行，要加减货请作废重下 |
 
 ### 一个主数据模块的标准四件套
 
