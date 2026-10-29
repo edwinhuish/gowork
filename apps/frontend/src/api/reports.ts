@@ -1,6 +1,7 @@
 import { http, toQuery } from './client'
 import type {
   AgingReport,
+  CollectionReport,
   ExchangeGainReport,
   PageResult,
   SalesDashboard,
@@ -37,6 +38,18 @@ export interface ExchangeGainParams {
   currency_code?: string
 }
 
+export interface CollectionParams {
+  /** 10 应收回款 / 20 应付付款，留空按应收。 */
+  direction?: number
+  /** 回款率的统计期间，闭区间，按**到期日**筛。 */
+  from?: string
+  to?: string
+  /** 超期明细的截止日，留空取今天。 */
+  as_of?: string
+  /** 超期明细行数上限，留空 50；0 取后端上限 500。 */
+  limit?: number
+}
+
 export interface SalesDashboardParams {
   /** customer / product / country / month，留空按客户。 */
   dimension?: string
@@ -61,6 +74,10 @@ export const reportApi = {
   /** 汇兑损益：逐笔核销，正收益负损失，单位本币。 */
   exchangeGains: (params: ExchangeGainParams = {}) =>
     http.get<ExchangeGainReport>(`/reports/exchange-gains${toQuery({ ...params })}`),
+
+  /** 回款率与超期明细：前者是流量、后者是截至 as_of 的存量。 */
+  collection: (params: CollectionParams = {}) =>
+    http.get<CollectionReport>(`/reports/collection${toQuery({ ...params })}`),
 
   /** 销售看板：按维度汇总订单额与毛利，口径与单票毛利同源。 */
   salesDashboard: (params: SalesDashboardParams = {}) =>

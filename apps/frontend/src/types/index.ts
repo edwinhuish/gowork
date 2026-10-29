@@ -738,6 +738,54 @@ export interface AgingRow {
   earliest_due_date: string
 }
 
+/**
+ * 一张已逾期且尚未结清的单据（T-29 的催款清单）。
+ *
+ * 逐笔而不是按客户聚合：客户欠三张单时，只说"他欠 8 万"没法决定先催哪一张。
+ */
+export interface CollectionRow {
+  id: number
+  doc_no: string
+  partner_id: number
+  partner_code: string
+  partner_name: string
+  currency_code: string
+  /** YYYY-MM-DD */
+  due_date: string
+  overdue_days: number
+  /** 未核销的原币金额与本币金额。 */
+  outstanding: string
+  outstanding_base: string
+}
+
+/**
+ * 回款与超期报表。
+ *
+ * 一张表里两个数，**不能互相校验**：回款率是流量（分子按到账日、分母按到期日），
+ * 超期明细是截至 as_of 的存量。收的钱可能是在还上个月的账，所以回款率超过 100% 正常。
+ */
+export interface CollectionReport {
+  /** 10 应收 / 20 应付 */
+  direction: number
+  from: string
+  to: string
+  as_of: string
+  /** 期间内到期的单据金额（本币），回款率的分母。 */
+  due_amount_base: string
+  /** 期间内到账并核销的金额（本币），回款率的分子。 */
+  received_base: string
+  /** 0.6 = 60%。分母为 0 时给 0。 */
+  collection_rate: string
+  /** 截至 as_of 仍未核销的总额（含未到期）。 */
+  outstanding_base: string
+  /** 其中已逾期的那部分，以及它的账龄分桶（not_due 恒为 0）。 */
+  overdue_base: string
+  overdue_buckets: AgingBuckets
+  overdue_rows: CollectionRow[]
+  /** 明细被 limit 截断；overdue_base 与分桶仍是全量。 */
+  truncated: boolean
+}
+
 /** 账龄报表。合计只给本币：把美元与人民币的原币金额加在一起没有意义。 */
 export interface AgingReport {
   /** 10 应收 / 20 应付 */

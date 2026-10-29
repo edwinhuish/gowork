@@ -1,5 +1,6 @@
 import {
   AccountBookOutlined,
+  AlertOutlined,
   AppstoreOutlined,
   BarChartOutlined,
   LineChartOutlined,
@@ -41,6 +42,7 @@ import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
 import { AgingPage } from '@/pages/aging'
 import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
+import { CollectionPage } from '@/pages/collection'
 import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
 import { CustomerCreate, CustomerEdit, CustomerList, CustomerShow } from '@/pages/customers'
@@ -281,6 +283,12 @@ export default function App() {
                 meta: { label: '汇兑损益', icon: <LineChartOutlined /> },
               },
               {
+                // 回款与超期：期间回款率是流量，超期明细是存量，两者不互相校验。
+                name: 'collection',
+                list: '/collection',
+                meta: { label: '回款与超期', icon: <AlertOutlined /> },
+              },
+              {
                 // 销售看板：按客户 / 产品 / 国家 / 月汇总，口径与单票毛利同源。
                 name: 'sales-dashboard',
                 list: '/sales-dashboard',
@@ -448,6 +456,10 @@ export default function App() {
 
                   <Route path="exchange-gains">
                     <Route index element={<ExchangeGainsPage />} />
+                  </Route>
+
+                  <Route path="collection">
+                    <Route index element={<CollectionPage />} />
                   </Route>
 
                   <Route path="sales-dashboard">
