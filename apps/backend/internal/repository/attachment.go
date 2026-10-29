@@ -49,6 +49,7 @@ var attachTargets = map[string]any{
 	model.AttachContract:           &model.Contract{},
 	model.AttachSalesOrder:         &model.SalesOrder{},
 	model.AttachPurchaseOrder:      &model.PurchaseOrder{},
+	model.AttachInspection:         &model.Inspection{},
 	model.AttachShipment:           &model.Shipment{},
 	model.AttachCustomsDeclaration: &model.CustomsDeclaration{},
 	model.AttachReceivable:         &model.Receivable{},

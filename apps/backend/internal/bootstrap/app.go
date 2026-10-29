@@ -96,6 +96,7 @@ func New(cfg *config.Config) (*App, error) {
 		&model.PurchaseOrder{},
 		&model.PurchaseReceipt{},
 		&model.PurchaseReceiptItem{},
+		&model.Inspection{},
 		&model.PurchaseOrderItem{},
 		&model.Shipment{},
 		&model.ShipmentAllocation{},
@@ -268,6 +269,10 @@ func New(cfg *config.Config) (*App, error) {
 	// 而不是依赖销售订单服务——服务层之间互相调用会让数量校验绕两圈才算得清。
 	// 出货确认会调 StockDocumentService 出一张销售出库单（T-40），
 	// 所以它必须排在这之后装配。
+	// 验货记录（T-51b）：只读采购单校验归属，不依赖任何业务服务。
+	inspectionSvc := service.NewInspectionService(
+		repository.NewInspectionRepository(db), purchaseRepo,
+		service.WithInspectionLogger(log))
 	// 采购收货单（T-51a）：确认时在同一事务里生成采购入库单，
 	// 所以依赖出入库服务与事务管理器。
 	receiptSvc := service.NewPurchaseReceiptService(
@@ -313,6 +318,7 @@ func New(cfg *config.Config) (*App, error) {
 		SalesOrder:      handler.NewSalesOrderHandler(orderSvc),
 		Purchase:        handler.NewPurchaseOrderHandler(purchaseSvc),
 		PurchaseReceipt: handler.NewPurchaseReceiptHandler(receiptSvc),
+		Inspection:      handler.NewInspectionHandler(inspectionSvc),
 		Shipment:        handler.NewShipmentHandler(shipmentSvc),
 		Charge:          handler.NewShipmentChargeHandler(chargeSvc),
 		Customs:         handler.NewCustomsDeclarationHandler(customsSvc),

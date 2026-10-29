@@ -79,8 +79,8 @@ type CustomsDeclaration struct {
 // 它由这票出货分配行的报关要素快照投影出来：一票货出什么，分配行已经说完了，
 // 再存一份独立明细就要同步两处，而两处必然漂移。所以没有 biz_customs_item 表。
 type CustomsDeclarationItem struct {
-	SKUCode        string `json:"sku_code"`
-	NameCN         string `json:"name_cn"`
+	SKUCode string `json:"sku_code"`
+	NameCN  string `json:"name_cn"`
 	// Qty 按定点字符串透传（与金额同一约定），前端直接格式化显示。
 	Qty            string `json:"qty"`
 	Unit           string `json:"unit"`

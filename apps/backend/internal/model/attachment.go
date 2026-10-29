@@ -11,6 +11,7 @@ const (
 	AttachContract           = "contract"
 	AttachSalesOrder         = "sales_order"
 	AttachPurchaseOrder      = "purchase_order"
+	AttachInspection         = "inspection"
 	AttachShipment           = "shipment"
 	AttachCustomsDeclaration = "customs_declaration"
 	AttachReceivable         = "receivable"

@@ -39,6 +39,7 @@ type Handlers struct {
 	SalesOrder      *handler.SalesOrderHandler
 	Purchase        *handler.PurchaseOrderHandler
 	PurchaseReceipt *handler.PurchaseReceiptHandler
+	Inspection      *handler.InspectionHandler
 	Shipment        *handler.ShipmentHandler
 	Charge          *handler.ShipmentChargeHandler
 	Customs         *handler.CustomsDeclarationHandler
@@ -345,6 +346,13 @@ func New(
 		receipts.GET("/:id", h.PurchaseReceipt.Get)
 		receipts.PUT("/:id/confirm", h.PurchaseReceipt.Confirm)
 		receipts.DELETE("/:id", h.PurchaseReceipt.Delete)
+
+		// 验货记录（T-51b）：结论、抽检比例与缺陷项。挂在采购单下，
+		// 删除走自己的前缀（独立实体，不再需要采购单 id）。
+		purchases.GET("/:id/inspections", h.Inspection.List)
+		purchases.POST("/:id/inspections", h.Inspection.Create)
+		inspections := secured.Group("/inspections")
+		inspections.DELETE("/:id", h.Inspection.Delete)
 		// 采购单打印件（T-54）：供应商要拿到它才能排产。
 		purchases.GET("/:id/pdf", h.PDF.PurchaseOrder)
 
