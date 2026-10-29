@@ -4,6 +4,7 @@ import { useShow } from '@refinedev/core'
 import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { PartnerAddressPanel } from '@/components/partner-address-panel'
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
@@ -56,6 +57,9 @@ export function SupplierShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 供应商也要多地址：采购合同的收货地址常常是工厂而不是注册地。 */}
+      {result?.id ? <PartnerAddressPanel partnerId={result.id} /> : null}
 
       {/* 供应商侧常见的是 ISO 证书、质检报告、营业执照：同样是长期有效的文件。 */}
       {result?.id ? (

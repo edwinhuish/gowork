@@ -163,6 +163,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/partners/:id/credit` | `Partner.Credit` | `CreditService.Summary`：额度、未结清应收、未开票订单、敞口；额度 0 = 不限 |
 | POST | `/api/v1/partners/:id/merge` | `Partner.Merge` | 把 `source_id` 并入 `:id`（主记录）：角色取并集、空字符串字段从被合并方补、引用按 `repository/partnerRefTables` 整体迁移（含 `sys_attachment`），被合并方软删；主记录已有主联系人时把被合并方的降级；货源同产品同货号冲突返回 409；带 `updated_at` 走乐观锁 |
 | GET | `/api/v1/partner-duplicates` | `Partner.Duplicates` | 全库查重分组：名称+国家 / 邮箱同域 / 电话尾号三条规则各扫一遍，只返回 ≥2 条的分组。**不挂在 `/partners` 下**——gin 同一层不允许 `:id` 与静态段并存（会 panic），与 `/shipment-candidates` 同一处理 |
+| GET / POST | `/api/v1/partners/:id/addresses` | `PartnerAddress.List` / `.Create` | 主体多地址（T-49）：`type` 只接受 `invoice` / `delivery` / `consignee` / `notify`；该用途下第一条自动成为默认 |
+| PUT / DELETE | `/api/v1/partners/:id/addresses/:addressId` | `PartnerAddress.Update` / `.Delete` | 全量覆盖；设新默认会降级原默认（同事务），取消唯一一条默认返回 400；删除默认时同用途剩下最早的一条接替。**跨主体传 addressId 按 404 处理**——`partnerID` 只限定范围，不校验归属的话任何人都能改到别家地址 |
 | GET | `/api/v1/partner-duplicates/candidates` | `Partner.DuplicateCandidates` | `?name=&country=&email=&phone=&exclude_id=`：录入时的候选提示，一条主体只返回一次（命中几条规则就把原因并起来）；免费邮箱与空值不参与；只提示不阻断 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |
 | GET / POST | `/api/v1/suppliers` | `Partner.*(&supplierRole)` | 同上 |

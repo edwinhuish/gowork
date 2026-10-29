@@ -24,32 +24,34 @@ type Handlers struct {
 	// ProductCode 是产品别名编号（旧 SKU / 客户号 / 供应商货号）。
 	ProductCode *handler.ProductCodeHandler
 	Partner     *handler.PartnerHandler
-	Currency    *handler.CurrencyHandler
-	Rate        *handler.ExchangeRateHandler
-	Contact     *handler.ContactHandler
-	Activity    *handler.ActivityHandler
-	Oppty       *handler.OpportunityHandler
-	Lead        *handler.LeadHandler
-	Source      *handler.ProductSourceHandler
-	Quotation   *handler.QuotationHandler
-	Contract    *handler.ContractHandler
-	PDF         *handler.PDFHandler
-	SalesOrder  *handler.SalesOrderHandler
-	Purchase    *handler.PurchaseOrderHandler
-	Shipment    *handler.ShipmentHandler
-	Charge      *handler.ShipmentChargeHandler
-	Customs     *handler.CustomsDeclarationHandler
-	Receivable  *handler.ReceivableHandler
-	Payable     *handler.PayableHandler
-	Payment     *handler.PaymentHandler
-	Report      *handler.ReportHandler
-	Stock       *handler.StockHandler
-	StockDoc    *handler.StockDocumentHandler
-	Dashboard   *handler.DashboardHandler
-	Attachment  *handler.AttachmentHandler
-	Audit       *handler.AuditHandler
-	User        *handler.UserHandler
-	Clause      *handler.ClauseHandler
+	// PartnerAddress 是主体的多地址（发票 / 收货 / 提单收货人 / 通知方）。
+	PartnerAddress *handler.PartnerAddressHandler
+	Currency       *handler.CurrencyHandler
+	Rate           *handler.ExchangeRateHandler
+	Contact        *handler.ContactHandler
+	Activity       *handler.ActivityHandler
+	Oppty          *handler.OpportunityHandler
+	Lead           *handler.LeadHandler
+	Source         *handler.ProductSourceHandler
+	Quotation      *handler.QuotationHandler
+	Contract       *handler.ContractHandler
+	PDF            *handler.PDFHandler
+	SalesOrder     *handler.SalesOrderHandler
+	Purchase       *handler.PurchaseOrderHandler
+	Shipment       *handler.ShipmentHandler
+	Charge         *handler.ShipmentChargeHandler
+	Customs        *handler.CustomsDeclarationHandler
+	Receivable     *handler.ReceivableHandler
+	Payable        *handler.PayableHandler
+	Payment        *handler.PaymentHandler
+	Report         *handler.ReportHandler
+	Stock          *handler.StockHandler
+	StockDoc       *handler.StockDocumentHandler
+	Dashboard      *handler.DashboardHandler
+	Attachment     *handler.AttachmentHandler
+	Audit          *handler.AuditHandler
+	User           *handler.UserHandler
+	Clause         *handler.ClauseHandler
 }
 
 // bodyLimitBytes 是单个请求体的兜底上限，32MB。
@@ -169,6 +171,14 @@ func New(
 		partners.POST("/:id/merge", h.Partner.Merge)
 		// 转移负责人：主管把客户分下去，或业务员离职时整批交出去。
 		partners.PUT("/:id/owner", h.Partner.TransferOwner)
+		// 多地址：单证取址的依据（发票抬头 / 收货人 / 通知方）。
+		// 只挂在 /partners 下，不给三个角色切片各复制一份——地址没有角色语义，
+		// 能打开这个主体就能看它的地址；复制三份的代价是三处要同步改。
+		addresses := partners.Group("/:id/addresses")
+		addresses.GET("", h.PartnerAddress.List)
+		addresses.POST("", h.PartnerAddress.Create)
+		addresses.PUT("/:addressId", h.PartnerAddress.Update)
+		addresses.DELETE("/:addressId", h.PartnerAddress.Delete)
 
 		// 查重。单独一个前缀而不是 /partners/duplicates：同一层不能既有 :id
 		// 又有静态段（gin 会直接 panic），与 /shipment-candidates 同一处理。

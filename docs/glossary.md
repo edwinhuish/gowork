@@ -151,14 +151,14 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 「PI」是 Proforma Invoice 的日常叫法，文档与代码里统一写 **形式发票 `Contract(type=PI)`**，
 不要另起 `ProformaInvoice` 这个类型——同一份东西两个名字，最后会有两个接口。
 
-### 阶段 10 新增（未实现，命名先定）
+### 阶段 10 新增（命名先定，已实现的在条目里标注）
 
 规则同上：动工前先把名字定死，避免代码里冒出 `Address2` / `Receipt` / `CreditMemo` / `ReverseOrder`
 这类同义不同名的写法。任务编号见 `docs/roadmap.md` 阶段 10。
 
 | 中文 | 英文标识 | 表名 / 列名 | 定义 |
 |---|---|---|---|
-| 主体地址 | `PartnerAddress` | `md_partner_address` | 主体的一个地址，`type` 区分 `invoice` 发票 / `delivery` 收货 / `notify` 通知方 / `consignee` 提单收货人。**1:N**，同类型只有一条默认。主表上的 `address` 退化为「主地址」的冗余显示 |
+| 主体地址 | `PartnerAddress` | `md_partner_address` | **已实现（T-49）**。主体的一个地址，`type` 区分 `invoice` 发票 / `delivery` 收货 / `consignee` 提单收货人 / `notify` 通知方。**1:N**，同类型最多一条 `is_default`（应用层事务保证，不用条件唯一索引——三库支持不一致）。删主体不级联删地址：主体是软删，恢复时地址要跟着回来 |
 | 税号 | `Partner.TaxID` | `md_partner.tax_id` | 开票与报关用的纳税人识别号。公司主体不强制，但单证上缺它会被客户退回 |
 | 客户组 / 区域 | `Partner.CustomerGroup` / `Partner.Region` | `md_partner` 两列 | 报表分组用。**区域是我方划分的销售片区，不是国家**——同一个国家可以有两个片区 |
 | 客户分级 | `Partner.Grade` | `md_partner.grade` | ABC 分级，只做标签与筛选，**不做权限**。分级规则尚未定，见 `docs/roadmap.md` 第五节 |

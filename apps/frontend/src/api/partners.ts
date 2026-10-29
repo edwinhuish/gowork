@@ -1,5 +1,25 @@
 import { http, toQuery } from './client'
-import type { Partner, PartnerDuplicateCandidate, PartnerMergeResult } from '@/types'
+import type {
+  Partner,
+  PartnerAddress,
+  PartnerAddressType,
+  PartnerDuplicateCandidate,
+  PartnerMergeResult,
+} from '@/types'
+
+/** 地址新增与编辑共用的入参。编辑是全量覆盖（PUT 语义）。 */
+export interface PartnerAddressInput {
+  type: PartnerAddressType
+  is_default: boolean
+  contact?: string
+  phone?: string
+  country?: string
+  province?: string
+  city?: string
+  postal_code?: string
+  address: string
+  remark?: string
+}
 
 export interface PartnerDuplicateQuery {
   name?: string
@@ -57,4 +77,22 @@ export const partnerApi = {
       owner_id: ownerId,
       updated_at: updatedAt,
     }),
+
+  /**
+   * 多地址（T-49）。走 /partners/:id/addresses，不给客户 / 供应商各复制一份：
+   * 地址没有角色语义，能打开这个主体就能看它的地址。
+   *
+   * 默认地址的唯一性由后端保证：新增时若该用途还没有地址会自动置默认，
+   * 把另一条设为默认会把原默认降级，取消唯一一条默认会被拒绝（400）。
+   */
+  addresses: {
+    list: (partnerId: number, type?: PartnerAddressType) =>
+      http.get<PartnerAddress[]>(`/partners/${partnerId}/addresses${toQuery({ type })}`),
+    create: (partnerId: number, input: PartnerAddressInput) =>
+      http.post<PartnerAddress>(`/partners/${partnerId}/addresses`, input),
+    update: (partnerId: number, addressId: number, input: PartnerAddressInput) =>
+      http.put<PartnerAddress>(`/partners/${partnerId}/addresses/${addressId}`, input),
+    remove: (partnerId: number, addressId: number) =>
+      http.delete<void>(`/partners/${partnerId}/addresses/${addressId}`),
+  },
 }

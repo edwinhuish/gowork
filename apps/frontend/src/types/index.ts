@@ -37,6 +37,33 @@ export type PartnerRole = 1 | 2 | 3
 export type PartnerEntityType = 0 | 1
 
 /**
+ * 地址用途。与后端 model.PartnerAddressType 一致。
+ *
+ * 四种而不是"多地址一锅端"：一张单证上同时出现发票抬头、收货人、通知方，
+ * 三者常常分属不同主体，取址必须按用途区分。
+ */
+export type PartnerAddressType = 'invoice' | 'delivery' | 'consignee' | 'notify'
+
+/** 主体的一个地址。每个（主体，用途）最多一条 `is_default`。 */
+export interface PartnerAddress {
+  id: number
+  partner_id: number
+  type: PartnerAddressType
+  is_default: boolean
+  contact: string
+  phone: string
+  country: string
+  province: string
+  city: string
+  postal_code: string
+  /** 门牌与街道，不含国家省市——那三项单独存，单证按行取。 */
+  address: string
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
+/**
  * 商业伙伴（往来单位）。
  *
  * 客户与供应商是同一张表里的两种角色，不再是两个实体。

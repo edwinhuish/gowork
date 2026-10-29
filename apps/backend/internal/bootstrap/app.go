@@ -71,6 +71,7 @@ func New(cfg *config.Config) (*App, error) {
 	models := []any{
 		&model.User{},
 		&model.Partner{},
+		&model.PartnerAddress{},
 		&model.Product{},
 		&model.ProductCode{},
 		&model.Currency{},
@@ -186,6 +187,10 @@ func New(cfg *config.Config) (*App, error) {
 		productCodeRepo, productRepo, service.WithProductCodeLogger(log))
 	partnerSvc := service.NewPartnerService(
 		partnerRepo, productRepo, currencyRepo, userRepo, service.WithPartnerLogger(log))
+	// 多地址跟着主体走：只依赖主体仓储（要确认主体存在），不依赖任何业务服务。
+	partnerAddressSvc := service.NewPartnerAddressService(
+		repository.NewPartnerAddressRepository(db), partnerRepo,
+		service.WithPartnerAddressLogger(log))
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
 	rateSvc := service.NewExchangeRateService(rateRepo, currencyRepo, service.WithExchangeRateLogger(log))
 	contactSvc := service.NewContactService(contactRepo, partnerRepo, service.WithContactLogger(log))
@@ -278,36 +283,37 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, auditSvc, c, server.Handlers{
-		Auth:        handler.NewAuthHandler(authSvc),
-		Product:     handler.NewProductHandler(productSvc),
-		ProductCode: handler.NewProductCodeHandler(productCodeSvc),
-		Partner:     handler.NewPartnerHandler(partnerSvc, creditSvc),
-		Currency:    handler.NewCurrencyHandler(currencySvc),
-		Rate:        handler.NewExchangeRateHandler(rateSvc),
-		Contact:     handler.NewContactHandler(contactSvc),
-		Activity:    handler.NewActivityHandler(activitySvc),
-		Oppty:       handler.NewOpportunityHandler(opptySvc),
-		Lead:        handler.NewLeadHandler(leadSvc),
-		Source:      handler.NewProductSourceHandler(sourceSvc),
-		Quotation:   handler.NewQuotationHandler(quotationSvc),
-		Contract:    handler.NewContractHandler(contractSvc),
-		PDF:         handler.NewPDFHandler(pdfSvc),
-		SalesOrder:  handler.NewSalesOrderHandler(orderSvc),
-		Purchase:    handler.NewPurchaseOrderHandler(purchaseSvc),
-		Shipment:    handler.NewShipmentHandler(shipmentSvc),
-		Charge:      handler.NewShipmentChargeHandler(chargeSvc),
-		Customs:     handler.NewCustomsDeclarationHandler(customsSvc),
-		Receivable:  handler.NewReceivableHandler(receivableSvc),
-		Payable:     handler.NewPayableHandler(payableSvc),
-		Payment:     handler.NewPaymentHandler(paymentSvc),
-		Report:      handler.NewReportHandler(reportSvc),
-		Stock:       handler.NewStockHandler(stockSvc),
-		StockDoc:    handler.NewStockDocumentHandler(stockDocSvc),
-		Dashboard:   handler.NewDashboardHandler(dashboardSvc),
-		Attachment:  handler.NewAttachmentHandler(attachmentSvc),
-		Audit:       handler.NewAuditHandler(auditSvc),
-		User:        handler.NewUserHandler(userSvc),
-		Clause:      handler.NewClauseHandler(clauseSvc),
+		Auth:           handler.NewAuthHandler(authSvc),
+		Product:        handler.NewProductHandler(productSvc),
+		ProductCode:    handler.NewProductCodeHandler(productCodeSvc),
+		Partner:        handler.NewPartnerHandler(partnerSvc, creditSvc),
+		PartnerAddress: handler.NewPartnerAddressHandler(partnerAddressSvc),
+		Currency:       handler.NewCurrencyHandler(currencySvc),
+		Rate:           handler.NewExchangeRateHandler(rateSvc),
+		Contact:        handler.NewContactHandler(contactSvc),
+		Activity:       handler.NewActivityHandler(activitySvc),
+		Oppty:          handler.NewOpportunityHandler(opptySvc),
+		Lead:           handler.NewLeadHandler(leadSvc),
+		Source:         handler.NewProductSourceHandler(sourceSvc),
+		Quotation:      handler.NewQuotationHandler(quotationSvc),
+		Contract:       handler.NewContractHandler(contractSvc),
+		PDF:            handler.NewPDFHandler(pdfSvc),
+		SalesOrder:     handler.NewSalesOrderHandler(orderSvc),
+		Purchase:       handler.NewPurchaseOrderHandler(purchaseSvc),
+		Shipment:       handler.NewShipmentHandler(shipmentSvc),
+		Charge:         handler.NewShipmentChargeHandler(chargeSvc),
+		Customs:        handler.NewCustomsDeclarationHandler(customsSvc),
+		Receivable:     handler.NewReceivableHandler(receivableSvc),
+		Payable:        handler.NewPayableHandler(payableSvc),
+		Payment:        handler.NewPaymentHandler(paymentSvc),
+		Report:         handler.NewReportHandler(reportSvc),
+		Stock:          handler.NewStockHandler(stockSvc),
+		StockDoc:       handler.NewStockDocumentHandler(stockDocSvc),
+		Dashboard:      handler.NewDashboardHandler(dashboardSvc),
+		Attachment:     handler.NewAttachmentHandler(attachmentSvc),
+		Audit:          handler.NewAuditHandler(auditSvc),
+		User:           handler.NewUserHandler(userSvc),
+		Clause:         handler.NewClauseHandler(clauseSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}

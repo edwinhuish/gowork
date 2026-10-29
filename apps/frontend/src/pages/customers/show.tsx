@@ -6,6 +6,7 @@ import { Button, Descriptions, Space, Tag } from 'antd'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
 import { Partner360Panel } from '@/components/partner-360-panel'
+import { PartnerAddressPanel } from '@/components/partner-address-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
 import type { Partner } from '@/types'
@@ -89,6 +90,10 @@ export function CustomerShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 多地址：单证取址的依据。发票抬头、收货人、通知方常常是三家不同的公司，
+          所以它与上面那条"主地址"不是重复，而是"按用途各取所需"。 */}
+      {result?.id ? <PartnerAddressPanel partnerId={result.id} /> : null}
 
       {/* 主体上的附件是长期有效的那类：营业执照、开户信息、验厂报告。
           与出货单证不同，它们不跟着某一票货走。 */}

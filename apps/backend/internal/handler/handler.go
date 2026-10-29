@@ -28,6 +28,20 @@ func parseID(c *gin.Context) (uint, bool) {
 	return uint(id), true
 }
 
+// parseUintParam 解析路径上的指定参数名，供子资源用（如 :addressId）。
+//
+// 与 parseID 同一个套路，只是参数名可换：子资源路径上同时有 :id 与 :addressId，
+// 少一个就会把地址 id 当成主体 id 用，而那种错误从响应里看不出来。
+func parseUintParam(c *gin.Context, name, label string) (uint, bool) {
+	raw := c.Param(name)
+	id, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil || id == 0 {
+		response.Fail(c, errs.BadRequest("无效的"+label+" ID"))
+		return 0, false
+	}
+	return uint(id), true
+}
+
 // bindJSON 绑定并校验请求体，失败时已写出响应。
 func bindJSON(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {

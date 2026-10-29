@@ -228,6 +228,19 @@ export const PARTNER_ENTITY_TYPE_OPTIONS = [
 ]
 
 /**
+ * 主体地址用途。取值必须与后端 model.PartnerAddressType 一致。
+ *
+ * 顺序即单证上出现的顺序：先发票抬头，再收货人，最后通知方。
+ * 外贸业务里三栏经常指向三家公司，所以这不是"多个联系地址"的集合。
+ */
+export const PARTNER_ADDRESS_TYPE_OPTIONS = [
+  { value: 'invoice', label: '发票地址' },
+  { value: 'delivery', label: '收货地址' },
+  { value: 'consignee', label: '提单收货人' },
+  { value: 'notify', label: '通知方' },
+]
+
+/**
  * 客户 ABC 分级。取值必须与后端 model.PartnerGrade 一致。
  *
  * 只做标签与筛选，不接权限也不接折扣：分级规则（按成交额、毛利还是回款速度）
