@@ -28,7 +28,7 @@ type ProductCode struct {
 	Base
 	// 遮蔽 Base 里的同名字段：编号表平时是硬删，但产品软删时也可能留下标记行，
 	// 「同产品内编号唯一」必须是"未删才唯一"，否则删掉再加回来会撞索引。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_product_code,priority:3" json:"-"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_product_code,priority:3" json:"deleted_at,omitempty"`
 	ProductID uint      `gorm:"not null;index;uniqueIndex:uni_product_code,priority:1" json:"product_id"`
 	// Code 原样保存，用于显示：客户认的是他写的那串，包括大小写与连字符。
 	Code string `gorm:"size:64;not null" json:"code"`

@@ -17,7 +17,7 @@ import (
 type PurchaseOrder struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_purchase_order_doc_no,priority:2" json:"-"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_purchase_order_doc_no,priority:2" json:"deleted_at,omitempty"`
 	DocNo     string    `gorm:"size:32;uniqueIndex:uni_purchase_order_doc_no,priority:1;not null" json:"doc_no"`
 	// SupplierID 指向承担供应商角色的主体，由 service 校验角色位。
 	SupplierID uint           `gorm:"index;not null" json:"supplier_id"`

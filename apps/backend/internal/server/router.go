@@ -80,6 +80,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		products.GET("/:id", h.Product.Get)
 		products.PUT("/:id", h.Product.Update)
 		products.DELETE("/:id", h.Product.Delete)
+		// 删除是可追溯的（软删），恢复就该有入口，否则「删错了」只能靠改库。
+		products.POST("/:id/restore", h.Product.Restore)
 
 		// 产品编号：SKU 之外的那些号（旧 SKU、客户物料号、供应商货号、工厂号）。
 		// 独立前缀而不是 /products/:id/codes：与货源一致，用 ?product_id= 过滤，

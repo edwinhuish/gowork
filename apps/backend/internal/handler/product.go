@@ -93,3 +93,21 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 	}
 	response.OK(c, gin.H{"deleted": true})
 }
+
+// Restore POST /api/v1/products/:id/restore
+//
+// 与删除对称，也用 POST：它不是"把某个字段改成某个值"的通用更新，
+// 而是"把这条记录从已删状态拉回来"这个不可逆动作的反向操作。
+// 用 PUT /:id 兼职会让编辑接口同时背上"改字段"与"改删除状态"两种语义。
+func (h *ProductHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.products.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}

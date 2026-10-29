@@ -1,7 +1,19 @@
-import type { CrudFilters } from '@refinedev/core'
-import { CreateButton, List, useTable } from '@refinedev/antd'
-import { Button, Form, Input, Select, Space, Table } from 'antd'
+import { useInvalidate, type CrudFilters } from '@refinedev/core'
+import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
+import {
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  message,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+} from 'antd'
 
+import { productApi } from '@/api/products'
 import { CategoryTag, Empty, Mono, Money, StatusTag } from '@/components/fields'
 import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Product } from '@/types'
@@ -10,6 +22,8 @@ interface ProductSearch {
   keyword?: string
   category?: string
   status?: number
+  /** 含已删除：打开后已软删的行也出现在列表里，只能做一件事——恢复。 */
+  include_deleted?: boolean
 }
 
 /**
@@ -35,9 +49,24 @@ export function ProductList() {
       if (v.status !== undefined && v.status !== null) {
         filters.push({ field: 'status', operator: 'eq', value: v.status })
       }
+      if (v.include_deleted) {
+        filters.push({ field: 'include_deleted', operator: 'eq', value: true })
+      }
       return filters
     },
   })
+
+  const invalidate = useInvalidate()
+
+  const restore = async (record: Product) => {
+    try {
+      await productApi.restore(record.id)
+      message.success(`${record.sku_code} 已恢复`)
+      await invalidate({ resource: 'products', invalidates: ['list'] })
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '恢复失败')
+    }
+  }
 
   const resetFilters = () => {
     searchFormProps.form?.resetFields()
@@ -56,6 +85,9 @@ export function ProductList() {
         <Form.Item name="status">
           <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
         </Form.Item>
+        <Form.Item name="include_deleted" valuePropName="checked">
+          <Checkbox>含已删除</Checkbox>
+        </Form.Item>
         <Form.Item>
           <Space>
             <Button type="primary" htmlType="submit">
@@ -73,7 +105,10 @@ export function ProductList() {
           width={170}
           render={(value: string, record: Product) => (
             <div className="cell-stack">
-              <Mono>{value}</Mono>
+              <Space size={4}>
+                <Mono>{value}</Mono>
+                {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
+              </Space>
               {/* 搜旧编号时说明"为什么这条会出现"；不说明的话，用户看着一串
                   对不上的 SKU 会以为搜索坏了。 */}
               {record.matched_codes?.length ? (
@@ -129,6 +164,35 @@ export function ProductList() {
           title="状态"
           width={90}
           render={(value: number) => <StatusTag value={value} />}
+        />
+        <Table.Column
+          title="操作"
+          width={110}
+          render={(_, record: Product) =>
+            /* 已删除的行只能恢复：编辑与删除对它们都是 404，按钮摆出来也没用。 */
+            record.deleted_at ? (
+              <Popconfirm
+                title="恢复这个产品？"
+                description="只去掉删除标记，删除时清掉的编号不会回来。"
+                okText="恢复"
+                cancelText="返回"
+                onConfirm={() => restore(record)}
+              >
+                <Button size="small" type="link">
+                  恢复
+                </Button>
+              </Popconfirm>
+            ) : (
+              <DeleteButton
+                size="small"
+                resource="products"
+                recordItemId={record.id}
+                confirmTitle="删除这个产品？"
+                confirmOkText="删除"
+                confirmCancelText="返回"
+              />
+            )
+          }
         />
       </Table>
     </List>

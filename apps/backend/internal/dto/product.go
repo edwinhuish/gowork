@@ -8,6 +8,9 @@ type ProductQuery struct {
 	Category   string            `form:"category"`
 	SupplierID *uint             `form:"supplier_id"`
 	Status     EnableStatusInput `form:"status"`
+	// IncludeDeleted 把已软删的产品也列出来（列表页的「含已删除」开关）。
+	// 这些行只该做一件事：恢复——其余编辑入口对它们一律 404。
+	IncludeDeleted bool `form:"include_deleted"`
 }
 
 // ProductInput 产品新增与编辑共用的入参。

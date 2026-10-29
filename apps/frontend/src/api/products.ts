@@ -18,4 +18,13 @@ export const productApi = {
     ),
 
   get: (id: number) => http.get<Product>(`/products/${id}`),
+
+  /**
+   * 恢复一条已软删的产品。
+   *
+   * 只把删除标记去掉，不会把删除时清掉的编号带回来——产品下线那段时间里
+   * 客户可能已经把那个号挪给了别的货，静默恢复等于替用户断言归属。
+   * SKU 已被别的产品占用时后端返回 409，提示里会说明是哪个号。
+   */
+  restore: (id: number) => http.post<Product>(`/products/${id}/restore`),
 }

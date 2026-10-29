@@ -17,7 +17,7 @@ import (
 type SalesOrder struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_sales_order_doc_no,priority:2" json:"-"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_sales_order_doc_no,priority:2" json:"deleted_at,omitempty"`
 	DocNo     string    `gorm:"size:32;uniqueIndex:uni_sales_order_doc_no,priority:1;not null" json:"doc_no"`
 	// BaseNo 是案号（DZ2603）：从报价转来时沿用来源的案号与序号，
 	// 手建订单则取该客户本年下一笔生意。与报价单的那一列不是唯一键，也**不该**是。

@@ -14,7 +14,7 @@ import (
 type Shipment struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt    `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_shipment_doc_no,priority:2" json:"-"`
+	DeletedAt DeletedAt    `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_shipment_doc_no,priority:2" json:"deleted_at,omitempty"`
 	DocNo     string       `gorm:"size:32;uniqueIndex:uni_shipment_doc_no,priority:1;not null" json:"doc_no"`
 	Status DocumentStatus `gorm:"not null;index" json:"status"`
 	// ShipDate 是实际（或计划）出货日，决定它落在哪个统计月份。

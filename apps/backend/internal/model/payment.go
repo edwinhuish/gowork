@@ -84,7 +84,7 @@ func (t SettlementTarget) Label() string {
 type Payment struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt        `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_payment_doc_no,priority:2" json:"-"`
+	DeletedAt DeletedAt        `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_payment_doc_no,priority:2" json:"deleted_at,omitempty"`
 	DocNo     string           `gorm:"size:32;uniqueIndex:uni_payment_doc_no,priority:1;not null" json:"doc_no"`
 	Direction PaymentDirection `gorm:"not null;index" json:"direction"`
 	// PartnerID 是收付款的对方：收款指向客户，付款指向供应商。

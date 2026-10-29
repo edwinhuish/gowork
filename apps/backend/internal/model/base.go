@@ -46,7 +46,10 @@ type Base struct {
 	// 带业务唯一键的模型会在自己的结构体里再声明一次同名字段，
 	// 并把 deleted_at 排进复合唯一索引——外层字段遮蔽这里这个，
 	// gorm 解析时只认外层那份，仍然只有一列。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;index" json:"-"`
+	//
+	// 序列化用 omitempty：未删除时值是 0 被省掉，只有已删除的行才带出这个字段，
+	// 「含已删除」的列表靠它把行标出来、并决定显示「恢复」按钮。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;index" json:"deleted_at,omitempty"`
 }
 
 // DateOnly 把时间截到"业务日期"：取本地日历日，存成 UTC 零点。

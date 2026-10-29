@@ -257,6 +257,11 @@ export interface Product {
    * 详情接口不返回：它是某一次查询的结果，不是产品的一个字段。
    */
   matched_codes?: string[]
+  /**
+   * 已软删时才有值（Unix 毫秒）。后端用 omitempty 序列化，
+   * 未删除的行不会出现这个字段——「含已删除」的列表靠它标记行与显示「恢复」。
+   */
+  deleted_at?: number
   created_at: string
   updated_at: string
 }

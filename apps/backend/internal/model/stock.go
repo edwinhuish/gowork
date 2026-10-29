@@ -106,7 +106,7 @@ const (
 type StockMovement struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt         `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_movement_doc_no,priority:2" json:"-"`
+	DeletedAt DeletedAt         `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_movement_doc_no,priority:2" json:"deleted_at,omitempty"`
 	DocNo     string            `gorm:"size:32;not null;uniqueIndex:uni_stock_movement_doc_no,priority:1" json:"doc_no"`
 	ProductID uint              `gorm:"not null;index" json:"product_id"`
 	SKUCode   string            `gorm:"size:32;not null" json:"sku_code"`
@@ -158,7 +158,7 @@ type StockSnapshot struct {
 	Base
 	// 遮蔽 Base 里的同名字段。快照重算是"先删旧行、再按流水重建"，
 	// 单列唯一会让第二步撞上刚被标记删除的那一行——「未删才唯一」才是对的。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:2" json:"-"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_snapshot_product,priority:2" json:"deleted_at,omitempty"`
 	ProductID uint      `gorm:"not null;uniqueIndex:uni_stock_snapshot_product,priority:1" json:"product_id"`
 	// Qty 可以为负：直发业务里"先出货、后补入库单"是常态，
 	// 硬拦负库存只会逼人先造一张假的入库单。

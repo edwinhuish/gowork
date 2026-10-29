@@ -19,11 +19,17 @@ type ProductFilter struct {
 	Category   string
 	SupplierID *uint
 	Status     *model.EnableStatus
+	// IncludeDeleted 把已软删的行也查出来，供「含已删除」的列表与恢复入口使用。
+	// 默认 false：其余所有查询都不该看见已删数据。
+	IncludeDeleted bool
 }
 
 func (f ProductFilter) scopes() []Scope {
-	scopes := make([]Scope, 0, 4)
+	scopes := make([]Scope, 0, 5)
 
+	if f.IncludeDeleted {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
+	}
 	if f.Keyword != "" {
 		scopes = append(scopes, keywordScope(f.Keyword))
 	}
@@ -94,6 +100,12 @@ type ProductRepository interface {
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Product, error)
+	// FindByIDIncludingDeleted 连已软删的行也查。恢复入口要先看清"删的是哪一条"，
+	// 普通 FindByID 对已删记录只会返回 ErrNotFound。
+	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.Product, error)
+	// Restore 把软删标记写回 0。编码已被别的记录占用时由唯一索引拒绝，
+	// 错误会经 gorm 回调翻成 409，不需要在这里再判一次。
+	Restore(ctx context.Context, id uint) error
 	ExistsBySKUCode(ctx context.Context, skuCode string, excludeID uint) (bool, error)
 	List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error)
 	Count(ctx context.Context) (int64, error)
@@ -132,6 +144,30 @@ func (r *productRepo) FindByID(ctx context.Context, id uint) (*model.Product, er
 		return nil, fmt.Errorf("查询产品 id=%d: %w", id, err)
 	}
 	return &m, nil
+}
+
+func (r *productRepo) FindByIDIncludingDeleted(
+	ctx context.Context, id uint,
+) (*model.Product, error) {
+	var m model.Product
+	err := r.conn(ctx).Unscoped().Preload("Supplier").First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询产品 id=%d（含已删除）: %w", id, err)
+	}
+	return &m, nil
+}
+
+func (r *productRepo) Restore(ctx context.Context, id uint) error {
+	err := r.conn(ctx).Unscoped().Model(&model.Product{}).
+		Where("id = ?", id).
+		Update("deleted_at", 0).Error
+	if err != nil {
+		return fmt.Errorf("恢复产品 id=%d: %w", id, err)
+	}
+	return nil
 }
 
 // ExistsBySKUCode 做 SKU 编码的唯一性前置校验，excludeID 供编辑时排除自身。

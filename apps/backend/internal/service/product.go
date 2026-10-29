@@ -18,6 +18,9 @@ type ProductService interface {
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Product, error)
 	List(ctx context.Context, q dto.ProductQuery) (*dto.PageResult[model.Product], error)
+	// Restore 把已软删的产品恢复回来。删除是可追溯的，恢复就该有入口，
+	// 否则「删错了」只能靠改库。
+	Restore(ctx context.Context, id uint) (*model.Product, error)
 }
 
 type productService struct {
@@ -205,14 +208,46 @@ func (s *productService) Get(ctx context.Context, id uint) (*model.Product, erro
 	return s.repo.FindByID(ctx, id)
 }
 
+// Restore 把一条已软删的产品恢复回来。
+//
+// 只把标记写回 0，不会把删除时清掉的编号一并恢复：编号是"别人怎么叫这件货"，
+// 产品下线那段时间里客户可能已经把那个号挪给了别的货，静默恢复等于替用户断言
+// "这个号还属于你"。需要的话在产品详情页重新录。
+func (s *productService) Restore(ctx context.Context, id uint) (*model.Product, error) {
+	m, err := s.repo.FindByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if m.DeletedAt == 0 {
+		return nil, errs.BadRequest("该产品未被删除，无需恢复")
+	}
+
+	// 先挡一次编码冲突。数据库唯一索引也能拦住，但那时的提示是通用的
+	// 「数据已存在」，用户看不出是哪个号被占了、也看不出下一步该做什么。
+	occupied, err := s.repo.ExistsBySKUCode(ctx, m.SKUCode, id)
+	if err != nil {
+		return nil, err
+	}
+	if occupied {
+		return nil, errs.ErrConflict.WithMsg(fmt.Sprintf(
+			"SKU %s 已被另一条产品占用，先处理掉那条再恢复", m.SKUCode))
+	}
+
+	if err := s.repo.Restore(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.PageResult[model.Product], error) {
 	q.PageQuery.Normalize()
 
 	filter := repository.ProductFilter{
-		Keyword:    q.Keyword,
-		Category:   q.Category,
-		SupplierID: q.SupplierID,
-		Status:     enableStatusPtr(q.Status),
+		Keyword:        q.Keyword,
+		Category:       q.Category,
+		SupplierID:     q.SupplierID,
+		Status:         enableStatusPtr(q.Status),
+		IncludeDeleted: q.IncludeDeleted,
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 

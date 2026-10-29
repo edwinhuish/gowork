@@ -10,7 +10,7 @@ const (
 type User struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_user_username,priority:2" json:"-"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_user_username,priority:2" json:"deleted_at,omitempty"`
 	Username  string    `gorm:"size:64;uniqueIndex:uni_user_username,priority:1;not null" json:"username"`
 	// Password 存 bcrypt 摘要，任何情况下都不出口。
 	Password string       `gorm:"size:128;not null" json:"-"`

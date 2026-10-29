@@ -46,6 +46,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'from',
   'to',
   'due',
+  // 产品列表的「含已删除」开关：只有这一步能让软删的行出现在列表里。
+  'include_deleted',
   'stage',
   'open_only',
   'source',
