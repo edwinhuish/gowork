@@ -1,5 +1,5 @@
 import { useSelect } from '@refinedev/core'
-import { Divider, Form, Input, InputNumber, Select } from 'antd'
+import { Divider, Form, Input, InputNumber, Select, Switch } from 'antd'
 
 import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 
@@ -127,6 +127,15 @@ export function ProductFormFields() {
 
       {/* 包装规格（T-50）：维护之后出货分配行的箱数与毛净重由「箱数 × 单箱值」
           推导，订舱要的 CBM 也一起算出来。全部可选——没维护时分配行仍按人工填的走。 */}
+      <Form.Item
+        name="batch_managed"
+        label="按批次管理"
+        valuePropName="checked"
+        tooltip="开启后，这个产品出货必须填批次号。标准件与辅料不要开——强制填只会让人随手编一个号"
+      >
+        <Switch checkedChildren="开" unCheckedChildren="关" />
+      </Form.Item>
+
       <Form.Item
         name="pack_qty"
         label="每箱数量"

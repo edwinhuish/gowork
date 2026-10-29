@@ -10,6 +10,8 @@ export interface AllocationRow {
   /** 数量与重量都按字符串收发（后端 money.Decimal）：过 number 就丢末位。 */
   qty?: string
   /** 装箱数据：印装箱单用，可留空。重量是这一行的合计，不是单箱。 */
+  /** 批次号（T-58）：产品开了批次管理时必填，由后端校验。 */
+  batch_no?: string
   cartons?: number
   gross_weight?: string
   net_weight?: string
@@ -225,8 +227,13 @@ export function AllocationEditor({
                     </Col>
 
                     <Col span={spans.remark}>
-                      <Form.Item name={[field.name, 'remark']}>
-                        <Input maxLength={255} placeholder="包装、批号等" />
+                      {/* 批次号单独一栏（T-58）：产品开了批次管理时后端会拦，
+                          放在备注里当自由文本填，等于没管。 */}
+                      <Form.Item name={[field.name, 'batch_no']}>
+                        <Input maxLength={64} placeholder="批次号" />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'remark']} style={{ marginBottom: 0 }}>
+                        <Input maxLength={255} placeholder="包装等" />
                       </Form.Item>
                     </Col>
 

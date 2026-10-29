@@ -368,6 +368,8 @@ export interface Product {
    * 全部可选，0 表示未维护。维护之后出货分配行的箱数与毛净重由
    * 「箱数 × 单箱值」推导，订舱要的 CBM 也随之算出来，不再人工算。
    */
+  /** 按批次管理（T-58）：开启后出库必须指定批次号。 */
+  batch_managed: boolean
   pack_qty: number
   carton_gross_weight: string
   carton_net_weight: string
