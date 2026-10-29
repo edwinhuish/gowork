@@ -1,6 +1,8 @@
+import { useList } from '@refinedev/core'
 import { Space, Tag } from 'antd'
 
 import { categoryLabel, PARTNER_ROLE } from '@/constants/catalog'
+import type { Currency } from '@/types'
 
 /**
  * 业务字段的统一展示件。
@@ -16,17 +18,46 @@ export function StatusTag({ value }: { value?: number | null }) {
   return <Tag color={enabled ? 'success' : 'default'}>{enabled ? '启用' : '停用'}</Tag>
 }
 
-/** 金额：两位小数 + 千分位，等宽数字避免列内错位。 */
-export function Money({ value }: { value?: number | string | null }) {
-  // 后端金额已经是定点小数的字符串（money.Decimal）：这里只做千分位与保留两位的
-  // 显示，不参与任何算术——要算就在服务端算，前端算出来的数没法与票据对上。
+/**
+ * 金额：千分位 + 按币种小数位，等宽数字避免列内错位。
+ *
+ * 不传 currency 时按 2 位（改造前的行为）：绝大多数列没有币种上下文，
+ * 而给每个调用点都补一个 currency 是一次全站改动，分批做。
+ *
+ * **小数位必须读币种，不能固定 2 位**：JPY 是 0 位，显示成 `1,000.00`
+ * 会让人以为有小数；KWD 是 3 位，固定 2 位会把末位截掉、金额凭空变小。
+ */
+export function Money({
+  value,
+  currency,
+}: {
+  value?: number | string | null
+  currency?: string | null
+}) {
+  // 只在传了币种时才拉币种表：react-query 按 key 去重，
+  // 一页几十个 Money 只会发一次请求。
+  const { result } = useList<Currency>({
+    resource: 'currencies',
+    pagination: { mode: 'off' },
+    queryOptions: { enabled: !!currency },
+  })
+  const dp = currency
+    ? (result?.data.find((c) => c.code === currency)?.decimal_places ?? 2)
+    : 2
+
+  // 后端金额已经是定点小数的字符串（money.Decimal）：这里只做千分位与舍入显示，
+  // 不参与任何算术——要算就在服务端算，前端算出来的数没法与票据对上。
   const num = typeof value === 'string' ? Number(value) : value
   if (num === null || num === undefined || Number.isNaN(num)) {
     return <span className="cell-empty">—</span>
   }
   return (
     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-      {num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {num.toLocaleString('zh-CN', {
+        minimumFractionDigits: dp,
+        maximumFractionDigits: dp,
+      })}
+      {currency ? <span className="cell-sub"> {currency}</span> : null}
     </span>
   )
 }

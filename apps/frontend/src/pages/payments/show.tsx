@@ -88,19 +88,19 @@ export function PaymentShow() {
           {
             key: 'amount',
             label: '金额（原币）',
-            children: result ? <Money value={result.amount} /> : <Empty />,
+            children: result ? <Money value={result.amount} currency={result?.currency_code} /> : <Empty />,
           },
           {
             key: 'amount_base',
             label: '金额（本币）',
-            children: result ? <Money value={result.amount_base} /> : <Empty />,
+            children: result ? <Money value={result.amount_base} currency={result?.currency_code} /> : <Empty />,
           },
           {
             key: 'allocated',
             label: '已核销',
             children:
               allocated > 0 ? (
-                <Money value={allocated} />
+                <Money value={allocated} currency={result?.currency_code} />
               ) : (
                 <Tag>{result?.direction === 20 ? '预付' : '预收'}</Tag>
               ),
@@ -108,7 +108,7 @@ export function PaymentShow() {
           {
             key: 'outstanding',
             label: '未核销',
-            children: outstanding > 0.0001 ? <Money value={outstanding} /> : <Empty />,
+            children: outstanding > 0.0001 ? <Money value={outstanding} currency={result?.currency_code} /> : <Empty />,
           },
           {
             key: 'method',
@@ -153,14 +153,14 @@ export function PaymentShow() {
             title: '核销金额（原币）',
             width: 180,
             align: 'right',
-            render: (value: string) => <Money value={value} />,
+            render: (value: string) => <Money value={value} currency={result?.currency_code} />,
           },
           {
             dataIndex: 'amount_base',
             title: '核销金额（本币）',
             width: 180,
             align: 'right',
-            render: (value: string) => <Money value={value} />,
+            render: (value: string) => <Money value={value} currency={result?.currency_code} />,
           },
           {
             // 撤销一条核销（T-52）：不删整张单，只回滚这一行。
