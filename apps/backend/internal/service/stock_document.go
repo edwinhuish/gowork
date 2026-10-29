@@ -32,6 +32,8 @@ type StockDocumentService interface {
 	// IssuePurchaseIn 由收货确认调用：建一张采购入库单并立刻确认（T-51a）。
 	// 调用方负责把它包进自己的事务，与 IssueSalesOut 同一约束。
 	IssuePurchaseIn(ctx context.Context, in dto.PurchaseInIssueInput) (*model.StockDocument, error)
+	// IssuePurchaseReturn 由采购退货调用：建一张采购退货出库单并立刻确认（T-52b3）。
+	IssuePurchaseReturn(ctx context.Context, in dto.PurchaseReturnIssueInput) (*model.StockDocument, error)
 }
 
 type stockDocumentService struct {
@@ -377,6 +379,60 @@ func (s *stockDocumentService) IssuePurchaseIn(
 		DocDate:     model.DateOnly(in.DocDate),
 		PartnerID:   in.PartnerID,
 		SourceDocNo: in.ReceiptNo,
+		Remark:      strings.TrimSpace(in.Remark),
+	}
+	items := make([]model.StockDocumentItem, 0, len(in.Items))
+	for _, it := range in.Items {
+		items = append(items, model.StockDocumentItem{
+			ProductID: it.ProductID,
+			SKUCode:   it.SKUCode,
+			NameCN:    it.NameCN,
+			Unit:      it.Unit,
+			Qty:       it.Qty,
+			Remark:    it.Remark,
+		})
+	}
+	if err := s.docs.CreateWithItems(ctx, doc, items); err != nil {
+		return nil, err
+	}
+	return s.Confirm(ctx, doc.ID)
+}
+
+// IssuePurchaseReturn 由采购退货调用：建一张采购退货出库单并立刻确认（T-52b3）。
+//
+// 与 IssuePurchaseIn 完全同构，方向相反。判重键是「收货单号 + 序号」而不是
+// 收货单号本身：同一张收货单可以分多次退货，用收货单号会把第二次判成重复入库。
+func (s *stockDocumentService) IssuePurchaseReturn(
+	ctx context.Context, in dto.PurchaseReturnIssueInput,
+) (*model.StockDocument, error) {
+	if len(in.Items) == 0 {
+		return nil, errs.BadRequest("这次退货没有明细，不能生成采购退货单")
+	}
+	if strings.TrimSpace(in.SourceNo) == "" {
+		return nil, errs.BadRequest("缺少来源单号")
+	}
+
+	dup, err := s.docs.ExistsBySource(ctx, model.StockDocPurchaseReturn, in.SourceNo)
+	if err != nil {
+		return nil, err
+	}
+	if dup {
+		return nil, errs.ErrConflict.WithMsg(
+			fmt.Sprintf("退货单 %s 已经生成过，不能重复出库", in.SourceNo))
+	}
+
+	docNo, err := s.docNos.Next(ctx, model.StockDocPurchaseReturn.DocType())
+	if err != nil {
+		return nil, err
+	}
+
+	doc := &model.StockDocument{
+		DocNo:       docNo,
+		Type:        model.StockDocPurchaseReturn,
+		Status:      model.DocumentStatusDraft,
+		DocDate:     model.DateOnly(in.DocDate),
+		PartnerID:   in.PartnerID,
+		SourceDocNo: in.SourceNo,
 		Remark:      strings.TrimSpace(in.Remark),
 	}
 	items := make([]model.StockDocumentItem, 0, len(in.Items))

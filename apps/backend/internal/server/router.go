@@ -346,6 +346,8 @@ func New(
 		receipts := secured.Group("/purchase-receipts")
 		receipts.GET("/:id", h.PurchaseReceipt.Get)
 		receipts.PUT("/:id/confirm", h.PurchaseReceipt.Confirm)
+		// 退货（T-52b3）：从收货单发起，保证依赖方向 receipt → stockIn。
+		receipts.POST("/:id/return", h.PurchaseReceipt.Return)
 		receipts.DELETE("/:id", h.PurchaseReceipt.Delete)
 
 		// 验货记录（T-51b）：结论、抽检比例与缺陷项。挂在采购单下，

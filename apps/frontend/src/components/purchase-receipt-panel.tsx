@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, DatePicker, Input, InputNumber, Modal, Popconfirm, Space, Table, Tag, message } from 'antd'
 
-import { purchaseReceiptApi, type PurchaseReceipt, type PurchaseReceiptSummary } from '@/api/purchase-receipts'
+import {
+  purchaseReceiptApi,
+  type PurchaseReceipt,
+  type PurchaseReceiptItem,
+  type PurchaseReceiptSummary,
+} from '@/api/purchase-receipts'
 import { Empty } from '@/components/fields'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
@@ -30,6 +35,10 @@ export function PurchaseReceiptPanel({
   const [remark, setRemark] = useState('')
   // 每行本次收货数量：键是采购订单行 id。空/0 表示这一行这次不收。
   const [quantities, setQuantities] = useState<Record<number, number | null>>({})
+  // 退货弹窗：按收货行填数量，累计不超收货量由后端校验。
+  const [returning, setReturning] = useState<PurchaseReceipt | null>(null)
+  const [returnQty, setReturnQty] = useState<Record<number, number | null>>({})
+  const [returnReason, setReturnReason] = useState('')
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -86,6 +95,31 @@ export function PurchaseReceiptPanel({
       await reload()
     } catch (err) {
       message.error(err instanceof Error ? err.message : '确认失败')
+    }
+  }
+
+  const submitReturn = async () => {
+    if (!returning) return
+    const rows = Object.entries(returnQty)
+      .filter(([, qty]) => (qty ?? 0) > 0)
+      .map(([id, qty]) => ({ purchase_receipt_item_id: Number(id), qty: String(qty) }))
+    if (rows.length === 0) {
+      message.warning('至少填一行的退货数量')
+      return
+    }
+    try {
+      const doc = await purchaseReceiptApi.returnItems(returning.id, {
+        reason: returnReason,
+        items: rows,
+      })
+      message.success(`已生成退货出库单 ${doc.doc_no}，库存已减少`)
+      setReturning(null)
+      setReturnQty({})
+      setReturnReason('')
+      await reload()
+    } catch (err) {
+      // 超退是 409，后端会把「收到 / 已退 / 本次」写进提示。
+      message.error(err instanceof Error ? err.message : '退货失败')
     }
   }
 
@@ -178,7 +212,21 @@ export function PurchaseReceiptPanel({
                   </Popconfirm>
                 </Space>
               ) : (
-                <span className="cell-sub">已入库，不可改</span>
+                <Space size={4}>
+                  <Button
+                    size="small"
+                    type="link"
+                    danger
+                    onClick={() => {
+                      setReturning(record)
+                      setReturnQty({})
+                      setReturnReason('')
+                    }}
+                  >
+                    退货
+                  </Button>
+                  <span className="cell-sub">已入库</span>
+                </Space>
               ),
           },
         ]}
@@ -255,6 +303,59 @@ export function PurchaseReceiptPanel({
           </span>
         </Space>
       </Modal>
+      <Modal
+        open={!!returning}
+        title={returning ? `采购退货 · ${returning.doc_no}` : '采购退货'}
+        width={720}
+        onCancel={() => setReturning(null)}
+        onOk={() => void submitReturn()}
+        okText="确认退货"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        forceRender
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <span className="cell-sub">
+            退货会生成一张采购退货出库单，库存随之减少；累计退货不得超过收货量。
+          </span>
+          <Table<PurchaseReceiptItem>
+            rowKey="id"
+            size="small"
+            dataSource={returning?.items ?? []}
+            pagination={false}
+            columns={[
+              { title: 'SKU', dataIndex: 'sku_code', width: 140 },
+              { title: '品名', dataIndex: 'name_cn' },
+              {
+                title: '收货量',
+                dataIndex: 'qty',
+                width: 110,
+                align: 'right' as const,
+                render: (v: string) => formatQty(v),
+              },
+              {
+                title: '退货量',
+                width: 120,
+                render: (_: unknown, record) => (
+                  <InputNumber
+                    min={0}
+                    style={{ width: '100%' }}
+                    value={returnQty[record.id] ?? null}
+                    onChange={(v) => setReturnQty((prev) => ({ ...prev, [record.id]: v }))}
+                  />
+                ),
+              },
+            ]}
+          />
+          <Input
+            placeholder="退货原因（如：焊点开裂，工厂返工）"
+            value={returnReason}
+            onChange={(e) => setReturnReason(e.target.value)}
+            maxLength={255}
+          />
+        </Space>
+      </Modal>
+
     </Card>
   )
 }

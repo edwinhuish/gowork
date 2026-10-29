@@ -27,6 +27,11 @@ type PurchaseReceiptService interface {
 	Create(ctx context.Context, orderID uint, in dto.PurchaseReceiptInput) (*model.PurchaseReceipt, error)
 	// Confirm 置为已确认，并在同一事务里生成采购入库单并确认它。
 	Confirm(ctx context.Context, id uint) (*model.PurchaseReceipt, error)
+	// Return 从这张收货单发起退货：校验累计不超已收，生成退货出库单（T-52b3）。
+	//
+	// 退货从收货单发起而不是从出入库单发起，是为了让依赖方向保持
+	// receipt → stockIn，不成环。
+	Return(ctx context.Context, id uint, in dto.PurchaseReturnInput) (*model.StockDocument, error)
 	Delete(ctx context.Context, id uint) error
 }
 
@@ -39,12 +44,16 @@ type purchaseReceiptService struct {
 	log      *slog.Logger
 }
 
-// PurchaseInIssuer 是收货确认要用的那一件事：给我入库。
+// PurchaseInIssuer 是收货与退货要用的那两件事：给我入库、给我退货出库。
 //
-// 与 SalesOutIssuer 同一思路：调用方只需要「给我入库」，
+// 与 SalesOutIssuer 同一思路：调用方只需要「给我入库/出库」，
 // 不需要知道出入库单怎么建、流水怎么写、快照怎么更新。
+//
+// 两个方法放一个接口而不是两个字段：实现方都是同一个出入库服务，
+// 拆成两个字段就得在 bootstrap 里传两遍同一个对象。
 type PurchaseInIssuer interface {
 	IssuePurchaseIn(ctx context.Context, in dto.PurchaseInIssueInput) (*model.StockDocument, error)
+	IssuePurchaseReturn(ctx context.Context, in dto.PurchaseReturnIssueInput) (*model.StockDocument, error)
 }
 
 type PurchaseReceiptOption func(*purchaseReceiptService)
@@ -218,7 +227,7 @@ func (s *purchaseReceiptService) Confirm(
 	}
 
 	partnerID := order.SupplierID
-err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
 		if err := s.receipts.UpdateFields(ctx, id, map[string]any{
 			"status": model.DocumentStatusConfirmed,
 		}); err != nil {
@@ -238,6 +247,102 @@ err = s.txs.Transaction(ctx, func(ctx context.Context) error {
 	}
 	s.log.Info("确认采购收货单", "id", m.ID, "doc_no", m.DocNo, "order", order.DocNo)
 	return s.receipts.FindByID(ctx, id)
+}
+
+func (s *purchaseReceiptService) Return(
+	ctx context.Context, id uint, in dto.PurchaseReturnInput,
+) (*model.StockDocument, error) {
+	m, err := s.receipts.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 只有已确认的收货单能退：草稿还没入库，没有"退出去"这回事。
+	if m.Status != model.DocumentStatusConfirmed {
+		return nil, errs.ErrConflict.WithMsg("只有已确认的收货单才能退货")
+	}
+	order, err := s.orders.FindByID(ctx, m.PurchaseOrderID)
+	if err != nil {
+		return nil, err
+	}
+
+	byID := make(map[uint]*model.PurchaseReceiptItem, len(m.Items))
+	for i := range m.Items {
+		byID[m.Items[i].ID] = &m.Items[i]
+	}
+
+	returnDate := model.DateOnly(time.Now())
+	if strings.TrimSpace(in.ReturnDate) != "" {
+		d, err := parseDateOnly(in.ReturnDate)
+		if err != nil {
+			return nil, err
+		}
+		returnDate = d
+	}
+
+	issueItems := make([]dto.PurchaseReturnIssueItem, 0, len(in.Items))
+	returned := make(map[uint]money.Decimal, len(in.Items))
+	for _, row := range in.Items {
+		it, ok := byID[row.PurchaseReceiptItemID]
+		if !ok {
+			return nil, errs.BadRequest("退货明细里有不属于这张收货单的行")
+		}
+		if !row.Qty.IsPositive() {
+			return nil, errs.BadRequest(it.SKUCode + " 的退货数量必须大于 0")
+		}
+		// 同一次提交里可能两行指向同一收货行，累加后再判上限。
+		returned[it.ID] = returned[it.ID].Add(row.Qty)
+		total := it.ReturnedQty.Add(returned[it.ID])
+		if total.Cmp(it.Qty) > 0 {
+			return nil, errs.ErrConflict.WithMsg(
+				it.SKUCode + " 累计退货会超过收货量：收到 " + formatQty(it.Qty) +
+					"，已退 " + formatQty(it.ReturnedQty) +
+					"，本次 " + formatQty(row.Qty))
+		}
+		issueItems = append(issueItems, dto.PurchaseReturnIssueItem{
+			ProductID: it.ProductID,
+			SKUCode:   it.SKUCode,
+			NameCN:    it.NameCN,
+			Unit:      it.Unit,
+			Qty:       row.Qty,
+			Remark:    strings.TrimSpace(row.Remark),
+		})
+	}
+
+	// 来源号带纳秒后缀：同一张收货单可以分多次退货，用收货单号本身
+	// 会让第二次被出入库服务判成重复建单。前缀保留收货单号是为了能追溯。
+	sourceNo := m.DocNo + "-RT" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	partnerID := order.SupplierID
+	remark := "采购退货 " + m.DocNo
+	if reason := strings.TrimSpace(in.Reason); reason != "" {
+		remark += "：" + reason
+	}
+
+	var doc *model.StockDocument
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		// 先记已退数量再出库：出库失败会整体回滚，而漏记会让累计校验失效。
+		for itemID, qty := range returned {
+			if err := s.receipts.AddReturnedQty(ctx, itemID, qty); err != nil {
+				return err
+			}
+		}
+		d, err := s.stockIn.IssuePurchaseReturn(ctx, dto.PurchaseReturnIssueInput{
+			SourceNo:  sourceNo,
+			PartnerID: &partnerID,
+			DocDate:   returnDate,
+			Remark:    remark,
+			Items:     issueItems,
+		})
+		if err != nil {
+			return err
+		}
+		doc = d
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("采购退货", "receipt", m.DocNo, "doc_no", doc.DocNo, "rows", len(issueItems))
+	return doc, nil
 }
 
 func (s *purchaseReceiptService) Delete(ctx context.Context, id uint) error {

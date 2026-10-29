@@ -9,6 +9,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // PurchaseReceiptRepository 读写采购收货单（T-51a）。
@@ -22,6 +23,11 @@ type PurchaseReceiptRepository interface {
 	CreateWithItems(ctx context.Context, m *model.PurchaseReceipt, items []model.PurchaseReceiptItem) error
 	UpdateFields(ctx context.Context, id uint, fields map[string]any) error
 	DeleteByID(ctx context.Context, id uint) error
+	// AddReturnedQty 累加某收货行的已退数量（T-52b3）。
+	//
+	// 用原子自增而不是"读出来加再写回"：两次退货并发时后者会丢一次，
+	// 而丢掉的那次正是让累计退货超过收货量的那一次。
+	AddReturnedQty(ctx context.Context, itemID uint, qty money.Decimal) error
 }
 
 type purchaseReceiptRepo struct {
@@ -89,4 +95,16 @@ func (r *purchaseReceiptRepo) UpdateFields(
 
 func (r *purchaseReceiptRepo) DeleteByID(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
+}
+
+func (r *purchaseReceiptRepo) AddReturnedQty(
+	ctx context.Context, itemID uint, qty money.Decimal,
+) error {
+	res := r.conn(ctx).Model(&model.PurchaseReceiptItem{}).
+		Where("id = ?", itemID).
+		Update("returned_qty", gorm.Expr("returned_qty + ?", qty))
+	if res.Error != nil {
+		return fmt.Errorf("累加收货行 %d 的已退数量: %w", itemID, res.Error)
+	}
+	return nil
 }

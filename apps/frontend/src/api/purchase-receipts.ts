@@ -49,4 +49,17 @@ export const purchaseReceiptApi = {
   /** 确认会生成并确认一张采购入库单；重复确认返回 409。 */
   confirm: (id: number) => http.put<PurchaseReceipt>(`/purchase-receipts/${id}/confirm`),
   remove: (id: number) => http.delete<void>(`/purchase-receipts/${id}`),
+  /**
+   * 从收货单发起退货（T-52b3）：生成一张采购退货出库单，库存减少。
+   * 累计退货不得超过收货量，超出返回 409。
+   */
+  returnItems: (id: number, input: PurchaseReturnInput) =>
+    http.post<{ doc_no: string }>(`/purchase-receipts/${id}/return`, input),
+}
+
+/** 退货入参：按收货行填数量。 */
+export interface PurchaseReturnInput {
+  return_date?: string
+  reason?: string
+  items: { purchase_receipt_item_id: number; qty: string; remark?: string }[]
 }

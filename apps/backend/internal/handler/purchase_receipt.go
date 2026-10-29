@@ -86,6 +86,27 @@ func (h *PurchaseReceiptHandler) Confirm(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Return POST /api/v1/purchase-receipts/:id/return
+//
+// 从收货单发起退货：校验累计退货不超收货量，并在同一事务里生成
+// 一张采购退货出库单（库存减少）。
+func (h *PurchaseReceiptHandler) Return(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.PurchaseReturnInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	doc, err := h.receipts.Return(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Created(c, doc)
+}
+
 // Delete DELETE /api/v1/purchase-receipts/:id
 func (h *PurchaseReceiptHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

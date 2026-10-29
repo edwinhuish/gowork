@@ -50,7 +50,10 @@ type PurchaseReceiptItem struct {
 	NameCN              string        `gorm:"size:128" json:"name_cn"`
 	Unit                string        `gorm:"size:16" json:"unit"`
 	Qty                 money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
-	Remark              string        `gorm:"size:255" json:"remark"`
+	// ReturnedQty 是这一行已退货的数量（T-52b3）。累计不超 Qty：
+	// 退超过收到的，库存会变成凭空多出来的负数，而对账时谁也解释不清。
+	ReturnedQty money.Decimal `gorm:"type:decimal(14,3);not null;default:0" json:"returned_qty"`
+	Remark      string        `gorm:"size:255" json:"remark"`
 }
 
 func (PurchaseReceiptItem) TableName() string { return "biz_purchase_receipt_item" }
