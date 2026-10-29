@@ -137,7 +137,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
-| GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code`），命中时列表项带 `matched_codes` |
+| GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409） |
 | GET / POST | `/api/v1/product-codes` | `ProductCode.List` / `.Create` | 产品编号（旧 SKU / 客户物料号 / 供应商货号 / 工厂号）：`?product_id=` 必填；归一化后同产品重复 409、跨产品可共用；`code_norm` 由服务端算 |
 | DELETE | `/api/v1/product-codes/:id` | `ProductCode.Delete` | **硬删**：软删会让「删掉再加回来」撞唯一索引，而列表里又看不见那行 |
