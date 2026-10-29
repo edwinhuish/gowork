@@ -93,6 +93,14 @@ func New(
 		// 账号目录：只服务"把客户转给谁"的选择器，业务员在 service 里被拒 403。
 		secured.GET("/users", h.User.ListActive)
 
+		// 导出（T-35）：参数与各自列表完全一致，导出的就是列表上那一批。
+		// 放在 /exports 下而不是 /partners/export：gin 同一层不允许 :id 与静态段并存。
+		exports := secured.Group("/exports")
+		{
+			exports.GET("/partners", h.Partner.Export)
+			exports.GET("/products", h.Product.Export)
+		}
+
 		products := secured.Group("/products")
 		products.GET("", h.Product.List)
 		products.POST("", h.Product.Create)
