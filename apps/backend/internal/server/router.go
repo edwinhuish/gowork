@@ -137,6 +137,8 @@ func New(
 			exports.GET("/shipments", h.Shipment.ExportShipments)
 			exports.GET("/sales-orders", h.SalesOrder.ExportSalesOrders)
 			exports.GET("/payments", h.Payment.ExportPayments)
+			exports.GET("/receivables", h.Receivable.ExportReceivables)
+			exports.GET("/payables", h.Payable.ExportPayables)
 		}
 
 		// 导入（T-35）：先 dry_run 出报告，确认后再落库。导出文件可直接当模板。

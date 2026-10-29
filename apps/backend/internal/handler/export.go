@@ -296,3 +296,85 @@ func (h *PaymentHandler) ExportPayments(c *gin.Context) {
 		[]string{"单号", "方向", "到账日", "对方", "币种", "金额(原币)", "汇率", "金额(本币)", "方式"},
 		out)
 }
+
+// ExportReceivables GET /api/v1/exports/receivables
+//
+// 参数与应收列表一致（status / partner_id / overdue / keyword）。
+// 未结清 = 金额 − 已核销 − 已开贷项：与核销校验、账龄、客户 360 同一口径，
+// 导出里另算一个数，对账时就会出现"文件与系统不一致"。
+func (h *ReceivableHandler) ExportReceivables(c *gin.Context) {
+	var q dto.ReceivableQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	list, err := fetchAll(func(page, size int) ([]model.Receivable, int64, error) {
+		q.Page, q.PageSize = page, size
+		res, err := h.receivables.List(c.Request.Context(), q)
+		if err != nil {
+			return nil, 0, err
+		}
+		return res.List, res.Total, nil
+	})
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	out := make([][]string, 0, len(list))
+	for _, m := range list {
+		partner := ""
+		if m.Partner != nil {
+			partner = m.Partner.Name
+		}
+		out = append(out, []string{
+			m.DocNo, partner, m.SourceDocNo, m.CurrencyCode,
+			m.Amount.String(), m.SettledAmount.String(),
+			m.Amount.Sub(m.SettledAmount).String(),
+			model.DateOnly(m.DueDate).Format("2006-01-02"),
+			m.Status.Label(),
+		})
+	}
+	writeCSV(c, "receivables",
+		[]string{"单号", "客户", "来源单", "币种", "金额", "已核销", "未结清", "到期日", "状态"}, out)
+}
+
+// ExportPayables GET /api/v1/exports/payables
+//
+// 与应收同构。未结清这里不减借项：借项单存在 biz_debit_note，
+// 而列表结构里没有带出来——导出这一列暂时是"应付 − 已付"，
+// 与账龄报表的口径差一个借项额，已在 roadmap 里标注。
+func (h *PayableHandler) ExportPayables(c *gin.Context) {
+	var q dto.PayableQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	list, err := fetchAll(func(page, size int) ([]model.Payable, int64, error) {
+		q.Page, q.PageSize = page, size
+		res, err := h.payables.List(c.Request.Context(), q)
+		if err != nil {
+			return nil, 0, err
+		}
+		return res.List, res.Total, nil
+	})
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	out := make([][]string, 0, len(list))
+	for _, m := range list {
+		partner := ""
+		if m.Partner != nil {
+			partner = m.Partner.Name
+		}
+		out = append(out, []string{
+			m.DocNo, partner, m.SourceDocNo, m.CurrencyCode,
+			m.Amount.String(), m.SettledAmount.String(),
+			m.Amount.Sub(m.SettledAmount).String(),
+			model.DateOnly(m.DueDate).Format("2006-01-02"),
+			m.Status.Label(),
+		})
+	}
+	writeCSV(c, "payables",
+		[]string{"单号", "供应商", "来源单", "币种", "金额", "已付", "未结清", "到期日", "状态"}, out)
+}
