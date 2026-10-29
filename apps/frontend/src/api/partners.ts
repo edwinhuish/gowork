@@ -45,4 +45,16 @@ export const partnerApi = {
       source_id: sourceId,
       updated_at: updatedAt,
     }),
+
+  /**
+   * 转移负责人（T-32）。ownerId 传 0 表示退回**未分配**（公共池）。
+   *
+   * 只有管理员与主管有权调用；业务员拿到 403。updatedAt 走乐观锁，
+   * 别把刚看过的旧版本覆盖掉别人的改动。
+   */
+  transferOwner: (id: number, ownerId: number, updatedAt?: string) =>
+    http.put<Partner>(`/partners/${id}/owner`, {
+      owner_id: ownerId,
+      updated_at: updatedAt,
+    }),
 }

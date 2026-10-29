@@ -1,24 +1,31 @@
 import { useState } from 'react'
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Button, Descriptions } from 'antd'
+import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
+import { PartnerOwnerModal } from '@/components/partner-owner-modal'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function SupplierShow() {
   const { result, query } = useShow<Partner>({ resource: 'suppliers' })
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [ownerOpen, setOwnerOpen] = useState(false)
 
   return (
     <Show
       isLoading={query.isLoading}
       title={result?.name ?? '供应商详情'}
       headerButtons={
-        result ? <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button> : null
+        result ? (
+          <Space>
+            <Button onClick={() => setOwnerOpen(true)}>转移负责人</Button>
+            <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button>
+          </Space>
+        ) : null
       }
     >
       <Descriptions
@@ -61,6 +68,17 @@ export function SupplierShow() {
           partner={result}
           resource="suppliers"
           onClose={() => setMergeOpen(false)}
+        />
+      )}
+
+      {result && (
+        <PartnerOwnerModal
+          open={ownerOpen}
+          partner={result}
+          onClose={() => setOwnerOpen(false)}
+          onChanged={() => {
+            void query.refetch()
+          }}
         />
       )}
     </Show>

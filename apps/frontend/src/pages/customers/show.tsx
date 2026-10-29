@@ -1,26 +1,33 @@
 import { useState } from 'react'
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Button, Descriptions } from 'antd'
+import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
 import { Partner360Panel } from '@/components/partner-360-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
+import { PartnerOwnerModal } from '@/components/partner-owner-modal'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function CustomerShow() {
   const { result, query } = useShow<Partner>({ resource: 'customers' })
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [ownerOpen, setOwnerOpen] = useState(false)
 
   return (
     <Show
       isLoading={query.isLoading}
       title={result?.name ?? '客户详情'}
-      // 合并入口放在详情页而不是列表：点错一行就并掉一家客户，代价太大。
+      // 转移与合并都放在详情页而不是列表：点错一行就能把一家客户划走或并掉，代价太大。
       headerButtons={
-        result ? <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button> : null
+        result ? (
+          <Space>
+            <Button onClick={() => setOwnerOpen(true)}>转移负责人</Button>
+            <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button>
+          </Space>
+        ) : null
       }
     >
       <Descriptions
@@ -90,6 +97,18 @@ export function CustomerShow() {
           partner={result}
           resource="customers"
           onClose={() => setMergeOpen(false)}
+        />
+      )}
+
+      {result && (
+        <PartnerOwnerModal
+          open={ownerOpen}
+          partner={result}
+          onClose={() => setOwnerOpen(false)}
+          onChanged={() => {
+            // 转移之后这一页显示的负责人会变，重取一次详情最省事。
+            void query.refetch()
+          }}
         />
       )}
     </Show>
