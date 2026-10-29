@@ -1,10 +1,10 @@
-import { useSelect } from '@refinedev/core'
 import { Create, useForm } from '@refinedev/antd'
 import { Form, Input, InputNumber, Radio, Select, Typography } from 'antd'
 
+import { ProductSelect } from '@/components/product-select'
 import { MANUAL_STOCK_MOVEMENT_OPTIONS, STOCK_DIRECTION_OPTIONS } from '@/constants/catalog'
 import { todayString } from '@/pages/orders/form-fields'
-import type { Product, StockMovement } from '@/types'
+import type { StockMovement } from '@/types'
 
 /**
  * 手工录入库存流水。
@@ -20,13 +20,6 @@ export function StockMovementCreate() {
     redirect: 'list',
   })
 
-  const { options: productOptions, query: productQuery } = useSelect<Product>({
-    resource: 'products',
-    optionLabel: (item) => `${item.sku_code} · ${item.name_cn}`,
-    optionValue: 'id',
-    pagination: { mode: 'off' },
-  })
-
   return (
     <Create saveButtonProps={saveButtonProps} title="手工录入库存流水" goBack={null}>
       <Typography.Paragraph type="secondary">
@@ -39,17 +32,7 @@ export function StockMovementCreate() {
           label="产品"
           rules={[{ required: true, message: '请选择产品' }]}
         >
-          <Select
-            placeholder="请选择"
-            showSearch
-            options={productOptions}
-            loading={productQuery.isLoading}
-            filterOption={(input, option) =>
-              String(option?.label ?? '')
-                .toLowerCase()
-                .includes(input.toLowerCase())
-            }
-          />
+          <ProductSelect placeholder="搜 SKU / 品名 / 客户编号" />
         </Form.Item>
 
         <Form.Item

@@ -1,12 +1,14 @@
-import { useList } from '@refinedev/core'
-import { Button, Col, Form, Input, InputNumber, Row, Select, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 
+import { ProductSelect, type ProductHint } from '@/components/product-select'
 import { STOCK_DOC_COUNT } from '@/constants/catalog'
-import type { Product } from '@/types'
 import { formatQty } from '@/utils/format'
 
 export interface StockDocItemRow {
   product_id?: number
+  /** 编辑回显用：明细行上有当时的 SKU 与品名快照，不必再问一次服务端。 */
+  sku_code?: string
+  name_cn?: string
   /** 数量按字符串收发（后端 money.Decimal）：3 位小数，前端不算账。 */
   qty?: string
   remark?: string
@@ -24,15 +26,10 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
   const rows = Form.useWatch<StockDocItemRow[]>('items', form) ?? []
   const isCount = docType === STOCK_DOC_COUNT
 
-  const { query: productsQuery } = useList<Product>({
-    resource: 'products',
-    pagination: { mode: 'off' },
-  })
-  const products = productsQuery.data?.data ?? []
-  const productOptions = products.map((p) => ({
-    value: p.id,
-    label: `${p.sku_code} · ${p.name_cn}`,
-  }))
+  const initialProductOf = (row: StockDocItemRow): ProductHint | null =>
+    row.product_id && row.sku_code
+      ? { id: row.product_id, sku_code: row.sku_code, name_cn: row.name_cn }
+      : null
 
   const spans = { product: 10, qty: 4, remark: 6, action: 2 }
 
@@ -78,16 +75,9 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
                     name={[field.name, 'product_id']}
                     rules={[{ required: true, message: '请选择产品' }]}
                   >
-                    <Select
-                      placeholder="选择产品"
-                      showSearch
-                      options={productOptions}
-                      loading={productsQuery.isLoading}
-                      filterOption={(input, option) =>
-                        String(option?.label ?? '')
-                          .toLowerCase()
-                          .includes(input.toLowerCase())
-                      }
+                    <ProductSelect
+                      placeholder="搜 SKU / 品名 / 客户编号"
+                      initialProduct={initialProductOf(rows[field.name] ?? {})}
                     />
                   </Form.Item>
                 </Col>

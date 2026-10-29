@@ -2,10 +2,18 @@ import { useMemo } from 'react'
 import { useList } from '@refinedev/core'
 import { Button, Col, Form, Input, InputNumber, Row, Select, Tag, Typography } from 'antd'
 
-import type { Product, ProductSource } from '@/types'
+import { ProductSelect, type ProductHint } from '@/components/product-select'
+import type { ProductSource } from '@/types'
 
 export interface LineItemRow {
   product_id?: number
+  /**
+   * 编辑回显用：后端把明细上的产品关联一起回吐。
+   * 产品后来改名了也不影响——行上的 sku_code / name_cn 是当时的快照。
+   */
+  product?: ProductHint | null
+  sku_code?: string
+  name_cn?: string
   /** 数量按字符串收发（后端 money.Decimal）：与单价一样，过 number 就丢末位。 */
   qty?: string
   /** 单价按字符串收发（后端 money.Decimal），过一遍 JS number 就丢了末位。 */
@@ -36,10 +44,6 @@ export function LineItemsEditor({
   const form = Form.useFormInstance()
   const rows = Form.useWatch<LineItemRow[]>('items', form) ?? []
 
-  const { query: productsQuery } = useList<Product>({
-    resource: 'products',
-    pagination: { mode: 'off' },
-  })
   // 订单用不到货源，但 hook 不能条件调用，用 enabled 把它停掉。
   const { query: sourcesQuery } = useList<ProductSource>({
     resource: 'product-sources',
@@ -47,17 +51,7 @@ export function LineItemsEditor({
     queryOptions: { enabled: showSource },
   })
 
-  const products = productsQuery.data?.data ?? []
   const sources = sourcesQuery.data?.data ?? []
-
-  const productOptions = useMemo(
-    () =>
-      products.map((p) => ({
-        value: p.id,
-        label: `${p.sku_code} · ${p.name_cn}`,
-      })),
-    [products],
-  )
 
   const sourcesByProduct = useMemo(() => {
     const map = new Map<number, ProductSource[]>()
@@ -70,12 +64,23 @@ export function LineItemsEditor({
     return map
   }, [sources])
 
-  const onProductChange = (index: number, productId: number) => {
-    const product = products.find((p) => p.id === productId)
+  /**
+   * 行的回显信息：优先用后端带回的产品关联，其次用行上的 SKU 快照。
+   * 两者都没有（新建的空行）时返回 null，由下拉自己按 id 兜底查一次。
+   */
+  const initialProductOf = (row: LineItemRow): ProductHint | null => {
+    if (row.product) return row.product
+    if (row.product_id && row.sku_code) {
+      return { id: row.product_id, sku_code: row.sku_code, name_cn: row.name_cn }
+    }
+    return null
+  }
+
+  const onProductChange = (index: number, product?: ProductHint) => {
     const current = form.getFieldValue(['items', index, 'unit_price']) as string | undefined
     // 售价作为报价的起点：报价单九成是"按目录价再谈"，从 0 开始填等于让人重抄一遍。
     // 产品售价与报价单价现在都是定点的字符串，直接搬过去，不做 number 中转。
-    if (!current && product) {
+    if (!current && product?.sale_price) {
       form.setFieldValue(['items', index, 'unit_price'], product.sale_price)
     }
     // 换了产品，上一行选的货源就不属于这个产品了，必须清掉。
@@ -134,17 +139,10 @@ export function LineItemsEditor({
                       name={[field.name, 'product_id']}
                       rules={[{ required: true, message: '请选择产品' }]}
                     >
-                      <Select
-                        placeholder="选择产品"
-                        showSearch
-                        options={productOptions}
-                        loading={productsQuery.isLoading}
-                        onChange={(value: number) => onProductChange(field.name, value)}
-                        filterOption={(input, option) =>
-                          String(option?.label ?? '')
-                            .toLowerCase()
-                            .includes(input.toLowerCase())
-                        }
+                      <ProductSelect
+                        placeholder="搜 SKU / 品名 / 客户编号"
+                        initialProduct={initialProductOf(row)}
+                        onPick={(product) => onProductChange(field.name, product)}
                       />
                     </Form.Item>
                     {/* 不渲染就会在提交时丢掉「从销售订单导入」带进来的关联 */}
