@@ -39,6 +39,17 @@ jobs:
       - name: 静态检查
         run: go vet ./...
 
+      # 格式漂移不影响构建，却会让编辑器每次打开都提示，久了就没人再看那条提示。
+      # 不在这里拦，就只能靠人自觉——而这条恰好是"改了但忘了跑 gofmt"最容易漏的。
+      - name: 格式检查
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "以下文件未格式化，本地跑 gofmt -w 修掉："
+            echo "$out"
+            exit 1
+          fi
+
       - name: 单元测试
         run: go test ./... -count=1
 
@@ -71,3 +82,63 @@ jobs:
 
       - name: 构建
         run: pnpm run build
+
+  # 「换存储不改代码」是这套架构的一条承诺（三个 dialect + 两套缓存）。
+  # 只在本机跑过不算数：开发机的容器版本、初始化参数都和别人不一样，
+  # 而 sqlite 上永远绿、postgres 上才炸的那类问题，正是这一套要拦的。
+  storage:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: gowork
+          POSTGRES_USER: gowork
+          POSTGRES_PASSWORD: gowork
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gowork -d gowork"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gowork
+          MYSQL_USER: gowork
+          MYSQL_PASSWORD: gowork
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ugowork -pgowork"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: 下载依赖
+        run: go mod download
+
+      # DSN 与 test:storage 任务里的默认值保持一致：两处不一致时，
+      # "本地过、CI 不过"会变成排查常客。
+      - name: 存储一致性测试
+        env:
+          GOWORK_TEST_PG_DSN: 'host=127.0.0.1 port=5432 user=gowork password=gowork dbname=gowork sslmode=disable'
+          GOWORK_TEST_MYSQL_DSN: 'gowork:gowork@tcp(127.0.0.1:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local'
+          GOWORK_TEST_REDIS_ADDR: '127.0.0.1:6379'
+        run: go test ./internal/... -count=1 -run 'TestStorage|TestCache'
