@@ -74,7 +74,7 @@ export function SettlementShow({
           {
             key: 'amount',
             label: '金额（原币）',
-            children: result ? <Money value={result.amount} /> : <Empty />,
+            children: result ? <Money value={result.amount} currency={result.currency_code} /> : <Empty />,
           },
           {
             key: 'amount_base',
@@ -85,7 +85,7 @@ export function SettlementShow({
             key: 'settled',
             label: '已结清',
             children: result && Number(result.settled_amount) > 0 ? (
-              <Money value={result.settled_amount} />
+              <Money value={result.settled_amount} currency={result.currency_code} />
             ) : (
               <Empty />
             ),
@@ -93,7 +93,7 @@ export function SettlementShow({
           {
             key: 'outstanding',
             label: '未结清',
-            children: result?.status === 90 ? <Empty /> : <Money value={outstanding} />,
+            children: result?.status === 90 ? <Empty /> : <Money value={outstanding} currency={result?.currency_code} />,
           },
           {
             key: 'due_date',
