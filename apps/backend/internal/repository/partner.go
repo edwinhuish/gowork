@@ -73,9 +73,12 @@ type PartnerRepository interface {
 	// Restore 把软删标记写回 0；编码被占用时由唯一索引拒绝（回调会翻成 409）。
 	Restore(ctx context.Context, id uint) error
 	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
-	// FindByNameAndCountry 按"公司名 + 国家"查同名主体，供线索转化时提示重复。
-	// 找不到返回 errs.ErrNotFound —— 外贸同名公司确实存在，所以调用方只提示、不阻断。
-	FindByNameAndCountry(ctx context.Context, name, country string) (*model.Partner, error)
+	// ListAll 返回全部未删除的主体（id 升序），供查重扫描。
+	//
+	// 一次取全表而不是分页：查重要跨"这一页之外"的记录比对，分页取数会把同一个
+	// 主体的两条重复拆到两页里，谁都看不到它们在一起。单租户、几千行的量级下
+	// 一次扫完最省事；真到十万行再考虑把归一值落库（见 model/partner_dedupe.go）。
+	ListAll(ctx context.Context) ([]model.Partner, error)
 	List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error)
 	Count(ctx context.Context) (int64, error)
 	CountByRole(ctx context.Context, role model.PartnerRole) (int64, error)
@@ -143,23 +146,12 @@ func (r *partnerRepo) ExistsByCode(ctx context.Context, code string, excludeID u
 	})
 }
 
-// FindByNameAndCountry 精确匹配名称，国家为空时只按名称匹配。
-func (r *partnerRepo) FindByNameAndCountry(
-	ctx context.Context, name, country string,
-) (*model.Partner, error) {
-	var m model.Partner
-	q := r.conn(ctx).Where("name = ?", name)
-	if country != "" {
-		q = q.Where("country = ?", country)
+func (r *partnerRepo) ListAll(ctx context.Context) ([]model.Partner, error) {
+	var rows []model.Partner
+	if err := r.conn(ctx).Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("查询全部往来单位: %w", err)
 	}
-	err := q.First(&m).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errs.ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("按名称查主体 name=%s: %w", name, err)
-	}
-	return &m, nil
+	return rows, nil
 }
 
 func (r *partnerRepo) List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error) {

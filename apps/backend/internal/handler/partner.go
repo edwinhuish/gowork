@@ -50,6 +50,37 @@ func (h *PartnerHandler) Credit(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Duplicates GET /partner-duplicates
+//
+// 全库查重的分组结果。挂在 /partners 之外是有原因的：gin 的路由树不允许
+// 同一层既有 :id 又有静态段，/partners/duplicates 会和 /partners/:id 冲突并 panic。
+// 与 /shipment-candidates 是同一个处理方式。
+func (h *PartnerHandler) Duplicates(c *gin.Context) {
+	list, err := h.partners.Duplicates(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, list)
+}
+
+// DuplicateCandidates GET /partner-duplicates/candidates
+//
+// 新建 / 编辑主体时随输入异步查一次，返回"可能是同一家"的已有主体与命中原因。
+// 只提示不阻断：同名公司在不同国家确实存在，拦下来等于让人把询盘丢掉。
+func (h *PartnerHandler) DuplicateCandidates(c *gin.Context) {
+	var q dto.PartnerDuplicateQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	list, err := h.partners.DuplicateCandidates(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, list)
+}
+
 // List GET /partners | /customers | /suppliers
 func (h *PartnerHandler) List(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {

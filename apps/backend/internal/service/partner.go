@@ -33,6 +33,11 @@ type PartnerService interface {
 	List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error)
 	// Restore 把已软删的往来单位恢复回来，与产品的恢复同口径。
 	Restore(ctx context.Context, id uint) (*model.Partner, error)
+	// Duplicates 扫描全库，按三条规则给出可能重复的主体分组，供合并前清点。
+	Duplicates(ctx context.Context) ([]model.PartnerDuplicateGroup, error)
+	// DuplicateCandidates 拿一组四要素去比对已有主体，供新建 / 编辑时提示。
+	// 只提示不阻断：外贸同名公司确实存在。
+	DuplicateCandidates(ctx context.Context, q dto.PartnerDuplicateQuery) ([]model.PartnerDuplicateCandidate, error)
 }
 
 type partnerService struct {
@@ -265,6 +270,43 @@ func (s *partnerService) Restore(ctx context.Context, id uint) (*model.Partner, 
 		return nil, err
 	}
 	return s.repo.FindByID(ctx, id)
+}
+
+// Duplicates 是全库查重：同一批主体按三条规则各分一遍组，命中任意一条的分组
+// 都会返回。分组只说明"像"，合不合要人看单据——误合并比漏提示难收拾得多。
+func (s *partnerService) Duplicates(ctx context.Context) ([]model.PartnerDuplicateGroup, error) {
+	all, err := s.repo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return model.GroupPartnerDuplicates(all), nil
+}
+
+// DuplicateCandidates 是录入时查重。
+//
+// 三个要素全空时直接返回空列表，不去拉全表：没有可比的输入，扫一遍既没用，
+// 又会让人误以为"系统认为到处都重复"。
+func (s *partnerService) DuplicateCandidates(
+	ctx context.Context, q dto.PartnerDuplicateQuery,
+) ([]model.PartnerDuplicateCandidate, error) {
+	probe := model.PartnerProbe{
+		Name:      q.Name,
+		Country:   q.Country,
+		Email:     q.Email,
+		Phone:     q.Phone,
+		ExcludeID: q.ExcludeID,
+	}
+	if model.PartnerNameKey(probe.Name, probe.Country) == "" &&
+		model.PartnerPhoneKey(probe.Phone) == "" &&
+		model.PartnerEmailDomainKey(probe.Email) == "" {
+		return []model.PartnerDuplicateCandidate{}, nil
+	}
+
+	all, err := s.repo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return model.FindPartnerDuplicates(all, probe), nil
 }
 
 func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error) {

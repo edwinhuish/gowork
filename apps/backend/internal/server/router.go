@@ -116,6 +116,12 @@ func New(
 		// 只读：额度本身通过 PUT /partners/:id 改。
 		partners.GET("/:id/credit", h.Partner.Credit)
 
+		// 查重。单独一个前缀而不是 /partners/duplicates：同一层不能既有 :id
+		// 又有静态段（gin 会直接 panic），与 /shipment-candidates 同一处理。
+		duplicates := secured.Group("/partner-duplicates")
+		duplicates.GET("", h.Partner.Duplicates)
+		duplicates.GET("/candidates", h.Partner.DuplicateCandidates)
+
 		// 角色切片入口。客户、供应商与货代已经合成一张表，但前端页面按 resource
 		// 名拼 URL，且外部可能存着 /customers/12 这类链接。这三组路由把同一份数据
 		// 按角色切开暴露，行为与合并前一致。

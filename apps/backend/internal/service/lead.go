@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -212,13 +211,21 @@ func (s *leadService) Convert(
 		return nil, errs.ErrConflict.WithMsg("该线索已转化，不能重复转化")
 	}
 
-	// 同名同国只提示不阻断：外贸同名公司确实存在，拦住会让人无法把询盘落库。
+	// 查重与主体页共用同一份规则（名称+国家 / 邮箱同域 / 电话尾号），
+	// 只提示不阻断：外贸同名公司确实存在，拦住会让人无法把询盘落库。
 	warning := ""
-	if dup, err := s.partnerQ.FindByNameAndCountry(ctx, lead.Company, lead.Country); err == nil {
-		warning = fmt.Sprintf("已存在同名同国的往来单位：%s %s，请确认是否重复建号",
-			dup.Code, dup.Name)
-	} else if !errors.Is(err, errs.ErrNotFound) {
+	all, err := s.partnerQ.ListAll(ctx)
+	if err != nil {
 		return nil, err
+	}
+	if hits := model.FindPartnerDuplicates(all, model.PartnerProbe{
+		Name:    lead.Company,
+		Country: lead.Country,
+		Phone:   lead.Phone,
+		Email:   lead.Email,
+	}); len(hits) > 0 {
+		warning = fmt.Sprintf("已存在可能是同一家的往来单位：%s %s（%s），请确认是否重复建号",
+			hits[0].Partner.Code, hits[0].Partner.Name, strings.Join(hits[0].Reasons, "；"))
 	}
 
 	role := int8(model.PartnerRoleCustomer)

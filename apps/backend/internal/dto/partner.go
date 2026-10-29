@@ -28,6 +28,18 @@ type PartnerQuery struct {
 	IncludeDeleted bool `form:"include_deleted"`
 }
 
+// PartnerDuplicateQuery 是"这条记录会不会是已有的某一家"的查询条件。
+//
+// 四个字段与新建表单一一对应：录入时随输入异步查一次，只提示不阻断。
+// ExcludeID 供编辑时排除自身，否则每条记录都会命中自己。
+type PartnerDuplicateQuery struct {
+	Name      string `form:"name"`
+	Country   string `form:"country"`
+	Email     string `form:"email"`
+	Phone     string `form:"phone"`
+	ExcludeID uint   `form:"exclude_id"`
+}
+
 // PartnerInput 是主体新增与编辑共用的入参。
 //
 // 编辑走全量覆盖（PUT 语义），但 Role 与 EntityType 例外：
@@ -50,8 +62,8 @@ type PartnerInput struct {
 	// 这一条不是洁癖：客户与供应商共用一行记录，供应商页面没有这些字段。
 	// 若把 nil 当成零值写库，在供应商页面保存一次就会把这家的贸易术语与账期
 	// 全部清空——而那个页面上根本没有可清空的输入框。
-	TradeTerm        *string  `json:"trade_term"`
-	SettlementMethod *string  `json:"settlement_method"`
+	TradeTerm        *string        `json:"trade_term"`
+	SettlementMethod *string        `json:"settlement_method"`
 	CreditDays       *int           `json:"credit_days"`
 	CreditLimit      *money.Decimal `json:"credit_limit"`
 	CurrencyCode     *string        `json:"currency_code"`
