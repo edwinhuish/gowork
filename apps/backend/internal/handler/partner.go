@@ -50,6 +50,28 @@ func (h *PartnerHandler) Credit(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Merge POST /partners/:id/merge
+//
+// 只挂在 /partners 下，不像增删改那样再复制到 /customers 与 /suppliers：
+// 合并往往跨角色（客户并进"客供两用"的那条），从"客户"入口发起会让人以为
+// 它只处理客户侧的数据。
+func (h *PartnerHandler) Merge(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.PartnerMergeInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	res, err := h.partners.Merge(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Duplicates GET /partner-duplicates
 //
 // 全库查重的分组结果。挂在 /partners 之外是有原因的：gin 的路由树不允许

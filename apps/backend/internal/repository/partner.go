@@ -79,6 +79,11 @@ type PartnerRepository interface {
 	// 主体的两条重复拆到两页里，谁都看不到它们在一起。单租户、几千行的量级下
 	// 一次扫完最省事；真到十万行再考虑把归一值落库（见 model/partner_dedupe.go）。
 	ListAll(ctx context.Context) ([]model.Partner, error)
+	// Merge 在一个事务里把被合并方的全部引用迁到主记录，再软删被合并方。
+	// 返回各表被迁移的行数，供 service 写日志与回显"动过什么"。
+	Merge(ctx context.Context, plan PartnerMergePlan) (map[string]int64, error)
+	// ProductSourceConflicts 列出"合并后会同产品同货号重复"的货源，供合并前拦下来。
+	ProductSourceConflicts(ctx context.Context, survivorID, sourceID uint) ([]string, error)
 	List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error)
 	Count(ctx context.Context) (int64, error)
 	CountByRole(ctx context.Context, role model.PartnerRole) (int64, error)

@@ -3,6 +3,7 @@ package dto
 import (
 	"time"
 
+	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
@@ -38,6 +39,27 @@ type PartnerDuplicateQuery struct {
 	Email     string `form:"email"`
 	Phone     string `form:"phone"`
 	ExcludeID uint   `form:"exclude_id"`
+}
+
+// PartnerMergeInput 是一次主体合并的入参。
+//
+// 路径上的 :id 是**主记录**（保留的那条），SourceID 是被并入并软删的那条。
+// 方向写死在 URL 里而不是靠两个 id 的先后顺序：合并不可逆，
+// "哪条留下"必须是显式的，不能靠调用方记顺序。
+type PartnerMergeInput struct {
+	SourceID uint `json:"source_id" binding:"required"`
+	// UpdatedAt 是主记录打开时的版本，用于条件更新；期间被别人改过则 409。
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+// PartnerMergeResult 是合并的结果。
+type PartnerMergeResult struct {
+	// Partner 是合并后的主记录（角色已并集、空字段已补齐）。
+	Partner *model.Partner `json:"partner"`
+	// Absorbed 是被并入并软删的那条记录，供界面回显"已并入 CUS002"。
+	Absorbed *model.Partner `json:"absorbed"`
+	// Moved 是各表被迁移的引用条数。合并不可逆，至少要能说清动过哪些表。
+	Moved map[string]int64 `json:"moved"`
 }
 
 // PartnerInput 是主体新增与编辑共用的入参。

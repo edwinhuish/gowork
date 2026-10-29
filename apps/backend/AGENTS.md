@@ -149,6 +149,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
 | POST | `/api/v1/partners/:id/restore` | `Partner.Restore` | 恢复已软删的主体；只挂这一个入口，角色已在记录里，不再按 `/customers`、`/suppliers` 各复制一份 |
 | GET | `/api/v1/partners/:id/credit` | `Partner.Credit` | `CreditService.Summary`：额度、未结清应收、未开票订单、敞口；额度 0 = 不限 |
+| POST | `/api/v1/partners/:id/merge` | `Partner.Merge` | 把 `source_id` 并入 `:id`（主记录）：角色取并集、空字符串字段从被合并方补、引用按 `repository/partnerRefTables` 整体迁移（含 `sys_attachment`），被合并方软删；主记录已有主联系人时把被合并方的降级；货源同产品同货号冲突返回 409；带 `updated_at` 走乐观锁 |
 | GET | `/api/v1/partner-duplicates` | `Partner.Duplicates` | 全库查重分组：名称+国家 / 邮箱同域 / 电话尾号三条规则各扫一遍，只返回 ≥2 条的分组。**不挂在 `/partners` 下**——gin 同一层不允许 `:id` 与静态段并存（会 panic），与 `/shipment-candidates` 同一处理 |
 | GET | `/api/v1/partner-duplicates/candidates` | `Partner.DuplicateCandidates` | `?name=&country=&email=&phone=&exclude_id=`：录入时的候选提示，一条主体只返回一次（命中几条规则就把原因并起来）；免费邮箱与空值不参与；只提示不阻断 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |

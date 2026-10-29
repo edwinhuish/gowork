@@ -115,6 +115,8 @@ func New(
 		// 信用额度是主体上的商务条件（A5），读它的入口跟着主体走。
 		// 只读：额度本身通过 PUT /partners/:id 改。
 		partners.GET("/:id/credit", h.Partner.Credit)
+		// 合并：:id 是主记录，body 里的 source_id 被并入并软删。不可逆，只挂这一个入口。
+		partners.POST("/:id/merge", h.Partner.Merge)
 
 		// 查重。单独一个前缀而不是 /partners/duplicates：同一层不能既有 :id
 		// 又有静态段（gin 会直接 panic），与 /shipment-candidates 同一处理。

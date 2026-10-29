@@ -38,6 +38,9 @@ type PartnerService interface {
 	// DuplicateCandidates 拿一组四要素去比对已有主体，供新建 / 编辑时提示。
 	// 只提示不阻断：外贸同名公司确实存在。
 	DuplicateCandidates(ctx context.Context, q dto.PartnerDuplicateQuery) ([]model.PartnerDuplicateCandidate, error)
+	// Merge 把 in.SourceID 并入 id（主记录）：引用整体迁过去、角色取并集、
+	// 被合并方软删。不可逆，所以每一步都要能解释。
+	Merge(ctx context.Context, id uint, in dto.PartnerMergeInput) (*dto.PartnerMergeResult, error)
 }
 
 type partnerService struct {
@@ -307,6 +310,108 @@ func (s *partnerService) DuplicateCandidates(
 		return nil, err
 	}
 	return model.FindPartnerDuplicates(all, probe), nil
+}
+
+// Merge 把一条主体并进另一条。
+//
+// 为什么不是"删掉多余那条、手工把单据改过去"：引用散在十几张表里，
+// 手工改必然漏，漏掉的那张单据在界面上表现为客户一片空白，事后没人查得出来。
+//
+// 方向固定为「并进主记录」：编码、联系人、主记录自己的非空字段都保留，
+// 被合并方只在主记录空着的地方补位——合并的目的是"同一家的信息合到一处"，
+// 不是"用新的覆盖旧的"。
+func (s *partnerService) Merge(
+	ctx context.Context, id uint, in dto.PartnerMergeInput,
+) (*dto.PartnerMergeResult, error) {
+	if in.SourceID == 0 {
+		return nil, errs.BadRequest("请指定被合并的主体")
+	}
+	if in.SourceID == id {
+		// 自己并自己会把角色并集之外的字段补成一套，且随后把自己软删——
+		// 一次误点的代价是这条主体从列表里消失。
+		return nil, errs.BadRequest("不能把主体合并到自己")
+	}
+
+	survivor, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	source, err := s.repo.FindByID(ctx, in.SourceID)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return nil, errs.BadRequest("被合并的主体不存在或已删除")
+		}
+		return nil, err
+	}
+
+	// 货源冲突先拦：同一产品同一货号在两家各有一条，合并后就是重复录入，
+	// 而自动丢掉其中一条等于悄悄改了某张已发出报价的成本依据。
+	conflicts, err := s.repo.ProductSourceConflicts(ctx, survivor.ID, source.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(conflicts) > 0 {
+		return nil, errs.ErrConflict.WithMsg(fmt.Sprintf(
+			"两家在这些产品上都有同一货号的货源，合并后会重复，请先处理其中一条：%s",
+			strings.Join(conflicts, "；")))
+	}
+
+	fields := mergeFields(survivor, source)
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
+
+	moved, err := s.repo.Merge(ctx, repository.PartnerMergePlan{
+		SurvivorID: survivor.ID,
+		SourceID:   source.ID,
+		Fields:     fields,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	merged, err := s.repo.FindByID(ctx, survivor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 留痕：T-33 的审计表还没落地，先落应用日志（与信用放行的处理一致）。
+	operator := ""
+	if actor, ok := ActorFrom(ctx); ok {
+		operator = actor.Username
+	}
+	s.log.Warn("合并主体",
+		"survivor", survivor.Code, "absorbed", source.Code,
+		"survivor_role", merged.Role.String(), "operator", operator,
+		"moved", moved)
+
+	return &dto.PartnerMergeResult{Partner: merged, Absorbed: source, Moved: moved}, nil
+}
+
+// mergeFields 决定合并后主记录长什么样。
+//
+// 角色永远取并集：合并的意义之一就是"这家既是客户又是供应商"只留一行。
+// 字符串字段只在主记录为空时用被合并方的值补上；
+// 账期与额度**不动**——它们的零值有业务含义（0 = 款到发货 / 0 = 不限），
+// 用被合并方的数填进去，等于悄悄收紧了这家客户的结算条件。
+func mergeFields(survivor, source *model.Partner) map[string]any {
+	fields := map[string]any{"role": survivor.Role | source.Role}
+
+	fill := func(key, current, incoming string) {
+		if strings.TrimSpace(current) == "" && strings.TrimSpace(incoming) != "" {
+			fields[key] = incoming
+		}
+	}
+	fill("country", survivor.Country, source.Country)
+	fill("contact", survivor.ContactName, source.ContactName)
+	fill("phone", survivor.Phone, source.Phone)
+	fill("email", survivor.Email, source.Email)
+	fill("address", survivor.Address, source.Address)
+	fill("remark", survivor.Remark, source.Remark)
+	fill("trade_term", string(survivor.TradeTerm), string(source.TradeTerm))
+	fill("settlement_method", string(survivor.SettlementMethod), string(source.SettlementMethod))
+	fill("currency_code", survivor.CurrencyCode, source.CurrencyCode)
+	return fields
 }
 
 func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error) {
