@@ -1382,8 +1382,48 @@ export interface PurchaseOrder {
   remark: string
   supplier?: Partner | null
   items?: PurchaseOrderItem[]
+  /**
+   * 跟单节点（T-38），只有详情带。
+   *
+   * 挂在这一单的**行**上：一张单常有好几个 SKU、分批从不同工厂出来，
+   * "生产完成了"对整张单没有意义。
+   */
+  milestones?: PurchaseMilestone[]
+  /**
+   * 列表投影出来的「最靠前的逾期未完成节点」文案（如「验货」），没有逾期时为空。
+   * 只读，后端按截止日算，前端不要自己推导。
+   */
+  overdue_node?: string
   created_at: string
   updated_at: string
+}
+
+/** 采购跟单的五个节点（T-38）。编号留间隔，便于将来在中间插节点。 */
+export const PURCHASE_NODES = [
+  { value: 10, label: '下单' },
+  { value: 20, label: '生产完成' },
+  { value: 30, label: '验货' },
+  { value: 40, label: '入仓' },
+  { value: 50, label: '出运' },
+] as const
+
+/**
+ * 采购订单行上的一个跟单节点。
+ *
+ * `plan_date` 与 `done_date` 分开：只有完成日答不了「该做而没做」（逾期就是这么算的），
+ * 只有计划日答不了「到底做完没有」。`done_date` 为空表示还没做。
+ */
+export interface PurchaseMilestone {
+  id: number
+  purchase_order_id: number
+  purchase_order_item_id: number
+  /** 10 下单 / 20 生产完成 / 30 验货 / 40 入仓 / 50 出运 */
+  node: number
+  plan_date: string | null
+  done_date: string | null
+  /** 补录完成的人；只排计划时为空。 */
+  operator: string
+  remark: string
 }
 
 export interface QuotationPreviewItem {

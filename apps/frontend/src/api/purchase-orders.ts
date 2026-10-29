@@ -1,5 +1,5 @@
 import { http } from './client'
-import type { PurchaseOrder } from '@/types'
+import type { PurchaseMilestone, PurchaseOrder } from '@/types'
 
 /**
  * 采购订单写入口。
@@ -39,4 +39,25 @@ export const purchaseOrderApi = {
   /** 状态流转走服务端状态机，跳步会被拒（409）。 */
   updateStatus: (id: number, status: number) =>
     http.put<PurchaseOrder>(`/purchase-orders/${id}/status`, { status }),
+
+  /**
+   * 跟单节点（T-38）：一行一个节点，计划日与完成日分开。
+   *
+   * 补录是**部分**的——只提交这一次动过的节点。整体替换会把别人刚填的覆盖掉，
+   * 而跟单恰恰是两个人各填各的。
+   */
+  milestones: (id: number) =>
+    http.get<PurchaseMilestone[]>(`/purchase-orders/${id}/milestones`),
+
+  saveMilestones: (id: number, milestones: PurchaseMilestoneInput[]) =>
+    http.put<PurchaseMilestone[]>(`/purchase-orders/${id}/milestones`, { milestones }),
+}
+
+/** 一条节点的补录入参：空串表示清空该日期（不是"不修改"）。 */
+export interface PurchaseMilestoneInput {
+  purchase_order_item_id: number
+  node: number
+  plan_date: string
+  done_date: string
+  remark?: string
 }

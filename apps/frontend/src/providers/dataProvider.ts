@@ -41,6 +41,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'partner_id',
   'product_id',
   'shipment_id',
+  // 采购跟单节点逾期筛选（T-38）：筛"这个节点已逾期"的采购单。
+  'overdue_node',
   // 出货列表按订单筛（「这张订单出了几次货」）。后端 dto.ShipmentQuery 早就支持，
   // 白名单漏了它，界面传过去会被静默丢弃（T-43）。
   'sales_order_id',

@@ -9,6 +9,8 @@ import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
+import { PurchaseMilestonePanel } from './milestone-panel'
+
 interface StatusAction {
   label: string
   next: number
@@ -231,6 +233,9 @@ export function PurchaseShow() {
           />
         </Table>
       </Card>
+
+      {/* 跟单节点（T-38）：货在工厂还是已经进仓、验货过没过，就看这张表。 */}
+      {o ? <PurchaseMilestonePanel order={o} /> : null}
     </Show>
   )
 }

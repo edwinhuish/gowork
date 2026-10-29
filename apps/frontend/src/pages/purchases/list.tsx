@@ -8,17 +8,19 @@ import {
   ShowButton,
   useTable,
 } from '@refinedev/antd'
-import { Button, Form, Input, Select, Space, Table, Tag } from 'antd'
+import { Button, Form, Input, Select, Space, Table, Tag, Tooltip } from 'antd'
 
 import { Empty, Mono, Money } from '@/components/fields'
 import { ORDER_STATUS_OPTIONS, orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
-import type { Partner, PurchaseOrder } from '@/types'
+import { PURCHASE_NODES, type Partner, type PurchaseOrder } from '@/types'
 import { formatDate } from '@/utils/format'
 
 interface PurchaseSearch {
   keyword?: string
   supplier_id?: number
   status?: number
+  /** 只看某个跟单节点已逾期的采购单（T-38）。 */
+  overdue_node?: number
 }
 
 function statusColor(value: number): string {
@@ -52,6 +54,10 @@ export function PurchaseList() {
       }
       if (v.status) {
         filters.push({ field: 'status', operator: 'eq', value: v.status })
+      }
+      if (v.overdue_node) {
+        // 筛"这个跟单节点已逾期（计划日已过、还没完成）"的采购单（T-38）。
+        filters.push({ field: 'overdue_node', operator: 'eq', value: v.overdue_node })
       }
       return filters
     },
@@ -91,6 +97,14 @@ export function PurchaseList() {
             options={ORDER_STATUS_OPTIONS}
           />
         </Form.Item>
+        <Form.Item name="overdue_node">
+          <Select
+            placeholder="跟单逾期节点"
+            allowClear
+            style={{ width: 150 }}
+            options={PURCHASE_NODES.map((n) => ({ value: n.value, label: `${n.label}逾期` }))}
+          />
+        </Form.Item>
         <Form.Item>
           <Space>
             <Button type="primary" htmlType="submit">
@@ -127,6 +141,21 @@ export function PurchaseList() {
           render={(value: number) => (
             <Tag color={statusColor(value)}>{orderStatusLabel(value)}</Tag>
           )}
+        />
+        {/* 跟单逾期：只显示最靠前的那个未完成节点，具体进度去详情看（T-38）。 */}
+        <Table.Column
+          dataIndex="overdue_node"
+          title="跟单逾期"
+          width={110}
+          render={(value: string) =>
+            value ? (
+              <Tooltip title="这个节点的计划日已过但还没完成；进详情可补录">
+                <Tag color="red">{value}</Tag>
+              </Tooltip>
+            ) : (
+              <span className="cell-sub">—</span>
+            )
+          }
         />
         <Table.Column
           dataIndex="order_date"
