@@ -14,6 +14,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"github.com/edwinhuish/gowork/internal/server/middleware"
 )
 
 // parseID 解析路径上的 :id 参数。
@@ -30,6 +31,12 @@ func parseID(c *gin.Context) (uint, bool) {
 // bindJSON 绑定并校验请求体，失败时已写出响应。
 func bindJSON(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
+		// 请求体超过 BodyLimit 时，读错误会带着"解析失败"的外观。
+		// 翻成 413：400 的意思是"你的请求写错了"，实际是"太大了"，
+		// 两种提示对应的处理动作完全不同（改内容 vs 拆批次）。
+		if middleware.HandleBodyTooLarge(c, err) {
+			return false
+		}
 		response.Fail(c, errs.BadRequest(validationMessage(err)))
 		return false
 	}

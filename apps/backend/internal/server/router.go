@@ -51,6 +51,13 @@ type Handlers struct {
 	Clause      *handler.ClauseHandler
 }
 
+// bodyLimitBytes 是单个请求体的兜底上限，32MB。
+//
+// 取值依据：附件业务上限 10MB（service.MaxAttachmentSize），加上 multipart 的
+// boundary 与表单字段开销后仍留有充裕余量；而它挡住的是"几 GB 的 POST 把内存吃光"
+// 这类请求——那种请求只需要一个 curl 循环，不需要账号（登录接口也在保护范围内）。
+const bodyLimitBytes = 32 << 20
+
 // New 构建 gin 引擎。
 func New(
 	cfg *config.Config, log *slog.Logger, auth service.AuthService,
@@ -64,6 +71,9 @@ func New(
 		middleware.AccessLog(log),
 		middleware.Recovery(log),
 		middleware.CORS(cfg.HTTP.CORSOrigins),
+		// 请求体兜底上限：gin 解析 JSON 时会把整个 body 读进内存，而 Go 默认不设限。
+		// 附件那 10MB 的业务上限另算（见 BodyLimit 的注释）。
+		middleware.BodyLimit(bodyLimitBytes),
 	)
 
 	engine.GET("/healthz", handler.Health)
