@@ -18,7 +18,10 @@ import (
 type StockMovementFilter struct {
 	Keyword   string
 	ProductID *uint
-	Type      *model.StockMovementType
+	// BatchNo 按批次筛流水（T-58）：这就是最小可用的批次追溯——
+	// 给定批号，列出它全部的入库与出库，含来源单号与仓库。
+	BatchNo string
+	Type    *model.StockMovementType
 	// From / To 按业务发生日过滤（含两端），只用到日期部分。
 	From *time.Time
 	To   *time.Time
@@ -101,6 +104,11 @@ func (r *stockRepo) ListMovements(
 	if f.To != nil {
 		to := *f.To
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Where("occurred_at <= ?", to) })
+	}
+	if f.BatchNo != "" {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("batch_no = ?", f.BatchNo)
+		})
 	}
 	// 按发生日倒序：库存流水是按"哪天动过"看的，录入时间只在对账时才有意义。
 	return r.PaginateOrdered(ctx, p, "occurred_at DESC, id DESC", scopes...)

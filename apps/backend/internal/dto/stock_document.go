@@ -21,6 +21,7 @@ type StockDocumentQuery struct {
 // 入库 / 出库的 qty > 0 由 service 校验。
 type StockDocumentItemInput struct {
 	ProductID uint           `json:"product_id" binding:"required"`
+	BatchNo   string         `json:"batch_no" binding:"max=64"`
 	Qty       *money.Decimal `json:"qty" binding:"required"`
 	Remark    string         `json:"remark" binding:"max=255"`
 }
@@ -64,6 +65,7 @@ type SalesOutIssueInput struct {
 // SalesOutIssueItem 是出库单里的一行，照抄出货分配的物料快照。
 type SalesOutIssueItem struct {
 	ProductID uint
+	BatchNo   string
 	SKUCode   string
 	NameCN    string
 	Spec      string

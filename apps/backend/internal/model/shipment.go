@@ -84,6 +84,9 @@ type ShipmentAllocation struct {
 	NameCN  string `gorm:"size:128" json:"name_cn"`
 	Spec    string `gorm:"size:128" json:"spec"`
 	Unit    string `gorm:"size:16" json:"unit"`
+	// BatchNo 是这批货的批次号（T-58）：与收货时填的批次对应，
+	// 出货确认后写进销售出库流水，才能从"客户投诉的那一批"追到收货单。
+	BatchNo string `gorm:"size:64;index" json:"batch_no"`
 
 	// Qty 是定点数：可出数量的校验全靠逐位比较，"差不多的 0.0001"就是超发。
 	Qty    money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`

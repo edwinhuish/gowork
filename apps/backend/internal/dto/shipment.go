@@ -27,7 +27,9 @@ type ShipmentAllocationInput struct {
 	// 装箱数据，只有印装箱单时才需要；留空就是"还没装箱"，不拦。
 	//
 	// 重量是这一行的合计（不是单箱），与装箱单上每行的 G.W. / N.W. 对应。
-	Cartons     int           `json:"cartons" binding:"gte=0,lte=100000"`
+	Cartons int `json:"cartons" binding:"gte=0,lte=100000"`
+	// BatchNo 留空表示不按批次管理。
+	BatchNo     string        `json:"batch_no" binding:"max=64"`
 	GrossWeight money.Decimal `json:"gross_weight"`
 	NetWeight   money.Decimal `json:"net_weight"`
 	// Measurement 是外箱尺寸，如 "60×40×30CM"，原样印在装箱单上。
@@ -45,7 +47,7 @@ type ShipmentInput struct {
 	// ForwarderID 是这票货的货代（T-55）。四份外销单证都要印它：
 	// 订舱委托的抬头、装船通知的联系人、产地证的运输细节。
 	// 之前货代只作为费用行的收款方存在，票面上没有落点。
-	ForwarderID *uint `json:"forwarder_id"`
+	ForwarderID *uint                     `json:"forwarder_id"`
 	Remark      string                    `json:"remark" binding:"max=255"`
 	Allocations []ShipmentAllocationInput `json:"allocations" binding:"required,min=1,dive"`
 	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。

@@ -11,6 +11,8 @@ type StockMovementQuery struct {
 	PageQuery
 	ProductID *uint `form:"product_id"`
 	Type      *int8 `form:"type"`
+	// BatchNo 是批次追溯的入参：给定批号列出它全部出入流水。
+	BatchNo string `form:"batch_no"`
 	// From / To 是业务发生日 YYYY-MM-DD（含两端），留空表示不限。
 	From string `form:"from"`
 	To   string `form:"to"`

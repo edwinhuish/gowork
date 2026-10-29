@@ -164,13 +164,16 @@ func (d StockDocument) IsEditable() bool { return d.Status == DocumentStatusDraf
 // BookQty 只在盘点单确认时写入（账面数），差异 = Qty − BookQty，不单独存。
 type StockDocumentItem struct {
 	Base
-	DocumentID uint          `gorm:"not null;index" json:"document_id"`
-	ProductID  uint          `gorm:"not null;index" json:"product_id"`
-	SKUCode    string        `gorm:"size:32;not null" json:"sku_code"`
-	NameCN     string        `gorm:"size:128" json:"name_cn"`
-	Spec       string        `gorm:"size:255" json:"spec"`
-	Unit       string        `gorm:"size:16" json:"unit"`
-	Qty        money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
+	DocumentID uint   `gorm:"not null;index" json:"document_id"`
+	ProductID  uint   `gorm:"not null;index" json:"product_id"`
+	SKUCode    string `gorm:"size:32;not null" json:"sku_code"`
+	NameCN     string `gorm:"size:128" json:"name_cn"`
+	Spec       string `gorm:"size:255" json:"spec"`
+	Unit       string `gorm:"size:16" json:"unit"`
+	// BatchNo 随明细进流水（T-58）：出入库单不按批次记账，但流水要能回答
+	// "这一批是哪个批号"，否则出了质量问题追不回来。
+	BatchNo string        `gorm:"size:64" json:"batch_no"`
+	Qty     money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// BookQty 为 nil 表示还没确认过（草稿），或这张单不是盘点单。
 	BookQty *money.Decimal `gorm:"type:decimal(14,3)" json:"book_qty"`
 	Remark  string         `gorm:"size:255" json:"remark"`

@@ -40,6 +40,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'currency_code',
   'partner_id',
   'product_id',
+  // 批次追溯（T-58）：给定批号列出它全部的出入流水。
+  'batch_no',
   'shipment_id',
   // 采购跟单节点逾期筛选（T-38）：筛"这个节点已逾期"的采购单。
   'overdue_node',

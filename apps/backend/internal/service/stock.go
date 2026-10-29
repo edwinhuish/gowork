@@ -74,6 +74,7 @@ func (s *stockService) ListMovements(
 	filter := repository.StockMovementFilter{
 		Keyword:   strings.TrimSpace(q.Keyword),
 		ProductID: q.ProductID,
+		BatchNo:   strings.TrimSpace(q.BatchNo),
 	}
 	if q.Type != nil {
 		t := model.StockMovementType(*q.Type)

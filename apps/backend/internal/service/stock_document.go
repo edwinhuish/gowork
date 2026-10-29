@@ -311,6 +311,7 @@ func (s *stockDocumentService) Confirm(
 			NameCN:      item.NameCN,
 			Spec:        item.Spec,
 			Unit:        item.Unit,
+			BatchNo:     item.BatchNo,
 			Type:        doc.Type.MovementType(),
 			Direction:   direction,
 			Qty:         qty,
@@ -376,6 +377,7 @@ func (s *stockDocumentService) IssueSalesOut(
 	for _, it := range in.Items {
 		items = append(items, model.StockDocumentItem{
 			ProductID: it.ProductID,
+			BatchNo:   it.BatchNo,
 			SKUCode:   it.SKUCode,
 			NameCN:    it.NameCN,
 			Spec:      it.Spec,

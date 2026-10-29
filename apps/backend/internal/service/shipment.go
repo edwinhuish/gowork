@@ -438,6 +438,7 @@ func (s *shipmentService) salesOutInput(sh *model.Shipment) (dto.SalesOutIssueIn
 		}
 		items = append(items, dto.SalesOutIssueItem{
 			ProductID: item.ProductID,
+			BatchNo:   alloc.BatchNo,
 			SKUCode:   alloc.SKUCode,
 			NameCN:    alloc.NameCN,
 			Spec:      alloc.Spec,
@@ -601,6 +602,7 @@ func (s *shipmentService) buildAllocations(
 			NameCN:           item.NameCN,
 			Spec:             item.Spec,
 			Unit:             item.Unit,
+			BatchNo:          strings.TrimSpace(row.BatchNo),
 			Qty:              row.Qty,
 			Remark:           row.Remark,
 			Cartons:          row.Cartons,
