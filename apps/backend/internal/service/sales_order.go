@@ -67,10 +67,10 @@ type QuotationOrderLine struct {
 }
 
 type salesOrderService struct {
-	orders     repository.SalesOrderRepository
-	partners   repository.PartnerRepository
-	products   repository.ProductRepository
-	shipments  repository.ShipmentRepository
+	orders    repository.SalesOrderRepository
+	partners  repository.PartnerRepository
+	products  repository.ProductRepository
+	shipments repository.ShipmentRepository
 	// changes 只服务"已确认订单的变更单"：草稿走 Update，不进来。
 	changes    repository.SalesOrderChangeRepository
 	currencies CurrencyService
@@ -243,6 +243,11 @@ func (s *salesOrderService) Get(ctx context.Context, id uint) (*model.SalesOrder
 	if err != nil {
 		return nil, err
 	}
+	// 越权访问 403 而不是 404：这张单确实存在，只是不归你看。
+	// 列表已经把范围滤掉了，但猜到 id 直接请求详情是另一条路。
+	if err := ensurePartnerVisible(ctx, s.partners, o.PartnerID); err != nil {
+		return nil, err
+	}
 	shipped, err := s.shipments.ShippedQtyByOrder(ctx, id)
 	if err != nil {
 		return nil, err
@@ -260,7 +265,10 @@ func (s *salesOrderService) List(
 ) (*dto.PageResult[model.SalesOrder], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.SalesOrderFilter{Keyword: q.Keyword, PartnerID: q.PartnerID}
+	// 范围由身份决定：业务员只看自己（与未分配）客户的订单。
+	filter := repository.SalesOrderFilter{
+		Keyword: q.Keyword, PartnerID: q.PartnerID, OwnerID: ownerScope(ctx),
+	}
 	if q.Status != nil {
 		st := model.DocumentStatus(*q.Status)
 		if !st.IsValid() {
@@ -297,8 +305,8 @@ func (s *salesOrderService) UpdateStatus(
 	// 从这一刻起它和它的应收一起算进敞口，所以校验也放在这一刻。
 	if next == model.DocumentStatusConfirmed {
 		if err := s.credits.CheckConfirm(ctx, CreditCheck{
-			PartnerID: existing.PartnerID,
-			DocNo:     existing.DocNo,
+			PartnerID:  existing.PartnerID,
+			DocNo:      existing.DocNo,
 			AmountBase: existing.AmountBaseTotal,
 			Force:      in.ForceCredit,
 		}); err != nil {

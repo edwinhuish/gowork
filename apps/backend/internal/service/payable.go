@@ -172,7 +172,8 @@ func (s *payableService) List(
 ) (*dto.PageResult[model.Payable], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.PayableFilter{PartnerID: q.PartnerID}
+	// 范围由身份决定：业务员只看自己（与未分配）供应商的应付。
+	filter := repository.PayableFilter{PartnerID: q.PartnerID, OwnerID: ownerScope(ctx)}
 	if q.Status != nil {
 		st := model.SettlementStatus(*q.Status)
 		filter.Status = &st

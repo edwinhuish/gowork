@@ -179,7 +179,10 @@ func (s *receivableService) List(
 ) (*dto.PageResult[model.Receivable], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.ReceivableFilter{PartnerID: q.PartnerID, SourceID: q.SourceID}
+	// 范围由身份决定：业务员只看自己（与未分配）客户的应收。
+	filter := repository.ReceivableFilter{
+		PartnerID: q.PartnerID, SourceID: q.SourceID, OwnerID: ownerScope(ctx),
+	}
 	if q.SourceType != nil {
 		st := model.SettlementSource(*q.SourceType)
 		filter.SourceType = &st

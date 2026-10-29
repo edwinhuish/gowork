@@ -248,7 +248,8 @@ func (s *paymentService) List(
 ) (*dto.PageResult[model.Payment], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.PaymentFilter{PartnerID: q.PartnerID}
+	// 范围由身份决定：业务员只看自己（与未分配）对方的收付款。
+	filter := repository.PaymentFilter{PartnerID: q.PartnerID, OwnerID: ownerScope(ctx)}
 	if q.Direction != nil {
 		d := model.PaymentDirection(*q.Direction)
 		filter.Direction = &d

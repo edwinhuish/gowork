@@ -223,7 +223,10 @@ func (s *contractService) List(
 ) (*dto.PageResult[model.Contract], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.ContractFilter{Keyword: q.Keyword, PartnerID: q.PartnerID}
+	// 范围由身份决定：业务员只看自己（与未分配）客户的合同。
+	filter := repository.ContractFilter{
+		Keyword: q.Keyword, PartnerID: q.PartnerID, OwnerID: ownerScope(ctx),
+	}
 	if q.Type != nil {
 		ct := model.ContractType(*q.Type)
 		if !ct.IsValid() {

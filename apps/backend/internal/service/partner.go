@@ -262,17 +262,17 @@ func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, erro
 	}
 	// 越权访问要 403 而不是 404：这条记录确实存在，只是不归你看。
 	// 用 404 会让人以为数据被删了，转而去找运维而不是找主管。
-	if owner := partnerScope(ctx); owner != nil && m.OwnerID != 0 && m.OwnerID != *owner {
+	if owner := ownerScope(ctx); owner != nil && m.OwnerID != 0 && m.OwnerID != *owner {
 		return nil, errs.ErrForbidden
 	}
 	return m, nil
 }
 
-// partnerScope 按当前身份算数据范围：返回 nil 表示不限制。
+// ownerScope 按当前身份算数据范围：返回 nil 表示不限制。
 //
 // 认不出身份（内部调用、迁移任务、别的 service 回头查主体）时不做限制——
 // 那些调用不是为了"某个人看"，而是系统自己在算。
-func partnerScope(ctx context.Context) *uint {
+func ownerScope(ctx context.Context) *uint {
 	actor, ok := ActorFrom(ctx)
 	if !ok || model.RoleSeesAllData(actor.Role) {
 		return nil
@@ -514,7 +514,7 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 		filter.EntityType = &t
 	}
 	// 范围由身份决定，不由参数决定：业务员传什么 owner_id 都按自己算。
-	if scoped := partnerScope(ctx); scoped != nil {
+	if scoped := ownerScope(ctx); scoped != nil {
 		filter.OwnerID = scoped
 	} else if q.OwnerID != nil {
 		filter.OwnerID = q.OwnerID

@@ -16,6 +16,8 @@ import (
 type PaymentFilter struct {
 	Direction *model.PaymentDirection
 	PartnerID *uint
+	// OwnerID 只看归属该业务员的对方主体的收付款（含未分配的）。
+	OwnerID *uint
 }
 
 func (f PaymentFilter) scopes() []Scope {
@@ -31,6 +33,9 @@ func (f PaymentFilter) scopes() []Scope {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("partner_id = ?", pid)
 		})
+	}
+	if f.OwnerID != nil {
+		scopes = append(scopes, OwnerScope("partner_id", *f.OwnerID))
 	}
 	return scopes
 }

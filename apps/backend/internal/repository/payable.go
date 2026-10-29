@@ -19,6 +19,8 @@ type PayableFilter struct {
 	Status    *model.SettlementStatus
 	// OverdueBefore 取到期日早于该日的单，供账龄（T-22）按桶取数。
 	OverdueBefore *time.Time
+	// OwnerID 只看归属该业务员的供应商的应付（含未分配供应商的）。
+	OwnerID *uint
 }
 
 func (f PayableFilter) scopes() []Scope {
@@ -40,6 +42,9 @@ func (f PayableFilter) scopes() []Scope {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("due_date < ?", d)
 		})
+	}
+	if f.OwnerID != nil {
+		scopes = append(scopes, OwnerScope("partner_id", *f.OwnerID))
 	}
 	return scopes
 }

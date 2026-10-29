@@ -22,6 +22,8 @@ type ReceivableFilter struct {
 	// OverdueBefore 取到期日早于该日的单，供账龄（T-22）按桶取数。
 	// 用"早于"而不是"等于"：账龄关心的是"已经到期多久"。
 	OverdueBefore *time.Time
+	// OwnerID 只看归属该业务员的客户的应收（含未分配客户的）。
+	OwnerID *uint
 }
 
 func (f ReceivableFilter) scopes() []Scope {
@@ -55,6 +57,9 @@ func (f ReceivableFilter) scopes() []Scope {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("due_date < ?", d)
 		})
+	}
+	if f.OwnerID != nil {
+		scopes = append(scopes, OwnerScope("partner_id", *f.OwnerID))
 	}
 	return scopes
 }

@@ -245,6 +245,37 @@ func TestPartnerTransferOwner(t *testing.T) {
 	})
 }
 
+// 详情也要校验：列表把别人的单滤掉了，但猜到 id 直接请求详情是另一条路。
+func TestEnsurePartnerVisible(t *testing.T) {
+	f := newPartnerScopeFixture(t)
+	alice := f.addUser(t, "alice", model.RoleStaff, model.EnableStatusOn)
+	bob := f.addUser(t, "bob", model.RoleStaff, model.EnableStatusOn)
+
+	mine := f.addPartner(t, "CUS001", alice)
+	others := f.addPartner(t, "CUS002", bob)
+	public := f.addPartner(t, "CUS003", 0)
+
+	partners := repository.NewPartnerRepository(f.db)
+	ctx := WithActor(context.Background(), scopeActor(alice, model.RoleStaff))
+
+	if err := ensurePartnerVisible(ctx, partners, mine); err != nil {
+		t.Fatalf("自己客户的单据应当能看: %v", err)
+	}
+	if err := ensurePartnerVisible(ctx, partners, public); err != nil {
+		t.Fatalf("未分配客户的单据对所有人可见: %v", err)
+	}
+	wantCode(t, ensurePartnerVisible(ctx, partners, others), errs.CodeForbidden, "看别人客户的单据")
+
+	// 没有身份（内部调用、迁移）与主管都不受限。
+	if err := ensurePartnerVisible(context.Background(), partners, others); err != nil {
+		t.Errorf("无身份时不做范围限制: %v", err)
+	}
+	bossCtx := WithActor(context.Background(), scopeActor(bob, model.RoleManager))
+	if err := ensurePartnerVisible(bossCtx, partners, mine); err != nil {
+		t.Errorf("主管不受范围限制: %v", err)
+	}
+}
+
 // 列表要带上负责人姓名：只给 id 的话，界面上那一列是个数字。
 func TestPartnerListProjectsOwnerName(t *testing.T) {
 	f := newPartnerScopeFixture(t)

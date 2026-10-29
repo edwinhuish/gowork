@@ -17,6 +17,8 @@ type SalesOrderFilter struct {
 	Keyword   string
 	PartnerID *uint
 	Status    *model.DocumentStatus
+	// OwnerID 只看归属该业务员的客户的单（含未分配客户的单）。
+	OwnerID *uint
 }
 
 func (f SalesOrderFilter) scopes() []Scope {
@@ -35,6 +37,9 @@ func (f SalesOrderFilter) scopes() []Scope {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("status = ?", st)
 		})
+	}
+	if f.OwnerID != nil {
+		scopes = append(scopes, OwnerScope("partner_id", *f.OwnerID))
 	}
 	return scopes
 }

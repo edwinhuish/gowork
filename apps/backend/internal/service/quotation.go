@@ -212,6 +212,10 @@ func (s *quotationService) Get(ctx context.Context, id uint) (*dto.QuotationDeta
 	if err != nil {
 		return nil, err
 	}
+	// 越权访问 403 而不是 404：这张单确实存在，只是不归你看。
+	if err := ensurePartnerVisible(ctx, s.partners, m.PartnerID); err != nil {
+		return nil, err
+	}
 	return s.detail(m), nil
 }
 
@@ -220,7 +224,10 @@ func (s *quotationService) List(
 ) (*dto.PageResult[model.Quotation], error) {
 	q.PageQuery.Normalize()
 
-	filter := repository.QuotationFilter{Keyword: q.Keyword, PartnerID: q.PartnerID}
+	// 范围由身份决定：业务员只看自己（与未分配）客户的报价。
+	filter := repository.QuotationFilter{
+		Keyword: q.Keyword, PartnerID: q.PartnerID, OwnerID: ownerScope(ctx),
+	}
 	if q.Status != nil {
 		st := model.DocumentStatus(*q.Status)
 		if !st.IsValid() {
