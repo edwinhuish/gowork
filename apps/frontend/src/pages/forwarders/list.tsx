@@ -82,6 +82,12 @@ export function ForwarderList() {
           width={80}
           render={(value: number) => <EntityTypeTag value={value} />}
         />
+        <Table.Column
+          dataIndex="owner_name"
+          title="负责人"
+          width={110}
+          render={(v: string) => v || <span className="cell-sub">未分配</span>}
+        />
         <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />

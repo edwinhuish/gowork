@@ -60,6 +60,13 @@ export function CustomerShow() {
               ),
           },
           { key: 'currency_code', label: '默认币种', children: result?.currency_code || <Empty /> },
+          {
+            key: 'owner',
+            label: '负责人',
+            // 未分配是正常状态（公共池），写"未分配"而不是空白：
+            // 空白会让人以为是接口没返回。
+            children: result?.owner_name || <span className="cell-sub">未分配</span>,
+          },
           { key: 'address', label: '地址', span: 2, children: result?.address || <Empty /> },
           { key: 'remark', label: '备注', span: 2, children: result?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(result?.created_at) },

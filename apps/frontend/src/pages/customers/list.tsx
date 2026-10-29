@@ -128,6 +128,13 @@ export function CustomerList() {
           render={(value: number) => <EntityTypeTag value={value} />}
         />
         <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
+        {/* 负责人是业务员看列表时最先找的一列：不是自己的客户，跟进前先想清楚该不该动。 */}
+        <Table.Column
+          dataIndex="owner_name"
+          title="负责人"
+          width={110}
+          render={(v: string) => v || <span className="cell-sub">未分配</span>}
+        />
         <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
         <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
         {/* 结算方式与账期直接影响"这单能不能赊"，放在列表里便于接单前先看一眼。 */}

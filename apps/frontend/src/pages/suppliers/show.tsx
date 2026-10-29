@@ -38,6 +38,11 @@ export function SupplierShow() {
           { key: 'contact', label: '联系人', children: result?.contact || <Empty /> },
           { key: 'phone', label: '电话', children: result?.phone || <Empty /> },
           { key: 'email', label: '邮箱', children: result?.email || <Empty /> },
+          {
+            key: 'owner',
+            label: '负责人',
+            children: result?.owner_name || <span className="cell-sub">未分配</span>,
+          },
           { key: 'address', label: '地址', span: 2, children: result?.address || <Empty /> },
           { key: 'remark', label: '备注', span: 2, children: result?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(result?.created_at) },

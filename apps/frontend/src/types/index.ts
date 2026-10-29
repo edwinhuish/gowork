@@ -66,6 +66,13 @@ export interface Partner {
   credit_limit: string
   /** 默认结算币种，空表示按报价单或本币。 */
   currency_code: string
+  /**
+   * 负责人（sys_user.id）。0 表示**未分配**（公共池）：刚上线的存量数据与
+   * "先录进来还没分人"的客户都在这一堆，它们对任何业务员都可见。
+   */
+  owner_id: number
+  /** 负责人登录名，后端列表 join 出来的只读投影。 */
+  owner_name?: string
   created_at: string
   updated_at: string
 }
