@@ -67,11 +67,11 @@ export function PaymentList() {
           title="金额"
           width={170}
           align="right"
+          // 币种交给 Money：它按该币种的小数位显示（JPY 0 位、KWD 3 位），
+          // 并在金额后面带上代码。之前固定 2 位 + 单独的 Tag，
+          // 日元会显示成 1,000.00、科威特第纳尔会丢第三位。
           render={(value: string, record: Payment) => (
-            <Space size={6}>
-              <Money value={value} />
-              <Tag>{record.currency_code}</Tag>
-            </Space>
+            <Money value={value} currency={record.currency_code} />
           )}
         />
         <Table.Column
@@ -91,7 +91,7 @@ export function PaymentList() {
             if (allocated <= 0) {
               return <Tag>{record.direction === 20 ? '预付' : '预收'}</Tag>
             }
-            return <Money value={allocated} />
+            return <Money value={allocated} currency={record.currency_code} />
           }}
         />
         <Table.Column
@@ -101,7 +101,7 @@ export function PaymentList() {
           render={(_, record: Payment) => {
             const allocated = (record.allocations ?? []).reduce((sum, a) => sum + Number(a.amount), 0)
             const rest = Number(record.amount) - allocated
-            return rest > 0.0001 ? <Money value={rest} /> : <Empty />
+            return rest > 0.0001 ? <Money value={rest} currency={record.currency_code} /> : <Empty />
           }}
         />
         <Table.Column
