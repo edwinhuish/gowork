@@ -84,3 +84,62 @@ func TestWriteHeaderOnly(t *testing.T) {
 		t.Errorf("应只有 BOM + 表头，得到 %q", got)
 	}
 }
+
+// 导出文件会被转发出去，单元格里的公司名与地址是人工录的：
+// 以 = + - @ 开头的内容在 Excel 打开时会按公式执行。
+func TestWriteEscapesFormulaInjection(t *testing.T) {
+	var buf bytes.Buffer
+	rows := [][]string{
+		{"C001", `=cmd|'/C calc'!A0`},
+		{"C002", "+86 138 0000 0000"},
+		{"C003", "@SUM(A1:A9)"},
+		{"C004", "-abc"},
+		{"C005", "普通名称"},
+	}
+	if err := Write(&buf, []string{"编码", "名称"}, rows); err != nil {
+		t.Fatalf("写出失败: %v", err)
+	}
+
+	reader := csv.NewReader(bytes.NewReader(buf.Bytes()[3:]))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("读回失败: %v", err)
+	}
+	for i, want := range [][2]string{
+		{"C001", "'=cmd|'/C calc'!A0"},
+		{"C002", "'+86 138 0000 0000"},
+		{"C003", "'@SUM(A1:A9)"},
+		{"C004", "'-abc"},
+		{"C005", "普通名称"},
+	} {
+		got := records[i+1]
+		if got[1] != want[1] {
+			t.Errorf("第 %d 行：期望 %q，得到 %q", i+1, want[1], got[1])
+		}
+	}
+}
+
+// 负数必须原样保留：加了前缀就变成文本，用户在 Excel 里连求和都做不了。
+func TestWriteKeepsNumbersUnquoted(t *testing.T) {
+	var buf bytes.Buffer
+	rows := [][]string{
+		{"-12.34"},
+		{"-1000"},
+		{"-1e-3"},
+		{"-1.2E+4"},
+	}
+	if err := Write(&buf, []string{"金额"}, rows); err != nil {
+		t.Fatalf("写出失败: %v", err)
+	}
+
+	reader := csv.NewReader(bytes.NewReader(buf.Bytes()[3:]))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("读回失败: %v", err)
+	}
+	for i, row := range rows {
+		if got := records[i+1][0]; got != row[0] {
+			t.Errorf("%q 被改成了 %q——负数不能当公式处理", row[0], got)
+		}
+	}
+}
