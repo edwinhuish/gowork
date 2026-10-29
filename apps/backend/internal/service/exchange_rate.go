@@ -94,8 +94,10 @@ func (s *exchangeRateService) Create(
 	}
 
 	m := &model.ExchangeRate{
-		CurrencyCode:  code,
-		BaseCode:      base.Code,
+		CurrencyCode: code,
+		BaseCode:     base.Code,
+		// 类型留空按中间价（T-60）：存量调用方不传这个字段，行为与改造前一致。
+		RateType:      normalizeRateType(in.RateType),
 		Rate:          in.Rate,
 		EffectiveDate: date,
 		Source:        in.Source,
@@ -134,4 +136,19 @@ func (s *exchangeRateService) List(
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// normalizeRateType 把类型归一化，空值落中间价（T-60）。
+//
+// 不认识的值交给 dto 的 oneof 拦在绑定阶段；这里只处理"没填"，
+// 因为绝大多数调用方根本不传这个字段。
+func normalizeRateType(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case model.RateTypeBuy:
+		return model.RateTypeBuy
+	case model.RateTypeSell:
+		return model.RateTypeSell
+	default:
+		return model.RateTypeMiddle
+	}
 }

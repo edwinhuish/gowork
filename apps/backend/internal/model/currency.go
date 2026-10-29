@@ -48,10 +48,18 @@ func (Currency) TableName() string { return "md_currency" }
 //
 // 只追加、不覆盖历史：同一天同一币种只能有一条，改价要新增一天或先删掉错的那条。
 // 覆盖历史会让三个月前那张报价单的成本重算成另一个数。
+// 汇率类型（T-60）。银行卖美元给你的价与买你美元的价不同，
+// 一张表通吃会让收汇与付汇用同一个数，单票毛利有方向固定的偏差。
+const (
+	RateTypeBuy    = "buy"    // 银行买入价：把外币卖给它，收款用
+	RateTypeSell   = "sell"   // 银行卖出价：向它买外币，付款用
+	RateTypeMiddle = "middle" // 中间价：单据锁汇率与报表折算用
+)
+
 type ExchangeRate struct {
 	Base
 	// 遮蔽 Base 里的同名字段：汇率也是软删，"未删才唯一"要把它排进复合索引。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_exchange_rate_pair,priority:4" json:"deleted_at,omitempty"`
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_exchange_rate_pair,priority:5" json:"deleted_at,omitempty"`
 	// CurrencyCode 外币代码（USD / EUR）。
 	CurrencyCode string `gorm:"size:8;not null;index;uniqueIndex:uni_exchange_rate_pair,priority:1" json:"currency_code"`
 	// BaseCode 记录当时的本币代码。冗余存一份而不是 join 出来：
@@ -59,8 +67,14 @@ type ExchangeRate struct {
 	BaseCode string `gorm:"size:8;not null;uniqueIndex:uni_exchange_rate_pair,priority:2" json:"base_code"`
 	// Rate 是折算率本身，定点表示。列宽 8 位而定点只到 6 位（全仓统一的最小单位），
 	// 落库后末两位恒为 0：再多的位数在业务上没意义，每多一位 int64 的上限就少十倍。
-	Rate          money.Decimal `gorm:"type:decimal(18,8);not null" json:"rate"`
-	EffectiveDate time.Time     `gorm:"type:date;not null;uniqueIndex:uni_exchange_rate_pair,priority:3" json:"effective_date"`
+	Rate money.Decimal `gorm:"type:decimal(18,8);not null" json:"rate"`
+	// RateType 是汇率类型（T-60）：buy 银行买入价 / sell 卖出价 / middle 中间价。
+	//
+	// 要进唯一索引：同一天同一币种可以同时有买入价与卖出价，
+	// 不进索引的话只能存一条，双价等于没做。
+	RateType string `gorm:"size:8;not null;default:'middle';uniqueIndex:uni_exchange_rate_pair,priority:3" json:"rate_type"`
+	// EffectiveDate 生效日（只取日期）。同一天同币种同类型只能有一条。
+	EffectiveDate time.Time `gorm:"type:date;not null;uniqueIndex:uni_exchange_rate_pair,priority:4" json:"effective_date"`
 	// Source 记来源（手工 / 银行 / 中国银行牌价），便于事后判断这条价可不可信。
 	Source string `gorm:"size:32" json:"source"`
 	Remark string `gorm:"size:255" json:"remark"`

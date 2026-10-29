@@ -298,6 +298,11 @@ func New(cfg *config.Config) (*App, error) {
 	if _, err := repository.NewWarehouseRepository(db).EnsureDefault(context.Background()); err != nil {
 		log.Warn("初始化默认仓库失败", "err", err)
 	}
+	// 汇率唯一索引加 rate_type（T-60）：旧索引会挡住"同一天补一条买入价"。
+	if err := repository.MigrateExchangeRateType(db); err != nil {
+		log.Error("汇率类型索引迁移失败；同一天只能存一条汇率", "err", err)
+	}
+
 	// 库存切到仓库维度（T-56 第二步）：回填存量并把快照唯一键换成
 	// (warehouse_id, product_id, deleted_at)。两步都幂等。
 	if err := repository.MigrateStockWarehouse(db); err != nil {

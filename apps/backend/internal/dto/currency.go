@@ -40,6 +40,8 @@ type ExchangeRateQuery struct {
 // 汇率没有编辑入口：改一条历史汇率会让已经生成的单据按新价重算，
 // 那笔生意当时到底按什么价成交就再也说不清了。录错了就删掉重录。
 type ExchangeRateInput struct {
+	// RateType 是汇率类型（T-60）：留空按中间价。buy 收款用、sell 付款用。
+	RateType     string `json:"rate_type" binding:"omitempty,oneof=buy sell middle"`
 	CurrencyCode string `json:"currency_code" binding:"required,max=8"`
 	// Rate 是「1 单位外币 = Rate 单位本币」，定点字符串。
 	// binding 的 required 对结构体不生效，所以"漏填 / 填 0"改由服务层判断。

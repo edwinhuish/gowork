@@ -47,6 +47,11 @@ type ExchangeRateRepository interface {
 	// FindEffective 取 on 当日生效的汇率：生效日不晚于 on 的最近一条。
 	// 找不到返回 errs.ErrNotFound。
 	FindEffective(ctx context.Context, currencyCode, baseCode string, on time.Time) (*model.ExchangeRate, error)
+	// FindEffectiveFor 按指定汇率类型取价（T-60）：收款取买入价、付款取卖出价。
+	// 该类型当天没有时回退中间价——存量数据全是中间价，不回退等于全线报缺汇率。
+	FindEffectiveFor(
+		ctx context.Context, currencyCode, baseCode string, on time.Time, rateType string,
+	) (*model.ExchangeRate, error)
 }
 
 type exchangeRateRepo struct {
@@ -106,11 +111,45 @@ func (r *exchangeRateRepo) CountByCurrencyCode(ctx context.Context, currencyCode
 func (r *exchangeRateRepo) FindEffective(
 	ctx context.Context, currencyCode, baseCode string, on time.Time,
 ) (*model.ExchangeRate, error) {
+	return r.FindEffectiveFor(ctx, currencyCode, baseCode, on, model.RateTypeMiddle)
+}
+
+// FindEffectiveFor 按类型取价，缺该类型时回退中间价（T-60）。
+//
+// 回退而不是报错：存量汇率全是中间价，硬要求先补一份买入价才能收款，
+// 等于把一次功能升级变成一次数据迁移。
+func (r *exchangeRateRepo) FindEffectiveFor(
+	ctx context.Context, currencyCode, baseCode string, on time.Time, rateType string,
+) (*model.ExchangeRate, error) {
+	if rateType == "" {
+		rateType = model.RateTypeMiddle
+	}
+	tried := map[string]bool{}
+	for _, rt := range []string{rateType, model.RateTypeMiddle} {
+		if tried[rt] {
+			continue
+		}
+		tried[rt] = true
+		m, err := r.findByType(ctx, currencyCode, baseCode, on, rt)
+		if err == nil {
+			return m, nil
+		}
+		if !errors.Is(err, errs.ErrNotFound) {
+			return nil, err
+		}
+	}
+	return nil, errs.ErrNotFound
+}
+
+func (r *exchangeRateRepo) findByType(
+	ctx context.Context, currencyCode, baseCode string, on time.Time, rateType string,
+) (*model.ExchangeRate, error) {
 	next := model.DateOnly(on).AddDate(0, 0, 1)
 
 	var m model.ExchangeRate
 	err := r.conn(ctx).
-		Where("currency_code = ? AND base_code = ? AND effective_date < ?", currencyCode, baseCode, next).
+		Where("currency_code = ? AND base_code = ? AND rate_type = ? AND effective_date < ?",
+			currencyCode, baseCode, rateType, next).
 		Order("effective_date DESC").
 		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
