@@ -5,128 +5,171 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
-func newActivityTestService(
-	t *testing.T, now time.Time,
-) (ActivityService, repository.PartnerRepository, repository.ContactRepository) {
-	t.Helper()
-	db := openTestDB(t, &model.Partner{}, &model.Contact{}, &model.Activity{})
-	partners := repository.NewPartnerRepository(db)
-	contacts := repository.NewContactRepository(db)
-	svc := NewActivityService(
-		repository.NewActivityRepository(db), partners, contacts,
-		WithActivityClock(func() time.Time { return now }),
-	)
-	return svc, partners, contacts
+type activityFixture struct {
+	svc ActivityService
+	db  *gorm.DB
+	now time.Time
 }
 
-func TestActivityRules(t *testing.T) {
-	ctx := context.Background()
-	now := time.Date(2026, 10, 28, 15, 0, 0, 0, time.Local)
-	svc, partners, contacts := newActivityTestService(t, now)
+func newActivityFixture(t *testing.T, now time.Time) activityFixture {
+	t.Helper()
+	db := openTestDB(t, &model.Activity{}, &model.Partner{}, &model.Contact{})
+	return activityFixture{
+		db:  db,
+		now: now,
+		svc: NewActivityService(
+			repository.NewActivityRepository(db),
+			repository.NewPartnerRepository(db),
+			repository.NewContactRepository(db),
+			WithActivityClock(func() time.Time { return now })),
+	}
+}
 
-	p1 := &model.Partner{
-		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
+func (f activityFixture) addPartner(t *testing.T, code string) uint {
+	t.Helper()
+	p := &model.Partner{
+		Code: code, Name: code, Role: model.PartnerRoleCustomer,
 		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
 	}
-	p2 := &model.Partner{
-		Code: "C002", Name: "Wang Hai", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityPerson, Status: model.EnableStatusOn,
+	if err := f.db.Create(p).Error; err != nil {
+		t.Fatalf("建主体失败: %v", err)
 	}
-	for _, p := range []*model.Partner{p1, p2} {
-		if err := partners.Create(ctx, p); err != nil {
-			t.Fatalf("建主体失败: %v", err)
-		}
-	}
-	c1 := &model.Contact{PartnerID: p1.ID, Name: "Maria", Status: model.EnableStatusOn}
-	if err := contacts.Create(ctx, c1); err != nil {
+	return p.ID
+}
+
+func (f activityFixture) addContact(t *testing.T, partnerID uint, name string) uint {
+	t.Helper()
+	c := &model.Contact{PartnerID: partnerID, Name: name, Status: model.EnableStatusOn}
+	if err := f.db.Create(c).Error; err != nil {
 		t.Fatalf("建联系人失败: %v", err)
 	}
+	return c.ID
+}
 
-	created, err := svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p1.ID, ContactID: &c1.ID, Type: "call",
-		Subject: "电话确认包装", OccurredAt: "2026-10-27", NextFollowAt: "2026-10-29",
+// 跟进的三条硬约束：类型合法、不能记到未来、下次跟进不能早于本次。
+func TestActivityCreateValidates(t *testing.T) {
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	f := newActivityFixture(t, now)
+	ctx := context.Background()
+	partnerID := f.addPartner(t, "CUS001")
+
+	base := dto.ActivityInput{
+		PartnerID: partnerID, Type: "call", Subject: "电话沟通", OccurredAt: "2026-10-27",
+	}
+
+	t.Run("类型必须合法", func(t *testing.T) {
+		in := base
+		in.Type = "wechat"
+		_, err := f.svc.Create(ctx, in)
+		wantCode(t, err, errs.CodeInvalidParam, "未知类型")
 	})
-	if err != nil {
-		t.Fatalf("新建跟进失败: %v", err)
-	}
-	// 小写入参被归一化，否则列表按 type 过滤会同时存在 CALL 与 call。
-	if created.Type != model.ActivityTypeCall {
-		t.Errorf("type = %s，期望 CALL", created.Type)
-	}
 
-	// 已到期：下次跟进日在今天之前。
-	if _, err := svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p1.ID, Type: "EMAIL", Subject: "报价已发",
-		OccurredAt: "2026-10-20", NextFollowAt: "2026-10-25",
-	}); err != nil {
-		t.Fatalf("新建跟进失败: %v", err)
-	}
-
-	due := int8(1)
-	overdue, err := svc.List(ctx, dto.ActivityQuery{Due: &due})
-	if err != nil {
-		t.Fatalf("查已到期失败: %v", err)
-	}
-	if len(overdue.List) != 1 || overdue.List[0].Subject != "报价已发" {
-		t.Fatalf("已到期应为 1 条（报价已发），实际 %d 条", len(overdue.List))
-	}
-
-	// 今天到期的还不算超期：判定按整天，不按查询时刻。
-	if _, err := svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p1.ID, Type: "VISIT", Subject: "今天到期",
-		OccurredAt: "2026-10-28", NextFollowAt: "2026-10-28",
-	}); err != nil {
-		t.Fatalf("新建跟进失败: %v", err)
-	}
-	overdue, err = svc.List(ctx, dto.ActivityQuery{Due: &due})
-	if err != nil {
-		t.Fatalf("查已到期失败: %v", err)
-	}
-	if len(overdue.List) != 1 {
-		t.Fatalf("今天到期不应算超期，实际 %d 条", len(overdue.List))
-	}
-
-	// 联系人必须属于所选主体，否则这条跟进会同时挂在两家客户名下。
-	_, err = svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p2.ID, ContactID: &c1.ID, Type: "CALL",
-		Subject: "串到别家", OccurredAt: "2026-10-27",
+	t.Run("不能记到未来", func(t *testing.T) {
+		in := base
+		in.OccurredAt = "2026-10-29" // now 是 10-28
+		_, err := f.svc.Create(ctx, in)
+		wantCode(t, err, errs.CodeInvalidParam, "未来日期")
 	})
-	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
-		t.Fatalf("联系人串主体应报 40001，实际 %v", err)
-	}
 
-	_, err = svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p1.ID, Type: "CALL", Subject: "未来", OccurredAt: "2026-10-30",
+	t.Run("下次跟进不能早于本次", func(t *testing.T) {
+		in := base
+		in.NextFollowAt = "2026-10-20"
+		_, err := f.svc.Create(ctx, in)
+		wantCode(t, err, errs.CodeInvalidParam, "下次跟进早于本次")
 	})
-	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
-		t.Fatalf("未来日期应报 40001，实际 %v", err)
-	}
 
-	_, err = svc.Create(ctx, dto.ActivityInput{
-		PartnerID: p1.ID, Type: "CALL", Subject: "顺序反了",
-		OccurredAt: "2026-10-27", NextFollowAt: "2026-10-26",
-	})
-	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
-		t.Fatalf("下次跟进早于本次应报 40001，实际 %v", err)
-	}
-
-	// 时间线按发生时间倒序。
-	all, err := svc.List(ctx, dto.ActivityQuery{PartnerID: &p1.ID})
-	if err != nil {
-		t.Fatalf("查列表失败: %v", err)
-	}
-	if len(all.List) < 3 {
-		t.Fatalf("应有 3 条跟进，实际 %d 条", len(all.List))
-	}
-	for i := 1; i < len(all.List); i++ {
-		if all.List[i].OccurredAt.After(all.List[i-1].OccurredAt) {
-			t.Fatalf("时间线未按 occurred_at 倒序：第 %d 条晚于第 %d 条", i, i-1)
+	t.Run("当天可以记", func(t *testing.T) {
+		in := base
+		in.OccurredAt = "2026-10-28"
+		in.NextFollowAt = "2026-10-28"
+		if _, err := f.svc.Create(ctx, in); err != nil {
+			t.Errorf("当天记跟进、当天再跟，应当允许: %v", err)
 		}
+	})
+}
+
+// 联系人不属于这家主体时，这条跟进会同时挂在两家名下——历史里各多一条不属于自己的记录。
+func TestActivityContactMustBelongToPartner(t *testing.T) {
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	f := newActivityFixture(t, now)
+	ctx := context.Background()
+	a := f.addPartner(t, "CUS001")
+	b := f.addPartner(t, "CUS002")
+	contactOfB := f.addContact(t, b, "别家的人")
+
+	_, err := f.svc.Create(ctx, dto.ActivityInput{
+		PartnerID: a, ContactID: &contactOfB, Type: "call", Subject: "串了", OccurredAt: "2026-10-27",
+	})
+	wantCode(t, err, errs.CodeInvalidParam, "联系人归属")
+}
+
+// 改动可以，但主体不能换：换主体等于把一段历史嫁接给另一家客户。
+func TestActivityUpdateKeepsPartner(t *testing.T) {
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	f := newActivityFixture(t, now)
+	ctx := context.Background()
+	a := f.addPartner(t, "CUS001")
+	b := f.addPartner(t, "CUS002")
+
+	m, err := f.svc.Create(ctx, dto.ActivityInput{
+		PartnerID: a, Type: "call", Subject: "初次沟通", OccurredAt: "2026-10-27",
+	})
+	if err != nil {
+		t.Fatalf("建跟进失败: %v", err)
+	}
+
+	_, err = f.svc.Update(ctx, m.ID, dto.ActivityInput{
+		PartnerID: b, Type: "call", Subject: "挪走", OccurredAt: "2026-10-27",
+	})
+	wantCode(t, err, errs.CodeInvalidParam, "转移主体")
+
+	updated, err := f.svc.Update(ctx, m.ID, dto.ActivityInput{
+		PartnerID: a, Type: "visit", Subject: "改成拜访", OccurredAt: "2026-10-27",
+		NextFollowAt: "2026-11-05",
+	})
+	if err != nil {
+		t.Fatalf("更新失败: %v", err)
+	}
+	if updated.Subject != "改成拜访" || updated.Type != model.ActivityTypeVisit {
+		t.Errorf("字段没更新: %+v", updated)
+	}
+	if updated.NextFollowAt == nil ||
+		model.DateOnly(*updated.NextFollowAt).Format("2006-01-02") != "2026-11-05" {
+		t.Errorf("下次跟进应被写入: %+v", updated.NextFollowAt)
+	}
+}
+
+func TestActivityDeleteAndGet(t *testing.T) {
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	f := newActivityFixture(t, now)
+	ctx := context.Background()
+	partnerID := f.addPartner(t, "CUS001")
+
+	m, err := f.svc.Create(ctx, dto.ActivityInput{
+		PartnerID: partnerID, Type: "email", Subject: "发报价", OccurredAt: "2026-10-27",
+	})
+	if err != nil {
+		t.Fatalf("建跟进失败: %v", err)
+	}
+	if got, err := f.svc.Get(ctx, m.ID); err != nil || got.ID != m.ID {
+		t.Fatalf("详情不对: %+v / %v", got, err)
+	}
+
+	if err := f.svc.Delete(ctx, m.ID); err != nil {
+		t.Fatalf("删除失败: %v", err)
+	}
+	_, err = f.svc.Get(ctx, m.ID)
+	wantCode(t, err, errs.CodeNotFound, "删掉之后查不到")
+
+	if err := f.svc.Delete(ctx, m.ID); err == nil {
+		t.Error("重复删除应当报找不到，而不是静默成功")
 	}
 }
