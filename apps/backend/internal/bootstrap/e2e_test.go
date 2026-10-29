@@ -561,3 +561,88 @@ func createPartner(t *testing.T, srv *httptest.Server, token, code, name string)
 	}
 	return idOf(t, res)
 }
+
+// 出入库单：草稿不动库存、确认才入账、确认后不可再确认。
+//
+// 这是库存唯一的"入口"，也是单池模型下唯一能解释"账上为什么是这个数"的地方。
+// 之前的单测直接调 service，跳过了 HTTP 层的类型转换（`type` 是 int8、
+// `qty` 是指针 Decimal），而这几处恰好是最容易在联调时出错的地方。
+func TestE2EStockDocuments(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	productID := firstID(t, srv, token, "/api/v1/products?page_size=1")
+
+	// 建一张采购入库草稿：此刻库存不该有任何变化。
+	body := fmt.Sprintf(`{
+		"type": 10, "doc_date": "2026-10-29", "source_doc_no": "PO-E2E-1",
+		"items": [{"product_id": %d, "qty": "100"}]
+	}`, productID)
+	res := call(t, srv, http.MethodPost, "/api/v1/stock-documents", token, []byte(body))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建入库单失败: %d %s", res.StatusCode, msg)
+	}
+	docID := idOf(t, res)
+
+	snapshot := func() string {
+		t.Helper()
+		res := call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/v1/stock-snapshots?product_id=%d", productID), token, nil)
+		_, _, data := decodeEnvelope(t, res)
+		return string(data)
+	}
+
+	if got := snapshot(); bytes.Contains([]byte(got), []byte("100")) {
+		t.Errorf("草稿不该动库存，当前快照: %s", got)
+	}
+
+	t.Run("确认入库后库存为 100", func(t *testing.T) {
+		res := call(t, srv, http.MethodPost,
+			fmt.Sprintf("/api/v1/stock-documents/%d/confirm", docID), token, nil)
+		if res.StatusCode != http.StatusOK {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("确认入库失败: %d %s", res.StatusCode, msg)
+		}
+		decodeEnvelope(t, res)
+
+		if got := snapshot(); !bytes.Contains([]byte(got), []byte("100")) {
+			t.Errorf("确认后库存应为 100，实际: %s", got)
+		}
+	})
+
+	t.Run("重复确认被拒", func(t *testing.T) {
+		// 流水已经落地，再确认一次就等于把同一批货入库两遍。
+		res := call(t, srv, http.MethodPost,
+			fmt.Sprintf("/api/v1/stock-documents/%d/confirm", docID), token, nil)
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusConflict {
+			t.Errorf("重复确认应 409，得到 %d", res.StatusCode)
+		}
+	})
+
+	t.Run("出库单把库存减到 90", func(t *testing.T) {
+		body := fmt.Sprintf(`{
+			"type": 20, "doc_date": "2026-10-29", "source_doc_no": "SH-E2E-1",
+			"items": [{"product_id": %d, "qty": "10"}]
+		}`, productID)
+		res := call(t, srv, http.MethodPost, "/api/v1/stock-documents", token, []byte(body))
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("建出库单失败: %d %s", res.StatusCode, msg)
+		}
+		outID := idOf(t, res)
+
+		res = call(t, srv, http.MethodPost,
+			fmt.Sprintf("/api/v1/stock-documents/%d/confirm", outID), token, nil)
+		if res.StatusCode != http.StatusOK {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("确认出库失败: %d %s", res.StatusCode, msg)
+		}
+		decodeEnvelope(t, res)
+
+		if got := snapshot(); !bytes.Contains([]byte(got), []byte("90")) {
+			t.Errorf("出库 10 之后库存应为 90，实际: %s", got)
+		}
+	})
+}
