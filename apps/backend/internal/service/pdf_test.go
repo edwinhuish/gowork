@@ -241,19 +241,19 @@ func TestPDFContractMissingSource(t *testing.T) {
 // 这几条不依赖字体，所以在任何环境都跑。
 func TestPDFTextHelpers(t *testing.T) {
 	moneyCases := []struct {
-		v    float64
+		v    string
 		dp   int
 		want string
 	}{
-		{1234567.5, 2, "1,234,567.50"},
-		{0, 2, "0.00"},
-		{0, 0, "0"},
-		{-1234.5, 2, "-1,234.50"},
-		{1000, 0, "1,000"},
+		{"1234567.5", 2, "1,234,567.50"},
+		{"0", 2, "0.00"},
+		{"0", 0, "0"},
+		{"-1234.5", 2, "-1,234.50"},
+		{"1000", 0, "1,000"},
 	}
 	for _, c := range moneyCases {
-		if got := moneyText(c.v, c.dp); got != c.want {
-			t.Errorf("moneyText(%v, %d) = %q，期望 %q", c.v, c.dp, got, c.want)
+		if got := moneyTextD(money.MustParse(c.v), c.dp); got != c.want {
+			t.Errorf("moneyTextD(%s, %d) = %q，期望 %q", c.v, c.dp, got, c.want)
 		}
 	}
 

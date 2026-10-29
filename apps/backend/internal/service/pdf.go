@@ -606,15 +606,11 @@ func itemDescription(sku, name, spec string) string {
 	return strings.Join(parts, " ")
 }
 
-// moneyText 按币种小数位印金额并加千分位：单据是给人核对的，
+// moneyTextD 按币种小数位印金额并加千分位：单据是给人核对的，
 // 1234567.00 和 1,234,567.00 差的不只是好看。
-func moneyText(v float64, dp int) string {
-	return groupThousands(strconv.FormatFloat(v, 'f', dp, 64))
-}
-
-// moneyTextD 印定点金额：与 moneyText 同一套显示规则，只是数从 money.Decimal 来。
 //
-// 已改造的域（报价、商机）用它，免得为了打印又把 Decimal 转回 float64。
+// 只留定点版本：改造后全仓的金额都是 money.Decimal，
+// 再摆一个 float 版就会有人顺手把 Decimal 转回去打。
 func moneyTextD(v money.Decimal, dp int) string {
 	return groupThousands(v.StringFixed(dp))
 }
@@ -650,12 +646,7 @@ func groupThousands(s string) string {
 	return out
 }
 
-// rateText 印汇率，去掉尾零：7.1000000 会让人以为汇率精确到小数点后七位。
-func rateText(v float64) string {
-	return strconv.FormatFloat(v, 'f', -1, 64)
-}
-
-// rateTextD 印定点汇率：去掉尾零。
+// rateTextD 印汇率，去掉尾零：7.1000000 会让人以为汇率精确到小数点后七位。
 func rateTextD(v money.Decimal) string { return v.String() }
 
 func dateText(t *time.Time) string {
