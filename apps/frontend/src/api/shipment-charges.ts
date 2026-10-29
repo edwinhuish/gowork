@@ -13,7 +13,8 @@ export interface ShipmentChargeInput {
   type: number
   /** 收款方（货代或供应商），可空：账单只来一个总数时先记账、后补对象。 */
   partner_id?: number | null
-  amount: number
+  /** 定点字符串（后端 money.Decimal）：折算由后端按录入当日汇率做。 */
+  amount: string
   /** 留空即本币，由后端按录入当日汇率折算并回填本币金额与汇率。 */
   currency_code?: string
   remark: string
@@ -21,7 +22,7 @@ export interface ShipmentChargeInput {
 
 export interface ShipmentChargeSummary {
   shipment_id: number
-  total_base: number
+  total_base: string
 }
 
 export const shipmentChargeApi = {

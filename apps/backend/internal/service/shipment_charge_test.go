@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -108,30 +108,32 @@ func TestShipmentChargeTotals(t *testing.T) {
 		ShipmentID:   f.draftShipmentID,
 		Type:         int8(model.ShipmentChargeFreight),
 		PartnerID:    &f.forwarderID,
-		Amount:       1200,
+		Amount:       money.MustParse("1200"),
 		CurrencyCode: "USD",
 	})
 	if err != nil {
 		t.Fatalf("新增海运费失败: %v", err)
 	}
-	if want := 1200 * 7.1; math.Abs(freight.AmountBase-want) > 0.01 {
-		t.Errorf("海运费折本币应为 %.2f，得到 %.2f", want, freight.AmountBase)
+	if want := money.MustParse("8520"); freight.AmountBase.Cmp(want) != 0 {
+		t.Errorf("海运费折本币应为 %s，得到 %s", want, freight.AmountBase)
 	}
-	if freight.ExchangeRate != 7.1 {
-		t.Errorf("汇率应锁定为 7.1，得到 %v", freight.ExchangeRate)
+	if freight.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+		t.Errorf("汇率应锁定为 7.1，得到 %s", freight.ExchangeRate)
 	}
 
 	// 币种留空即本币，汇率固定为 1。
 	customs, err := f.charges.Create(ctx, dto.ShipmentChargeInput{
 		ShipmentID: f.draftShipmentID,
 		Type:       int8(model.ShipmentChargeCustoms),
-		Amount:     300,
+		Amount:     money.MustParse("300"),
 	})
 	if err != nil {
 		t.Fatalf("新增报关费失败: %v", err)
 	}
-	if customs.CurrencyCode != "CNY" || customs.AmountBase != 300 || customs.ExchangeRate != 1 {
-		t.Errorf("本币费用应原值入账，得到 %s %.2f @%v",
+	if customs.CurrencyCode != "CNY" ||
+		customs.AmountBase.Cmp(money.MustParse("300")) != 0 ||
+		customs.ExchangeRate.Cmp(money.FromInt(1)) != 0 {
+		t.Errorf("本币费用应原值入账，得到 %s %s @%s",
 			customs.CurrencyCode, customs.AmountBase, customs.ExchangeRate)
 	}
 
@@ -139,8 +141,8 @@ func TestShipmentChargeTotals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("取费用合计失败: %v", err)
 	}
-	if want := 1200*7.1 + 300; math.Abs(sum.TotalBase-want) > 0.01 {
-		t.Errorf("费用合计应为 %.2f，得到 %.2f", want, sum.TotalBase)
+	if want := money.MustParse("8820"); sum.TotalBase.Cmp(want) != 0 {
+		t.Errorf("费用合计应为 %s，得到 %s", want, sum.TotalBase)
 	}
 
 	// 另一票的费用不能混进来。
@@ -148,8 +150,8 @@ func TestShipmentChargeTotals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("取另一票合计失败: %v", err)
 	}
-	if other.TotalBase != 0 {
-		t.Errorf("未录费用的票合计应为 0，得到 %.2f", other.TotalBase)
+	if !other.TotalBase.IsZero() {
+		t.Errorf("未录费用的票合计应为 0，得到 %s", other.TotalBase)
 	}
 }
 
@@ -163,7 +165,7 @@ func TestShipmentChargeAfterConfirm(t *testing.T) {
 	_, err := f.charges.Create(ctx, dto.ShipmentChargeInput{
 		ShipmentID: f.confirmedShipmentID,
 		Type:       int8(model.ShipmentChargeTrucking),
-		Amount:     800,
+		Amount:     money.MustParse("800"),
 	})
 	if err != nil {
 		t.Fatalf("已确认的出货批次应允许补录费用，得到错误: %v", err)
@@ -182,26 +184,28 @@ func TestShipmentChargeValidation(t *testing.T) {
 		{
 			name: "批次不存在",
 			in: dto.ShipmentChargeInput{
-				ShipmentID: 9999, Type: int8(model.ShipmentChargeFreight), Amount: 100,
+				ShipmentID: 9999, Type: int8(model.ShipmentChargeFreight),
+				Amount: money.MustParse("100"),
 			},
 		},
 		{
 			name: "类型未定义",
 			in: dto.ShipmentChargeInput{
-				ShipmentID: f.draftShipmentID, Type: 15, Amount: 100,
+				ShipmentID: f.draftShipmentID, Type: 15, Amount: money.MustParse("100"),
 			},
 		},
 		{
 			name: "金额为负",
 			in: dto.ShipmentChargeInput{
-				ShipmentID: f.draftShipmentID, Type: int8(model.ShipmentChargeFreight), Amount: -1,
+				ShipmentID: f.draftShipmentID, Type: int8(model.ShipmentChargeFreight),
+				Amount: money.MustParse("-1"),
 			},
 		},
 		{
 			name: "收款方是客户",
 			in: dto.ShipmentChargeInput{
 				ShipmentID: f.draftShipmentID, Type: int8(model.ShipmentChargeFreight),
-				Amount: 100, PartnerID: &f.customerID,
+				Amount: money.MustParse("100"), PartnerID: &f.customerID,
 			},
 		},
 	}
@@ -225,7 +229,7 @@ func TestShipmentDeleteBlockedByCharges(t *testing.T) {
 	charge, err := f.charges.Create(ctx, dto.ShipmentChargeInput{
 		ShipmentID: f.draftShipmentID,
 		Type:       int8(model.ShipmentChargeOther),
-		Amount:     50,
+		Amount:     money.MustParse("50"),
 	})
 	if err != nil {
 		t.Fatalf("新增费用失败: %v", err)

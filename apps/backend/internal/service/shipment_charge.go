@@ -11,6 +11,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -179,10 +180,10 @@ func (s *shipmentChargeService) Summary(
 type shipmentChargeTerms struct {
 	Type         model.ShipmentChargeType
 	PartnerID    *uint
-	Amount       float64
+	Amount       money.Decimal
 	CurrencyCode string
-	AmountBase   float64
-	ExchangeRate float64
+	AmountBase   money.Decimal
+	ExchangeRate money.Decimal
 	Remark       string
 }
 
@@ -195,7 +196,7 @@ func (s *shipmentChargeService) buildTerms(
 	if !t.IsValid() {
 		return out, errInvalidChargeType
 	}
-	if in.Amount < 0 {
+	if in.Amount.IsNegative() {
 		return out, errs.BadRequest("费用金额不能为负；要冲减请删除该条重录")
 	}
 	if err := s.checkPayee(ctx, in.PartnerID); err != nil {
@@ -212,7 +213,7 @@ func (s *shipmentChargeService) buildTerms(
 	if code == "" {
 		code = baseCode
 	}
-	amountBase, rate, err := s.currencies.ToBase(ctx, in.Amount, code, s.clock())
+	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, in.Amount, code, s.clock())
 	if err != nil {
 		return out, err
 	}

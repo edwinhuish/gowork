@@ -9,6 +9,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // ShipmentChargeFilter 是运费杂费的查询条件。
@@ -47,7 +48,7 @@ type ShipmentChargeRepository interface {
 	//
 	// 用 SQL 求和而不是把列表取回来在内存里加：费用可能几十条、也可能分页，
 	// 取回来再算就要先保证"取全了"，而分页列表恰恰不保证。
-	SumBaseByShipmentID(ctx context.Context, shipmentID uint) (float64, error)
+	SumBaseByShipmentID(ctx context.Context, shipmentID uint) (money.Decimal, error)
 	// CountByShipmentID 统计一票货挂了多少条费用，供删除出货批次前判断有没有引用。
 	CountByShipmentID(ctx context.Context, shipmentID uint) (int64, error)
 }
@@ -101,15 +102,17 @@ func (r *shipmentChargeRepo) CountByShipmentID(ctx context.Context, shipmentID u
 	})
 }
 
-func (r *shipmentChargeRepo) SumBaseByShipmentID(ctx context.Context, shipmentID uint) (float64, error) {
-	var sum float64
+func (r *shipmentChargeRepo) SumBaseByShipmentID(
+	ctx context.Context, shipmentID uint,
+) (money.Decimal, error) {
+	var row struct{ Total money.Decimal }
 	err := r.DB().WithContext(ctx).
 		Model(&model.ShipmentCharge{}).
 		Where("shipment_id = ?", shipmentID).
-		Select("COALESCE(SUM(amount_base), 0)").
-		Scan(&sum).Error
+		Select("COALESCE(SUM(amount_base), 0) AS total").
+		Scan(&row).Error
 	if err != nil {
-		return 0, fmt.Errorf("汇总出货批次 id=%d 的费用: %w", shipmentID, err)
+		return money.Zero(), fmt.Errorf("汇总出货批次 id=%d 的费用: %w", shipmentID, err)
 	}
-	return sum, nil
+	return row.Total, nil
 }

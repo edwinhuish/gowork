@@ -27,7 +27,8 @@ import type { Currency, Partner, ShipmentCharge } from '@/types'
 interface ChargeForm {
   type: number
   partner_id?: number
-  amount: number
+  /** 定点字符串（后端 money.Decimal）：折算在服务端做。 */
+  amount: string
   currency_code?: string
   remark?: string
 }
@@ -45,7 +46,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ShipmentCharge | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [totalBase, setTotalBase] = useState<number | null>(null)
+  const [totalBase, setTotalBase] = useState<string | null>(null)
   const [form] = Form.useForm<ChargeForm>()
   const invalidate = useInvalidate()
 
@@ -99,7 +100,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ type: 10, amount: 0 })
+    form.setFieldsValue({ type: 10, amount: '0' })
     setModalOpen(true)
   }
 
@@ -121,7 +122,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
       shipment_id: shipmentId,
       type: values.type,
       partner_id: values.partner_id ?? null,
-      amount: values.amount ?? 0,
+      amount: values.amount ?? '',
       currency_code: values.currency_code || undefined,
       remark: values.remark?.trim() ?? '',
     }
@@ -210,7 +211,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
           title="金额（原币）"
           width={170}
           align="right"
-          render={(value: number, record: ShipmentCharge) => (
+          render={(value: string, record: ShipmentCharge) => (
             <Space size={6}>
               <Money value={value} />
               <Tag>{record.currency_code}</Tag>
@@ -222,14 +223,16 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
           title="折本币"
           width={130}
           align="right"
-          render={(value: number) => <Money value={value} />}
+          render={(value: string) => <Money value={value} />}
         />
         <Table.Column
           dataIndex="exchange_rate"
           title="汇率"
           width={100}
           align="right"
-          render={(value: number) => (value === 1 ? <Empty /> : value.toFixed(4))}
+          render={(value: string) =>
+            Number(value) === 1 ? <Empty /> : Number(value).toFixed(4)
+          }
         />
         <Table.Column dataIndex="remark" title="备注" render={(value: string) => value || <Empty />} />
         <Table.Column
@@ -294,9 +297,15 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
               <Form.Item
                 name="amount"
                 label="金额（原币）"
-                rules={[{ type: 'number', min: 0, message: '不能为负' }]}
               >
-                <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" />
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  step={0.01}
+                  precision={2}
+                  stringMode
+                  placeholder="0.00"
+                />
               </Form.Item>
             </Col>
             <Col span={12}>

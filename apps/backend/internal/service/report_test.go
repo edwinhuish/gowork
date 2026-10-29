@@ -141,41 +141,42 @@ func TestAgingBucketsByPartner(t *testing.T) {
 	}
 
 	a := findAgingRow(t, report.Rows, f.customerID, "USD")
-	if a.Amount.NotDue != 100 {
-		t.Errorf("未到期应为 100，得到 %.4f", a.Amount.NotDue)
+	if a.Amount.NotDue.Cmp(money.MustParse("100")) != 0 {
+		t.Errorf("未到期应为 100，得到 %s", a.Amount.NotDue)
 	}
-	if a.Amount.Days1To30 != 150 {
-		t.Errorf("1-30 天应为 200-50=150，得到 %.4f", a.Amount.Days1To30)
+	if a.Amount.Days1To30.Cmp(money.MustParse("150")) != 0 {
+		t.Errorf("1-30 天应为 200-50=150，得到 %s", a.Amount.Days1To30)
 	}
-	if a.Amount.Days31To60 != 0 || a.Amount.Days61To90 != 0 {
-		t.Errorf("不该有 31-60 / 61-90 的金额，得到 %.4f / %.4f",
+	if !a.Amount.Days31To60.IsZero() || !a.Amount.Days61To90.IsZero() {
+		t.Errorf("不该有 31-60 / 61-90 的金额，得到 %s / %s",
 			a.Amount.Days31To60, a.Amount.Days61To90)
 	}
-	if a.Amount.Over90 != 400 {
-		t.Errorf("90+ 应为 400，得到 %.4f", a.Amount.Over90)
+	if a.Amount.Over90.Cmp(money.MustParse("400")) != 0 {
+		t.Errorf("90+ 应为 400，得到 %s", a.Amount.Over90)
 	}
-	if a.Total != 650 {
-		t.Errorf("合计应为 650，得到 %.4f", a.Total)
+	if a.Total.Cmp(money.MustParse("650")) != 0 {
+		t.Errorf("合计应为 650，得到 %s", a.Total)
 	}
-	if a.TotalBase != 4550 {
-		t.Errorf("本币合计应为 650*7=4550，得到 %.4f", a.TotalBase)
+	if a.TotalBase.Cmp(money.MustParse("4550")) != 0 {
+		t.Errorf("本币合计应为 650*7=4550，得到 %s", a.TotalBase)
 	}
 	if a.EarliestDueDate != now.AddDate(0, 0, -100).Format("2006-01-02") {
 		t.Errorf("最早到期日应取 100 天前那一张，得到 %s", a.EarliestDueDate)
 	}
 
 	b := findAgingRow(t, report.Rows, f.supplierID, "CNY")
-	if b.Amount.Days31To60 != 300 || b.TotalBase != 300 {
-		t.Errorf("人民币 300 逾期 40 天应落 31-60 桶，得到 %.4f（本币 %.4f）",
+	if b.Amount.Days31To60.Cmp(money.MustParse("300")) != 0 ||
+		b.TotalBase.Cmp(money.MustParse("300")) != 0 {
+		t.Errorf("人民币 300 逾期 40 天应落 31-60 桶，得到 %s（本币 %s）",
 			b.Amount.Days31To60, b.TotalBase)
 	}
 
 	// 合计只给本币：100*7 + 150*7 + 400*7 + 300 = 4850。
-	if report.TotalBase.NotDue != 700 {
-		t.Errorf("本币未到期合计应为 700，得到 %.4f", report.TotalBase.NotDue)
+	if report.TotalBase.NotDue.Cmp(money.MustParse("700")) != 0 {
+		t.Errorf("本币未到期合计应为 700，得到 %s", report.TotalBase.NotDue)
 	}
-	if report.GrandTotalBase != 4850 {
-		t.Errorf("本币合计应为 4850，得到 %.4f", report.GrandTotalBase)
+	if report.GrandTotalBase.Cmp(money.MustParse("4850")) != 0 {
+		t.Errorf("本币合计应为 4850，得到 %s", report.GrandTotalBase)
 	}
 }
 
@@ -193,8 +194,8 @@ func TestAgingAsOfShiftsBuckets(t *testing.T) {
 		t.Fatalf("账龄查询失败: %v", err)
 	}
 	row := findAgingRow(t, report.Rows, f.customerID, "USD")
-	if row.Amount.Days31To60 != 200 {
-		t.Errorf("截止日后移 20 天应落进 31-60 桶（35 天），得到未到期 %.4f / 1-30 %.4f / 31-60 %.4f",
+	if row.Amount.Days31To60.Cmp(money.MustParse("200")) != 0 {
+		t.Errorf("截止日后移 20 天应落进 31-60 桶（35 天），得到未到期 %s / 1-30 %s / 31-60 %s",
 			row.Amount.NotDue, row.Amount.Days1To30, row.Amount.Days31To60)
 	}
 }
@@ -214,11 +215,11 @@ func TestAgingDueTodayIsNotDue(t *testing.T) {
 		t.Fatalf("账龄查询失败: %v", err)
 	}
 	row := findAgingRow(t, report.Rows, f.customerID, "USD")
-	if row.Amount.NotDue != 100 {
-		t.Errorf("到期当天的 100 应算未到期，得到 %.4f", row.Amount.NotDue)
+	if row.Amount.NotDue.Cmp(money.MustParse("100")) != 0 {
+		t.Errorf("到期当天的 100 应算未到期，得到 %s", row.Amount.NotDue)
 	}
-	if row.Amount.Days1To30 != 60 {
-		t.Errorf("逾期 1 天的 60 应算 1-30 桶，得到 %.4f", row.Amount.Days1To30)
+	if row.Amount.Days1To30.Cmp(money.MustParse("60")) != 0 {
+		t.Errorf("逾期 1 天的 60 应算 1-30 桶，得到 %s", row.Amount.Days1To30)
 	}
 }
 
@@ -250,8 +251,8 @@ func TestAgingPayableSide(t *testing.T) {
 	if len(report.Rows) != 1 || report.Rows[0].PartnerID != f.supplierID {
 		t.Fatalf("应付账龄只应包含供应商那一行，得到 %+v", report.Rows)
 	}
-	if report.Rows[0].Amount.Days1To30 != 500 {
-		t.Errorf("应付 500 逾期 5 天应落 1-30 桶，得到 %.4f", report.Rows[0].Amount.Days1To30)
+	if report.Rows[0].Amount.Days1To30.Cmp(money.MustParse("500")) != 0 {
+		t.Errorf("应付 500 逾期 5 天应落 1-30 桶，得到 %s", report.Rows[0].Amount.Days1To30)
 	}
 
 	receivableReport, err := f.reports.Aging(ctx, dto.AgingQuery{})
@@ -279,7 +280,7 @@ func TestAgingPartnerFilter(t *testing.T) {
 	if len(report.Rows) != 1 || report.Rows[0].PartnerID != f.supplierID {
 		t.Fatalf("筛选后只应剩一个主体，得到 %+v", report.Rows)
 	}
-	if report.GrandTotalBase != 300 {
-		t.Errorf("筛选后的合计应为 300，得到 %.4f", report.GrandTotalBase)
+	if report.GrandTotalBase.Cmp(money.MustParse("300")) != 0 {
+		t.Errorf("筛选后的合计应为 300，得到 %s", report.GrandTotalBase)
 	}
 }

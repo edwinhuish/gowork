@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
@@ -128,7 +127,8 @@ func (f *profitFixture) addCharge(t *testing.T, shipmentID uint, amountBase floa
 	t.Helper()
 	m := &model.ShipmentCharge{
 		ShipmentID: shipmentID, Type: model.ShipmentChargeFreight,
-		CurrencyCode: "CNY", ExchangeRate: 1, Amount: amountBase, AmountBase: amountBase,
+		CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+		Amount: money.FromFloat(amountBase), AmountBase: money.FromFloat(amountBase),
 	}
 	if err := f.db.Create(m).Error; err != nil {
 		t.Fatalf("建运费杂费失败: %v", err)
@@ -142,13 +142,6 @@ func (f *profitFixture) profits(t *testing.T, q dto.ShipmentProfitQuery) []dto.S
 		t.Fatalf("查询单票毛利失败: %v", err)
 	}
 	return res.List
-}
-
-func wantMoney(t *testing.T, label string, got, want float64) {
-	t.Helper()
-	if math.Abs(got-want) > 0.0001 {
-		t.Errorf("%s 应为 %.4f，得到 %.4f", label, want, got)
-	}
 }
 
 // TestShipmentProfitFullLine 是 T-22 的验收点：毛利 = 收入 − 采购 − 运杂费。
@@ -170,11 +163,11 @@ func TestShipmentProfitFullLine(t *testing.T) {
 	if p.ShipmentID != shipmentID {
 		t.Errorf("票 id 应为 %d，得到 %d", shipmentID, p.ShipmentID)
 	}
-	wantMoney(t, "收入", p.Revenue, 7100)
-	wantMoney(t, "采购成本", p.Cost, 5000)
-	wantMoney(t, "运杂费", p.Charge, 500)
-	wantMoney(t, "毛利", p.Profit, 1600)
-	wantMoney(t, "毛利率", p.Margin, 0.2254)
+	wantDecimal(t, "收入", p.Revenue, "7100")
+	wantDecimal(t, "采购成本", p.Cost, "5000")
+	wantDecimal(t, "运杂费", p.Charge, "500")
+	wantDecimal(t, "毛利", p.Profit, "1600")
+	wantDecimal(t, "毛利率", p.Margin, "0.2254")
 	if p.CostMissing {
 		t.Error("有采购记录时不该标 cost_missing")
 	}
@@ -203,13 +196,13 @@ func TestShipmentProfitPartialShipment(t *testing.T) {
 	for _, p := range list {
 		byID[p.ShipmentID] = p
 	}
-	wantMoney(t, "第一票收入", byID[first].Revenue, 2840)
-	wantMoney(t, "第一票成本", byID[first].Cost, 2000)
-	wantMoney(t, "第二票收入", byID[second].Revenue, 4260)
-	wantMoney(t, "第二票成本", byID[second].Cost, 3000)
+	wantDecimal(t, "第一票收入", byID[first].Revenue, "2840")
+	wantDecimal(t, "第一票成本", byID[first].Cost, "2000")
+	wantDecimal(t, "第二票收入", byID[second].Revenue, "4260")
+	wantDecimal(t, "第二票成本", byID[second].Cost, "3000")
 
-	totalProfit := byID[first].Profit + byID[second].Profit
-	wantMoney(t, "两票毛利之和", totalProfit, 7100-5000)
+	totalProfit := byID[first].Profit.Add(byID[second].Profit)
+	wantDecimal(t, "两票毛利之和", totalProfit, "2100")
 }
 
 // TestShipmentProfitMissingPurchase：没挂采购的票，成本是"算不出来"而不是 0。
@@ -223,12 +216,12 @@ func TestShipmentProfitMissingPurchase(t *testing.T) {
 	f.addCharge(t, shipmentID, 500)
 
 	p := f.profits(t, dto.ShipmentProfitQuery{})[0]
-	wantMoney(t, "收入", p.Revenue, 7100)
-	wantMoney(t, "成本", p.Cost, 0)
+	wantDecimal(t, "收入", p.Revenue, "7100")
+	wantDecimal(t, "成本", p.Cost, "0")
 	if !p.CostMissing {
 		t.Error("没有采购记录时应标 cost_missing")
 	}
-	wantMoney(t, "毛利（缺成本时只减了费用）", p.Profit, 6600)
+	wantDecimal(t, "毛利（缺成本时只减了费用）", p.Profit, "6600")
 }
 
 // TestShipmentProfitSkipsDraftShipmentAndDraftPurchase：
@@ -249,7 +242,7 @@ func TestShipmentProfitSkipsDraftShipmentAndDraftPurchase(t *testing.T) {
 	f.addShipment(t, model.DocumentStatusConfirmed, now, itemID, 100)
 
 	p := f.profits(t, dto.ShipmentProfitQuery{})[0]
-	wantMoney(t, "草稿采购不该计入成本", p.Cost, 0)
+	wantDecimal(t, "草稿采购不该计入成本", p.Cost, "0")
 	if !p.CostMissing {
 		t.Error("只有草稿采购时应标 cost_missing")
 	}

@@ -138,9 +138,9 @@ func TestExchangeGainReceivableIsGain(t *testing.T) {
 		t.Fatalf("应有 1 行，得到 %d", len(rep.Lines))
 	}
 	line := rep.Lines[0]
-	wantMoney(t, "单据本币", line.DocumentBase, 7100)
-	wantMoney(t, "到账本币", line.AmountBase, 7200)
-	wantMoney(t, "汇兑损益", line.GainBase, 100)
+	wantDecimal(t, "单据本币", line.DocumentBase, "7100")
+	wantDecimal(t, "到账本币", line.AmountBase, "7200")
+	wantDecimal(t, "汇兑损益", line.GainBase, "100")
 	if line.PaymentDocNo != "PM-EX-1" || line.TargetDocNo != "RC-EX-1" {
 		t.Errorf("应能追到收付款单与目标单，得到 %s / %s", line.PaymentDocNo, line.TargetDocNo)
 	}
@@ -150,7 +150,7 @@ func TestExchangeGainReceivableIsGain(t *testing.T) {
 	if line.PayDate != "2026-10-20" {
 		t.Errorf("到账日应为 2026-10-20，得到 %s", line.PayDate)
 	}
-	wantMoney(t, "合计", rep.TotalGainBase, 100)
+	wantDecimal(t, "合计", rep.TotalGainBase, "100")
 }
 
 // TestExchangeGainPayableIsLoss：应付 1000 美元账面 7.0、实付 7.2，
@@ -167,8 +167,8 @@ func TestExchangeGainPayableIsLoss(t *testing.T) {
 	if len(rep.Lines) != 1 {
 		t.Fatalf("应有 1 行，得到 %d", len(rep.Lines))
 	}
-	wantMoney(t, "汇兑损益", rep.Lines[0].GainBase, -200)
-	wantMoney(t, "合计", rep.TotalGainBase, -200)
+	wantDecimal(t, "汇兑损益", rep.Lines[0].GainBase, "-200")
+	wantDecimal(t, "合计", rep.TotalGainBase, "-200")
 }
 
 // TestExchangeGainPartialAndPrepay：部分核销按核销金额算；
@@ -187,8 +187,8 @@ func TestExchangeGainPartialAndPrepay(t *testing.T) {
 	if len(rep.Lines) != 1 {
 		t.Fatalf("预收款不该出行，得到 %d 行", len(rep.Lines))
 	}
-	wantMoney(t, "部分核销的损益", rep.Lines[0].GainBase, 40)
-	wantMoney(t, "合计", rep.TotalGainBase, 40)
+	wantDecimal(t, "部分核销的损益", rep.Lines[0].GainBase, "40")
+	wantDecimal(t, "合计", rep.TotalGainBase, "40")
 }
 
 // TestExchangeGainFiltersAndSubtotals：日期区间闭区间、主体与币种筛选，
@@ -220,9 +220,9 @@ func TestExchangeGainFiltersAndSubtotals(t *testing.T) {
 	if len(all.Subtotals) != 2 || all.Subtotals[0].CurrencyCode != "CNY" || all.Subtotals[1].CurrencyCode != "USD" {
 		t.Fatalf("小计应按币种排序（CNY 在前），得到 %+v", all.Subtotals)
 	}
-	wantMoney(t, "USD 小计", all.Subtotals[1].GainBase, 220)
-	wantMoney(t, "CNY 小计", all.Subtotals[0].GainBase, 0)
-	wantMoney(t, "本币合计", all.TotalGainBase, 220)
+	wantDecimal(t, "USD 小计", all.Subtotals[1].GainBase, "220")
+	wantDecimal(t, "CNY 小计", all.Subtotals[0].GainBase, "0")
+	wantDecimal(t, "本币合计", all.TotalGainBase, "220")
 
 	// 闭区间：mid 与 late 都在区间内，old 被排除。
 	inRange := f.report(t, dto.ExchangeGainQuery{

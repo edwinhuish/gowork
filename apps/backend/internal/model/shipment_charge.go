@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // ShipmentChargeType 是一票货的某笔费用属于哪一类。
 //
@@ -72,10 +76,10 @@ type ShipmentCharge struct {
 	// 金额按「原币 + 币种 + 本币 + 汇率」四件套存，与产品货源同一套口径。
 	// 只存原币的话，把外币费用和人民币费用加在一起要先手工换算，
 	// 而汇率每天都在变，昨天的合计今天就对不上。
-	Amount       float64 `gorm:"type:decimal(14,2);not null;default:0" json:"amount"`
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	AmountBase   float64 `gorm:"type:decimal(14,2);not null;default:0" json:"amount_base"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	Amount       money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"amount"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	AmountBase   money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"amount_base"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
 
 	Remark string `gorm:"size:255" json:"remark"`
 

@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // AgingQuery 是账龄查询的条件。
 type AgingQuery struct {
 	// Direction 10 应收 / 20 应付，留空按应收。
@@ -17,33 +19,33 @@ type AgingQuery struct {
 // 分桶规则只应有一份（service 的 agingBucket），这里只按下标累加：
 // 让 DTO 自己判断"30 天算哪一桶"，规则就有了第二个版本。
 type AgingBuckets struct {
-	NotDue     float64 `json:"not_due"`
-	Days1To30  float64 `json:"days_1_30"`
-	Days31To60 float64 `json:"days_31_60"`
-	Days61To90 float64 `json:"days_61_90"`
-	Over90     float64 `json:"days_over_90"`
+	NotDue     money.Decimal `json:"not_due"`
+	Days1To30  money.Decimal `json:"days_1_30"`
+	Days31To60 money.Decimal `json:"days_31_60"`
+	Days61To90 money.Decimal `json:"days_61_90"`
+	Over90     money.Decimal `json:"days_over_90"`
 }
 
 // Add 按下标累加一个金额。下标超出范围时并入 90+：
 // 宁可让异常值出现在最老的一桶里被看见，也不要静默丢掉一笔钱。
-func (b *AgingBuckets) Add(bucket int, v float64) {
+func (b *AgingBuckets) Add(bucket int, v money.Decimal) {
 	switch bucket {
 	case 0:
-		b.NotDue += v
+		b.NotDue = b.NotDue.Add(v)
 	case 1:
-		b.Days1To30 += v
+		b.Days1To30 = b.Days1To30.Add(v)
 	case 2:
-		b.Days31To60 += v
+		b.Days31To60 = b.Days31To60.Add(v)
 	case 3:
-		b.Days61To90 += v
+		b.Days61To90 = b.Days61To90.Add(v)
 	default:
-		b.Over90 += v
+		b.Over90 = b.Over90.Add(v)
 	}
 }
 
 // Total 是各桶之和。
-func (b AgingBuckets) Total() float64 {
-	return b.NotDue + b.Days1To30 + b.Days31To60 + b.Days61To90 + b.Over90
+func (b AgingBuckets) Total() money.Decimal {
+	return b.NotDue.Add(b.Days1To30).Add(b.Days31To60).Add(b.Days61To90).Add(b.Over90)
 }
 
 // AgingRow 是一个「主体 + 币种」的账龄。
@@ -61,8 +63,8 @@ type AgingRow struct {
 	Amount     AgingBuckets `json:"amount"`
 	AmountBase AgingBuckets `json:"amount_base"`
 
-	Total     float64 `json:"total"`
-	TotalBase float64 `json:"total_base"`
+	Total     money.Decimal `json:"total"`
+	TotalBase money.Decimal `json:"total_base"`
 	// EarliestDueDate 是这一行里最早到期的那张单，催款从这里开始。
 	EarliestDueDate string `json:"earliest_due_date"`
 }
@@ -74,8 +76,8 @@ type AgingReport struct {
 	AsOf      string     `json:"as_of"`
 	Rows      []AgingRow `json:"rows"`
 	// TotalBase 是全表本币分桶合计；只给本币，理由见 AgingRow。
-	TotalBase      AgingBuckets `json:"total_base"`
-	GrandTotalBase float64      `json:"grand_total_base"`
+	TotalBase      AgingBuckets  `json:"total_base"`
+	GrandTotalBase money.Decimal `json:"grand_total_base"`
 }
 
 // ShipmentProfitQuery 是单票毛利的查询条件。
@@ -99,12 +101,12 @@ type ShipmentProfit struct {
 	ShipDate   string `json:"ship_date"`
 	Status     int8   `json:"status"`
 
-	Revenue float64 `json:"revenue"`
-	Cost    float64 `json:"cost"`
-	Charge  float64 `json:"charge"`
-	Profit  float64 `json:"profit"`
+	Revenue money.Decimal `json:"revenue"`
+	Cost    money.Decimal `json:"cost"`
+	Charge  money.Decimal `json:"charge"`
+	Profit  money.Decimal `json:"profit"`
 	// Margin 是毛利率（0.2254 = 22.54%）。收入为 0 时给 0，不给 NaN。
-	Margin float64 `json:"margin"`
+	Margin money.Decimal `json:"margin"`
 
 	// CostMissing 表示这票里有销售行没有可用成本（没挂采购单，或采购单还是草稿）。
 	// 此时 Cost 与 Profit 都不完整——不标出来，就等于把"没录采购"报成"毛利极高"。
@@ -138,23 +140,23 @@ type ExchangeGainLine struct {
 	TargetDocNo string `json:"target_doc_no"`
 
 	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。
-	Amount     float64 `json:"amount"`
-	AmountBase float64 `json:"amount_base"`
+	Amount     money.Decimal `json:"amount"`
+	AmountBase money.Decimal `json:"amount_base"`
 	// PaymentRate 是到账汇率，DocumentRate 是目标单据锁定的汇率。
-	PaymentRate  float64 `json:"payment_rate"`
-	DocumentRate float64 `json:"document_rate"`
+	PaymentRate  money.Decimal `json:"payment_rate"`
+	DocumentRate money.Decimal `json:"document_rate"`
 	// DocumentBase 是按单据汇率折出来的同一笔原币，GainBase = ±(AmountBase − DocumentBase)。
-	DocumentBase float64 `json:"document_base"`
+	DocumentBase money.Decimal `json:"document_base"`
 	// GainBase 正数是收益、负数是损失，单位本币。
-	GainBase float64 `json:"gain_base"`
+	GainBase money.Decimal `json:"gain_base"`
 }
 
 // ExchangeGainSubtotal 是按币种的小计。原币只有同币种能加，本币可以跨币种加，
 // 所以两边各给一份：原币小计用来看"这个币种动了多少"，本币总计才是账上的数。
 type ExchangeGainSubtotal struct {
-	CurrencyCode string  `json:"currency_code"`
-	Amount       float64 `json:"amount"`
-	GainBase     float64 `json:"gain_base"`
+	CurrencyCode string        `json:"currency_code"`
+	Amount       money.Decimal `json:"amount"`
+	GainBase     money.Decimal `json:"gain_base"`
 }
 
 // ExchangeGainReport 是汇兑损益报表。
@@ -164,5 +166,5 @@ type ExchangeGainReport struct {
 	// Lines 逐笔可核对；Subtotals 按币种；TotalGainBase 是全部折本币后的合计。
 	Lines         []ExchangeGainLine     `json:"lines"`
 	Subtotals     []ExchangeGainSubtotal `json:"subtotals"`
-	TotalGainBase float64                `json:"total_gain_base"`
+	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }

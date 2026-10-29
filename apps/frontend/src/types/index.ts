@@ -274,10 +274,11 @@ export interface ShipmentCharge {
   type: number
   /** 收款方（货代或供应商），可为空。不表示"谁承担"，这张表里每行都是我方的成本。 */
   partner_id: number | null
-  amount: number
+  /** 金额与汇率是定点字符串：前端只展示，算术在服务端。 */
+  amount: string
   currency_code: string
-  amount_base: number
-  exchange_rate: number
+  amount_base: string
+  exchange_rate: string
   remark: string
   partner?: Partner | null
   created_at: string
@@ -639,11 +640,12 @@ export interface PaymentAllocation {
  * 在前端重算一遍，同一批数据就会有两个账龄，而客户只认其中一个。
  */
 export interface AgingBuckets {
-  not_due: number
-  days_1_30: number
-  days_31_60: number
-  days_61_90: number
-  days_over_90: number
+  /** 定点字符串（后端 money.Decimal）：分桶的算术在服务端，前端只显示。 */
+  not_due: string
+  days_1_30: string
+  days_31_60: string
+  days_61_90: string
+  days_over_90: string
 }
 
 /** 一行账龄：一个主体的一种币种。跨币种的原币金额不可相加，所以按币种拆行。 */
@@ -656,8 +658,8 @@ export interface AgingRow {
   amount: AgingBuckets
   /** 同样口径的本币分桶（按单据上锁定的汇率折）。 */
   amount_base: AgingBuckets
-  total: number
-  total_base: number
+  total: string
+  total_base: string
   /** YYYY-MM-DD：这一行里最早到期的那张单，催款从这里开始。 */
   earliest_due_date: string
 }
@@ -670,7 +672,7 @@ export interface AgingReport {
   as_of: string
   rows: AgingRow[]
   total_base: AgingBuckets
-  grand_total_base: number
+  grand_total_base: string
 }
 
 /**
@@ -693,22 +695,22 @@ export interface ExchangeGainLine {
   /** 10 应收单 / 20 应付单 */
   target_type: number
   target_doc_no: string
-  /** 核销原币 */
-  amount: number
+  /** 核销原币。定点字符串（后端 money.Decimal）。 */
+  amount: string
   /** 按到账汇率折的本币 */
-  amount_base: number
-  payment_rate: number
-  document_rate: number
+  amount_base: string
+  payment_rate: string
+  document_rate: string
   /** 按单据汇率折出来的同一笔原币 */
-  document_base: number
+  document_base: string
   /** 正数收益、负数损失，单位本币 */
-  gain_base: number
+  gain_base: string
 }
 
 export interface ExchangeGainSubtotal {
   currency_code: string
-  amount: number
-  gain_base: number
+  amount: string
+  gain_base: string
 }
 
 export interface ExchangeGainReport {
@@ -716,7 +718,7 @@ export interface ExchangeGainReport {
   to: string
   lines: ExchangeGainLine[]
   subtotals: ExchangeGainSubtotal[]
-  total_gain_base: number
+  total_gain_base: string
 }
 
 /**
@@ -746,12 +748,13 @@ export interface ShipmentProfit {
   doc_no: string
   ship_date: string
   status: number
-  revenue: number
-  cost: number
-  charge: number
-  profit: number
+  /** 金额是定点字符串：毛利算在服务端，前端只展示。 */
+  revenue: string
+  cost: string
+  charge: string
+  profit: string
   /** 毛利率，0.2254 = 22.54%；收入为 0 时给 0。 */
-  margin: number
+  margin: string
   /** 有销售行没有可用成本（没挂采购单或采购单还是草稿），成本与毛利因此不完整。 */
   cost_missing: boolean
 }

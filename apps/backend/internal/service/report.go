@@ -91,7 +91,7 @@ func (s *reportService) Aging(
 		AsOf:           asOf.Format(rateDateLayout),
 		Rows:           rows,
 		TotalBase:      totalBase,
-		GrandTotalBase: money.Round(totalBase.Total(), 4),
+		GrandTotalBase: totalBase.Total(),
 	}
 
 	s.log.Debug("账龄报表", "direction", target.Label(), "as_of", report.AsOf,
@@ -182,11 +182,11 @@ func (s *reportService) ExchangeGains(
 
 	subtotals := make(map[string]*dto.ExchangeGainSubtotal, 4)
 	for _, l := range raw {
-		documentBase := money.Round(l.Amount*l.DocumentRate, 4)
-		gain := money.Round(l.AmountBase-documentBase, 4)
+		documentBase := l.Amount.Mul(l.DocumentRate).Round(4)
+		gain := l.AmountBase.Sub(documentBase).Round(4)
 		// 应付方向取反：多付出去的钱是损失。
 		if l.TargetType == model.SettlementTargetPayable {
-			gain = -gain
+			gain = gain.Neg()
 		}
 
 		report.Lines = append(report.Lines, dto.ExchangeGainLine{
@@ -200,8 +200,8 @@ func (s *reportService) ExchangeGains(
 			CurrencyCode: l.CurrencyCode,
 			TargetType:   int8(l.TargetType),
 			TargetDocNo:  l.TargetDocNo,
-			Amount:       money.Round(l.Amount, 4),
-			AmountBase:   money.Round(l.AmountBase, 4),
+			Amount:       l.Amount.Round(4),
+			AmountBase:   l.AmountBase.Round(4),
 			PaymentRate:  l.PaymentRate,
 			DocumentRate: l.DocumentRate,
 			DocumentBase: documentBase,
@@ -213,9 +213,9 @@ func (s *reportService) ExchangeGains(
 			sub = &dto.ExchangeGainSubtotal{CurrencyCode: l.CurrencyCode}
 			subtotals[l.CurrencyCode] = sub
 		}
-		sub.Amount += l.Amount
-		sub.GainBase += gain
-		report.TotalGainBase += gain
+		sub.Amount = sub.Amount.Add(l.Amount)
+		sub.GainBase = sub.GainBase.Add(gain)
+		report.TotalGainBase = report.TotalGainBase.Add(gain)
 	}
 
 	// 小计按币种编码排序：map 的遍历顺序每次都不同，直接输出会让同一张表两次刷新换序。
@@ -229,11 +229,11 @@ func (s *reportService) ExchangeGains(
 		sub := subtotals[code]
 		report.Subtotals = append(report.Subtotals, dto.ExchangeGainSubtotal{
 			CurrencyCode: sub.CurrencyCode,
-			Amount:       money.Round(sub.Amount, 4),
-			GainBase:     money.Round(sub.GainBase, 4),
+			Amount:       sub.Amount.Round(4),
+			GainBase:     sub.GainBase.Round(4),
 		})
 	}
-	report.TotalGainBase = money.Round(report.TotalGainBase, 4)
+	report.TotalGainBase = report.TotalGainBase.Round(4)
 
 	s.log.Debug("汇兑损益", "from", report.From, "to", report.To,
 		"lines", len(report.Lines), "total_base", report.TotalGainBase)
@@ -284,14 +284,16 @@ func buildShipmentProfit(
 	head repository.ShipmentHead,
 	lines []repository.ShipmentLine,
 	costs map[uint]repository.PurchaseCost,
-	charge float64,
+	charge money.Decimal,
 ) dto.ShipmentProfit {
-	var revenue, cost float64
+	revenue, cost := money.Zero(), money.Zero()
 	missing := false
 
 	for _, l := range lines {
+		// 分摊比例来自数量，而数量仍是 float64；乘法本身在定点里做，
+		// 所以金额的末位只受比例这一个来源影响。
 		if l.ItemQty > 0 {
-			revenue += l.ItemAmountBase * (l.Qty / l.ItemQty)
+			revenue = revenue.Add(l.ItemAmountBase.Mul(money.FromFloat(l.Qty / l.ItemQty)))
 		}
 
 		pc, ok := costs[l.SalesOrderItemID]
@@ -301,17 +303,17 @@ func buildShipmentProfit(
 			missing = true
 			continue
 		}
-		cost += l.Qty * (pc.AmountBase / pc.Qty)
+		cost = cost.Add(pc.AmountBase.Mul(money.FromFloat(l.Qty / pc.Qty)))
 	}
 
-	revenue = money.Round(revenue, 4)
-	cost = money.Round(cost, 4)
-	charge = money.Round(charge, 4)
-	profit := money.Round(revenue-cost-charge, 4)
+	revenue = revenue.Round(4)
+	cost = cost.Round(4)
+	charge = charge.Round(4)
+	profit := revenue.Sub(cost).Sub(charge).Round(4)
 
-	margin := 0.0
-	if revenue > 0 {
-		margin = money.Round(profit/revenue, 4)
+	margin := money.Zero()
+	if revenue.Cmp(money.Zero()) > 0 {
+		margin = profit.Div(revenue).Round(4)
 	}
 
 	return dto.ShipmentProfit{
@@ -372,8 +374,8 @@ func aggregateAging(
 
 		due := model.DateOnly(d.DueDate)
 		bucket := agingBucket(agingDays(asOf, due))
-		row.Amount.Add(bucket, money.Round(d.Amount-d.SettledAmount, 4))
-		row.AmountBase.Add(bucket, money.Round(d.AmountBase-d.SettledAmountBase, 4))
+		row.Amount.Add(bucket, d.Amount.Sub(d.SettledAmount).Round(4))
+		row.AmountBase.Add(bucket, d.AmountBase.Sub(d.SettledAmountBase).Round(4))
 
 		if cur, ok := earliest[key]; !ok || due.Before(cur) {
 			earliest[key] = due
@@ -382,8 +384,8 @@ func aggregateAging(
 
 	rows := make([]dto.AgingRow, 0, len(acc))
 	for key, row := range acc {
-		row.Total = money.Round(row.Amount.Total(), 4)
-		row.TotalBase = money.Round(row.AmountBase.Total(), 4)
+		row.Total = row.Amount.Total()
+		row.TotalBase = row.AmountBase.Total()
 		row.EarliestDueDate = earliest[key].Format(rateDateLayout)
 		rows = append(rows, *row)
 	}
@@ -406,19 +408,13 @@ func aggregateAging(
 func sumBuckets(rows []dto.AgingRow) dto.AgingBuckets {
 	var total dto.AgingBuckets
 	for _, row := range rows {
-		total.NotDue += row.AmountBase.NotDue
-		total.Days1To30 += row.AmountBase.Days1To30
-		total.Days31To60 += row.AmountBase.Days31To60
-		total.Days61To90 += row.AmountBase.Days61To90
-		total.Over90 += row.AmountBase.Over90
+		total.NotDue = total.NotDue.Add(row.AmountBase.NotDue)
+		total.Days1To30 = total.Days1To30.Add(row.AmountBase.Days1To30)
+		total.Days31To60 = total.Days31To60.Add(row.AmountBase.Days31To60)
+		total.Days61To90 = total.Days61To90.Add(row.AmountBase.Days61To90)
+		total.Over90 = total.Over90.Add(row.AmountBase.Over90)
 	}
-	return dto.AgingBuckets{
-		NotDue:     money.Round(total.NotDue, 4),
-		Days1To30:  money.Round(total.Days1To30, 4),
-		Days31To60: money.Round(total.Days31To60, 4),
-		Days61To90: money.Round(total.Days61To90, 4),
-		Over90:     money.Round(total.Over90, 4),
-	}
+	return total
 }
 
 // agingDays 返回相对 asOf 的逾期天数：正数是已逾期天数，0 与负数表示未到期。

@@ -7,8 +7,9 @@ import { Empty, Mono, Money } from '@/components/fields'
 import type { AgingRow } from '@/types'
 
 /** 桶里的金额：有值才显示，0 一律给短横，避免整列看起来像满的。 */
-function Bucket({ value, color }: { value: number; color?: string }) {
-  if (value <= 0.0001) return <Empty />
+function Bucket({ value, color }: { value: string; color?: string }) {
+  // 金额是定点字符串，这里的"有没有值"只决定显示短横还是数字。
+  if (Number(value) <= 0.0001) return <Empty />
   return (
     <span style={color ? { color } : undefined}>
       <Money value={value} />

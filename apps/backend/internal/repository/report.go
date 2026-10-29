@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // OutstandingSettlement 是一张还没结清的单据，账龄报表的原料。
@@ -21,10 +22,10 @@ type OutstandingSettlement struct {
 	PartnerCode       string
 	PartnerName       string
 	CurrencyCode      string
-	Amount            float64
-	SettledAmount     float64
-	AmountBase        float64
-	SettledAmountBase float64
+	Amount            money.Decimal
+	SettledAmount     money.Decimal
+	AmountBase        money.Decimal
+	SettledAmountBase money.Decimal
 	// DueDate 只用到日期部分；分桶按整天算，带时分秒会让边界日期飘到隔壁桶。
 	DueDate time.Time
 }
@@ -37,8 +38,9 @@ type OutstandingSettlement struct {
 type ReportRepository interface {
 	// ListOutstandingSettlements 列出未结清且未作废的应收或应付。
 	//
-	// 过滤条件里的 amount > settled_amount 用 0.0001 的余量：分批收付累加到
-	// 最后一笔时可能差一个末位，那种单子已经结清，不该再出现在账龄里。
+	// 过滤条件里的 amount > settled_amount 用 0.0001 的余量，这是**存储层**的：
+	// sqlite 把 DECIMAL 存成 REAL，减出来的可能是 1e-17 的尾巴，
+	// 那种行已经结清，不该以"还有 0.00 未结"的身份出现在账龄里。
 	ListOutstandingSettlements(
 		ctx context.Context, target model.SettlementTarget,
 	) ([]OutstandingSettlement, error)
@@ -60,7 +62,7 @@ type ReportRepository interface {
 	// 草稿与已取消的采购单不算成本：草稿还只是询价记录，取消的那张根本没买。
 	PurchaseCostBySalesItem(ctx context.Context, salesItemIDs []uint) (map[uint]PurchaseCost, error)
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
-	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]float64, error)
+	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]money.Decimal, error)
 
 	// ListExchangeGains 列出每一笔核销产生的汇兑差额原料（T-23）。
 	//
@@ -91,13 +93,13 @@ type ExchangeGainLine struct {
 	PartnerName  string
 	CurrencyCode string
 	// PaymentRate 是到账日汇率；DocumentRate 是目标单据锁定汇率。
-	PaymentRate  float64
-	DocumentRate float64
+	PaymentRate  money.Decimal
+	DocumentRate money.Decimal
 	TargetType   model.SettlementTarget
 	TargetDocNo  string
 	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。
-	Amount     float64
-	AmountBase float64
+	Amount     money.Decimal
+	AmountBase money.Decimal
 }
 
 // ShipmentProfitFilter 是单票毛利的筛选条件。
@@ -122,13 +124,14 @@ type ShipmentLine struct {
 	Qty float64
 	// ItemQty / ItemAmountBase 是所属销售行的整行数量与本币金额，用于按比例分摊收入。
 	ItemQty        float64
-	ItemAmountBase float64
+	ItemAmountBase money.Decimal
 }
 
 // PurchaseCost 是某条销售订单行累计的采购数量与本币金额。
 type PurchaseCost struct {
+	// Qty 仍是 float64：数量字段不在 T-37 的范围内，它不参与金额的逐位对账。
 	Qty        float64
-	AmountBase float64
+	AmountBase money.Decimal
 }
 
 type reportRepo struct {
@@ -147,6 +150,8 @@ func (r *reportRepo) ListOutstandingSettlements(
 		return nil, err
 	}
 
+	// 求和类字段一律扫进 money.Decimal：SQL 里算出来的是十进制字面量，
+	// 让它落到 float64 上，报表的合计立刻与明细对不上。
 	rows := make([]OutstandingSettlement, 0, 64)
 	// 用 Table 而不是 Model：两张表结构相同，写成 Model(&model.Receivable{}) +
 	// 切表名反而绕。代价是软删除条件要自己写 —— 漏了就会把已删的单据算进账龄。
@@ -245,7 +250,7 @@ func (r *reportRepo) PurchaseCostBySalesItem(
 	var rows []struct {
 		SalesOrderItemID uint
 		Qty              float64
-		AmountBase       float64
+		AmountBase       money.Decimal
 	}
 	err := r.DB().WithContext(ctx).
 		Table("biz_purchase_order_item AS i").
@@ -269,15 +274,15 @@ func (r *reportRepo) PurchaseCostBySalesItem(
 
 func (r *reportRepo) SumChargesByShipment(
 	ctx context.Context, shipmentIDs []uint,
-) (map[uint]float64, error) {
-	out := make(map[uint]float64, len(shipmentIDs))
+) (map[uint]money.Decimal, error) {
+	out := make(map[uint]money.Decimal, len(shipmentIDs))
 	if len(shipmentIDs) == 0 {
 		return out, nil
 	}
 
 	var rows []struct {
 		ShipmentID uint
-		AmountBase float64
+		AmountBase money.Decimal
 	}
 	err := r.DB().WithContext(ctx).
 		Table("biz_shipment_charge AS c").

@@ -14,15 +14,18 @@ import type { Currency, ExchangeGainLine, Partner } from '@/types'
  * 符号不是装饰——这张表要回答"这个月汇率帮我赚了还是亏了"，
  * 而"−200"和"200"在数字列里长得几乎一样。
  */
-function GainValue({ value, strong }: { value?: number | null; strong?: boolean }) {
-  if (value === null || value === undefined || Number.isNaN(value)) return <Empty />
-  const color = value > 0.0001 ? '#389e0d' : value < -0.0001 ? '#cf1322' : undefined
+function GainValue({ value, strong }: { value?: string | null; strong?: boolean }) {
+  // 金额是定点字符串：这里的正负判断与色条只用于显示，取值本身原样交给 Money。
+  if (value === null || value === undefined) return <Empty />
+  const num = Number(value)
+  if (Number.isNaN(num)) return <Empty />
+  const color = num > 0.0001 ? '#389e0d' : num < -0.0001 ? '#cf1322' : undefined
   return (
     <span
       className={strong ? 'cell-strong' : undefined}
       style={{ color, fontVariantNumeric: 'tabular-nums' }}
     >
-      {value > 0 ? '+' : ''}
+      {num > 0 ? '+' : ''}
       <Money value={value} />
     </span>
   )
@@ -199,28 +202,28 @@ export function ExchangeGainsPage() {
             title="核销原币"
             width={120}
             align="right"
-            render={(value: number) => <Money value={value} />}
+            render={(value: string) => <Money value={value} />}
           />
           <Table.Column
             dataIndex="payment_rate"
             title="到账汇率"
             width={110}
             align="right"
-            render={(value: number) => (value === 1 ? '1' : value.toFixed(4))}
+            render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
           />
           <Table.Column
             dataIndex="document_rate"
             title="单据汇率"
             width={110}
             align="right"
-            render={(value: number) => (value === 1 ? '1' : value.toFixed(4))}
+            render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
           />
           <Table.Column
             dataIndex="gain_base"
             title="汇兑损益（本币）"
             width={150}
             align="right"
-            render={(value: number) => <GainValue value={value} strong />}
+            render={(value: string) => <GainValue value={value} strong />}
           />
         </Table>
 
@@ -228,9 +231,9 @@ export function ExchangeGainsPage() {
           <Space wrap size={8} style={{ marginTop: 12 }}>
             {data.subtotals.map((s) => (
               <Tag key={s.currency_code}>
-                {s.currency_code}：核销 {s.amount.toFixed(2)}，损益{' '}
-                {s.gain_base > 0 ? '+' : ''}
-                {s.gain_base.toFixed(2)}
+                {s.currency_code}：核销 {Number(s.amount).toFixed(2)}，损益{' '}
+                {Number(s.gain_base) > 0 ? '+' : ''}
+                {Number(s.gain_base).toFixed(2)}
               </Tag>
             ))}
           </Space>

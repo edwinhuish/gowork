@@ -54,23 +54,23 @@ export function ProfitCard({ shipmentId, status }: { shipmentId: number; status:
 
           <Row gutter={[16, 16]}>
             <Col xs={12} lg={6}>
-              <Statistic title="收入（本币）" value={profit.revenue} precision={2} />
+              <Statistic title="收入（本币）" value={Number(profit.revenue)} precision={2} />
             </Col>
             <Col xs={12} lg={6}>
-              <Statistic title="采购成本" value={profit.cost} precision={2} />
+              <Statistic title="采购成本" value={Number(profit.cost)} precision={2} />
             </Col>
             <Col xs={12} lg={6}>
-              <Statistic title="运杂费" value={profit.charge} precision={2} />
+              <Statistic title="运杂费" value={Number(profit.charge)} precision={2} />
             </Col>
             <Col xs={12} lg={6}>
               <Statistic
                 title="毛利"
-                value={profit.profit}
+                value={Number(profit.profit)}
                 precision={2}
-                valueStyle={profit.profit < 0 ? { color: '#cf1322' } : undefined}
+                valueStyle={Number(profit.profit) < 0 ? { color: '#cf1322' } : undefined}
               />
               <Typography.Text type="secondary" className="stat-hint">
-                毛利率 {formatPercent(profit.margin)}
+                毛利率 {formatPercent(Number(profit.margin))}
               </Typography.Text>
             </Col>
           </Row>
