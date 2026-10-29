@@ -13,6 +13,7 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, m *model.User) error
+	FindByID(ctx context.Context, id uint) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	Count(ctx context.Context) (int64, error)
 }
@@ -27,6 +28,10 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 func (r *userRepo) Create(ctx context.Context, m *model.User) error {
 	return r.Base.Create(ctx, m)
+}
+
+func (r *userRepo) FindByID(ctx context.Context, id uint) (*model.User, error) {
+	return r.Base.FindByID(ctx, id)
 }
 
 func (r *userRepo) FindByUsername(ctx context.Context, username string) (*model.User, error) {

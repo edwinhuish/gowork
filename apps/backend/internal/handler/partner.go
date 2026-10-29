@@ -50,6 +50,27 @@ func (h *PartnerHandler) Credit(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// TransferOwner PUT /partners/:id/owner
+//
+// 只有管理员与主管能调（业务员在 service 里被拒 403）：
+// 转移是主管的动作，编辑是录单人日常，混在一起后者也能顺手把客户划到自己名下。
+func (h *PartnerHandler) TransferOwner(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in dto.PartnerOwnerInput
+	if !bindJSON(c, &in) {
+		return
+	}
+	res, err := h.partners.TransferOwner(c.Request.Context(), id, in)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Merge POST /partners/:id/merge
 //
 // 只挂在 /partners 下，不像增删改那样再复制到 /customers 与 /suppliers：

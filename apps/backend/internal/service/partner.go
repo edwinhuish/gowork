@@ -41,6 +41,8 @@ type PartnerService interface {
 	// Merge 把 in.SourceID 并入 id（主记录）：引用整体迁过去、角色取并集、
 	// 被合并方软删。不可逆，所以每一步都要能解释。
 	Merge(ctx context.Context, id uint, in dto.PartnerMergeInput) (*dto.PartnerMergeResult, error)
+	// TransferOwner 把主体转给另一个业务员（或退回未分配）。仅管理员与主管可用。
+	TransferOwner(ctx context.Context, id uint, in dto.PartnerOwnerInput) (*model.Partner, error)
 }
 
 type partnerService struct {
@@ -50,7 +52,10 @@ type partnerService struct {
 	// 不校验的话，一个手误的 USD1 会安静地存进去，直到开单时才在折算处报错，
 	// 而那时已经在报价环节了。
 	currencies repository.CurrencyRepository
-	log        *slog.Logger
+	// users 只用来校验"转移给谁"里的那个人确实存在且可用。
+	// 不校验的话，转给一个停用账号等于把这家的单据交给一个看不到的人。
+	users repository.UserRepository
+	log   *slog.Logger
 }
 
 type PartnerOption func(*partnerService)
@@ -63,12 +68,14 @@ func NewPartnerService(
 	repo repository.PartnerRepository,
 	products repository.ProductRepository,
 	currencies repository.CurrencyRepository,
+	users repository.UserRepository,
 	opts ...PartnerOption,
 ) PartnerService {
 	s := &partnerService{
 		repo:       repo,
 		products:   products,
 		currencies: currencies,
+		users:      users,
 		log:        slog.Default(),
 	}
 	for _, opt := range opts {
@@ -127,10 +134,17 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 		CreditLimit:      terms.CreditLimit,
 		CurrencyCode:     terms.CurrencyCode,
 	}
+	// 谁建的归谁：业务员自己录的客户不必等主管再分一次。
+	// 管理员 / 主管建的也先记在自己名下，之后用「转移负责人」分下去——
+	// 留空（0）表示公共池，那是"先录进来还没分人"时才该出现的样子。
+	if actor, ok := ActorFrom(ctx); ok {
+		m.OwnerID = actor.UserID
+	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
 	}
-	s.log.Info("新增主体", "id", m.ID, "code", m.Code, "role", m.Role.String())
+	s.log.Info("新增主体", "id", m.ID, "code", m.Code,
+		"role", m.Role.String(), "owner", m.OwnerID)
 	return m, nil
 }
 
@@ -242,6 +256,77 @@ func (s *partnerService) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, error) {
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 越权访问要 403 而不是 404：这条记录确实存在，只是不归你看。
+	// 用 404 会让人以为数据被删了，转而去找运维而不是找主管。
+	if owner := partnerScope(ctx); owner != nil && m.OwnerID != 0 && m.OwnerID != *owner {
+		return nil, errs.ErrForbidden
+	}
+	return m, nil
+}
+
+// partnerScope 按当前身份算数据范围：返回 nil 表示不限制。
+//
+// 认不出身份（内部调用、迁移任务、别的 service 回头查主体）时不做限制——
+// 那些调用不是为了"某个人看"，而是系统自己在算。
+func partnerScope(ctx context.Context) *uint {
+	actor, ok := ActorFrom(ctx)
+	if !ok || model.RoleSeesAllData(actor.Role) {
+		return nil
+	}
+	owner := actor.UserID
+	return &owner
+}
+
+// TransferOwner 把主体转给另一个业务员，owner_id = 0 表示退回未分配。
+//
+// 为什么单独一个接口而不是并入编辑：转移是主管的动作，编辑是录单人日常；
+// 混在一起，一个只想改电话的人也能顺手把客户划到自己名下。
+func (s *partnerService) TransferOwner(
+	ctx context.Context, id uint, in dto.PartnerOwnerInput,
+) (*model.Partner, error) {
+	actor, ok := ActorFrom(ctx)
+	if !ok {
+		// 没有身份就不知道是谁在转移，这不是"内部调用"能解释的动作。
+		return nil, errs.ErrUnauthorized
+	}
+	if !model.RoleSeesAllData(actor.Role) {
+		// 业务员不能自己把客户划给别人，也不能把别人的客户划给自己——
+		// 前者等于放弃业绩，后者等于抢单，两种都不该由单人完成。
+		return nil, errs.ErrForbidden
+	}
+
+	if _, err := s.repo.FindByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	if in.OwnerID != 0 {
+		user, err := s.users.FindByID(ctx, in.OwnerID)
+		if err != nil {
+			if errors.Is(err, errs.ErrNotFound) {
+				return nil, errs.BadRequest("接手的账号不存在")
+			}
+			return nil, err
+		}
+		if !user.IsEnabled() {
+			// 转给停用账号等于把这家的单据交给一个看不到的人。
+			return nil, errs.BadRequest("接手的账号已停用")
+		}
+	}
+
+	fields := map[string]any{"owner_id": in.OwnerID}
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
+	if err := s.repo.Update(ctx, id, fields); err != nil {
+		return nil, err
+	}
+
+	s.log.Info("转移主体负责人", "id", id,
+		"from", actor.Username, "to_owner", in.OwnerID)
 	return s.repo.FindByID(ctx, id)
 }
 
@@ -427,6 +512,12 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 	if q.EntityType != nil {
 		t := model.PartnerEntityType(*q.EntityType)
 		filter.EntityType = &t
+	}
+	// 范围由身份决定，不由参数决定：业务员传什么 owner_id 都按自己算。
+	if scoped := partnerScope(ctx); scoped != nil {
+		filter.OwnerID = scoped
+	} else if q.OwnerID != nil {
+		filter.OwnerID = q.OwnerID
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 

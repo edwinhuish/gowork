@@ -27,6 +27,9 @@ type PartnerQuery struct {
 	Status     EnableStatusInput      `form:"status"`
 	// IncludeDeleted 把已软删的主体也列出来（「含已删除」开关），这些行只能做一件事：恢复。
 	IncludeDeleted bool `form:"include_deleted"`
+	// OwnerID 只看某人负责的主体（主管可用它下钻某个业务员）。
+	// 业务员传了也会被自己的 id 覆盖——范围不是前端说了算。
+	OwnerID *uint `form:"owner_id"`
 }
 
 // PartnerDuplicateQuery 是"这条记录会不会是已有的某一家"的查询条件。
@@ -39,6 +42,14 @@ type PartnerDuplicateQuery struct {
 	Email     string `form:"email"`
 	Phone     string `form:"phone"`
 	ExcludeID uint   `form:"exclude_id"`
+}
+
+// PartnerOwnerInput 是转移负责人的入参。
+type PartnerOwnerInput struct {
+	// OwnerID 是接手的人（sys_user.id）；0 表示退回**未分配**（公共池）。
+	OwnerID uint `json:"owner_id"`
+	// UpdatedAt 是打开页面时的版本，走乐观锁：先被人改了负责人就别覆盖。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PartnerMergeInput 是一次主体合并的入参。

@@ -23,6 +23,10 @@ type PartnerFilter struct {
 	Status     *model.EnableStatus
 	// IncludeDeleted 把已软删的主体也查出来，供「含已删除」的列表与恢复入口使用。
 	IncludeDeleted bool
+	// OwnerID 只看某人负责的主体。**owner_id = 0 视为未分配，一并返回**：
+	// 刚上线的存量数据与"先录进来还没分人"的客户都在这一堆里，
+	// 藏起来会让人以为数据丢了。
+	OwnerID *uint
 }
 
 func (f PartnerFilter) scopes() []Scope {
@@ -31,33 +35,42 @@ func (f PartnerFilter) scopes() []Scope {
 	if f.IncludeDeleted {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
 	}
+	// 列名一律带表前缀：列表查询 join 了 sys_user 取负责人登录名，
+	// 而 sys_user 也有 role / status / code 之类的同名列，
+	// 不限定表名就会得到 "ambiguous column name"。
 	if f.Keyword != "" {
-		scopes = append(scopes, likeAny(f.Keyword, "code", "name", "contact"))
+		scopes = append(scopes, likeAny(f.Keyword, "md_partner.code", "md_partner.name", "md_partner.contact"))
 	}
 	if f.Role != nil {
 		// 展开成 IN 集合而不是写 `role & ? <> 0`：位运算在 PostgreSQL 和 MySQL
 		// 上都用不上 role 上的 btree 索引，而按角色过滤是列表页的默认条件。
 		values := model.RoleValuesContaining(*f.Role)
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("role IN ?", values)
+			return db.Where("md_partner.role IN ?", values)
 		})
 	}
 	if f.EntityType != nil {
 		t := *f.EntityType
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("entity_type = ?", t)
+			return db.Where("md_partner.entity_type = ?", t)
 		})
 	}
 	if f.Country != "" {
 		c := f.Country
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("country = ?", c)
+			return db.Where("md_partner.country = ?", c)
 		})
 	}
 	if f.Status != nil {
 		st := *f.Status
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", st)
+			return db.Where("md_partner.status = ?", st)
+		})
+	}
+	if f.OwnerID != nil {
+		owner := *f.OwnerID
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("md_partner.owner_id = ? OR md_partner.owner_id = 0", owner)
 		})
 	}
 	return scopes
@@ -160,7 +173,31 @@ func (r *partnerRepo) ListAll(ctx context.Context) ([]model.Partner, error) {
 }
 
 func (r *partnerRepo) List(ctx context.Context, f PartnerFilter, p Pagination) ([]model.Partner, int64, error) {
-	return r.Paginate(ctx, p, f.scopes()...)
+	p = p.normalize()
+	scopes := f.scopes()
+
+	var total int64
+	if err := r.conn(ctx).Model(&model.Partner{}).Scopes(scopes...).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("统计主体: %w", err)
+	}
+	if total == 0 {
+		return []model.Partner{}, 0, nil
+	}
+
+	// 不复用 Paginate：它给 count 与查询用同一组条件，而这里查询要多带一个
+	// LEFT JOIN 取负责人姓名——Count 不能带多列 Select，混在一起会把统计弄坏。
+	list := make([]model.Partner, 0, p.PageSize)
+	err := r.conn(ctx).Model(&model.Partner{}).Scopes(scopes...).
+		Select("md_partner.*, COALESCE(sys_user.username, '') AS owner_name").
+		Joins("LEFT JOIN sys_user ON sys_user.id = md_partner.owner_id").
+		Order("md_partner.id DESC").
+		Offset(p.Offset()).
+		Limit(p.PageSize).
+		Find(&list).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询主体: %w", err)
+	}
+	return list, total, nil
 }
 
 func (r *partnerRepo) Count(ctx context.Context) (int64, error) {

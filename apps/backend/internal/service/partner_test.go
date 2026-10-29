@@ -12,11 +12,12 @@ import (
 
 func newPartnerTestService(t *testing.T) PartnerService {
 	t.Helper()
-	db := openTestDB(t, &model.Partner{}, &model.Product{}, &model.Currency{})
+	db := openTestDB(t, &model.Partner{}, &model.Product{}, &model.Currency{}, &model.User{})
 	return NewPartnerService(
 		repository.NewPartnerRepository(db),
 		repository.NewProductRepository(db),
 		repository.NewCurrencyRepository(db),
+		repository.NewUserRepository(db),
 	)
 }
 

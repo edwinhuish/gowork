@@ -1,10 +1,43 @@
 package model
 
 // 系统角色。骨架期用固定枚举，后续可换成 role / permission 表。
+//
+// 三个角色只差两件事：能不能看全部数据、能不能进系统设置类的接口。
+//   - admin  ：全部数据 + 系统设置（用户、审计日志、主体合并这类不可逆操作）
+//   - manager：全部数据，但系统设置仍归 admin
+//   - staff  ：只有自己负责（或未分配）的数据
+//
+// 不做字段级权限（T-36）：那要在响应里藏字段，与"谁看哪些行"是两回事。
 const (
 	RoleAdmin string = "admin"
-	RoleStaff string = "staff"
+	// RoleManager 是主管：可见范围与管理员相同，用来表达"业务负责人"这一层，
+	// 而不是把主管也提成管理员——管理员能改系统设置，主管不该能。
+	RoleManager string = "manager"
+	RoleStaff   string = "staff"
 )
+
+// RoleSeesAllData 报告这个角色能否看到全部数据。
+//
+// 认不出的角色一律按"只看自己的"处理：角色是字符串，写错一个字母不会报错，
+// 而把它当成"能看全部"就等于一次拼写错误变成了越权。
+func RoleSeesAllData(role string) bool {
+	switch role {
+	case RoleAdmin, RoleManager:
+		return true
+	default:
+		return false
+	}
+}
+
+// RoleIsValid 校验角色取值，供用户维护接口在写入前拦下。
+func RoleIsValid(role string) bool {
+	switch role {
+	case RoleAdmin, RoleManager, RoleStaff:
+		return true
+	default:
+		return false
+	}
+}
 
 // User 系统账号。
 type User struct {

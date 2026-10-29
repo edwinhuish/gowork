@@ -180,7 +180,7 @@ func New(cfg *config.Config) (*App, error) {
 	productCodeSvc := service.NewProductCodeService(
 		productCodeRepo, productRepo, service.WithProductCodeLogger(log))
 	partnerSvc := service.NewPartnerService(
-		partnerRepo, productRepo, currencyRepo, service.WithPartnerLogger(log))
+		partnerRepo, productRepo, currencyRepo, userRepo, service.WithPartnerLogger(log))
 	currencySvc := service.NewCurrencyService(currencyRepo, rateRepo, service.WithCurrencyLogger(log))
 	rateSvc := service.NewExchangeRateService(rateRepo, currencyRepo, service.WithExchangeRateLogger(log))
 	contactSvc := service.NewContactService(contactRepo, partnerRepo, service.WithContactLogger(log))

@@ -29,7 +29,8 @@ func buildLeadService(
 
 	partnerRepo := repository.NewPartnerRepository(db)
 	partnerSvc := NewPartnerService(
-		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db))
+		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db),
+		repository.NewUserRepository(db))
 	if txs == nil {
 		txs = repository.NewTxManager(db)
 	}
@@ -180,7 +181,8 @@ func TestLeadConvertRollsBackOnFailure(t *testing.T) {
 		&model.Partner{}, &model.Product{}, &model.Currency{}, &model.ExchangeRate{}, &model.Lead{})
 	partnerRepo := repository.NewPartnerRepository(db)
 	partnerSvc := NewPartnerService(
-		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db))
+		partnerRepo, repository.NewProductRepository(db), repository.NewCurrencyRepository(db),
+		repository.NewUserRepository(db))
 	svc := NewLeadService(
 		repository.NewLeadRepository(db), partnerSvc, partnerRepo,
 		failingTx{inner: repository.NewTxManager(db)},

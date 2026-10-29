@@ -28,13 +28,14 @@ func newPartnerMergeFixture(t *testing.T) partnerMergeFixture {
 		&model.ProductSource{}, &model.Attachment{},
 		&model.Quotation{}, &model.SalesOrder{}, &model.PurchaseOrder{}, &model.Contract{},
 		&model.Receivable{}, &model.Payable{}, &model.Payment{},
-		&model.ShipmentCharge{}, &model.StockDocument{},
+		&model.ShipmentCharge{}, &model.StockDocument{}, &model.User{},
 	)
 	return partnerMergeFixture{
 		svc: NewPartnerService(
 			repository.NewPartnerRepository(db),
 			repository.NewProductRepository(db),
 			repository.NewCurrencyRepository(db),
+			repository.NewUserRepository(db),
 		),
 		db: db,
 	}

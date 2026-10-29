@@ -138,7 +138,7 @@ type Partner struct {
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
 	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_partner_code,priority:2" json:"deleted_at,omitempty"`
 	Code      string    `gorm:"size:32;uniqueIndex:uni_partner_code,priority:1;not null" json:"code"`
-	Name string `gorm:"size:128;not null" json:"name"`
+	Name      string    `gorm:"size:128;not null" json:"name"`
 	// Role 决定这个主体出现在哪些业务的候选列表里，至少一位。
 	Role PartnerRole `gorm:"not null;index" json:"role"`
 	// EntityType 区分公司与个人。
@@ -173,6 +173,18 @@ type Partner struct {
 	CreditLimit money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"credit_limit"`
 	// CurrencyCode 默认结算币种，空表示按报价单或本币。
 	CurrencyCode string `gorm:"size:8" json:"currency_code"`
+
+	// OwnerID 是负责这家的业务员（sys_user.id）。0 表示**未分配**：
+	// 刚上线的存量数据、以及"先录进来还没分人"的客户都在这一堆里。
+	//
+	// 归属只存在主体上、不复制到每张单据：客户换了负责人，历史和未来的单据一起跟着走，
+	// 不会出现"订单归属张三、客户归属李四"这种必须靠人解释的状态。
+	OwnerID uint `gorm:"index;not null;default:0" json:"owner_id"`
+	// OwnerName 是列表 join 出来的负责人登录名。
+	//
+	// 用 `->;-:migration` 而不是 `gorm:"-"`：前者是"只读、不建列"，
+	// 后者会让 gorm 完全忽略这个字段，join 出来的值扫不进来（表现为永远空串）。
+	OwnerName string `gorm:"->;-:migration" json:"owner_name,omitempty"`
 }
 
 func (Partner) TableName() string { return "md_partner" }
