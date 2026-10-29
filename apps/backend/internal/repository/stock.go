@@ -175,7 +175,7 @@ func addToSnapshot(
 			// 增量显式 CAST 成定点再相加：驱动送过去的是十进制字符串，
 			// MySQL 在 `数值 + 字符串` 里会把字符串按 double 处理，
 			// 那就等于在库里又绕了一次浮点，前面所有改造都白做。
-			"qty": gorm.Expr("qty + CAST(? AS DECIMAL(16,3))", delta.StringFixed(3)),
+			"qty":              gorm.Expr("qty + CAST(? AS DECIMAL(16,3))", delta.StringFixed(3)),
 			"last_movement_id": movementID,
 			"last_occurred_at": occurredAt,
 			"updated_at":       now,

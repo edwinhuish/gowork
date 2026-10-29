@@ -108,10 +108,10 @@ func (t StockDocType) FixedDirection() (StockDirection, bool) {
 type StockDocument struct {
 	Base
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
-	DeletedAt DeletedAt    `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_document_doc_no,priority:2" json:"deleted_at,omitempty"`
-	DocNo     string       `gorm:"size:32;not null;uniqueIndex:uni_stock_document_doc_no,priority:1" json:"doc_no"`
-	Type   StockDocType   `gorm:"not null;index" json:"type"`
-	Status DocumentStatus `gorm:"not null;index" json:"status"`
+	DeletedAt DeletedAt      `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_document_doc_no,priority:2" json:"deleted_at,omitempty"`
+	DocNo     string         `gorm:"size:32;not null;uniqueIndex:uni_stock_document_doc_no,priority:1" json:"doc_no"`
+	Type      StockDocType   `gorm:"not null;index" json:"type"`
+	Status    DocumentStatus `gorm:"not null;index" json:"status"`
 	// DocDate 是业务发生日，决定这批货算在哪个月。
 	DocDate time.Time `gorm:"not null;index" json:"doc_date"`
 	// PartnerID 是入库的供应商 / 出库的客户；盘点单为空。
@@ -139,13 +139,13 @@ func (d StockDocument) IsEditable() bool { return d.Status == DocumentStatusDraf
 // BookQty 只在盘点单确认时写入（账面数），差异 = Qty − BookQty，不单独存。
 type StockDocumentItem struct {
 	Base
-	DocumentID uint    `gorm:"not null;index" json:"document_id"`
-	ProductID  uint    `gorm:"not null;index" json:"product_id"`
-	SKUCode    string  `gorm:"size:32;not null" json:"sku_code"`
-	NameCN     string  `gorm:"size:128" json:"name_cn"`
-	Spec       string  `gorm:"size:255" json:"spec"`
-	Unit       string  `gorm:"size:16" json:"unit"`
-	Qty        money.Decimal  `gorm:"type:decimal(14,3);not null" json:"qty"`
+	DocumentID uint          `gorm:"not null;index" json:"document_id"`
+	ProductID  uint          `gorm:"not null;index" json:"product_id"`
+	SKUCode    string        `gorm:"size:32;not null" json:"sku_code"`
+	NameCN     string        `gorm:"size:128" json:"name_cn"`
+	Spec       string        `gorm:"size:255" json:"spec"`
+	Unit       string        `gorm:"size:16" json:"unit"`
+	Qty        money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// BookQty 为 nil 表示还没确认过（草稿），或这张单不是盘点单。
 	BookQty *money.Decimal `gorm:"type:decimal(14,3)" json:"book_qty"`
 	Remark  string         `gorm:"size:255" json:"remark"`

@@ -20,10 +20,10 @@ import (
 type SalesOrderChange struct {
 	Base
 	// 同一张订单的第几次变更，从 1 开始。
-	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_order_change_seq,priority:3" json:"deleted_at,omitempty"`
-	SalesOrderID uint   `gorm:"not null;uniqueIndex:uni_order_change_seq,priority:1" json:"sales_order_id"`
-	Seq          uint   `gorm:"not null;uniqueIndex:uni_order_change_seq,priority:2" json:"seq"`
-	DocNo        string `gorm:"size:40;not null" json:"doc_no"`
+	DeletedAt    DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_order_change_seq,priority:3" json:"deleted_at,omitempty"`
+	SalesOrderID uint      `gorm:"not null;uniqueIndex:uni_order_change_seq,priority:1" json:"sales_order_id"`
+	Seq          uint      `gorm:"not null;uniqueIndex:uni_order_change_seq,priority:2" json:"seq"`
+	DocNo        string    `gorm:"size:40;not null" json:"doc_no"`
 
 	// Reason 必填：没有原因的变更记录等于没有记录，
 	// 事后翻账时它只能告诉你"改过"，说不出"为什么"。

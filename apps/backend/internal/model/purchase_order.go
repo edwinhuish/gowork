@@ -60,10 +60,10 @@ type PurchaseOrderItem struct {
 	PurchaseOrderID uint `gorm:"index;not null" json:"purchase_order_id"`
 	ProductID       uint `gorm:"index;not null" json:"product_id"`
 
-	SKUCode string  `gorm:"size:32;not null" json:"sku_code"`
-	NameCN  string  `gorm:"size:128" json:"name_cn"`
-	Spec    string  `gorm:"size:128" json:"spec"`
-	Unit    string  `gorm:"size:16" json:"unit"`
+	SKUCode string `gorm:"size:32;not null" json:"sku_code"`
+	NameCN  string `gorm:"size:128" json:"name_cn"`
+	Spec    string `gorm:"size:128" json:"spec"`
+	Unit    string `gorm:"size:16" json:"unit"`
 	// Qty 是定点数：与采购价相乘决定行金额，中途转 float64 会把末位带歪。
 	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 

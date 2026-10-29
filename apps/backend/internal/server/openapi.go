@@ -16,10 +16,10 @@ import (
 
 // OpenAPIDoc 是生成出来的文档结构。
 type OpenAPIDoc struct {
-	OpenAPI    string                         `json:"openapi"`
-	Info       OpenAPIInfo                    `json:"info"`
+	OpenAPI    string                          `json:"openapi"`
+	Info       OpenAPIInfo                     `json:"info"`
 	Paths      map[string]map[string]OpenAPIOp `json:"paths"`
-	Components OpenAPIComponents              `json:"components"`
+	Components OpenAPIComponents               `json:"components"`
 }
 
 type OpenAPIInfo struct {
@@ -30,10 +30,10 @@ type OpenAPIInfo struct {
 }
 
 type OpenAPIOp struct {
-	OperationID string                       `json:"operationId"`
-	Tags        []string                     `json:"tags"`
-	Security    []map[string][]string        `json:"security,omitempty"`
-	Responses   map[string]OpenAPIResponse   `json:"responses"`
+	OperationID string                     `json:"operationId"`
+	Tags        []string                   `json:"tags"`
+	Security    []map[string][]string      `json:"security,omitempty"`
+	Responses   map[string]OpenAPIResponse `json:"responses"`
 }
 
 // OpenAPIResponse 只放引用：每个接口的响应形状完全相同，
@@ -49,9 +49,9 @@ type OpenAPIMediaType struct {
 }
 
 type OpenAPIComponents struct {
-	Schemas         map[string]any            `json:"schemas"`
+	Schemas         map[string]any             `json:"schemas"`
 	Responses       map[string]OpenAPIResponse `json:"responses"`
-	SecuritySchemes map[string]OpenAPIScheme  `json:"securitySchemes"`
+	SecuritySchemes map[string]OpenAPIScheme   `json:"securitySchemes"`
 }
 
 type OpenAPIScheme struct {
@@ -62,8 +62,8 @@ type OpenAPIScheme struct {
 // publicPaths 是不需要登录的接口。写死而不是按前缀猜：
 // 猜错的后果是文档把公开接口标成需要鉴权（或反过来），两种都是错的。
 var publicPaths = map[string]bool{
-	"/healthz":             true,
-	"/api/v1/auth/login":   true,
+	"/healthz":           true,
+	"/api/v1/auth/login": true,
 }
 
 // BuildOpenAPI 把 gin 的路由表转成文档。排序是写死的：
@@ -102,7 +102,7 @@ func BuildOpenAPI(routes []gin.RouteInfo) OpenAPIDoc {
 		Components: OpenAPIComponents{
 			Schemas: map[string]any{
 				"ApiResponse": map[string]any{
-					"type": "object",
+					"type":     "object",
 					"required": []string{"code", "message"},
 					"properties": map[string]any{
 						"code":       map[string]any{"type": "integer", "description": "0 表示成功；非 0 时前三位对齐 HTTP 状态码"},
@@ -202,5 +202,3 @@ func tagOf(path string) string {
 	}
 	return "default"
 }
-
-

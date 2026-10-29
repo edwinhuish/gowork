@@ -72,14 +72,14 @@ type ShipmentLogisticsInput struct {
 // 只回状态为已确认 / 备货中、且还有未出数量的行：把已出完的、草稿的、已取消的
 // 也都塞进下拉，等于让用户在界面上挑一个必然被 409 拒掉的选项。
 type ShipmentCandidate struct {
-	SalesOrderID     uint    `json:"sales_order_id"`
-	SalesOrderDocNo  string  `json:"sales_order_doc_no"`
-	PartnerName      string  `json:"partner_name"`
-	SalesOrderItemID uint    `json:"sales_order_item_id"`
-	SKUCode          string  `json:"sku_code"`
-	NameCN           string  `json:"name_cn"`
-	Spec             string  `json:"spec"`
-	Unit             string  `json:"unit"`
+	SalesOrderID     uint          `json:"sales_order_id"`
+	SalesOrderDocNo  string        `json:"sales_order_doc_no"`
+	PartnerName      string        `json:"partner_name"`
+	SalesOrderItemID uint          `json:"sales_order_item_id"`
+	SKUCode          string        `json:"sku_code"`
+	NameCN           string        `json:"name_cn"`
+	Spec             string        `json:"spec"`
+	Unit             string        `json:"unit"`
 	Qty              money.Decimal `json:"qty"`
 	ShippedQty       money.Decimal `json:"shipped_qty"`
 	UnshippedQty     money.Decimal `json:"unshipped_qty"`

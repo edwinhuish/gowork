@@ -15,7 +15,7 @@ import (
 )
 
 type quotationFixture struct {
-	svc         QuotationService
+	svc    QuotationService
 	orders SalesOrderService
 	// svcFailingTx 是"提交阶段必然失败"的同一个服务：用来验转单真的在一个事务里。
 	svcFailingTx QuotationService
@@ -129,13 +129,13 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 		svc:          build(repository.NewTxManager(db)),
 		svcFailingTx: build(failingTx{inner: repository.NewTxManager(db)}),
 		orders:       orderSvc,
-		now:         now,
-		customerID:  customer.ID,
-		supplierID:  supplier.ID,
-		productID:   p1.ID,
-		product2ID:  p2.ID,
-		cheapSrcID:  cheap.ID,
-		priceySrcID: pricey.ID,
+		now:          now,
+		customerID:   customer.ID,
+		supplierID:   supplier.ID,
+		productID:    p1.ID,
+		product2ID:   p2.ID,
+		cheapSrcID:   cheap.ID,
+		priceySrcID:  pricey.ID,
 	}
 }
 

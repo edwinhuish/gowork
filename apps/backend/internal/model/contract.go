@@ -104,7 +104,7 @@ type Contract struct {
 	Remark string `gorm:"size:255" json:"remark"`
 
 	Partner *Partner       `gorm:"foreignKey:PartnerID" json:"partner,omitempty"`
-	Terms []ContractTerm `gorm:"foreignKey:ContractID" json:"terms,omitempty"`
+	Terms   []ContractTerm `gorm:"foreignKey:ContractID" json:"terms,omitempty"`
 	// Clauses 是条款**快照**（见 model.ContractClause）：改模板不影响已生成的合同。
 	Clauses []ContractClause `gorm:"foreignKey:ContractID" json:"clauses,omitempty"`
 }

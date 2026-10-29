@@ -24,7 +24,7 @@ type Currency struct {
 	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
 	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_currency_code,priority:2" json:"deleted_at,omitempty"`
 	Code      string    `gorm:"size:8;uniqueIndex:uni_currency_code,priority:1;not null" json:"code"`
-	Name string `gorm:"size:64;not null" json:"name"`
+	Name      string    `gorm:"size:64;not null" json:"name"`
 	// Symbol 仅用于界面展示（$ / € / ¥），不参与计算。
 	Symbol string `gorm:"size:8" json:"symbol"`
 	// DecimalPlaces 是该币种金额的展示与舍入精度。人民币 2 位，日元 0 位。

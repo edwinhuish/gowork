@@ -61,10 +61,10 @@ type SalesOrderItem struct {
 	SalesOrderID uint `gorm:"index;not null" json:"sales_order_id"`
 	ProductID    uint `gorm:"index;not null" json:"product_id"`
 
-	SKUCode string  `gorm:"size:32;not null" json:"sku_code"`
-	NameCN  string  `gorm:"size:128" json:"name_cn"`
-	Spec    string  `gorm:"size:128" json:"spec"`
-	Unit    string  `gorm:"size:16" json:"unit"`
+	SKUCode string `gorm:"size:32;not null" json:"sku_code"`
+	NameCN  string `gorm:"size:128" json:"name_cn"`
+	Spec    string `gorm:"size:128" json:"spec"`
+	Unit    string `gorm:"size:16" json:"unit"`
 	// Qty 是定点数：数量与单价一起决定行金额，中间过一遍 float64 就会把末位带歪。
 	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 

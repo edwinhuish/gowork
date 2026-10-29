@@ -33,7 +33,7 @@ func TestShipmentScopeFollowsGoodsNotHeader(t *testing.T) {
 	addItem := func(docNo string, partnerID uint) uint {
 		order := &model.SalesOrder{
 			DocNo: docNo, PartnerID: partnerID, TradeTerm: model.TradeTermFOB,
-			Status: model.DocumentStatusConfirmed,
+			Status:    model.DocumentStatusConfirmed,
 			OrderDate: model.DateOnly(time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)),
 		}
 		if err := db.Create(order).Error; err != nil {

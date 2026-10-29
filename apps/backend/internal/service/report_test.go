@@ -72,7 +72,7 @@ func (f reportFixture) addReceivable(
 			Amount: dec(amount), AmountBase: dec(amount).Mul(dec(rate)).Round(4),
 			SettledAmount:     dec(settled),
 			SettledAmountBase: dec(settled).Mul(dec(rate)).Round(4),
-			DueDate: model.DateOnly(due), Status: status,
+			DueDate:           model.DateOnly(due), Status: status,
 		},
 	}
 	if err := f.db.Create(m).Error; err != nil {

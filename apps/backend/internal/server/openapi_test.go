@@ -57,7 +57,7 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 		t.Fatalf("读取 %s: %v；首次生成请加 -update", openAPIFile, err)
 	}
 	if !bytes.Equal(existing, data) {
-		t.Fatalf("docs/openapi.json 与路由表不一致。"+
+		t.Fatalf("docs/openapi.json 与路由表不一致。" +
 			"改动接口后请跑：go test ./internal/server -run TestOpenAPIMatchesRoutes -update")
 	}
 }

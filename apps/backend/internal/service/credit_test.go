@@ -105,7 +105,7 @@ func (f creditFixture) addReceivable(
 			Amount: money.FromFloat(amountBase), AmountBase: money.FromFloat(amountBase),
 			SettledAmount:     money.FromFloat(settledBase),
 			SettledAmountBase: money.FromFloat(settledBase),
-			DueDate: model.DateOnly(f.now), Status: status,
+			DueDate:           model.DateOnly(f.now), Status: status,
 		},
 	}
 	if err := f.db.Create(m).Error; err != nil {

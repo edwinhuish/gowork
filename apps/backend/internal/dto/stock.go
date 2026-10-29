@@ -42,14 +42,14 @@ type StockSnapshotQuery struct {
 // 不直接回 model.StockSnapshot：快照表只存 product_id 与数量，
 // 列表要的 SKU / 品名 / 单位是 join 出来的当前值。
 type StockSnapshotView struct {
-	ProductID      uint       `json:"product_id"`
-	SKUCode        string     `json:"sku_code"`
-	NameCN         string     `json:"name_cn"`
-	Spec           string     `json:"spec"`
-	Unit           string     `json:"unit"`
+	ProductID      uint          `json:"product_id"`
+	SKUCode        string        `json:"sku_code"`
+	NameCN         string        `json:"name_cn"`
+	Spec           string        `json:"spec"`
+	Unit           string        `json:"unit"`
 	Qty            money.Decimal `json:"qty"`
-	LastOccurredAt *time.Time `json:"last_occurred_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	LastOccurredAt *time.Time    `json:"last_occurred_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
 // StockRecalcInput 指定重算范围：给 product_id 只重算这一个产品，
