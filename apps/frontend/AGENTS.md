@@ -171,6 +171,20 @@ api/client.ts
 **令牌续期对页面透明**：剩余有效期不足一半时后端换发新令牌，`client.ts` 从
 `X-Renewed-Token` 响应头读出来写回 localStorage。页面与 provider 都不需要感知。
 
+**令牌放 localStorage 是有意的取舍**：换成 httpOnly Cookie 能挡住 XSS 窃取令牌，
+但要另做一整套 CSRF 防护（SameSite、双提交、跨站表单），而这一版是内网单页应用。
+代价是"一旦有 XSS，令牌就是对方的"——所以**这里没有 XSS 注入面**是硬要求，
+2026-10 的审查结论：
+
+- 全仓没有 `dangerouslySetInnerHTML`、`innerHTML` / `insertAdjacentHTML` /
+  `document.write`、`<iframe>` / `srcdoc`、`eval` / `new Function`；
+- 没有把用户数据拼进 `href` 或 `window.open`（全仓 `href=` 一处都没有，
+  下载走 `download()` 的 fetch + `<a download>`，文件名取响应头）；
+- 后端返回的错误文案一律以文本渲染（antd `message` / `Alert`），React 默认转义。
+
+**新增富文本、Markdown 渲染、外链预览、或任何"把后端字符串当 HTML/URL 用"的功能时，
+先回来读这一条**：那会是第一个注入点，而令牌就在 localStorage 里。
+
 ## 6. 模块与约定
 
 | 位置 | 关键点 | 改动注意 |
