@@ -11,6 +11,7 @@ import type { PurchaseOrder, PurchaseOrderItem } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
 import { PurchaseMilestonePanel } from './milestone-panel'
+import { InspectionPanel } from '@/components/inspection-panel'
 import { PurchaseReceiptPanel } from '@/components/purchase-receipt-panel'
 
 interface StatusAction {
@@ -257,6 +258,9 @@ export function PurchaseShow() {
       {/* 跟单节点（T-38）：货在工厂还是已经进仓、验货过没过，就看这张表。 */}
       {/* 收货在跟单节点之前：节点回答"货在工厂还是已进仓"，收货回答"进了多少"。 */}
       {o ? <PurchaseReceiptPanel orderId={o.id} items={o.items ?? []} /> : null}
+
+      {/* 验货跟在收货之后：先到货、再验货，这也是实际发生的顺序。 */}
+      {o ? <InspectionPanel orderId={o.id} items={o.items ?? []} /> : null}
 
       {o ? <PurchaseMilestonePanel order={o} /> : null}
     </Show>

@@ -15,6 +15,9 @@ export type AttachmentEntity =
   | 'payable'
   | 'payment'
   | 'stock_document'
+  // 验货记录（T-51b）：缺陷照片与验货报告挂在这里，不挂采购单——
+  // 一张采购单可能验三次，混在采购单上就分不清哪张照片对应哪次验货。
+  | 'inspection'
 
 /**
  * 附件读写。
