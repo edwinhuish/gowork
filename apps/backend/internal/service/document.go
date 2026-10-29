@@ -8,6 +8,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // parseDateOnly 解析业务日期，只认 YYYY-MM-DD，顺手容忍前端带上来的完整时间串。
@@ -58,28 +59,29 @@ func parseDateOrDefault(raw string, now time.Time) (time.Time, error) {
 // 分开写迟早出现"报价单折 2 位、订单折 4 位"的差异，对账时差额没人解释得清。
 func resolveCurrency(
 	ctx context.Context, currencies CurrencyService, raw string, on time.Time,
-) (code string, rate float64, curDP, baseDP int, err error) {
+) (code string, rate money.Decimal, curDP, baseDP int, err error) {
 	baseCode, err := currencies.BaseCode(ctx)
 	if err != nil {
-		return "", 0, 0, 0, err
+		return "", money.Zero(), 0, 0, err
 	}
 	code = strings.ToUpper(strings.TrimSpace(raw))
 	if code == "" {
 		code = baseCode
 	}
-	// ToBase(1) 顺带完成了"币种是否存在"与"当日汇率是否已录"两项校验：
+	// 折 1 个单位顺带完成了"币种是否存在"与"当日汇率是否已录"两项校验：
 	// 缺汇率时给 400 而不是把 1 当汇率写进单据，那会让本币金额凭空多一个汇率倍数。
-	_, rate, err = currencies.ToBase(ctx, 1, code, on)
+	// 折算结果不用，要的是它取出的那条汇率本身。
+	_, rate, err = currencies.ToBaseDecimal(ctx, money.FromInt(1), code, on)
 	if err != nil {
-		return "", 0, 0, 0, err
+		return "", money.Zero(), 0, 0, err
 	}
 	curDP, err = currencies.Decimals(ctx, code)
 	if err != nil {
-		return "", 0, 0, 0, err
+		return "", money.Zero(), 0, 0, err
 	}
 	baseDP, err = currencies.Decimals(ctx, baseCode)
 	if err != nil {
-		return "", 0, 0, 0, err
+		return "", money.Zero(), 0, 0, err
 	}
 	return code, rate, curDP, baseDP, nil
 }

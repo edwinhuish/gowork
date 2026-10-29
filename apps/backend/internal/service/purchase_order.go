@@ -265,16 +265,15 @@ func (s *purchaseOrderService) buildTerms(
 
 	// 采购币种与销售币种往往是两个（收美元、付人民币），
 	// 因此这里单独锁一份汇率，不复用销售单上的那个。
-	code, rawRate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
+	code, rate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
 	if err != nil {
 		return out, err
 	}
 
 	out = purchaseOrderTerms{
-		TradeTerm:    term,
-		CurrencyCode: code,
-		// 汇率表那一列还是 float64（第 6 片），进服务时转成定点。
-		ExchangeRate:     money.FromFloat(rawRate),
+		TradeTerm:        term,
+		CurrencyCode:     code,
+		ExchangeRate:     rate,
 		CurrencyDecimals: curDP,
 		BaseDecimals:     baseDP,
 		OrderDate:        orderDate,

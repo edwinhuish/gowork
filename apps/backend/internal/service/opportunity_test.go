@@ -44,7 +44,7 @@ func newOpportunityFixture(t *testing.T, now time.Time) opptyFixture {
 	if _, err := NewExchangeRateService(rateRepo, currencyRepo).Create(context.Background(),
 		dto.ExchangeRateInput{
 			CurrencyCode:  "USD",
-			Rate:          7.1,
+			Rate:          money.MustParse("7.1"),
 			EffectiveDate: now.Format(rateDateLayout),
 		}); err != nil {
 		t.Fatalf("登记汇率失败: %v", err)

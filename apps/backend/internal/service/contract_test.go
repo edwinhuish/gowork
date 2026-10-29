@@ -55,7 +55,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	if _, err := NewExchangeRateService(rateRepo, currencyRepo).Create(ctx,
 		dto.ExchangeRateInput{
 			CurrencyCode:  "USD",
-			Rate:          7.1,
+			Rate:          money.MustParse("7.1"),
 			EffectiveDate: now.Format(rateDateLayout),
 		}); err != nil {
 		t.Fatalf("登记汇率失败: %v", err)

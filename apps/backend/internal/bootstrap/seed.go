@@ -61,8 +61,8 @@ func (a *App) seedCurrencies(
 
 	today := model.DateOnly(time.Now())
 	demoRates := []model.ExchangeRate{
-		{CurrencyCode: "USD", BaseCode: "CNY", Rate: 7.10, EffectiveDate: today, Source: "演示数据"},
-		{CurrencyCode: "EUR", BaseCode: "CNY", Rate: 7.75, EffectiveDate: today, Source: "演示数据"},
+		{CurrencyCode: "USD", BaseCode: "CNY", Rate: money.MustParse("7.10"), EffectiveDate: today, Source: "演示数据"},
+		{CurrencyCode: "EUR", BaseCode: "CNY", Rate: money.MustParse("7.75"), EffectiveDate: today, Source: "演示数据"},
 	}
 	for i := range demoRates {
 		if err := rates.Create(ctx, &demoRates[i]); err != nil {

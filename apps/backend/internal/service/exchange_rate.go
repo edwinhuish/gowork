@@ -9,6 +9,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -57,7 +58,7 @@ func (s *exchangeRateService) Create(
 	if err != nil {
 		return nil, err
 	}
-	if in.Rate <= 0 {
+	if in.Rate.Cmp(money.Zero()) <= 0 {
 		return nil, errs.BadRequest("汇率必须大于 0")
 	}
 	date, err := parseDateOnly(in.EffectiveDate)

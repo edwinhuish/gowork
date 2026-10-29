@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // CurrencyQuery 是币种列表的查询条件。
 type CurrencyQuery struct {
 	PageQuery
@@ -33,9 +35,9 @@ type ExchangeRateQuery struct {
 // 那笔生意当时到底按什么价成交就再也说不清了。录错了就删掉重录。
 type ExchangeRateInput struct {
 	CurrencyCode string `json:"currency_code" binding:"required,max=8"`
-	// Rate 是「1 单位外币 = Rate 单位本币」。binding 的 required
-	// 对数值类型等价于"不能为 0"，正好挡住最常见的漏填。
-	Rate float64 `json:"rate" binding:"required"`
+	// Rate 是「1 单位外币 = Rate 单位本币」，定点字符串。
+	// binding 的 required 对结构体不生效，所以"漏填 / 填 0"改由服务层判断。
+	Rate money.Decimal `json:"rate"`
 	// EffectiveDate 只认日期，格式 YYYY-MM-DD。
 	EffectiveDate string `json:"effective_date" binding:"required,max=32"`
 	Source        string `json:"source" binding:"max=32"`

@@ -57,7 +57,7 @@ func newSettlementFixture(t *testing.T, now time.Time) settlementFixture {
 	// 当日汇率 7.5，与订单锁定的 7.1 不同。
 	if _, err := NewExchangeRateService(rateRepo, currencyRepo).Create(ctx, dto.ExchangeRateInput{
 		CurrencyCode:  "USD",
-		Rate:          7.5,
+		Rate:          money.MustParse("7.5"),
 		EffectiveDate: now.Format(rateDateLayout),
 	}); err != nil {
 		t.Fatalf("登记汇率失败: %v", err)

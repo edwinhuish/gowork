@@ -88,7 +88,7 @@ export function ExchangeRateList() {
           title="汇率"
           width={140}
           align="right"
-          render={(value: number) => (
+          render={(value: string) => (
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
           )}
         />

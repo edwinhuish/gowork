@@ -422,16 +422,15 @@ func (s *salesOrderService) buildTerms(
 		deliveryDate = &d
 	}
 
-	code, rawRate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
+	code, rate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, in.CurrencyCode, s.clock())
 	if err != nil {
 		return out, err
 	}
 
 	out = salesOrderTerms{
-		TradeTerm:    term,
-		CurrencyCode: code,
-		// 汇率表那一列还是 float64（第 6 片），进服务时转成定点。
-		ExchangeRate:     money.FromFloat(rawRate),
+		TradeTerm:        term,
+		CurrencyCode:     code,
+		ExchangeRate:     rate,
 		CurrencyDecimals: curDP,
 		BaseDecimals:     baseDP,
 		OrderDate:        orderDate,

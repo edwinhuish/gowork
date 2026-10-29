@@ -56,6 +56,7 @@ export function ExchangeRateFormFields() {
           min={0}
           step={0.0001}
           precision={6}
+          stringMode
           placeholder="7.100000"
         />
       </Form.Item>

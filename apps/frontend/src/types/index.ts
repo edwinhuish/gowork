@@ -221,7 +221,8 @@ export interface ExchangeRate {
   id: number
   currency_code: string
   base_code: string
-  rate: number
+  /** 定点字符串（后端 money.Decimal）：折算本身在服务端做，前端只展示。 */
+  rate: string
   effective_date: string
   source: string
   remark: string

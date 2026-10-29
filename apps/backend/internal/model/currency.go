@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // 币种小数位的默认值与边界。
 //
@@ -48,9 +52,11 @@ type ExchangeRate struct {
 	CurrencyCode string `gorm:"size:8;not null;index;uniqueIndex:uni_exchange_rate_pair,priority:1" json:"currency_code"`
 	// BaseCode 记录当时的本币代码。冗余存一份而不是 join 出来：
 	// 本币将来若变更，老汇率的换算口径仍然是老本币。
-	BaseCode      string    `gorm:"size:8;not null;uniqueIndex:uni_exchange_rate_pair,priority:2" json:"base_code"`
-	Rate          float64   `gorm:"type:decimal(18,8);not null" json:"rate"`
-	EffectiveDate time.Time `gorm:"type:date;not null;uniqueIndex:uni_exchange_rate_pair,priority:3" json:"effective_date"`
+	BaseCode string `gorm:"size:8;not null;uniqueIndex:uni_exchange_rate_pair,priority:2" json:"base_code"`
+	// Rate 是折算率本身，定点表示。列宽 8 位而定点只到 6 位（全仓统一的最小单位），
+	// 落库后末两位恒为 0：再多的位数在业务上没意义，每多一位 int64 的上限就少十倍。
+	Rate          money.Decimal `gorm:"type:decimal(18,8);not null" json:"rate"`
+	EffectiveDate time.Time     `gorm:"type:date;not null;uniqueIndex:uni_exchange_rate_pair,priority:3" json:"effective_date"`
 	// Source 记来源（手工 / 银行 / 中国银行牌价），便于事后判断这条价可不可信。
 	Source string `gorm:"size:32" json:"source"`
 	Remark string `gorm:"size:255" json:"remark"`

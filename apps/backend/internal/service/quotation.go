@@ -550,13 +550,7 @@ func (s *quotationService) buildTerms(
 func (s *quotationService) buildCurrency(
 	ctx context.Context, raw string,
 ) (code string, rate money.Decimal, curDP, baseDP int, err error) {
-	code, rawRate, curDP, baseDP, err := resolveCurrency(ctx, s.currencies, raw, s.clock())
-	if err != nil {
-		return "", money.Zero(), 0, 0, err
-	}
-	// 汇率表那一列还是 float64（T-37 第 6 片），进服务的第一步就转成定点：
-	// 单据上的汇率从此是十进制的，之后乘多少行都不会带尾差。
-	return code, money.FromFloat(rawRate), curDP, baseDP, nil
+	return resolveCurrency(ctx, s.currencies, raw, s.clock())
 }
 
 func (s *quotationService) parseValidUntil(raw string) (time.Time, error) {

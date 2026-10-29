@@ -26,15 +26,18 @@ type CurrencyService interface {
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Currency, error)
 	List(ctx context.Context, q dto.CurrencyQuery) (*dto.PageResult[model.Currency], error)
-	// Convert 把 amount 从 from 折算成 to，汇率取 on 当日生效的那条。
+	// ConvertDecimal 把 amount 从 from 折算成 to，汇率取 on 当日生效的那条。
 	// 返回的 rate 要一并写进单据：事后汇率表怎么变，都不该影响已成交的单子。
-	Convert(ctx context.Context, amount float64, from, to string, on time.Time) (converted, rate float64, err error)
-	// ToBase 折算到本币，供"只知道原币、不关心本币是哪个"的调用方使用。
-	ToBase(ctx context.Context, amount float64, currencyCode string, on time.Time) (base, rate float64, err error)
-	// ToBaseDecimal 是 ToBase 的定点版本（T-37 起）：已改造的域用它，
-	// 免得"折本币"这一步又把 Decimal 转回 float64，改造就白做了。
 	//
-	// 两个版本并存是过渡态：只剩 float 版没有调用方时删掉它。
+	// 只有定点这一个版本（T-37 第 6 片）：汇率与金额都是 Decimal，
+	// 留一个 float 版的重载等于给"中途转回 float64"留了后门。
+	ConvertDecimal(
+		ctx context.Context, amount money.Decimal, from, to string, on time.Time,
+	) (converted, rate money.Decimal, err error)
+	// ToBaseDecimal 折算到本币，供"只知道原币、不关心本币是哪个"的调用方使用。
+	//
+	// 调用方只需要汇率时传 money.FromInt(1)：这一路同时完成了
+	// "币种是否存在"与"当日汇率是否已录"两项校验。
 	ToBaseDecimal(
 		ctx context.Context, amount money.Decimal, currencyCode string, on time.Time,
 	) (base, rate money.Decimal, err error)
@@ -203,74 +206,7 @@ func (s *currencyService) List(ctx context.Context, q dto.CurrencyQuery) (*dto.P
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
 }
 
-func (s *currencyService) Convert(
-	ctx context.Context, amount float64, from, to string, on time.Time,
-) (float64, float64, error) {
-	fromCode, err := normCurrencyCode(from)
-	if err != nil {
-		return 0, 0, err
-	}
-	toCode, err := normCurrencyCode(to)
-	if err != nil {
-		return 0, 0, err
-	}
-	if fromCode == toCode {
-		return amount, 1, nil
-	}
-
-	base, err := s.repo.FindBase(ctx)
-	if err != nil {
-		if errors.Is(err, errs.ErrNotFound) {
-			return 0, 0, errs.BadRequest("尚未设置本币，无法折算汇率")
-		}
-		return 0, 0, err
-	}
-	// 两个币种都要先确认存在。"币种不存在"与"没录那天的汇率"是两回事：
-	// 前者要新增币种，后者要补一条汇率。混成一句话，用户会去补一条永远补不上的汇率。
-	for _, code := range []string{fromCode, toCode} {
-		if code == base.Code {
-			continue
-		}
-		if _, err := s.repo.FindByCode(ctx, code); err != nil {
-			if errors.Is(err, errs.ErrNotFound) {
-				return 0, 0, errs.BadRequest("币种不存在：" + code)
-			}
-			return 0, 0, err
-		}
-	}
-
-	target, err := s.repo.FindByCode(ctx, toCode)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	fromRate, err := s.rateOn(ctx, fromCode, base.Code, on)
-	if err != nil {
-		return 0, 0, err
-	}
-	toRate, err := s.rateOn(ctx, toCode, base.Code, on)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	// 两个币种都相对本币有价，交叉汇率由两者相除得到。
-	// 直接除以 toRate 而不是"先折本币再折目标币"，少一次舍入。
-	rate := fromRate / toRate
-	return money.Round(amount*rate, target.DecimalPlaces), rate, nil
-}
-
-func (s *currencyService) ToBase(
-	ctx context.Context, amount float64, currencyCode string, on time.Time,
-) (float64, float64, error) {
-	baseCode, err := s.BaseCode(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	return s.Convert(ctx, amount, currencyCode, baseCode, on)
-}
-
-// ConvertDecimal 是 Convert 的定点版本：口径完全相同（同一套汇率查找、
-// 同一个舍入位数），只是中间不做 float64 往返。
+// ConvertDecimal 是全站唯一的折算口径：同一套汇率查找、同一个舍入位数。
 func (s *currencyService) ConvertDecimal(
 	ctx context.Context, amount money.Decimal, from, to string, on time.Time,
 ) (money.Decimal, money.Decimal, error) {
@@ -319,9 +255,9 @@ func (s *currencyService) ConvertDecimal(
 		return money.Zero(), money.Zero(), err
 	}
 
-	// 汇率本身仍以 float64 存在 md_exchange_rate 上（那一列还没改造），
-	// 进这里的第一件事就是转成 Decimal，之后的乘除与舍入都在定点里做。
-	rate := money.FromFloat(fromRate).Div(money.FromFloat(toRate))
+	// 两个币种都相对本币有价，交叉汇率由两者相除得到。
+	// 直接除以 toRate 而不是"先折本币再折目标币"，少一次舍入。
+	rate := fromRate.Div(toRate)
 	converted := amount.Mul(rate).Round(target.DecimalPlaces)
 	return converted, rate, nil
 }
@@ -361,17 +297,17 @@ func (s *currencyService) Decimals(ctx context.Context, code string) (int, error
 // rateOn 取某币种相对本币在 on 当日的折算率，本币自身恒为 1。
 func (s *currencyService) rateOn(
 	ctx context.Context, code, baseCode string, on time.Time,
-) (float64, error) {
+) (money.Decimal, error) {
 	if code == baseCode {
-		return 1, nil
+		return money.FromInt(1), nil
 	}
 	r, err := s.rates.FindEffective(ctx, code, baseCode, on)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
-			return 0, errs.BadRequest(fmt.Sprintf("缺少 %s 在 %s 的汇率",
+			return money.Zero(), errs.BadRequest(fmt.Sprintf("缺少 %s 在 %s 的汇率",
 				code, model.DateOnly(on).Format("2006-01-02")))
 		}
-		return 0, err
+		return money.Zero(), err
 	}
 	return r.Rate, nil
 }

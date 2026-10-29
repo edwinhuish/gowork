@@ -60,8 +60,8 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 	payDate := now.AddDate(0, 0, 10)
 	rateSvc := NewExchangeRateService(rateRepo, currencyRepo)
 	for _, r := range []dto.ExchangeRateInput{
-		{CurrencyCode: "USD", Rate: 7.5, EffectiveDate: now.Format(rateDateLayout)},
-		{CurrencyCode: "USD", Rate: 7.6, EffectiveDate: payDate.Format(rateDateLayout)},
+		{CurrencyCode: "USD", Rate: money.MustParse("7.5"), EffectiveDate: now.Format(rateDateLayout)},
+		{CurrencyCode: "USD", Rate: money.MustParse("7.6"), EffectiveDate: payDate.Format(rateDateLayout)},
 	} {
 		if _, err := rateSvc.Create(ctx, r); err != nil {
 			t.Fatalf("登记汇率 %v 失败: %v", r.Rate, err)
