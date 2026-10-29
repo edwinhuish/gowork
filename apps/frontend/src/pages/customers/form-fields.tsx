@@ -5,6 +5,7 @@ import { PartnerDuplicateHint } from '@/components/partner-duplicate-hint'
 import {
   ENABLE_STATUS_OPTIONS,
   PARTNER_ENTITY_TYPE_OPTIONS,
+  PARTNER_GRADE_OPTIONS,
   SETTLEMENT_METHOD_OPTIONS,
   TRADE_TERM_OPTIONS,
 } from '@/constants/catalog'
@@ -57,6 +58,15 @@ export function CustomerFormFields() {
         <Input placeholder="厄瓜多尔" />
       </Form.Item>
 
+      <Form.Item
+        name="tax_id"
+        label="税号"
+        tooltip="开票与报关用。公司主体不强制，但单证上缺它容易被客户或海关退回"
+        rules={[{ max: 32, message: '最多 32 个字符' }]}
+      >
+        <Input placeholder="RUC / VAT / EIN" />
+      </Form.Item>
+
       <Form.Item name="contact" label="联系人" rules={[{ max: 64, message: '最多 64 个字符' }]}>
         <Input />
       </Form.Item>
@@ -75,6 +85,34 @@ export function CustomerFormFields() {
 
       {/* 放在四个参与查重的字段之后：名称、国家、电话、邮箱都填了才谈得上比对。 */}
       <PartnerDuplicateHint />
+
+      {/* 三个分组维度放在商务条件之前：它们是「这家客户是谁」的一部分，
+          而贸易术语与账期是「怎么跟他做生意」。 */}
+      <Form.Item
+        name="customer_group"
+        label="客户分组"
+        tooltip="报表分组用，自由填写。不建字典表：分组会随市场调整，只有十来种且只有老板会改"
+        rules={[{ max: 64, message: '最多 64 个字符' }]}
+      >
+        <Input placeholder="南美批发商" />
+      </Form.Item>
+
+      <Form.Item
+        name="region"
+        label="销售区域"
+        tooltip="我方划分的片区，不是国家——同一个国家可以归两个片区"
+        rules={[{ max: 64, message: '最多 64 个字符' }]}
+      >
+        <Input placeholder="南美一区" />
+      </Form.Item>
+
+      <Form.Item
+        name="grade"
+        label="客户分级"
+        tooltip="只做标签与筛选，不影响权限与折扣；留空表示还没分级"
+      >
+        <Select placeholder="未分级" allowClear options={PARTNER_GRADE_OPTIONS} />
+      </Form.Item>
 
       <Form.Item
         name="trade_term"

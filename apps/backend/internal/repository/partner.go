@@ -11,6 +11,12 @@ import (
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
+// PartnerGradeUnset 是「筛未分级」的哨兵值。
+//
+// 不用空串：空串在 HTTP 查询参数里表示"没传这个条件"，两者混在一起，
+// 「哪些客户还没分级」这个问句就永远得到全部结果。
+const PartnerGradeUnset = "none"
+
 // PartnerFilter 是商业伙伴列表的查询条件。
 //
 // Role 是"包含"语义而不是"等于"：筛供应商时，既做客户又做供应商的主体
@@ -21,6 +27,11 @@ type PartnerFilter struct {
 	EntityType *model.PartnerEntityType
 	Country    string
 	Status     *model.EnableStatus
+	// 分组维度：空 = 不筛。
+	CustomerGroup string
+	Region        string
+	// Grade 传 PartnerGradeUnset 表示筛「未分级」，其余按字面值精确匹配。
+	Grade string
 	// IncludeDeleted 把已软删的主体也查出来，供「含已删除」的列表与恢复入口使用。
 	IncludeDeleted bool
 	// OwnerID 只看某人负责的主体。**owner_id = 0 视为未分配，一并返回**：
@@ -66,6 +77,32 @@ func (f PartnerFilter) scopes() []Scope {
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("md_partner.status = ?", st)
 		})
+	}
+	if f.CustomerGroup != "" {
+		group := f.CustomerGroup
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("md_partner.customer_group = ?", group)
+		})
+	}
+	if f.Region != "" {
+		region := f.Region
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("md_partner.region = ?", region)
+		})
+	}
+	if f.Grade != "" {
+		if f.Grade == PartnerGradeUnset {
+			// 空串在 HTTP 层表示"不筛"，所以「未分级」必须有自己的哨兵值，
+			// 否则"还没分级的有哪些"这个问题永远问不出来。
+			scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+				return db.Where("md_partner.grade = ''")
+			})
+		} else {
+			grade := f.Grade
+			scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+				return db.Where("md_partner.grade = ?", grade)
+			})
+		}
 	}
 	if f.OwnerID != nil {
 		owner := *f.OwnerID

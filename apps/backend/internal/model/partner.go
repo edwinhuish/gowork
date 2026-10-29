@@ -120,6 +120,39 @@ func (t PartnerEntityType) IsValid() bool {
 	return t == PartnerEntityCompany || t == PartnerEntityPerson
 }
 
+// PartnerGrade 是客户的 ABC 分级。
+//
+// 空值表示**未分级**，而且是零值：存量数据全部落在这一档，迁移时不必回填，
+// 「没分级」与「分到 C」也就分得开了——这两件事在业务上是不同的（前者是还没人管，
+// 后者是已经判定贡献小）。
+type PartnerGrade string
+
+const (
+	// PartnerGradeA 是核心客户：贡献大头成交额，值得配专属跟单。
+	PartnerGradeA PartnerGrade = "A"
+	// PartnerGradeB 是常规客户：能稳定复购，按标准流程走。
+	PartnerGradeB PartnerGrade = "B"
+	// PartnerGradeC 是小客户或一次性客户：不值得投入额外人力。
+	PartnerGradeC PartnerGrade = "C"
+)
+
+// IsValid 允许空值（未分级）与 A / B / C。
+func (g PartnerGrade) IsValid() bool {
+	switch g {
+	case "", PartnerGradeA, PartnerGradeB, PartnerGradeC:
+		return true
+	}
+	return false
+}
+
+// String 供日志与筛选回显，空值显示为「未分级」。
+func (g PartnerGrade) String() string {
+	if g == "" {
+		return "未分级"
+	}
+	return string(g)
+}
+
 // Partner 是商业伙伴（往来单位）：客户与供应商统一在这一张表里。
 //
 // 命名用 Partner 而不是 Party：Party 在合同语境里指"当事方"，日常又常被
@@ -145,6 +178,21 @@ type Partner struct {
 	EntityType PartnerEntityType `gorm:"not null;index" json:"entity_type"`
 	// Country 主要对客户有意义（外贸按目的国分组），供应商留空即可。
 	Country string `gorm:"size:64" json:"country"`
+	// TaxID 是开票与报关用的纳税人识别号。不强制：个人主体与部分小客户没有。
+	// 但 PI、商业发票、报关单上缺它会被客户或海关退回，所以它在单证上是显眼字段。
+	TaxID string `gorm:"size:32" json:"tax_id"`
+	// CustomerGroup 是报表分组用的客户分组（如"南美批发商"），自由文本。
+	//
+	// 不建字典表：分组会随市场调整，而字典表的成本是"一张表 + 一个维护界面 + 一套校验"，
+	// 在分组只有十来种且只有老板会改的情况下不划算。区域同理。
+	CustomerGroup string `gorm:"size:64;index" json:"customer_group"`
+	// Region 是我方划分的销售片区，**不是国家**：同一个国家可以有两个片区，
+	// 一个片区也可以跨几个国家。按国家统计用 Country，按人/按区看业绩用 Region。
+	Region string `gorm:"size:64;index" json:"region"`
+	// Grade 是 ABC 分级，**只做标签与筛选，不做权限**。
+	// 分级规则（按成交额、毛利还是回款速度）未定，见 docs/roadmap.md 第五节；
+	// 一旦把它接到折扣或权限上，规则一改就要重算全部历史数据。
+	Grade PartnerGrade `gorm:"size:2;index" json:"grade"`
 	// ContactName 是主联系人姓名。完整的联系人（多个、各有电话邮箱）
 	// 在 CRM 里是独立实体，届时 contact 列的语义就是"主联系人"。
 	ContactName string `gorm:"size:64;column:contact" json:"contact"`

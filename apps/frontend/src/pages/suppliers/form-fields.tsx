@@ -38,6 +38,15 @@ export function SupplierFormFields() {
         <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
       </Form.Item>
 
+      <Form.Item
+        name="tax_id"
+        label="税号"
+        tooltip="采购合同与发票用。工厂多为个人或个体户时可以留空"
+        rules={[{ max: 32, message: '最多 32 个字符' }]}
+      >
+        <Input placeholder="统一社会信用代码 / VAT" />
+      </Form.Item>
+
       <Form.Item name="contact" label="联系人" rules={[{ max: 64, message: '最多 64 个字符' }]}>
         <Input />
       </Form.Item>

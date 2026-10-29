@@ -119,6 +119,10 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 	if err != nil {
 		return nil, err
 	}
+	grade, err := normPartnerGrade(in.Grade)
+	if err != nil {
+		return nil, err
+	}
 
 	m := &model.Partner{
 		Code:             in.Code,
@@ -126,6 +130,10 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 		Role:             role,
 		EntityType:       entityType,
 		Country:          in.Country,
+		TaxID:            derefTrim(in.TaxID),
+		CustomerGroup:    derefTrim(in.CustomerGroup),
+		Region:           derefTrim(in.Region),
+		Grade:            grade,
 		ContactName:      in.ContactName,
 		Phone:            in.Phone,
 		Email:            in.Email,
@@ -180,6 +188,25 @@ func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInpu
 		"address": in.Address,
 		"status":  status,
 		"remark":  in.Remark,
+	}
+
+	// 档案要素与商务条件同一套规则：nil = 这次不改。
+	// 供应商页面没有客户分组与分级，按零值覆盖会把它们清空。
+	if in.TaxID != nil {
+		fields["tax_id"] = strings.TrimSpace(*in.TaxID)
+	}
+	if in.CustomerGroup != nil {
+		fields["customer_group"] = strings.TrimSpace(*in.CustomerGroup)
+	}
+	if in.Region != nil {
+		fields["region"] = strings.TrimSpace(*in.Region)
+	}
+	if in.Grade != nil {
+		grade, err := normPartnerGrade(in.Grade)
+		if err != nil {
+			return nil, err
+		}
+		fields["grade"] = grade
 	}
 
 	// 商务条件只在提交了对应字段时才写库（nil = 这次不改），
@@ -497,6 +524,10 @@ func mergeFields(survivor, source *model.Partner) map[string]any {
 	fill("email", survivor.Email, source.Email)
 	fill("address", survivor.Address, source.Address)
 	fill("remark", survivor.Remark, source.Remark)
+	fill("tax_id", survivor.TaxID, source.TaxID)
+	fill("customer_group", survivor.CustomerGroup, source.CustomerGroup)
+	fill("region", survivor.Region, source.Region)
+	fill("grade", string(survivor.Grade), string(source.Grade))
 	fill("trade_term", string(survivor.TradeTerm), string(source.TradeTerm))
 	fill("settlement_method", string(survivor.SettlementMethod), string(source.SettlementMethod))
 	fill("currency_code", survivor.CurrencyCode, source.CurrencyCode)
@@ -511,7 +542,18 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 		Role:           partnerRolePtr(q.Role),
 		Status:         enableStatusPtr(q.Status),
 		Country:        q.Country,
+		CustomerGroup:  strings.TrimSpace(q.CustomerGroup),
+		Region:         strings.TrimSpace(q.Region),
 		IncludeDeleted: q.IncludeDeleted,
+	}
+	// 分级：空 = 不筛；none = 筛未分级；其余按字面值（统一转大写，
+	// 免得 a 与 A 在同一个业务问题上被当成两个值）。
+	if g := strings.TrimSpace(q.Grade); g != "" {
+		if strings.EqualFold(g, repository.PartnerGradeUnset) {
+			filter.Grade = repository.PartnerGradeUnset
+		} else {
+			filter.Grade = strings.ToUpper(g)
+		}
 	}
 	if q.EntityType != nil {
 		t := model.PartnerEntityType(*q.EntityType)
@@ -629,4 +671,30 @@ func partnerRolePtr(p dto.PartnerRoleInput) *model.PartnerRole {
 	}
 	r := model.PartnerRole(*p)
 	return &r
+}
+
+// derefTrim 把可选字符串去空格，nil 返回空串。
+//
+// **只用在新建**：新建时 nil 与空串等价（都是"没填"）。
+// 编辑时 nil 表示"这次不改"，必须保留这个语义，不能走这里。
+func derefTrim(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return strings.TrimSpace(*p)
+}
+
+// normPartnerGrade 归一化客户分级：去空格、转大写、白名单校验。
+//
+// 空值合法（未分级）。统一转大写是为了让 `a` 与 `A` 在筛选时命中同一批记录——
+// 分级是要拿去分组统计的字段，大小写不一致等于把客户分成六档。
+func normPartnerGrade(p *string) (model.PartnerGrade, error) {
+	if p == nil {
+		return "", nil
+	}
+	g := model.PartnerGrade(strings.ToUpper(strings.TrimSpace(*p)))
+	if !g.IsValid() {
+		return "", errs.BadRequest("客户分级只能是 A / B / C，留空表示未分级")
+	}
+	return g, nil
 }

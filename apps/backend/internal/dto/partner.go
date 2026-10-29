@@ -25,6 +25,12 @@ type PartnerQuery struct {
 	EntityType PartnerEntityTypeInput `form:"entity_type"`
 	Country    string                 `form:"country"`
 	Status     EnableStatusInput      `form:"status"`
+	// 下面三个是报表与列表的分组维度，空表示不筛。
+	CustomerGroup string `form:"customer_group"`
+	Region        string `form:"region"`
+	// Grade 传 "none" 表示筛「未分级」——空字符串在后端等于"不筛"，
+	// 两者必须能分开，否则"还没分级的有哪些"这个问句就答不了。
+	Grade string `form:"grade"`
 	// IncludeDeleted 把已软删的主体也列出来（「含已删除」开关），这些行只能做一件事：恢复。
 	IncludeDeleted bool `form:"include_deleted"`
 	// OwnerID 只看某人负责的主体（主管可用它下钻某个业务员）。
@@ -88,6 +94,15 @@ type PartnerInput struct {
 	Email       string                 `json:"email" binding:"omitempty,email,max=128"`
 	Address     string                 `json:"address" binding:"max=255"`
 	Status      EnableStatusInput      `json:"status"`
+
+	// 档案要素同样用指针：供应商表单不显示客户分组与分级，
+	// 若按零值覆盖，在供应商页面保存一次就会把它们清空——
+	// 与上面商务条件踩过的是同一个坑。
+	TaxID         *string `json:"tax_id" binding:"omitempty,max=32"`
+	CustomerGroup *string `json:"customer_group" binding:"omitempty,max=64"`
+	Region        *string `json:"region" binding:"omitempty,max=64"`
+	// Grade 只接受 "" / A / B / C（大小写不敏感，service 统一转大写）。
+	Grade *string `json:"grade" binding:"omitempty,max=2"`
 	Remark      string                 `json:"remark" binding:"max=255"`
 
 	// 商务条件全部用指针：nil 表示"这次不改"，与 Role / EntityType 同一套规则。

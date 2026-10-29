@@ -19,13 +19,18 @@ import {
 import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { ENABLE_STATUS_OPTIONS, PARTNER_GRADE_FILTER_OPTIONS } from '@/constants/catalog'
 import type { Partner } from '@/types'
 
 interface CustomerSearch {
   keyword?: string
   country?: string
   status?: number
+  /** 分组维度都是后端精确匹配，输入框留空即不筛。 */
+  customer_group?: string
+  region?: string
+  /** A / B / C，或 `none` 表示未分级。 */
+  grade?: string
   /** 含已删除：打开后已软删的主体也列出来，只能做一件事——恢复。 */
   include_deleted?: boolean
 }
@@ -60,6 +65,15 @@ export function CustomerList() {
       }
       if (v.status !== undefined && v.status !== null) {
         filters.push({ field: 'status', operator: 'eq', value: v.status })
+      }
+      if (v.customer_group?.trim()) {
+        filters.push({ field: 'customer_group', operator: 'eq', value: v.customer_group.trim() })
+      }
+      if (v.region?.trim()) {
+        filters.push({ field: 'region', operator: 'eq', value: v.region.trim() })
+      }
+      if (v.grade) {
+        filters.push({ field: 'grade', operator: 'eq', value: v.grade })
       }
       if (v.include_deleted) {
         filters.push({ field: 'include_deleted', operator: 'eq', value: true })
@@ -108,6 +122,20 @@ export function CustomerList() {
         <Form.Item name="country">
           <Input placeholder="国家 / 地区" allowClear style={{ width: 150 }} />
         </Form.Item>
+        <Form.Item name="customer_group">
+          <Input placeholder="客户分组" allowClear style={{ width: 130 }} />
+        </Form.Item>
+        <Form.Item name="region">
+          <Input placeholder="销售区域" allowClear style={{ width: 120 }} />
+        </Form.Item>
+        <Form.Item name="grade">
+          <Select
+            placeholder="全部分级"
+            allowClear
+            options={PARTNER_GRADE_FILTER_OPTIONS}
+            style={{ width: 130 }}
+          />
+        </Form.Item>
         <Form.Item name="status">
           <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
         </Form.Item>
@@ -124,7 +152,7 @@ export function CustomerList() {
         </Form.Item>
       </Form>
 
-      <Table {...tableProps} rowKey="id" scroll={{ x: 1210 }}>
+      <Table {...tableProps} rowKey="id" scroll={{ x: 1400 }}>
         <Table.Column
           dataIndex="code"
           title="编码"
@@ -155,6 +183,16 @@ export function CustomerList() {
           render={(value: number) => <EntityTypeTag value={value} />}
         />
         <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
+        {/* 分级只做标签：不接权限也不接折扣，所以这里不给颜色等级额外的业务含义。 */}
+        <Table.Column
+          dataIndex="grade"
+          title="分级"
+          width={80}
+          render={(v: string) =>
+            v ? <Tag bordered={false}>{v}</Tag> : <span className="cell-sub">未分级</span>
+          }
+        />
+        <Table.Column dataIndex="region" title="区域" width={110} render={(v: string) => v || <Empty />} />
         {/* 负责人是业务员看列表时最先找的一列：不是自己的客户，跟进前先想清楚该不该动。 */}
         <Table.Column
           dataIndex="owner_name"

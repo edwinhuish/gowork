@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Button, Descriptions, Space } from 'antd'
+import { Button, Descriptions, Space, Tag } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
@@ -44,6 +44,15 @@ export function CustomerShow() {
           { key: 'role', label: '角色', children: <RoleTag value={result?.role} /> },
           { key: 'entity_type', label: '主体类型', children: <EntityTypeTag value={result?.entity_type} /> },
           { key: 'country', label: '国家/地区', children: result?.country || <Empty /> },
+          { key: 'tax_id', label: '税号', children: result?.tax_id || <Empty /> },
+          { key: 'customer_group', label: '客户分组', children: result?.customer_group || <Empty /> },
+          { key: 'region', label: '销售区域', children: result?.region || <Empty /> },
+          {
+            key: 'grade',
+            label: '客户分级',
+            // 未分级是常态（存量数据全在这一档），写"未分级"而不是空白。
+            children: result?.grade ? <Tag bordered={false}>{result.grade}</Tag> : <span className="cell-sub">未分级</span>,
+          },
           { key: 'status', label: '状态', children: <StatusTag value={result?.status} /> },
           { key: 'contact', label: '联系人', children: result?.contact || <Empty /> },
           { key: 'phone', label: '电话', children: result?.phone || <Empty /> },

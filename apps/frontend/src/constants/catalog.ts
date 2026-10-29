@@ -228,6 +228,29 @@ export const PARTNER_ENTITY_TYPE_OPTIONS = [
 ]
 
 /**
+ * 客户 ABC 分级。取值必须与后端 model.PartnerGrade 一致。
+ *
+ * 只做标签与筛选，不接权限也不接折扣：分级规则（按成交额、毛利还是回款速度）
+ * 还没定，一旦接到业务规则上，规则一改就要重算全部历史数据。
+ */
+export const PARTNER_GRADE_OPTIONS = [
+  { value: 'A', label: 'A 核心客户' },
+  { value: 'B', label: 'B 常规客户' },
+  { value: 'C', label: 'C 小客户' },
+]
+
+/**
+ * 分级筛选比分级录入多一项「未分级」。
+ *
+ * 后端用空串表示"没传这个筛选条件"，所以「未分级」必须有自己的哨兵值
+ * （`none`），否则「哪些客户还没分级」这个问句只能得到全部结果。
+ */
+export const PARTNER_GRADE_FILTER_OPTIONS = [
+  ...PARTNER_GRADE_OPTIONS,
+  { value: 'none', label: '未分级' },
+]
+
+/**
  * 主体角色位。1 客户 / 2 供应商 / 4 货代，叠加时按位相加
  * （3 = 客供两用，5 = 客户兼货代）。
  *
