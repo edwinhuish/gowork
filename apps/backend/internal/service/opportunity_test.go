@@ -226,3 +226,132 @@ func TestOpportunityRules(t *testing.T) {
 		}
 	})
 }
+
+// TestOpportunityRateLock 钉住「汇率变动不改变历史商机预测」（T-61）。
+//
+// 三条线：改备注不重算、改金额才按当日汇率重算、重估必须显式触发。
+func TestOpportunityRateLock(t *testing.T) {
+	ctx := context.Background()
+	day1 := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	day2 := time.Date(2026, 11, 2, 10, 0, 0, 0, time.Local)
+	now := day1
+
+	db := openTestDB(t,
+		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Opportunity{})
+	currencyRepo := repository.NewCurrencyRepository(db)
+	rateRepo := repository.NewExchangeRateRepository(db)
+	currencySvc := NewCurrencyService(currencyRepo, rateRepo)
+	rateSvc := NewExchangeRateService(rateRepo, currencyRepo)
+	partnerRepo := repository.NewPartnerRepository(db)
+
+	if _, err := currencySvc.Create(ctx, dto.CurrencyInput{
+		Code: "CNY", Name: "人民币", IsBase: boolPtr(true),
+	}); err != nil {
+		t.Fatalf("建本币失败: %v", err)
+	}
+	if _, err := currencySvc.Create(ctx, dto.CurrencyInput{
+		Code: "USD", Name: "美元",
+	}); err != nil {
+		t.Fatalf("建外币失败: %v", err)
+	}
+	addRate := func(day time.Time, rate string) {
+		t.Helper()
+		if _, err := rateSvc.Create(ctx, dto.ExchangeRateInput{
+			CurrencyCode:  "USD",
+			Rate:          money.MustParse(rate),
+			EffectiveDate: day.Format(rateDateLayout),
+		}); err != nil {
+			t.Fatalf("登记汇率失败: %v", err)
+		}
+	}
+	addRate(day1, "7.1")
+
+	svc := NewOpportunityService(
+		repository.NewOpportunityRepository(db), partnerRepo, currencySvc,
+		WithOpportunityClock(func() time.Time { return now }),
+	)
+
+	partner := &model.Partner{
+		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	if err := partnerRepo.Create(ctx, partner); err != nil {
+		t.Fatalf("建主体失败: %v", err)
+	}
+
+	in := dto.OpportunityInput{
+		PartnerID:         partner.ID,
+		Subject:           "2026 秋季五金补货",
+		Stage:             int8(model.OpportunityStageQuoted),
+		Amount:            money.MustParse("1000"),
+		CurrencyCode:      "USD",
+		ExpectedCloseDate: "2026-11-30",
+	}
+	m, err := svc.Create(ctx, in)
+	if err != nil {
+		t.Fatalf("新建商机失败: %v", err)
+	}
+	wantLocked := model.DateOnly(day1)
+	if !m.RateLockedOn.Equal(wantLocked) {
+		t.Errorf("折算日 = %s，期望 %s", m.RateLockedOn, wantLocked)
+	}
+
+	// 汇率变了。此后任何"不改金额"的保存都不该动本币金额。
+	addRate(day2, "7.3")
+	now = day2
+
+	t.Run("改备注不重算", func(t *testing.T) {
+		edited := in
+		edited.Remark = "客户改口，先等他们的预算"
+		edited.Stage = int8(model.OpportunityStageNegotiating)
+		got, err := svc.Update(ctx, m.ID, edited)
+		if err != nil {
+			t.Fatalf("保存失败: %v", err)
+		}
+		wantDecimal(t, "本币金额（改备注后）", got.AmountBase, "7100")
+		wantDecimal(t, "汇率（改备注后）", got.ExchangeRate, "7.1")
+		if !got.RateLockedOn.Equal(wantLocked) {
+			t.Errorf("折算日被改动：%s", got.RateLockedOn)
+		}
+	})
+
+	t.Run("改金额才按当日汇率重算", func(t *testing.T) {
+		edited := in
+		edited.Amount = money.MustParse("2000")
+		got, err := svc.Update(ctx, m.ID, edited)
+		if err != nil {
+			t.Fatalf("保存失败: %v", err)
+		}
+		wantDecimal(t, "本币金额（改金额后）", got.AmountBase, "14600")
+		wantDecimal(t, "汇率（改金额后）", got.ExchangeRate, "7.3")
+		if !got.RateLockedOn.Equal(model.DateOnly(day2)) {
+			t.Errorf("折算日 = %s，期望 %s", got.RateLockedOn, model.DateOnly(day2))
+		}
+	})
+
+	t.Run("显式重估", func(t *testing.T) {
+		addRate(day2.AddDate(0, 0, 5), "7.5")
+		now = day2.AddDate(0, 0, 5)
+
+		got, err := svc.Revalue(ctx, m.ID)
+		if err != nil {
+			t.Fatalf("重估失败: %v", err)
+		}
+		wantDecimal(t, "本币金额（重估后）", got.AmountBase, "15000")
+		wantDecimal(t, "汇率（重估后）", got.ExchangeRate, "7.5")
+	})
+
+	t.Run("终态不再重估", func(t *testing.T) {
+		won := in
+		won.Stage = int8(model.OpportunityStageWon)
+		closed, err := svc.Update(ctx, m.ID, won)
+		if err != nil {
+			t.Fatalf("置为赢单失败: %v", err)
+		}
+		if _, err := svc.Revalue(ctx, closed.ID); err == nil {
+			t.Fatal("赢单商机重估应被拒绝")
+		} else if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+			t.Fatalf("期望 40901，实际 %v", err)
+		}
+	})
+}

@@ -99,8 +99,8 @@ func (s OpportunityStage) Label() string {
 //
 // 金额按「币种 + 原币 + 本币 + 汇率」四件套存（蓝图第五节第 1 条）：
 // 只存一个数，等到要做加权预测时就没法把 USD 与 CNY 的商机加在一起。
-// 与正式单据的区别：商机的金额是**预计值**，重算汇率不会影响任何已发生的交易，
-// 所以金额变更时按当日汇率重算；报价单与订单在那边锁定汇率，两者规则不同。
+// 与正式单据的区别：商机的金额是**预计值**，折算用的是录入那天（或显式重算那天）
+// 的汇率，不是每天重取——见 RateLockedOn。
 type Opportunity struct {
 	Base
 	PartnerID uint             `gorm:"index;not null" json:"partner_id"`
@@ -113,6 +113,14 @@ type Opportunity struct {
 	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
 	AmountBase   money.Decimal `gorm:"type:decimal(14,2);not null;default:0" json:"amount_base"`
 	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+
+	// RateLockedOn 是 AmountBase 用的那一天汇率（T-61）。
+	//
+	// 本币金额在**录入时锁一次**，之后只改备注、改阶段、改赢率都不重新折算；
+	// 只有金额或币种变了，或显式点「按今日汇率重算」才更新它。
+	// 原来每次保存都按当日汇率重算，汇率一漂，上一季的加权预测跟着漂，
+	// 季度环比就没法比了——而预测的价值恰恰在"当时我们怎么判断的"。
+	RateLockedOn time.Time `gorm:"type:date" json:"rate_locked_on"`
 
 	// Probability 赢单概率 0-100。赢单恒为 100、输单恒为 0，不允许手填成别的值。
 	Probability int `gorm:"not null;default:0" json:"probability"`

@@ -25,6 +25,9 @@ var errInvalidStage = errs.BadRequest(
 type OpportunityService interface {
 	Create(ctx context.Context, in dto.OpportunityInput) (*model.Opportunity, error)
 	Update(ctx context.Context, id uint, in dto.OpportunityInput) (*model.Opportunity, error)
+	// Revalue 按今日汇率重算本币金额（T-61）。折算平时是锁住的，
+	// 只有这里显式触发才会动——预测要能比，就不能每天被汇率悄悄改一遍。
+	Revalue(ctx context.Context, id uint) (*model.Opportunity, error)
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Opportunity, error)
 	List(ctx context.Context, q dto.OpportunityQuery) (*dto.PageResult[model.Opportunity], error)
@@ -91,6 +94,7 @@ func (s *opportunityService) Create(
 		CurrencyCode:      terms.CurrencyCode,
 		AmountBase:        terms.AmountBase,
 		ExchangeRate:      terms.ExchangeRate,
+		RateLockedOn:      terms.RateLockedOn,
 		Probability:       terms.Probability,
 		ExpectedCloseDate: terms.ExpectedCloseDate,
 		Remark:            terms.Remark,
@@ -121,6 +125,39 @@ func (s *opportunityService) Update(
 	if err := s.repo.Update(ctx, id, terms.fields()); err != nil {
 		return nil, err
 	}
+	return s.repo.FindByID(ctx, id)
+}
+
+// Revalue 按今日汇率重算本币金额（T-61）。
+//
+// 平时刻意不重算：预测是"当时我们怎么判断这笔生意"的记录，汇率每天变，
+// 让它跟着变，上个月的加权预测这个月就对不上了。重算是一个显式动作，
+// 点一下明确表示"我要按今天的汇率重新看一遍这批商机"。
+//
+// 终态商机不重算：赢单与输单是已经发生的事，改它的本币金额等于改历史。
+func (s *opportunityService) Revalue(ctx context.Context, id uint) (*model.Opportunity, error) {
+	existing, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.Stage.IsFinal() {
+		return nil, errs.ErrConflict.WithMsg(fmt.Sprintf(
+			"「%s」是终态商机，本币金额不再重算", existing.Stage.Label()))
+	}
+	amountBase, rate, err := s.currencies.ToBaseDecimal(
+		ctx, existing.Amount, existing.CurrencyCode, s.clock())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.Update(ctx, id, map[string]any{
+		"amount_base":    amountBase,
+		"exchange_rate":  rate,
+		"rate_locked_on": model.DateOnly(s.clock()),
+	}); err != nil {
+		return nil, err
+	}
+	s.log.Info("商机按当日汇率重算", "id", id, "from", existing.ExchangeRate.String(),
+		"to", rate.String(), "amount_base", amountBase.String())
 	return s.repo.FindByID(ctx, id)
 }
 
@@ -191,6 +228,7 @@ type opportunityTerms struct {
 	CurrencyCode      string
 	AmountBase        money.Decimal
 	ExchangeRate      money.Decimal
+	RateLockedOn      time.Time
 	Probability       int
 	ExpectedCloseDate time.Time
 	Remark            string
@@ -205,6 +243,7 @@ func (t opportunityTerms) fields() map[string]any {
 		"currency_code":       t.CurrencyCode,
 		"amount_base":         t.AmountBase,
 		"exchange_rate":       t.ExchangeRate,
+		"rate_locked_on":      t.RateLockedOn,
 		"probability":         t.Probability,
 		"expected_close_date": t.ExpectedCloseDate,
 		"remark":              t.Remark,
@@ -244,22 +283,41 @@ func (s *opportunityService) buildTerms(
 	if code == "" {
 		code = baseCode
 	}
-	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, in.Amount, code, s.clock())
-	if err != nil {
-		return out, err
-	}
 
 	out = opportunityTerms{
 		Subject:           in.Subject,
 		Stage:             stage,
 		Amount:            in.Amount,
 		CurrencyCode:      code,
-		AmountBase:        amountBase,
-		ExchangeRate:      rate,
 		Probability:       normalizeProbability(stage, in.Probability),
 		ExpectedCloseDate: closeDate,
 		Remark:            in.Remark,
 	}
+
+	// 金额与币种都没变就沿用已经锁定的本币金额（T-61）。
+	//
+	// 这是"改个备注把整条预测重估一遍"的防线：折算一次要读当日汇率，
+	// 汇率变了，同一个商机的本币金额跟着变，加权预测与上季度报表就对不上。
+	// 要按新汇率重估是显式动作（Revalue），不藏在保存里。
+	if existing != nil && existing.CurrencyCode == code && existing.Amount.Cmp(in.Amount) == 0 {
+		out.AmountBase = existing.AmountBase
+		out.ExchangeRate = existing.ExchangeRate
+		out.RateLockedOn = existing.RateLockedOn
+		if out.RateLockedOn.IsZero() {
+			// T-61 之前的数据没有折算日，用录入日补上：比留空更接近真相，
+			// 也比"今天"准确——那笔预测确实是那天算出来的。
+			out.RateLockedOn = model.DateOnly(existing.CreatedAt)
+		}
+		return out, nil
+	}
+
+	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, in.Amount, code, s.clock())
+	if err != nil {
+		return out, err
+	}
+	out.AmountBase = amountBase
+	out.ExchangeRate = rate
+	out.RateLockedOn = model.DateOnly(s.clock())
 	return out, nil
 }
 

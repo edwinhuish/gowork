@@ -1,7 +1,8 @@
 import { useList, useShow } from '@refinedev/core'
 import { Show } from '@refinedev/antd'
-import { Button, Descriptions, Table, Tag, Typography } from 'antd'
+import { Button, Descriptions, message, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 
+import { opportunityApi } from '@/api/opportunities'
 import { Empty, Money } from '@/components/fields'
 import { ACTIVITY_TYPE_OPTIONS, opportunityStageLabel } from '@/constants/catalog'
 import type { Activity, Opportunity } from '@/types'
@@ -14,11 +15,11 @@ import { formatDate } from '@/utils/format'
  * 这里把挂在**这个商机**上的跟进列出来，并给一个带好上下文的「记一条跟进」。
  */
 export function OpportunityShow() {
-  const { result: o } = useShow<Opportunity>({ resource: 'opportunities' })
+  const { result: o, query } = useShow<Opportunity>({ resource: 'opportunities' })
 
   // 按商机筛跟进：后端 ?opportunity_id= 已支持，这里只取第一页足够——
   // 一次询价的往来不会超过二十条，再多的场景该去客户 360 里看。
-  const { query, result } = useList<Activity>({
+  const { query: activityQuery, result } = useList<Activity>({
     resource: 'activities',
     filters: o?.id ? [{ field: 'opportunity_id', operator: 'eq', value: o.id }] : [],
     queryOptions: { enabled: !!o?.id },
@@ -26,16 +27,45 @@ export function OpportunityShow() {
   })
 
   const activities: Activity[] = result?.data ?? []
+  // 赢单 / 输单是已发生的事，本币金额不再重估（后端同样会 409）。
+  const isFinal = o?.stage === 50 || o?.stage === 60
+
+  // 按今日汇率重估（T-61）：保存商机不重算本币金额，
+  // 否则汇率一漂，上一季的加权预测跟着漂，季度环比就没了。
+  const revalue = async () => {
+    if (!o) return
+    try {
+      await opportunityApi.revalue(o.id)
+      message.success('已按今日汇率重估本币金额')
+      await query.refetch()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '重估失败')
+    }
+  }
 
   return (
     <Show
       title={o ? `商机 ${o.subject}` : '商机'}
+      isLoading={query.isLoading}
       headerButtons={
-        <Button
-          href={`/activities/create?partner_id=${o?.partner_id ?? ''}&opportunity_id=${o?.id ?? ''}`}
-        >
-          记一条跟进
-        </Button>
+        <Space wrap>
+          {!isFinal && (
+            <Popconfirm
+              title="按今日汇率重估这笔商机？"
+              description="本币金额会按今天的汇率重算，加权预测随之变化"
+              okText="重估"
+              cancelText="再想想"
+              onConfirm={revalue}
+            >
+              <Button>按今日汇率重算</Button>
+            </Popconfirm>
+          )}
+          <Button
+            href={`/activities/create?partner_id=${o?.partner_id ?? ''}&opportunity_id=${o?.id ?? ''}`}
+          >
+            记一条跟进
+          </Button>
+        </Space>
       }
     >
       <Descriptions bordered size="small" column={2}>
@@ -47,10 +77,15 @@ export function OpportunityShow() {
         </Descriptions.Item>
         <Descriptions.Item label="赢率">{o ? `${o.probability}%` : <Empty />}</Descriptions.Item>
         <Descriptions.Item label="金额（原币）">
-          {o ? <Money value={o.amount} /> : <Empty />}
+          {o ? <Money value={o.amount} currency={o.currency_code} /> : <Empty />}
         </Descriptions.Item>
         <Descriptions.Item label="金额（本币）">
           {o ? <Money value={o.amount_base} /> : <Empty />}
+        </Descriptions.Item>
+        <Descriptions.Item label="汇率">{o?.exchange_rate || <Empty />}</Descriptions.Item>
+        <Descriptions.Item label="折算日">
+          {/* 折算日比汇率更能说明问题：同一个数配两个日期的汇率，谁也说不清它怎么来的。*/}
+          {o?.rate_locked_on ? formatDate(o.rate_locked_on) : <Empty />}
         </Descriptions.Item>
         <Descriptions.Item label="预计成交日">{formatDate(o?.expected_close_date)}</Descriptions.Item>
         <Descriptions.Item label="备注">{o?.remark || <Empty />}</Descriptions.Item>
@@ -63,7 +98,7 @@ export function OpportunityShow() {
       <Table<Activity>
         rowKey="id"
         size="small"
-        loading={query.isLoading}
+        loading={activityQuery.isLoading}
         dataSource={activities}
         pagination={false}
         locale={{ emptyText: '这个商机还没有跟进记录。谈单细节写在这里，客户详情里的时间线才完整。' }}

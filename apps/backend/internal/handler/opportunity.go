@@ -94,6 +94,23 @@ func (h *OpportunityHandler) Update(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Revalue POST /api/v1/opportunities/:id/revalue
+//
+// 按今日汇率重估本币金额（T-61）。与 PUT 分开：保存一次就把预测重估一遍，
+// 等于让"改备注"顺手改了金额。
+func (h *OpportunityHandler) Revalue(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.opportunities.Revalue(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 // Delete DELETE /api/v1/opportunities/:id
 func (h *OpportunityHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

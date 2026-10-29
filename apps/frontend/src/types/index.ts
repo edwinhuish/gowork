@@ -262,6 +262,11 @@ export interface Opportunity {
   currency_code: string
   amount_base: string
   exchange_rate: string
+  /**
+   * 本币金额用的是哪一天的汇率（T-61）。改备注、改阶段都不会让它变，
+   * 只有金额/币种变了或显式「按今日汇率重算」才更新。
+   */
+  rate_locked_on: string
   /** 赢单恒 100、输单恒 0，由后端强制。 */
   probability: number
   expected_close_date: string
