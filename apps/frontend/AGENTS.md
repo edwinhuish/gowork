@@ -143,15 +143,13 @@ api/client.ts
 后端 /api/v1/*（dev 经 Vite proxy，生产由反代接管）
 ```
 
-**筛选走白名单**：`dataProvider` 的 `PASSTHROUGH_FILTERS` 只翻译 `keyword` / `category` /
-`supplier_id` / `status` / `country` / `role` / `entity_type` / `currency_code` / `partner_id` /
-`product_id` / `due` / `stage` / `open_only` / `source` / `type`，其余条件直接丢弃。
+**筛选走白名单**：`dataProvider` 的 `PASSTHROUGH_FILTERS` 只翻译名单里的条件，其余直接丢弃。
 后端没有对应参数时**不要**把它拼进 URL —— 后端会静默忽略，表现成「点了查询没反应」，
 比报错难查得多。
 
-**已知缺口**：后端支持而白名单里还没有的是 `from` / `to`（库存流水发生日区间）与
-`sales_order_id`（出货按订单筛），所以这两个筛选在界面上暂时用不了，修法是加进白名单
-（`docs/roadmap.md` T-43）。
+名单以 `providers/dataProvider.ts` 为准，**不要在这里抄一份**：抄了就会过期
+（本手册曾写着 `from` / `to` / `sales_order_id` 是"已知缺口"，实际前两个早就加进去了，
+第三个也随 T-43 补上）。要确认某个条件通不通，grep 一眼 `PASSTHROUGH_FILTERS` 比读文档快。
 
 **错误只有一条路径**：`client.ts` 抛 `ApiError`（带 `code`），refine 捕获后调 `authProvider.onError`；
 非 401 错误交回页面，由表单/表格的局部状态展示。页面里不写 `try/catch` 兜底空实现。
