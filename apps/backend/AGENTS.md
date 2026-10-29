@@ -140,6 +140,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
+| GET | `/api/v1/reports/partner-360` | `Report.Partner360` | `ReportService.Partner360`：主体抬头数字 + 订单 / 出货 / 应收 / 跟进 / 商机五块明细（各带 id 与单号，默认 10 条）；出货按**订单行归属**去重计数（拼柜时一票含多家的货）；商机只算未终结的；应收合计按全部未结清单据算，不受明细截断影响；主体不存在 404 |
 | GET | `/api/v1/reports/collection` | `Report.Collection` | `ReportService.Collection`：回款率 = 期间**到账并核销**（按到账日）÷ 期间**到期**（按到期日），两批单据可以不同批，比率可超 100%；超期明细逐笔到单据号，按逾期天数倒序，未到期不计入明细；分桶复用账龄规则；`limit` 截断时合计与分桶仍是全量 |
 | GET | `/api/v1/reports/sales-dashboard` | `Report.SalesDashboard` | `ReportService.SalesDashboard`：`dimension=customer\|product\|country\|month`，收入 / 成本 / 运杂费先摊到**出货行**再分组，四个维度合计必然相等且等于单票毛利之和；订单额按下单日、毛利按出货日；`salesperson` 回 400（等 T-32 的 `owner_id`）；合计不受 `limit` 截断 |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
