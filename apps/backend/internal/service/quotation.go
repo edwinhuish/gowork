@@ -184,6 +184,11 @@ func (s *quotationService) Update(
 		"gross_profit":      totals.Gross,
 		"margin_rate":       totals.Margin,
 	}
+	// 页面带了自己的版本号就做条件更新：两个人同时改这张草稿时，后提交的那个
+	// 会拿到 409，而不是把前一个的明细整片覆盖掉（明细是删旧建新，覆盖后无从恢复）。
+	if in.UpdatedAt != nil {
+		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
+	}
 	if err := s.quotations.UpdateWithItems(ctx, id, fields, items); err != nil {
 		return nil, err
 	}

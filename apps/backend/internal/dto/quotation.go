@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
@@ -39,6 +41,9 @@ type QuotationInput struct {
 	Remark     string `json:"remark" binding:"max=255"`
 	// Items 至少一行：空报价单没法解释它想表达什么，也过不了 ConvertBlocker 之外的任何校验。
 	Items []QuotationItemInput `json:"items" binding:"required,min=1,dive"`
+	// UpdatedAt 是编辑页打开时读到的版本。带上它做条件更新：
+	// 期间被别人改过就返回 409，而不是把对方的改动静默盖掉。新建时留空。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // QuotationStatusInput 只接受报价单真正会走到的两个状态：

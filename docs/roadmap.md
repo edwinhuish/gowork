@@ -218,6 +218,21 @@ migrate 回填），复制一份到 `md_product_code` 就成了两处真相，�
 | T-31 | 产品毛利与业绩 | SKU / 品类毛利排行；业务员目标与达成 | 毛利排行可下钻到单票；业绩按人按月 | T-28 | H4 | P2 |
 | T-46 | 接口契约与幂等 | 从路由表导出 `openapi.json` 并纳入 CI；写操作 `Idempotency-Key`；`updated_at` 乐观锁 | OpenAPI 与路由表一致（CI 校验）；同一幂等键重复提交只落一条；并发编辑冲突返回 409 | T-43 | — | P2 |
 
+**T-46 已完成两块，第三块只铺了样板**：
+
+- **幂等键**：`middleware.Idempotency` 对带该头的 POST 生效，按「用户 + 路径 + 客户端键」隔离，
+  命中回放并带 `Idempotent-Replay`，进行中的重复请求 409，5xx 不缓存。前端用
+  `hooks/use-idempotency-key` 挂在 8 个会重复建单的新建页上（报价 / 订单 / 采购 / 出货 /
+  合同 / 应收 / 应付 / 出入库单）。
+- **乐观锁的机制**：`repository.FieldUpdatedAt` + `takeOptimisticLock`，只要 `fields` 里带了
+  `updated_at` 就变成条件更新，命中不到返回 409。走 `Base.UpdateFields` 的资源自动受益，
+  单据那几条自定义事务（`UpdateWithItems`）要各自调一次同一个辅助函数。
+- **铺开程度**：目前只有**报价单**在 dto、service、编辑页三处接通（含用例）。其余资源
+  （订单、采购、合同、出货、收付款、出入库单、产品、往来单位、币种）**还没传** `updated_at`，
+  行为与改造前一致（后保存的静默覆盖先保存的）。补法是机械的：dto 的 Input 加 `UpdatedAt`
+  → service 把它塞进 `fields` → 编辑页加一个 `hidden` 的 `Form.Item name="updated_at"`。
+- **OpenAPI**：未开始。
+
 ### 阶段 9 · 权限与协作
 
 | 编号 | 任务 | 交付物 | 验收标准 | 依赖 | 能力 | 优先级 |

@@ -66,19 +66,65 @@ func (r *Base[T]) Create(ctx context.Context, m *T) error {
 	return nil
 }
 
+// takeOptimisticLock 从 fields 里摘出版本条件，返回期望值与是否带了版本。
+//
+// 抽成函数是因为单据的更新走各自的事务（UpdateWithItems 这类），不经过
+// Base.UpdateFields，但必须用同一套判定——否则"哪张单受保护"取决于
+// 它当初是怎么写更新逻辑的，而不是取决于业务上该不该保护。
+func takeOptimisticLock(fields map[string]any) (any, bool) {
+	expected, ok := fields[FieldUpdatedAt]
+	if !ok {
+		return nil, false
+	}
+	// 摘掉它：这一列由 gorm 自己维护，不能拿来当要写入的值。
+	delete(fields, FieldUpdatedAt)
+	return expected, true
+}
+
+// FieldUpdatedAt 是乐观锁的约定键。
+//
+// 调用方把"读到这条记录时的 updated_at"放进 fields，UpdateFields 会把它从
+// SET 里摘出来当 WHERE 条件。service 层不需要改仓储接口，也不用记另一种方法名。
+const FieldUpdatedAt = "updated_at"
+
 // UpdateFields 按字段更新，避免全量覆盖时误清空未提交的字段。
+//
+// fields 里带 FieldUpdatedAt 时做**条件更新**：两个人同时编辑同一张单，
+// 后提交的那个会被拒绝（409），而不是把前一个的改动静默盖掉。
+// 只比这一列，不比整行——业务字段的差异由各 service 的校验负责，
+// 这里只管一件事：你动手时看到的那份底稿，现在还是不是那份底稿。
 func (r *Base[T]) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
 	if len(fields) == 0 {
 		return nil
 	}
-	res := r.conn(ctx).Model(new(T)).Where("id = ?", id).Updates(fields)
+
+	q := r.conn(ctx).Model(new(T)).Where("id = ?", id)
+	expected, hasLock := takeOptimisticLock(fields)
+	if hasLock {
+		if len(fields) == 0 {
+			return nil
+		}
+		q = q.Where("updated_at = ?", expected)
+	}
+
+	res := q.Updates(fields)
 	if res.Error != nil {
 		return fmt.Errorf("更新记录 id=%d: %w", id, res.Error)
 	}
-	if res.RowsAffected == 0 {
-		return errs.ErrNotFound
+	if res.RowsAffected > 0 {
+		return nil
 	}
-	return nil
+	if hasLock {
+		// 条件没命中：记录还在，只是底稿被别人换过了；记录本身没了则是另一种情况。
+		var count int64
+		if err := r.conn(ctx).Model(new(T)).Where("id = ?", id).Count(&count).Error; err != nil {
+			return fmt.Errorf("确认记录 id=%d 是否存在: %w", id, err)
+		}
+		if count > 0 {
+			return errs.ErrConflict.WithMsg("这条记录已被他人修改，请刷新后重试")
+		}
+	}
+	return errs.ErrNotFound
 }
 
 // DeleteByID 执行软删除，历史单据与追溯链不受影响。
