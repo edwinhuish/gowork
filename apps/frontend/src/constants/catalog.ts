@@ -485,6 +485,9 @@ export const STOCK_DOC_TYPE_OPTIONS = [
   { value: 10, label: '采购入库' },
   { value: 20, label: '销售出库' },
   { value: 40, label: '盘点' },
+  // 采购退货（T-52b3）：把货退回工厂，方向出。没有它，退给供应商的货
+  // 只能靠盘点平回去，而盘点单是拿来做对账的——那会让"这个月盘亏多少"失真。
+  { value: 50, label: '采购退货' },
 ]
 
 export function stockDocTypeLabel(value?: number | null): string {
