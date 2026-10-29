@@ -140,6 +140,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
+| GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403。只有列表——建号 / 改角色 / 重置密码属于用户维护模块，尚未做 |
 | PUT | `/api/v1/partners/:id/owner` | `Partner.TransferOwner` | 转移负责人（T-32）：仅 admin / manager，业务员 403；`owner_id=0` 退回未分配（公共池）；校验接手账号存在且启用；带 `updated_at` 走乐观锁 |
 | GET | `/api/v1/audit-logs` | `Audit.List` | 操作日志（T-33）：写操作由 `middleware.Audit` 统一记录，本接口只读、仅管理员（`RequireAdmin`）；筛选 `entity` / `entity_id` / `action` / `actor_id` / `from`+`to`（含当天）/ `keyword`（路径+请求体+操作人） |
 | GET | `/api/v1/reports/partner-360` | `Report.Partner360` | `ReportService.Partner360`：主体抬头数字 + 订单 / 出货 / 应收 / 跟进 / 商机五块明细（各带 id 与单号，默认 10 条）；出货按**订单行归属**去重计数（拼柜时一票含多家的货）；商机只算未终结的；应收合计按全部未结清单据算，不受明细截断影响；主体不存在 404 |
