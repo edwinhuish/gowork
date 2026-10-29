@@ -6,7 +6,8 @@ import type { Product, ProductSource } from '@/types'
 
 export interface LineItemRow {
   product_id?: number
-  qty?: number
+  /** 数量按字符串收发（后端 money.Decimal）：与单价一样，过 number 就丢末位。 */
+  qty?: string
   /** 单价按字符串收发（后端 money.Decimal），过一遍 JS number 就丢了末位。 */
   unit_price?: string
   source_id?: number
@@ -124,7 +125,7 @@ export function LineItemsEditor({
                 : []
               // 只用于界面提示：真实金额由服务端按「数量 × 单价 × 汇率」算，
               // 这里转成 number 只是为了让用户边填边看个大概。
-              const subtotal = (row.qty ?? 0) * Number(row.unit_price ?? 0)
+              const subtotal = Number(row.qty ?? 0) * Number(row.unit_price ?? 0)
 
               return (
                 <Row gutter={8} key={field.key} align="top">
@@ -161,7 +162,14 @@ export function LineItemsEditor({
                       name={[field.name, 'qty']}
                       rules={[{ required: true, message: '数量' }]}
                     >
-                      <InputNumber style={{ width: '100%' }} min={0.001} step={1} placeholder="0" />
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        min={0.001}
+                        step={1}
+                        precision={3}
+                        stringMode
+                        placeholder="0"
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={spans.price}>
@@ -216,7 +224,7 @@ export function LineItemsEditor({
             <Button
               type="dashed"
               block
-              onClick={() => add({ qty: 1, unit_price: '0' })}
+              onClick={() => add({ qty: '1', unit_price: '0' })}
               style={{ marginTop: 4 }}
             >
               加一行明细

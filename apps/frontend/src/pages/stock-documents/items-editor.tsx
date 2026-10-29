@@ -7,7 +7,8 @@ import { formatQty } from '@/utils/format'
 
 export interface StockDocItemRow {
   product_id?: number
-  qty?: number
+  /** 数量按字符串收发（后端 money.Decimal）：3 位小数，前端不算账。 */
+  qty?: string
   remark?: string
 }
 
@@ -97,12 +98,14 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
                       { required: true, message: '填数量' },
                       {
                         // 盘点可以填 0（盘到没有货是结论），入库 / 出库填 0 说明这行没写完。
-                        validator: async (_, value: number | undefined) => {
-                          if (value === undefined || value === null) return
-                          if (!isCount && value <= 0) {
+                        // 数量是定点字符串，判断前先转 number；真正的拦截在服务端。
+                        validator: async (_, value: string | undefined) => {
+                          if (value === undefined || value === null || value === '') return
+                          const num = Number(value)
+                          if (!isCount && num <= 0) {
                             throw new Error('数量必须大于 0')
                           }
-                          if (value < 0) {
+                          if (num < 0) {
                             throw new Error('数量不能是负数')
                           }
                         },
@@ -114,6 +117,7 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
                       min={isCount ? 0 : 0.001}
                       step={1}
                       precision={3}
+                      stringMode
                       placeholder="0"
                     />
                   </Form.Item>
@@ -131,7 +135,7 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
               </Row>
             ))}
 
-            <Button type="dashed" block onClick={() => add({ qty: isCount ? 0 : 1 })}>
+            <Button type="dashed" block onClick={() => add({ qty: isCount ? '0' : '1' })}>
               加一行明细
             </Button>
 
@@ -139,7 +143,7 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
 
             {rows.length > 0 && !isCount ? (
               <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                合计 {formatQty(rows.reduce((sum, r) => sum + (r.qty ?? 0), 0))}
+                合计 {formatQty(rows.reduce((sum, r) => sum + Number(r.qty ?? 0), 0))}
               </Typography.Text>
             ) : null}
           </>

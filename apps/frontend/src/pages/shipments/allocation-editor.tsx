@@ -7,11 +7,12 @@ import { formatQty } from '@/utils/format'
 
 export interface AllocationRow {
   sales_order_item_id?: number
-  qty?: number
+  /** 数量与重量都按字符串收发（后端 money.Decimal）：过 number 就丢末位。 */
+  qty?: string
   /** 装箱数据：印装箱单用，可留空。重量是这一行的合计，不是单箱。 */
   cartons?: number
-  gross_weight?: number
-  net_weight?: number
+  gross_weight?: string
+  net_weight?: string
   measurement?: string
   remark?: string
 }
@@ -22,10 +23,10 @@ interface RowInfo {
   nameCN: string
   spec: string
   unit: string
-  /** 已出多少。 */
-  shipped?: number
+  /** 已出多少。定点字符串，只用于显示。 */
+  shipped?: string
   /** 还能出多少；编辑时后端把本票占的数量还了回来，所以这里是含本行的上限。 */
-  unshipped?: number
+  unshipped?: string
 }
 
 
@@ -165,10 +166,11 @@ export function AllocationEditor({
             {fields.map((field) => {
               const row = rows[field.name] ?? {}
               const info = row.sales_order_item_id ? infoById.get(row.sales_order_item_id) : undefined
+              // 「还能出多少」只用于提示：真正的上限判定在服务端。
               const remain =
                 info?.unshipped === undefined
                   ? undefined
-                  : Math.max(info.unshipped - (row.qty ?? 0), 0)
+                  : Math.max(Number(info.unshipped) - Number(row.qty ?? 0), 0)
 
               return (
                 <div key={field.key} style={{ marginBottom: 8 }}>
@@ -216,6 +218,7 @@ export function AllocationEditor({
                           min={0.001}
                           step={1}
                           precision={3}
+                          stringMode
                           placeholder="0"
                         />
                       </Form.Item>
@@ -258,6 +261,7 @@ export function AllocationEditor({
                           style={{ width: '100%' }}
                           min={0}
                           precision={3}
+                          stringMode
                           placeholder="毛重 G.W. kg"
                         />
                       </Form.Item>
@@ -268,6 +272,7 @@ export function AllocationEditor({
                           style={{ width: '100%' }}
                           min={0}
                           precision={3}
+                          stringMode
                           placeholder="净重 N.W. kg"
                         />
                       </Form.Item>
@@ -296,7 +301,7 @@ export function AllocationEditor({
                 add({
                   sales_order_item_id: itemId,
                   // 默认出完：分批出货时改这个数就行，比从 0 开始填省事。
-                  qty: c?.unshipped_qty ?? 1,
+                  qty: c?.unshipped_qty ?? '1',
                   remark: '',
                 })
                 setPicked(undefined)

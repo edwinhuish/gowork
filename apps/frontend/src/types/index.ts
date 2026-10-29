@@ -333,7 +333,8 @@ export interface QuotationItem {
   name_cn: string
   spec: string
   unit: string
-  qty: number
+  /** 数量与金额一样是后端 money.Decimal 的定点字符串：3 位小数，前端不参与算术。 */
+  qty: string
   /** 报价币种单价。金额字段都是后端 money.Decimal 的字符串，前端只展示不运算。 */
   unit_price: string
   amount: string
@@ -462,7 +463,7 @@ export interface SalesOrderItem {
   name_cn: string
   spec: string
   unit: string
-  qty: number
+  qty: string
   /** 金额字段是后端 money.Decimal 的字符串：前端只展示，算术一律在服务端。 */
   unit_price: string
   amount: string
@@ -470,9 +471,9 @@ export interface SalesOrderItem {
   remark: string
   product?: Product | null
   /** 已出数量，只在订单详情里由出货分配算出来；列表不带。 */
-  shipped_qty?: number
+  shipped_qty?: string
   /** 未出数量 = qty - shipped_qty；列表不带。 */
-  unshipped_qty?: number
+  unshipped_qty?: string
 }
 
 /**
@@ -521,7 +522,7 @@ export interface ShipmentAllocation {
   name_cn: string
   spec: string
   unit: string
-  qty: number
+  qty: string
   /**
    * 装箱数据，只有印装箱单时才需要；0 与空串表示"还没装箱"。
    *
@@ -529,8 +530,8 @@ export interface ShipmentAllocation {
    * 按单箱记的话改一次箱数就要把所有合计重算一遍。
    */
   cartons: number
-  gross_weight: number
-  net_weight: number
+  gross_weight: string
+  net_weight: string
   /** 外箱尺寸，如 "60×40×30CM"，系统只原样印出来，不算体积。 */
   measurement: string
   remark: string
@@ -818,9 +819,9 @@ export interface ShipmentCandidate {
   name_cn: string
   spec: string
   unit: string
-  qty: number
-  shipped_qty: number
-  unshipped_qty: number
+  qty: string
+  shipped_qty: string
+  unshipped_qty: string
   delivery_date?: string
 }
 
@@ -841,7 +842,7 @@ export interface StockMovement {
   unit: string
   type: number
   direction: number
-  qty: number
+  qty: string
   /** 业务发生日，不是录入时间。 */
   occurred_at: string
   source_type: string
@@ -861,7 +862,7 @@ export interface StockSnapshotRow {
   name_cn: string
   spec: string
   unit: string
-  qty: number
+  qty: string
   last_occurred_at?: string | null
   updated_at: string
 }
@@ -880,8 +881,8 @@ export interface StockDocumentItem {
   name_cn: string
   spec: string
   unit: string
-  qty: number
-  book_qty?: number | null
+  qty: string
+  book_qty?: string | null
   remark: string
 }
 
@@ -914,8 +915,8 @@ export interface StockRecalcResult {
   recalculated: number
   mismatched: {
     product_id: number
-    snapshot_qty: number
-    movement_qty: number
+    snapshot_qty: string
+    movement_qty: string
   }[]
 }
 
@@ -933,7 +934,7 @@ export interface PurchaseOrderItem {
   name_cn: string
   spec: string
   unit: string
-  qty: number
+  qty: string
   unit_price: string
   amount: string
   amount_base: string
@@ -972,7 +973,7 @@ export interface QuotationPreviewItem {
   sku_code: string
   name_cn: string
   unit: string
-  qty: number
+  qty: string
   unit_price: string
   amount: string
   amount_base: string

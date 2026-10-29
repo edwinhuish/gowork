@@ -75,7 +75,14 @@ export function StockMovementCreate() {
           rules={[{ required: true, message: '填数量' }]}
           extra="始终填正数，出库靠上面的方向表示"
         >
-          <InputNumber style={{ width: '100%' }} min={0.001} step={1} precision={3} placeholder="0" />
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0.001}
+            step={1}
+            precision={3}
+            stringMode
+            placeholder="0"
+          />
         </Form.Item>
 
         <Form.Item

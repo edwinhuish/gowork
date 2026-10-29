@@ -112,7 +112,7 @@ export function StockMovementList() {
           title="数量"
           width={110}
           align="right"
-          render={(value: number, record: StockMovement) => (
+          render={(value: string, record: StockMovement) => (
             <span className="cell-mono">
               {record.direction === -1 ? '−' : '+'}
               {formatQty(value)}

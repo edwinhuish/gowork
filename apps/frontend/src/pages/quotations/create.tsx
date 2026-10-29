@@ -24,7 +24,7 @@ export function QuotationCreate() {
         initialValues={{
           trade_term: 'FOB',
           valid_until: defaultValidUntil(),
-          items: [{ qty: 1, unit_price: 0 }],
+          items: [{ qty: '1', unit_price: '0' }],
         }}
       >
         <QuotationFormFields />

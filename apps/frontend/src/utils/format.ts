@@ -32,9 +32,12 @@ export function formatPercent(value?: number | string | null, digits = 2) {
  * 后端数量存 decimal(14,3)，直接显示会得到「800.000」，而仓库与货代看单时
  * 会把它读成"有小数"；去掉尾零与后端报错提示里的写法也保持一致。
  */
-export function formatQty(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
-  return value.toFixed(3).replace(/\.?0+$/, '')
+export function formatQty(value?: number | string | null) {
+  if (value === null || value === undefined) return '—'
+  // 定点数量以字符串下发，这里只做显示，转 number 只为去掉尾零。
+  const num = typeof value === 'string' ? Number(value) : value
+  if (Number.isNaN(num)) return '—'
+  return num.toFixed(3).replace(/\.?0+$/, '')
 }
 
 /**

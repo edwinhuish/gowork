@@ -9,7 +9,7 @@ import type { SalesOrder } from '@/types'
  */
 export interface SalesOrderItemInput {
   product_id: number
-  qty: number
+  qty: string
   unit_price: number
   remark?: string
 }

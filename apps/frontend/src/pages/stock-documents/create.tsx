@@ -21,7 +21,7 @@ export function StockDocumentCreate() {
         {...formProps}
         layout="vertical"
         className="entity-form"
-        initialValues={{ type: 10, items: [{ qty: 1 }] }}
+        initialValues={{ type: 10, items: [{ qty: '1' }] }}
       >
         <StockDocFormFields />
 

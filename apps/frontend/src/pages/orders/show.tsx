@@ -245,21 +245,21 @@ export function OrderShow() {
             title="数量"
             width={90}
             align="right"
-            render={(value: number) => value.toLocaleString('zh-CN')}
+            render={(value: string) => Number(value).toLocaleString('zh-CN')}
           />
           <Table.Column
             dataIndex="shipped_qty"
             title="已出"
             width={90}
             align="right"
-            render={(value?: number) => (value === undefined ? <Empty /> : formatQty(value))}
+            render={(value?: string) => (value === undefined ? <Empty /> : formatQty(value))}
           />
           <Table.Column
             dataIndex="unshipped_qty"
             title="未出"
             width={90}
             align="right"
-            render={(value?: number) => (value === undefined ? <Empty /> : formatQty(value))}
+            render={(value?: string) => (value === undefined ? <Empty /> : formatQty(value))}
           />
           <Table.Column
             dataIndex="unit_price"

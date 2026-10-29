@@ -93,11 +93,12 @@ export function ShipmentShow() {
 
   const s = result
   const actions = s ? nextActions(s.status) : []
-  const totalQty = (s?.allocations ?? []).reduce((sum, a) => sum + a.qty, 0)
+  // 数量与重量是定点字符串：这里的合计只用于显示，装箱单上的数字由服务端算。
+  const totalQty = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.qty), 0)
   // 箱数与毛净重只由分配行相加得出：票头上另存一份，装箱单的合计就会与明细对不上。
   const packCartons = (s?.allocations ?? []).reduce((sum, a) => sum + (a.cartons ?? 0), 0)
-  const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + (a.gross_weight ?? 0), 0)
-  const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + (a.net_weight ?? 0), 0)
+  const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.gross_weight ?? 0), 0)
+  const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.net_weight ?? 0), 0)
 
   /**
    * 打印这一票的单证。
@@ -309,7 +310,7 @@ export function ShipmentShow() {
             title="出货数量"
             width={110}
             align="right"
-            render={(value: number) => formatQty(value)}
+            render={(value: string) => formatQty(value)}
           />
           <Table.Column
             dataIndex="cartons"

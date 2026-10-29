@@ -34,10 +34,11 @@ export function useQuotationPreview(form: FormInstance) {
     }
 
     const items = (values.items ?? [])
-      .filter((it) => it?.product_id && (it?.qty ?? 0) > 0)
+      // 数量是定点字符串：这里的"有没有填"只决定这一行要不要送去试算。
+      .filter((it) => it?.product_id && Number(it?.qty ?? 0) > 0)
       .map((it) => ({
         product_id: it.product_id as number,
-        qty: it.qty as number,
+        qty: it.qty ?? '0',
         unit_price: it.unit_price ?? '0',
         source_id: it.source_id,
         remark: it.remark,

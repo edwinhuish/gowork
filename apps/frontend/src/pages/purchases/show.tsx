@@ -198,7 +198,7 @@ export function PurchaseShow() {
             title="数量"
             width={90}
             align="right"
-            render={(value: number) => value.toLocaleString('zh-CN')}
+            render={(value: string) => Number(value).toLocaleString('zh-CN')}
           />
           <Table.Column
             dataIndex="unit_price"

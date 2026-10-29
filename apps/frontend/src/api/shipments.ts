@@ -9,11 +9,11 @@ import type { Shipment, ShipmentCandidate } from '@/types'
  */
 export interface ShipmentAllocationInput {
   sales_order_item_id: number
-  qty: number
+  qty: string
   /** 装箱数据：印装箱单用，可留空。重量是这一行的合计，不是单箱。 */
   cartons?: number
-  gross_weight?: number
-  net_weight?: number
+  gross_weight?: string
+  net_weight?: string
   measurement?: string
   remark?: string
 }

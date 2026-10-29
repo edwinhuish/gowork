@@ -22,7 +22,7 @@ export function OrderCreate() {
         className="entity-form"
         initialValues={{
           trade_term: 'FOB',
-          items: [{ qty: 1, unit_price: 0 }],
+          items: [{ qty: '1', unit_price: '0' }],
         }}
       >
         <OrderFormFields />

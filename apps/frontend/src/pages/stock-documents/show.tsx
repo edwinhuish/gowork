@@ -165,7 +165,7 @@ export function StockDocumentShow() {
               title="账面"
               width={90}
               align="right"
-              render={(value?: number | null) =>
+              render={(value?: string | null) =>
                 value === null || value === undefined ? <Empty /> : formatQty(value)
               }
             />
@@ -175,7 +175,7 @@ export function StockDocumentShow() {
             title={isCount ? '实盘' : '数量'}
             width={90}
             align="right"
-            render={(value: number) => formatQty(value)}
+            render={(value: string) => formatQty(value)}
           />
           {isCount && (
             <Table.Column
@@ -186,7 +186,8 @@ export function StockDocumentShow() {
                 if (record.book_qty === null || record.book_qty === undefined) {
                   return <Empty />
                 }
-                const diff = record.qty - record.book_qty
+                // 金额与数量都是定点字符串：差异只用于显示，账实判定在确认那一刻的流水里。
+                const diff = Number(record.qty) - Number(record.book_qty)
                 if (Math.abs(diff) < 1e-6) {
                   return <Typography.Text type="secondary">相符</Typography.Text>
                 }

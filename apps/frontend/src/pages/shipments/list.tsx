@@ -94,7 +94,8 @@ export function ShipmentList() {
           render={(_, record: Shipment) => {
             const allocations = record.allocations ?? []
             if (allocations.length === 0) return <Empty />
-            const totalQty = allocations.reduce((sum, a) => sum + a.qty, 0)
+            // 数量是定点字符串：这里的合计只用于列表提示，算术在服务端。
+            const totalQty = allocations.reduce((sum, a) => sum + Number(a.qty), 0)
             const docNos = [...new Set(allocations.map((a) => a.sales_order_doc_no))]
             return (
               <div className="cell-stack">

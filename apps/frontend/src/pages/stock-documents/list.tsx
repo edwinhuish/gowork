@@ -135,7 +135,8 @@ export function StockDocumentList() {
           render={(_, record: StockDocument) => {
             const items = record.items ?? []
             if (items.length === 0) return <Empty />
-            const total = items.reduce((sum, it) => sum + it.qty, 0)
+            // 数量是定点字符串：合计只用于列表提示。
+            const total = items.reduce((sum, it) => sum + Number(it.qty), 0)
             return (
               <div className="cell-stack">
                 <span className="cell-strong">

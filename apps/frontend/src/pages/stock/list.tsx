@@ -106,10 +106,11 @@ export function StockList() {
           title="当前库存"
           width={130}
           align="right"
-          render={(value: number) => (
+          // 数量是定点字符串：这里的正负判断只用于着色。
+          render={(value: string) => (
             <span className="cell-mono">
               {/* 负库存不是错误：先出货后补入库单在直发业务里很正常，但要显眼。 */}
-              {value < 0 ? (
+              {Number(value) < 0 ? (
                 <Typography.Text type="danger">{formatQty(value)}</Typography.Text>
               ) : (
                 formatQty(value)
