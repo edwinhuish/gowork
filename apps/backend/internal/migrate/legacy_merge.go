@@ -45,6 +45,24 @@ type legacyPartner struct {
 	DeletedAt gorm.DeletedAt
 }
 
+// PreparePartnerTable 在合并旧主体之前先把 md_partner 建出来。
+//
+// 合并必须排在 AutoMigrate 之前：AutoMigrate 会按模型给 md_product.supplier_id
+// 建指向 md_partner 的外键，而老库存的是 md_supplier 的 id——建外键那一刻
+// 数据就已经违反约束，整个升级当场失败。
+//
+// 但合并要往 md_partner 里写，表得先存在，所以这里只建这一张。
+// 其余结构仍交给 AutoMigrate，避免建表逻辑分叉。
+func PreparePartnerTable(db *gorm.DB) error {
+	if db.Migrator().HasTable(&model.Partner{}) {
+		return nil
+	}
+	if err := db.Migrator().CreateTable(&model.Partner{}); err != nil {
+		return fmt.Errorf("创建 md_partner: %w", err)
+	}
+	return nil
+}
+
 // MergeLegacyCustomersAndSuppliers 把 md_customer 与 md_supplier 合并进 md_partner。
 //
 // 函数名按"搬什么"来取，而不是叫 MergePartners：Partner 只是落点，

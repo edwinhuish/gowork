@@ -53,6 +53,19 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("执行表改名迁移: %w", err)
 	}
 
+	// 合并旧主体也必须排在 AutoMigrate 之前。AutoMigrate 会按模型给
+	// md_product.supplier_id 建指向 md_partner 的外键，而老库存的是 md_supplier
+	// 的 id——外键一建，那些行立刻违反约束，整个升级失败。
+	// 先在空表上完成搬运与 id 重映射，外键建出来时数据才是自洽的。
+	if err := migrate.PreparePartnerTable(db); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("准备 md_partner: %w", err)
+	}
+	if err := migrate.MergeLegacyCustomersAndSuppliers(db, log); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("合并旧客户与供应商: %w", err)
+	}
+
 	// 全部业务表集中在这里声明一次：结构同步、软删标记改造、以及将来的
 	// 备份与迁移都读同一份清单，分开写必然漏表。
 	models := []any{
