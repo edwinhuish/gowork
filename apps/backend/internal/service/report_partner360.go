@@ -80,7 +80,7 @@ func (s *reportService) Partner360(
 			DocNo:           r.DocNo,
 			CurrencyCode:    r.CurrencyCode,
 			DueDate:         model.DateOnly(r.DueDate).Format(rateDateLayout),
-			Outstanding:     r.Amount.Sub(r.SettledAmount).Round(4),
+			Outstanding:     r.Amount.Sub(r.SettledAmount).Sub(r.Credited).Round(4),
 			OutstandingBase: base,
 			OverdueDays:     max(days, 0),
 		})

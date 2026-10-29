@@ -90,6 +90,9 @@ type PartnerOutstandingReceivable struct {
 	SettledAmount     money.Decimal
 	AmountBase        money.Decimal
 	SettledAmountBase money.Decimal
+	// Credited 是已开的贷项合计（T-52b2）：未结清额 = Amount − SettledAmount − Credited。
+	Credited     money.Decimal
+	CreditedBase money.Decimal
 }
 
 func (r *reportRepo) GetPartnerBrief(ctx context.Context, id uint) (*PartnerBrief, error) {
@@ -311,10 +314,13 @@ func (r *reportRepo) ListPartnerOutstandingReceivables(
 	err := r.conn(ctx).
 		Table("biz_receivable").
 		Select(`id, doc_no, currency_code, due_date,
-			amount, settled_amount, amount_base, settled_amount_base`).
+			amount, settled_amount, amount_base, settled_amount_base,
+			`+creditSubquery("biz_receivable")+` AS credited,
+			`+creditBaseSubquery("biz_receivable")+` AS credited_base`).
 		Where("partner_id = ? AND deleted_at = 0", partnerID).
 		Where("status <> ?", model.SettlementStatusVoid).
-		Where("amount - settled_amount > ?", 0.0001).
+		// 与账龄、回款率、核销校验同口径：退过货的那部分不算未结清。
+		Where("amount - settled_amount - "+creditSubquery("biz_receivable")+" > ?", 0.0001).
 		Order("due_date ASC, id ASC").
 		Scan(&rows).Error
 	if err != nil {
