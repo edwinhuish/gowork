@@ -38,10 +38,6 @@ type ShipmentService interface {
 	Candidates(ctx context.Context, keyword string, excludeShipmentID uint) ([]dto.ShipmentCandidate, error)
 }
 
-// qtyEpsilon 是数量比较的容差。qty 存 decimal(14,3)，加减之后会有 1e-13 级别的误差，
-// 直接用 > 比较会把"刚好出完"判成超量。
-const qtyEpsilon = 1e-6
-
 // candidateLimit 限制可出货行的返回条数。出货单选行是一个下拉，
 // 一次给出几千行既卡界面也用不上——要找具体的单用关键字搜单号 / SKU。
 const candidateLimit = 200

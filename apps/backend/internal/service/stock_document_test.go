@@ -13,6 +13,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -58,7 +59,10 @@ func newStockDocFixture(t *testing.T, now *time.Time) stockDocFixture {
 	}
 }
 
-func qtyPtr(v float64) *float64 { return &v }
+func qtyPtr(v float64) *money.Decimal {
+	d := money.FromFloat(v)
+	return &d
+}
 
 // create 建一张草稿单。
 func (f stockDocFixture) create(
@@ -85,7 +89,7 @@ func (f stockDocFixture) confirm(t *testing.T, id uint) *model.StockDocument {
 }
 
 // qty 读当前库存（只有一个产品，所以不看 product_id）。
-func (f stockDocFixture) qty(t *testing.T) float64 {
+func (f stockDocFixture) qty(t *testing.T) money.Decimal {
 	t.Helper()
 	var s model.StockSnapshot
 	if err := f.db.Where("product_id = ?", f.product.ID).First(&s).Error; err != nil {
@@ -125,7 +129,7 @@ func TestStockDocumentPurchaseIn(t *testing.T) {
 	}
 	var snap model.StockSnapshot
 	err := fx.db.Where("product_id = ?", fx.product.ID).First(&snap).Error
-	if err == nil && snap.Qty != 0 {
+	if err == nil && !snap.Qty.IsZero() {
 		t.Errorf("草稿改动了库存：%v", snap.Qty)
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -139,7 +143,7 @@ func TestStockDocumentPurchaseIn(t *testing.T) {
 	if posted.PostedAt == nil {
 		t.Error("确认后应记录确认时间")
 	}
-	if got := fx.qty(t); !approx(got, 100) {
+	if got := fx.qty(t); !approxQty(got, 100) {
 		t.Errorf("确认后库存 = %v，期望 100", got)
 	}
 	if n := fx.movementCount(t); n != 1 {
@@ -173,7 +177,7 @@ func TestStockDocumentPurchaseIn(t *testing.T) {
 			t.Errorf("重复确认应 409，实际 %v", err)
 		}
 		// 三次被拒之后库存必须原封不动。
-		if got := fx.qty(t); !approx(got, 100) {
+		if got := fx.qty(t); !approxQty(got, 100) {
 			t.Errorf("被拒的操作改动了库存：%v", got)
 		}
 	})
@@ -194,7 +198,7 @@ func TestStockDocumentSalesOut(t *testing.T) {
 	fx.confirm(t, doc.ID)
 
 	// 允许负库存：直发业务里"先出货、后补入库单"是常态。
-	if got := fx.qty(t); !approx(got, -30) {
+	if got := fx.qty(t); !approxQty(got, -30) {
 		t.Errorf("库存 = %v，期望 -30", got)
 	}
 }
@@ -214,10 +218,10 @@ func TestStockDocumentCount(t *testing.T) {
 		}
 		posted := fx.confirm(t, doc.ID)
 
-		if posted.Items[0].BookQty == nil || !approx(*posted.Items[0].BookQty, 100) {
+		if posted.Items[0].BookQty == nil || !approxQty(*posted.Items[0].BookQty, 100) {
 			t.Errorf("未回写账面数: %+v", posted.Items[0])
 		}
-		if got := fx.qty(t); !approx(got, 95) {
+		if got := fx.qty(t); !approxQty(got, 95) {
 			t.Errorf("库存 = %v，期望 95", got)
 		}
 
@@ -227,7 +231,7 @@ func TestStockDocumentCount(t *testing.T) {
 			t.Fatalf("查流水失败: %v", err)
 		}
 		if mv.Type != model.StockMovementCount || mv.Direction != model.StockDirectionOut ||
-			!approx(mv.Qty, 5) {
+			!approxQty(mv.Qty, 5) {
 			t.Errorf("盘亏应生成出库 5，实际 %v / %v / %v", mv.Type, mv.Direction, mv.Qty)
 		}
 	})
@@ -238,13 +242,13 @@ func TestStockDocumentCount(t *testing.T) {
 			dto.StockDocumentItemInput{ProductID: fx.product.ID, Qty: qtyPtr(95)})
 		posted := fx.confirm(t, doc.ID)
 
-		if posted.Items[0].BookQty == nil || !approx(*posted.Items[0].BookQty, 95) {
+		if posted.Items[0].BookQty == nil || !approxQty(*posted.Items[0].BookQty, 95) {
 			t.Errorf("无差异也要回写账面数: %+v", posted.Items[0])
 		}
 		if after := fx.movementCount(t); after != before {
 			t.Errorf("账实相符却生成了 %d 条流水", after-before)
 		}
-		if got := fx.qty(t); !approx(got, 95) {
+		if got := fx.qty(t); !approxQty(got, 95) {
 			t.Errorf("库存被无差异的盘点改动了：%v", got)
 		}
 	})
@@ -253,7 +257,7 @@ func TestStockDocumentCount(t *testing.T) {
 		doc := fx.create(t, model.StockDocCount,
 			dto.StockDocumentItemInput{ProductID: fx.product.ID, Qty: qtyPtr(99)})
 		fx.confirm(t, doc.ID)
-		if got := fx.qty(t); !approx(got, 99) {
+		if got := fx.qty(t); !approxQty(got, 99) {
 			t.Errorf("库存 = %v，期望 99", got)
 		}
 	})
@@ -262,7 +266,7 @@ func TestStockDocumentCount(t *testing.T) {
 		doc := fx.create(t, model.StockDocCount,
 			dto.StockDocumentItemInput{ProductID: fx.product.ID, Qty: qtyPtr(0)})
 		fx.confirm(t, doc.ID)
-		if got := fx.qty(t); !approx(got, 0) {
+		if got := fx.qty(t); !approxQty(got, 0) {
 			t.Errorf("库存 = %v，期望 0", got)
 		}
 	})
@@ -280,10 +284,10 @@ func TestStockDocumentCount(t *testing.T) {
 
 		posted := fx.confirm(t, doc.ID)
 		// 确认那一刻账面是 30，实盘 20 → 盘亏 10，最终库存 20。
-		if posted.Items[0].BookQty == nil || !approx(*posted.Items[0].BookQty, 30) {
+		if posted.Items[0].BookQty == nil || !approxQty(*posted.Items[0].BookQty, 30) {
 			t.Errorf("账面数应按确认时快照算（30），实际 %+v", posted.Items[0].BookQty)
 		}
-		if got := fx.qty(t); !approx(got, 20) {
+		if got := fx.qty(t); !approxQty(got, 20) {
 			t.Errorf("库存 = %v，期望 20", got)
 		}
 	})
@@ -373,7 +377,7 @@ func TestStockDocumentRules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("改草稿失败: %v", err)
 		}
-		if len(updated.Items) != 1 || !approx(updated.Items[0].Qty, 11) {
+		if len(updated.Items) != 1 || !approxQty(updated.Items[0].Qty, 11) {
 			t.Errorf("明细替换后 = %+v", updated.Items)
 		}
 

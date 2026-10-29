@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // StockMovementType 说明这条流水为什么发生，不决定方向。
@@ -113,7 +115,9 @@ type StockMovement struct {
 	Direction StockDirection    `gorm:"not null" json:"direction"`
 	// Qty 始终为正数，方向看 Direction。允许存负数会让"两条 +5 与一条 -10"
 	// 变得同样合法，而对账时分不清是录错了还是故意的。
-	Qty float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	//
+	// 定点：快照是几百上千条流水累加出来的，浮点末位误差会攒成"账实差几件"。
+	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// OccurredAt 是业务发生日（只取日期，见 DateOnly），不是录入时间。
 	OccurredAt time.Time `gorm:"not null;index" json:"occurred_at"`
 	// SourceType / SourceID / SourceDocNo 指向产生这条流水的单据；
@@ -129,8 +133,15 @@ type StockMovement struct {
 func (StockMovement) TableName() string { return "inv_stock_movement" }
 
 // SignedQty 返回带符号的数量，正数入库、负数出库。
-func (m StockMovement) SignedQty() float64 {
-	return float64(m.Direction) * m.Qty
+func (m StockMovement) SignedQty() money.Decimal {
+	switch m.Direction {
+	case StockDirectionIn:
+		return m.Qty
+	case StockDirectionOut:
+		return m.Qty.Neg()
+	default:
+		return money.Zero()
+	}
 }
 
 // StockSnapshot 是当前库存。
@@ -146,7 +157,7 @@ type StockSnapshot struct {
 	ProductID uint `gorm:"not null;uniqueIndex" json:"product_id"`
 	// Qty 可以为负：直发业务里"先出货、后补入库单"是常态，
 	// 硬拦负库存只会逼人先造一张假的入库单。
-	Qty float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// LastMovementID / LastOccurredAt 记最后一次变动，用于"这个数有多旧"。
 	LastMovementID uint       `gorm:"not null" json:"last_movement_id"`
 	LastOccurredAt *time.Time `json:"last_occurred_at"`

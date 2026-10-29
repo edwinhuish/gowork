@@ -124,8 +124,9 @@ func (s *stockService) CreateMovement(
 		return nil, errs.BadRequest("出入方向只能是 1（入库）或 -1（出库）")
 	}
 
-	qty := money.Round(in.Qty, 3)
-	if qty <= 0 {
+	// 数量列是 decimal(14,3)：先按 3 位定下来，别让快照累加出一个 6 位小数。
+	qty := in.Qty.Round(3)
+	if qty.Cmp(money.Zero()) <= 0 {
 		return nil, errs.BadRequest("数量必须大于 0；方向由入库 / 出库决定，不要用负数表示出库")
 	}
 
@@ -202,7 +203,7 @@ func (s *stockService) ListSnapshots(
 			NameCN:         r.NameCN,
 			Spec:           r.Spec,
 			Unit:           r.Unit,
-			Qty:            money.Round(r.Qty, 3),
+			Qty:            r.Qty.Round(3),
 			LastOccurredAt: r.LastOccurredAt,
 			UpdatedAt:      r.UpdatedAt,
 		})
@@ -248,11 +249,11 @@ func (s *stockService) Recalc(
 		result.Recalculated++
 
 		// 还没有快照行时按 0 比：这个产品第一次重算不该被算成"差异"。
-		var snapshotQty float64
+		snapshotQty := money.Zero()
 		if before != nil {
-			snapshotQty = money.Round(before.Qty, 3)
+			snapshotQty = before.Qty.Round(3)
 		}
-		if money.Round(snapshotQty-sum.Qty, 3) != 0 {
+		if !snapshotQty.Sub(sum.Qty).Round(3).IsZero() {
 			result.Mismatched = append(result.Mismatched, dto.StockRecalcDiff{
 				ProductID:   id,
 				SnapshotQty: snapshotQty,

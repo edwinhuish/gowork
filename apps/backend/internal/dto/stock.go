@@ -1,6 +1,10 @@
 package dto
 
-import "time"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // StockMovementQuery 是库存流水的列表查询。
 type StockMovementQuery struct {
@@ -19,9 +23,10 @@ type StockMovementQuery struct {
 type StockMovementInput struct {
 	ProductID uint `json:"product_id" binding:"required"`
 	// Type 只接受期初 / 盘点盈亏 / 其它，见 model.StockMovementType.IsManual。
-	Type      int8    `json:"type" binding:"required"`
-	Direction int8    `json:"direction" binding:"required"`
-	Qty       float64 `json:"qty" binding:"required,gt=0"`
+	Type      int8 `json:"type" binding:"required"`
+	Direction int8 `json:"direction" binding:"required"`
+	// Qty 定点收发。gt 对结构体不生效，"必须大于 0"由服务层判。
+	Qty money.Decimal `json:"qty"`
 	// OccurredAt 留空取今天；不晚于今天才合理，未来的是计划不是事实。
 	OccurredAt string `json:"occurred_at"`
 	Remark     string `json:"remark" binding:"max=255"`
@@ -42,7 +47,7 @@ type StockSnapshotView struct {
 	NameCN         string     `json:"name_cn"`
 	Spec           string     `json:"spec"`
 	Unit           string     `json:"unit"`
-	Qty            float64    `json:"qty"`
+	Qty            money.Decimal `json:"qty"`
 	LastOccurredAt *time.Time `json:"last_occurred_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
@@ -58,9 +63,9 @@ type StockRecalcInput struct {
 // 正常情况下永远为空。它一旦非空，说明有人绕过了流水改过快照（比如直接改库），
 // 这条信息比"重算成功"本身更有价值。
 type StockRecalcDiff struct {
-	ProductID   uint    `json:"product_id"`
-	SnapshotQty float64 `json:"snapshot_qty"`
-	MovementQty float64 `json:"movement_qty"`
+	ProductID   uint          `json:"product_id"`
+	SnapshotQty money.Decimal `json:"snapshot_qty"`
+	MovementQty money.Decimal `json:"movement_qty"`
 }
 
 // StockRecalcResult 是重算结果。

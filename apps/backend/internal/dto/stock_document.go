@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // StockDocumentQuery 是出入库单的列表查询。
 type StockDocumentQuery struct {
 	PageQuery
@@ -14,9 +16,9 @@ type StockDocumentQuery struct {
 // 而 `binding:"required"` 会把数值 0 当成"没填"。
 // 入库 / 出库的 qty > 0 由 service 校验。
 type StockDocumentItemInput struct {
-	ProductID uint     `json:"product_id" binding:"required"`
-	Qty       *float64 `json:"qty" binding:"required"`
-	Remark    string   `json:"remark" binding:"max=255"`
+	ProductID uint           `json:"product_id" binding:"required"`
+	Qty       *money.Decimal `json:"qty" binding:"required"`
+	Remark    string         `json:"remark" binding:"max=255"`
 }
 
 // StockDocumentInput 是出入库单的全量入参（新建与编辑共用）。

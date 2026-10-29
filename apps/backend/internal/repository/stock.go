@@ -33,7 +33,7 @@ type SnapshotRow struct {
 	NameCN         string
 	Spec           string
 	Unit           string
-	Qty            float64
+	Qty            money.Decimal
 	LastMovementID uint
 	LastOccurredAt *time.Time
 	UpdatedAt      time.Time
@@ -41,7 +41,7 @@ type SnapshotRow struct {
 
 // StockSum 是某个产品全部流水的聚合结果，用于全量重算。
 type StockSum struct {
-	Qty      float64
+	Qty      money.Decimal
 	Count    int64
 	LastID   uint
 	LastDate *time.Time
@@ -140,7 +140,7 @@ func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) 
 			return errs.ErrNotFound
 		}
 		// 回滚这条流水对快照的影响：删一条入库，存量要减回去。
-		return addToSnapshot(tx, m.ProductID, -m.SignedQty(), m.ID, m.OccurredAt)
+		return addToSnapshot(tx, m.ProductID, m.SignedQty().Neg(), m.ID, m.OccurredAt)
 	})
 }
 
@@ -150,9 +150,9 @@ func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) 
 // 两边都查到"还没有快照"，就会各插一行，撞唯一索引报错；
 // 或者都读到旧值再各自写回，后写的把前一个的增量吃掉。
 func addToSnapshot(
-	tx *gorm.DB, productID uint, delta float64, movementID uint, occurredAt time.Time,
+	tx *gorm.DB, productID uint, delta money.Decimal, movementID uint, occurredAt time.Time,
 ) error {
-	delta = money.Round(delta, 3)
+	delta = delta.Round(3)
 	now := time.Now()
 	row := model.StockSnapshot{
 		ProductID:      productID,
@@ -168,7 +168,11 @@ func addToSnapshot(
 		DoUpdates: clause.Assignments(map[string]any{
 			// 右侧不带表名：MySQL 的 ON DUPLICATE KEY UPDATE 与
 			// PostgreSQL 的 DO UPDATE 对表名前缀的接受程度不同，裸列名三库通用。
-			"qty":              gorm.Expr("qty + ?", delta),
+			//
+			// 增量显式 CAST 成定点再相加：驱动送过去的是十进制字符串，
+			// MySQL 在 `数值 + 字符串` 里会把字符串按 double 处理，
+			// 那就等于在库里又绕了一次浮点，前面所有改造都白做。
+			"qty": gorm.Expr("qty + CAST(? AS DECIMAL(16,3))", delta.StringFixed(3)),
 			"last_movement_id": movementID,
 			"last_occurred_at": occurredAt,
 			"updated_at":       now,
@@ -244,7 +248,7 @@ func (r *stockRepo) SumMovements(ctx context.Context, productID uint) (StockSum,
 	db := r.DB().WithContext(ctx)
 
 	var agg struct {
-		Qty   float64
+		Qty   money.Decimal
 		Count int64
 	}
 	err := db.Model(&model.StockMovement{}).
@@ -255,7 +259,7 @@ func (r *stockRepo) SumMovements(ctx context.Context, productID uint) (StockSum,
 		return StockSum{}, fmt.Errorf("聚合库存流水 product_id=%d: %w", productID, err)
 	}
 
-	sum := StockSum{Qty: money.Round(agg.Qty, 3), Count: agg.Count}
+	sum := StockSum{Qty: agg.Qty.Round(3), Count: agg.Count}
 	if agg.Count == 0 {
 		return sum, nil
 	}
@@ -280,7 +284,7 @@ func (r *stockRepo) SumMovements(ctx context.Context, productID uint) (StockSum,
 // 下次入库 upsert 会更新到那条已删的行上，表现是"库存加进去了但列表里看不到"。
 func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum StockSum) error {
 	now := time.Now()
-	qty := money.Round(sum.Qty, 3)
+	qty := sum.Qty.Round(3)
 	row := model.StockSnapshot{
 		ProductID:      productID,
 		Qty:            qty,

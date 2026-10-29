@@ -12,6 +12,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -64,7 +65,7 @@ func (f stockFixture) move(
 		ProductID:  productID,
 		Type:       int8(typ),
 		Direction:  int8(dir),
-		Qty:        qty,
+		Qty:        qtyOf(qty),
 		OccurredAt: occurred,
 	})
 	if err != nil {
@@ -74,7 +75,7 @@ func (f stockFixture) move(
 }
 
 // snapshotQty 直接读库里的快照值，绕开 service 的舍入，用来看增量维护得对不对。
-func (f stockFixture) snapshotQty(t *testing.T, productID uint) float64 {
+func (f stockFixture) snapshotQty(t *testing.T, productID uint) money.Decimal {
 	t.Helper()
 	var s model.StockSnapshot
 	if err := f.db.Where("product_id = ?", productID).First(&s).Error; err != nil {
@@ -101,14 +102,14 @@ func TestStockMovementSnapshot(t *testing.T) {
 		if !m.OccurredAt.Equal(model.DateOnly(now)) {
 			t.Errorf("发生日 = %v，期望取今天", m.OccurredAt)
 		}
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 100) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 100) {
 			t.Errorf("快照 = %v，期望 100", got)
 		}
 	})
 
 	t.Run("出库把库存减回去", func(t *testing.T) {
 		fx.move(t, p.ID, model.StockMovementCount, model.StockDirectionOut, 30, "")
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 70) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 70) {
 			t.Errorf("快照 = %v，期望 70", got)
 		}
 	})
@@ -117,31 +118,31 @@ func TestStockMovementSnapshot(t *testing.T) {
 		// 0.1 + 0.2 在浮点里是 0.30000000000000004，快照必须仍然干净。
 		fx.move(t, p.ID, model.StockMovementOther, model.StockDirectionIn, 0.1, "")
 		fx.move(t, p.ID, model.StockMovementOther, model.StockDirectionIn, 0.2, "")
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 70.3) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 70.3) {
 			t.Errorf("快照 = %v，期望 70.3", got)
 		}
 	})
 
 	t.Run("删除流水把数量回滚", func(t *testing.T) {
 		m := fx.move(t, p.ID, model.StockMovementOther, model.StockDirectionIn, 10, "")
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 80.3) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 80.3) {
 			t.Fatalf("快照 = %v，期望 80.3", got)
 		}
 		if err := fx.stock.DeleteMovement(ctx, m.ID); err != nil {
 			t.Fatalf("删除手工流水应允许，实际 %v", err)
 		}
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 70.3) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 70.3) {
 			t.Errorf("删除后快照 = %v，期望 70.3", got)
 		}
 	})
 
 	t.Run("每个产品各有一份快照", func(t *testing.T) {
 		fx.move(t, fx.productB.ID, model.StockMovementOpening, model.StockDirectionIn, 8, "")
-		if got := fx.snapshotQty(t, fx.productB.ID); !approx(got, 8) {
+		if got := fx.snapshotQty(t, fx.productB.ID); !approxQty(got, 8) {
 			t.Errorf("B 的快照 = %v，期望 8", got)
 		}
 		// 写 B 不该影响 A：upsert 的冲突目标必须是 product_id。
-		if got := fx.snapshotQty(t, p.ID); !approx(got, 70.3) {
+		if got := fx.snapshotQty(t, p.ID); !approxQty(got, 70.3) {
 			t.Errorf("A 的快照被 B 的写入带偏 = %v，期望 70.3", got)
 		}
 	})
@@ -158,7 +159,7 @@ func TestStockMovementSnapshot(t *testing.T) {
 		if len(res.Mismatched) != 0 {
 			t.Errorf("增量维护的快照与重算结果不该有差异，实际 %+v", res.Mismatched)
 		}
-		if after := fx.snapshotQty(t, p.ID); !approx(after, before) {
+		if after := fx.snapshotQty(t, p.ID); after.Cmp(before) != 0 {
 			t.Errorf("重算改动了本来就对的快照：%v → %v", before, after)
 		}
 	})
@@ -172,10 +173,10 @@ func TestStockMovementSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatalf("重算失败: %v", err)
 		}
-		if len(res.Mismatched) != 1 || !approx(res.Mismatched[0].SnapshotQty, 999) {
+		if len(res.Mismatched) != 1 || !approxQty(res.Mismatched[0].SnapshotQty, 999) {
 			t.Fatalf("应报告一条差异（999 → 流水值），实际 %+v", res.Mismatched)
 		}
-		if got := fx.snapshotQty(t, p.ID); !approx(got, res.Mismatched[0].MovementQty) {
+		if got := fx.snapshotQty(t, p.ID); got.Cmp(res.Mismatched[0].MovementQty) != 0 {
 			t.Errorf("重算后快照 = %v，期望 %v", got, res.Mismatched[0].MovementQty)
 		}
 	})
@@ -194,49 +195,49 @@ func TestStockMovementRules(t *testing.T) {
 		{
 			name: "采购入库不能手工录",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: int8(model.StockMovementPurchase), Direction: 1, Qty: 10},
+				Type: int8(model.StockMovementPurchase), Direction: 1, Qty: qtyOf(10)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "必须由单据产生",
 		},
 		{
 			name: "销售出库不能手工录",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: int8(model.StockMovementSales), Direction: -1, Qty: 10},
+				Type: int8(model.StockMovementSales), Direction: -1, Qty: qtyOf(10)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "必须由单据产生",
 		},
 		{
 			name: "未知类型",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: 77, Direction: 1, Qty: 10},
+				Type: 77, Direction: 1, Qty: qtyOf(10)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "未知的库存流水类型",
 		},
 		{
 			name: "方向只能是 ±1",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: int8(model.StockMovementOther), Direction: 2, Qty: 10},
+				Type: int8(model.StockMovementOther), Direction: 2, Qty: qtyOf(10)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "出入方向",
 		},
 		{
 			name: "数量必须大于 0",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: int8(model.StockMovementOther), Direction: 1, Qty: 0},
+				Type: int8(model.StockMovementOther), Direction: 1, Qty: qtyOf(0)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "数量必须大于 0",
 		},
 		{
 			name: "小于千分之一的数量被舍入为 0 后拒绝",
 			in: dto.StockMovementInput{ProductID: fx.productA.ID,
-				Type: int8(model.StockMovementOther), Direction: 1, Qty: 0.0001},
+				Type: int8(model.StockMovementOther), Direction: 1, Qty: qtyOf(0.0001)},
 			wantCode:   errs.CodeInvalidParam,
 			wantSubstr: "数量必须大于 0",
 		},
 		{
 			name: "产品不存在",
 			in: dto.StockMovementInput{ProductID: 9999,
-				Type: int8(model.StockMovementOther), Direction: 1, Qty: 1},
+				Type: int8(model.StockMovementOther), Direction: 1, Qty: qtyOf(1)},
 			wantCode: errs.CodeNotFound,
 		},
 	}
@@ -332,7 +333,7 @@ func TestStockMovementQuery(t *testing.T) {
 		if first.SKUCode != "BH01-0001" || first.NameCN != "不锈钢合页" || first.Unit != "PCS" {
 			t.Errorf("首行产品信息 = %+v", first)
 		}
-		if !approx(first.Qty, 80) {
+		if !approxQty(first.Qty, 80) {
 			t.Errorf("A 的库存 = %v，期望 80（100 − 20）", first.Qty)
 		}
 		if first.LastOccurredAt == nil {

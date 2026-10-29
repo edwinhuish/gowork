@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
 	"time"
 
@@ -239,7 +238,7 @@ func (s *stockDocumentService) Confirm(
 		items = append(items, item)
 
 		// 盘盈盘亏为 0：这一行没有发生任何库存变动，不该留下一条数量为 0 的流水。
-		if qty <= 0 {
+		if !qty.IsPositive() {
 			continue
 		}
 		mvNo, err := s.docNos.Next(ctx, model.DocTypeStockMovement)
@@ -278,25 +277,25 @@ func (s *stockDocumentService) Confirm(
 // 必须能回答"当时账上是多少"，否则差异没有依据。
 func (s *stockDocumentService) resolvePosting(
 	ctx context.Context, doc *model.StockDocument, item model.StockDocumentItem,
-) (model.StockDirection, float64, *float64, error) {
+) (model.StockDirection, money.Decimal, *money.Decimal, error) {
 	if fixed, ok := doc.Type.FixedDirection(); ok {
 		return fixed, item.Qty, nil, nil
 	}
 
 	bookQty, err := s.docs.CurrentQty(ctx, item.ProductID)
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, money.Zero(), nil, err
 	}
-	book := money.Round(bookQty, 3)
-	diff := money.Round(item.Qty-book, 3)
-	if math.Abs(diff) <= qtyEpsilon {
+	book := bookQty.Round(3)
+	diff := item.Qty.Sub(book).Round(3)
+	if diff.IsZero() {
 		// 账实相符：方向与数量都给 0，调用方据此跳过流水。
-		return 0, 0, &book, nil
+		return 0, money.Zero(), &book, nil
 	}
-	if diff > 0 {
-		return model.StockDirectionIn, math.Abs(diff), &book, nil
+	if diff.IsPositive() {
+		return model.StockDirectionIn, diff, &book, nil
 	}
-	return model.StockDirectionOut, math.Abs(diff), &book, nil
+	return model.StockDirectionOut, diff.Neg(), &book, nil
 }
 
 func (s *stockDocumentService) buildItems(
@@ -304,12 +303,12 @@ func (s *stockDocumentService) buildItems(
 ) ([]model.StockDocumentItem, error) {
 	items := make([]model.StockDocumentItem, 0, len(rows))
 	for _, row := range rows {
-		qty := money.Round(*row.Qty, 3)
-		if qty < 0 {
+		qty := row.Qty.Round(3)
+		if qty.IsNegative() {
 			return nil, errs.BadRequest("数量不能是负数；方向由单据类型决定")
 		}
 		// 盘点允许 0（盘到没有货是结论），入库 / 出库填 0 说明这行没写完。
-		if t != model.StockDocCount && qty <= 0 {
+		if t != model.StockDocCount && !qty.IsPositive() {
 			return nil, errs.BadRequest("数量必须大于 0")
 		}
 		product, err := s.products.FindByID(ctx, row.ProductID)

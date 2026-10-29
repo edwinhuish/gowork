@@ -249,6 +249,12 @@ func (d Decimal) IsZero() bool { return d.v == 0 }
 // IsNegative 判断是否为负。
 func (d Decimal) IsNegative() bool { return d.v < 0 }
 
+// IsPositive 判断是否大于 0。
+//
+// 与 IsZero / IsNegative 并列而不是让调用方写 Cmp(Zero()) > 0：
+// 数量与金额的"必须有值"校验到处都要，读起来越直白越不容易写反。
+func (d Decimal) IsPositive() bool { return d.v > 0 }
+
 // Neg 取反。
 func (d Decimal) Neg() Decimal {
 	if d.v == math.MinInt64 {

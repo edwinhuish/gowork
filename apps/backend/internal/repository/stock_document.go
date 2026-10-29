@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // StockDocumentFilter 是出入库单的查询条件。
@@ -49,7 +50,7 @@ type StockDocumentRepository interface {
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	// CurrentQty 返回某个产品当前的库存（没有快照视为 0），盘点确认时用来取账面数。
-	CurrentQty(ctx context.Context, productID uint) (float64, error)
+	CurrentQty(ctx context.Context, productID uint) (money.Decimal, error)
 	// Post 把单据置为已确认、回写账面数、写入流水并更新快照，全部在一个事务里。
 	//
 	// 拆成多次调用就会出现"单据已确认但库存没动"的中间态，
@@ -163,9 +164,11 @@ func (r *stockDocumentRepo) Delete(ctx context.Context, id uint) error {
 	})
 }
 
-func (r *stockDocumentRepo) CurrentQty(ctx context.Context, productID uint) (float64, error) {
+func (r *stockDocumentRepo) CurrentQty(
+	ctx context.Context, productID uint,
+) (money.Decimal, error) {
 	var row struct {
-		Qty float64
+		Qty money.Decimal
 	}
 	err := r.DB().WithContext(ctx).
 		Table("inv_stock_snapshot").
@@ -174,7 +177,7 @@ func (r *stockDocumentRepo) CurrentQty(ctx context.Context, productID uint) (flo
 		Limit(1).
 		Scan(&row).Error
 	if err != nil {
-		return 0, fmt.Errorf("查询当前库存 product_id=%d: %w", productID, err)
+		return money.Zero(), fmt.Errorf("查询当前库存 product_id=%d: %w", productID, err)
 	}
 	return row.Qty, nil
 }

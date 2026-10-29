@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // StockDocType 是出入库单的类型。
@@ -141,10 +143,10 @@ type StockDocumentItem struct {
 	NameCN     string  `gorm:"size:128" json:"name_cn"`
 	Spec       string  `gorm:"size:255" json:"spec"`
 	Unit       string  `gorm:"size:16" json:"unit"`
-	Qty        float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	Qty        money.Decimal  `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// BookQty 为 nil 表示还没确认过（草稿），或这张单不是盘点单。
-	BookQty *float64 `gorm:"type:decimal(14,3)" json:"book_qty"`
-	Remark  string   `gorm:"size:255" json:"remark"`
+	BookQty *money.Decimal `gorm:"type:decimal(14,3)" json:"book_qty"`
+	Remark  string         `gorm:"size:255" json:"remark"`
 }
 
 func (StockDocumentItem) TableName() string { return "inv_stock_document_item" }
