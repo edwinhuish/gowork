@@ -203,6 +203,7 @@ api/client.ts
 | `pages/clauses/`、`pages/contracts/clause-picker.tsx` | 条款模板库（T-27）+ 合同新建时的条款多选 | 模板是**主数据**，合同上存的是快照：改模板不影响已生成的合同（页面文案要写这句）。选择器只提交 `clause_ids`，**不要连正文一起传**——传了就没有"快照"这回事了；多选顺序即合同上的顺序 |
 | `pages/audit-logs/` | 操作日志（T-33） | 只读：没有编辑与删除按钮，后端也只有 List。`body` 是**提交内容**（已脱敏、超长截断），不是前后 diff；筛选里那个关键字是"手里只有单号"时的入口 |
 | `pages/collection/` | 回款与超期（T-29） | 上半是**期间流量**（到期 / 回款 / 回款率）、下半是**截至截止日的存量**（超期清单），两者不互相校验；回款率超 100% 是正常现象（在还上个月的账），不要在页面上"修正"它 |
+| `pages/purchases/milestone-panel.tsx` | 采购详情页的「跟单节点」（T-38） | 行是采购明细、列是五节点，一格两行（计划 / 实际）；**一次只提交一格**——补录是部分的，整体回传会覆盖别人刚填的；逾期上色只用于看，统计一律以后端为准；新增筛选参数要同步 `PASSTHROUGH_FILTERS`（`overdue_node` 已加） |
 | `pages/customers/import-modal.tsx` | 客户列表的「导入 CSV」（T-35） | 三步：选文件 → 校验（`dry_run=true`）→ 确认导入；「确认导入」在校验前禁用，因为它会真的写库；失败行可下载 CSV（同样带 BOM）；模板就用导出的那份文件 |
 | `api/exports.ts` + `http.download` | 客户 / 产品列表的「导出 CSV」（T-35） | 下载必须走 `http.download`（fetch blob）而不是 `window.open`——后者带不上 Authorization 头，只会拿到 401；按钮文案要写明"忽略当前筛选、上限 10000 行"，否则用户以为导出的是筛选后的那一批 |
 | `pages/sales-dashboard/`、`pages/shipments/profit-card.tsx`、`pages/products/` | 成本与毛利（T-36） | 后端把成本类金额清成 0 并带 `cost_hidden`，界面必须显示「—」而不是 0——0 会被读成"没成本 / 没赚钱"，与"你看不到"正好相反；`cost_hidden` 时顶部的「缺少采购成本」警告不再弹，两者原因不同 |
