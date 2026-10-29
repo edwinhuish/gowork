@@ -4,6 +4,7 @@ import type {
   CollectionReport,
   ExchangeGainReport,
   PageResult,
+  Partner360,
   SalesDashboard,
   ShipmentProfit,
 } from '@/types'
@@ -50,6 +51,14 @@ export interface CollectionParams {
   limit?: number
 }
 
+export interface Partner360Params {
+  partner_id: number
+  /** 每块的行数上限，留空 10；0 取后端上限 50。 */
+  limit?: number
+  /** 超期判断的截止日，留空取今天。 */
+  as_of?: string
+}
+
 export interface SalesDashboardParams {
   /** customer / product / country / month，留空按客户。 */
   dimension?: string
@@ -78,6 +87,13 @@ export const reportApi = {
   /** 回款率与超期明细：前者是流量、后者是截至 as_of 的存量。 */
   collection: (params: CollectionParams = {}) =>
     http.get<CollectionReport>(`/reports/collection${toQuery({ ...params })}`),
+
+  /**
+   * 客户 360：一个主体的订单 / 出货 / 应收 / 跟进 / 商机。
+   * 每块截断到 limit（默认 10），抬头合计永远是全量。
+   */
+  partner360: (params: Partner360Params) =>
+    http.get<Partner360>(`/reports/partner-360${toQuery({ ...params })}`),
 
   /** 销售看板：按维度汇总订单额与毛利，口径与单票毛利同源。 */
   salesDashboard: (params: SalesDashboardParams = {}) =>

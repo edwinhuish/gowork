@@ -786,6 +786,87 @@ export interface CollectionReport {
   truncated: boolean
 }
 
+/** 客户 360 的抬头数字，全部本币。 */
+export interface Partner360Totals {
+  order_count: number
+  order_amount_base: string
+  last_order_date: string
+  /** 含该客户订单行的出货票数（去重）：拼柜时一票里还有别家的货。 */
+  shipment_count: number
+  activity_count: number
+  last_activity_at: string
+  /** 只算未终结（赢单 / 输单之外）的商机。 */
+  open_opportunity_count: number
+  open_opportunity_amount_base: string
+  receivable_outstanding_base: string
+  receivable_overdue_base: string
+}
+
+export interface Partner360Activity {
+  id: number
+  type: string
+  subject: string
+  occurred_at: string
+  next_follow_at: string
+}
+
+export interface Partner360Opportunity {
+  id: number
+  subject: string
+  stage: number
+  amount_base: string
+  probability: number
+  expected_close_date: string
+}
+
+export interface Partner360Order {
+  id: number
+  doc_no: string
+  order_date: string
+  status: number
+  currency_code: string
+  amount_base_total: string
+}
+
+export interface Partner360Shipment {
+  id: number
+  doc_no: string
+  ship_date: string
+  status: number
+}
+
+export interface Partner360Receivable {
+  id: number
+  doc_no: string
+  currency_code: string
+  due_date: string
+  outstanding: string
+  outstanding_base: string
+  overdue_days: number
+}
+
+/**
+ * 客户 360：一个主体的全貌。
+ *
+ * 每块默认 10 条且都带 id / 单号，能点进源单据；`totals` 永远是全量，
+ * 不受每块截断影响。
+ */
+export interface Partner360 {
+  partner_id: number
+  partner_code: string
+  partner_name: string
+  country: string
+  /** 角色位掩码：同一家可能既是客户又是供应商。 */
+  role: number
+  as_of: string
+  totals: Partner360Totals
+  activities: Partner360Activity[]
+  opportunities: Partner360Opportunity[]
+  orders: Partner360Order[]
+  shipments: Partner360Shipment[]
+  receivables: Partner360Receivable[]
+}
+
 /** 账龄报表。合计只给本币：把美元与人民币的原币金额加在一起没有意义。 */
 export interface AgingReport {
   /** 10 应收 / 20 应付 */

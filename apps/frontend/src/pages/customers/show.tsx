@@ -5,6 +5,7 @@ import { Button, Descriptions } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
+import { Partner360Panel } from '@/components/partner-360-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -71,6 +72,10 @@ export function CustomerShow() {
       {result?.id ? (
         <AttachmentPanel entityType="partner" entityId={result.id} title="资质与证件" />
       ) : null}
+
+      {/* 客户 360：订单、出货、应收、跟进、商机一次取全，免得为了看"这家什么情况"
+          去五个列表各筛一遍。只挂客户侧——供应商那侧这五块基本是空的。 */}
+      {result?.id ? <Partner360Panel partnerId={result.id} /> : null}
 
       {result && (
         <PartnerMergeModal
