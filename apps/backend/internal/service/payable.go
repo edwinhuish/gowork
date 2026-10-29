@@ -26,6 +26,8 @@ type PayableService interface {
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Payable, error)
 	List(ctx context.Context, q dto.PayableQuery) (*dto.PageResult[model.Payable], error)
+	// DebitTotals 汇总一批应付单已被借项冲减的金额（导出用）。
+	DebitTotals(ctx context.Context, ids []uint) (map[uint]money.Decimal, error)
 }
 
 type payableService struct {
@@ -282,4 +284,10 @@ func (s *payableService) resolveDueDate(
 		return time.Time{}, err
 	}
 	return model.DateOnly(base).AddDate(0, 0, p.CreditDays), nil
+}
+
+func (s *payableService) DebitTotals(
+	ctx context.Context, ids []uint,
+) (map[uint]money.Decimal, error) {
+	return s.repo.DebitTotals(ctx, ids)
 }

@@ -59,6 +59,8 @@ type PayableRepository interface {
 	SumAmountBySource(
 		ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
 	) (money.Decimal, error)
+	// DebitTotals 汇总一批应付单已被借项冲减的金额（T-52b3，导出用）。
+	DebitTotals(ctx context.Context, ids []uint) (map[uint]money.Decimal, error)
 }
 
 type payableRepo struct {
@@ -118,4 +120,30 @@ func (r *payableRepo) SumAmountBySource(
 		return money.Zero(), fmt.Errorf("汇总来源应付 source=%d/%d: %w", sourceType, sourceID, err)
 	}
 	return row.Total, nil
+}
+
+func (r *payableRepo) DebitTotals(
+	ctx context.Context, ids []uint,
+) (map[uint]money.Decimal, error) {
+	out := make(map[uint]money.Decimal, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		PayableID uint
+		Amount    money.Decimal
+	}
+	err := r.conn(ctx).Table("biz_debit_note").
+		Select("payable_id, SUM(amount) AS amount").
+		Where("payable_id IN ?", ids).
+		Where("deleted_at = 0").
+		Group("payable_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("汇总借项: %w", err)
+	}
+	for _, row := range rows {
+		out[row.PayableID] = row.Amount
+	}
+	return out, nil
 }

@@ -340,9 +340,7 @@ func (h *ReceivableHandler) ExportReceivables(c *gin.Context) {
 
 // ExportPayables GET /api/v1/exports/payables
 //
-// 与应收同构。未结清这里不减借项：借项单存在 biz_debit_note，
-// 而列表结构里没有带出来——导出这一列暂时是"应付 − 已付"，
-// 与账龄报表的口径差一个借项额，已在 roadmap 里标注。
+// 与应收同构。未结清减掉已开的借项：与账龄、核销校验同一口径。
 func (h *PayableHandler) ExportPayables(c *gin.Context) {
 	var q dto.PayableQuery
 	if !bindQuery(c, &q) {
@@ -361,16 +359,29 @@ func (h *PayableHandler) ExportPayables(c *gin.Context) {
 		return
 	}
 
+	// 借项要减掉（T-52b3）：与账龄、核销校验同一口径，
+	// 否则导出的欠款比系统里多，客户拿着文件来问时解释不清。
+	ids := make([]uint, 0, len(list))
+	for _, m := range list {
+		ids = append(ids, m.ID)
+	}
+	debits, err := h.payables.DebitTotals(c.Request.Context(), ids)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
 	out := make([][]string, 0, len(list))
 	for _, m := range list {
 		partner := ""
 		if m.Partner != nil {
 			partner = m.Partner.Name
 		}
+		outstanding := m.Amount.Sub(m.SettledAmount).Sub(debits[m.ID])
 		out = append(out, []string{
 			m.DocNo, partner, m.SourceDocNo, m.CurrencyCode,
 			m.Amount.String(), m.SettledAmount.String(),
-			m.Amount.Sub(m.SettledAmount).String(),
+			outstanding.String(),
 			model.DateOnly(m.DueDate).Format("2006-01-02"),
 			m.Status.Label(),
 		})
