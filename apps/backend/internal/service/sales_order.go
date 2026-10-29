@@ -32,6 +32,13 @@ type SalesOrderService interface {
 	// 它不重取当日汇率：报价单上的价与汇率是一个整体，拆开重算等于在转单的一瞬间改价。
 	// 这个方法只给转换流程用，不进 HTTP 入参，所以客户端无法指定汇率。
 	CreateFromQuotation(ctx context.Context, in QuotationOrderInput) (*model.SalesOrder, error)
+	// Change 对已确认或备货中的订单做一次有记录的变更（改量 / 改价 / 改交期）。
+	//
+	// 已确认的订单不能直接编辑：客户手里的 PDF、工厂照做的采购单、已经出掉的货
+	// 都认当时那个数。变更会落一条记录，说明谁因为什么把哪几行改成了什么。
+	Change(ctx context.Context, id uint, in dto.SalesOrderChangeInput) (*model.SalesOrderChange, error)
+	// ListChanges 按时间倒序返回变更历史。
+	ListChanges(ctx context.Context, id uint) ([]model.SalesOrderChange, error)
 }
 
 // QuotationOrderInput 是"按报价单生成订单"的入参：字段全部来自已确认的报价单。
@@ -64,6 +71,8 @@ type salesOrderService struct {
 	partners   repository.PartnerRepository
 	products   repository.ProductRepository
 	shipments  repository.ShipmentRepository
+	// changes 只服务"已确认订单的变更单"：草稿走 Update，不进来。
+	changes    repository.SalesOrderChangeRepository
 	currencies CurrencyService
 	docNos     DocNoService
 	// credits 在确认时校验客户额度（T-39）。草稿不占额度，所以 Create 不调它。
@@ -76,6 +85,14 @@ type SalesOrderOption func(*salesOrderService)
 
 func WithSalesOrderLogger(l *slog.Logger) SalesOrderOption {
 	return func(s *salesOrderService) { s.log = l }
+}
+
+// WithSalesOrderChanges 注入变更单仓储。
+//
+// 走 Option 而不是加构造参数：变更单是 T-44 才有的能力，构造函数已经有七个依赖，
+// 再加一个会逼着每个测试夹具都改一遍——而那些测试根本不碰变更。
+func WithSalesOrderChanges(repo repository.SalesOrderChangeRepository) SalesOrderOption {
+	return func(s *salesOrderService) { s.changes = repo }
 }
 
 // WithSalesOrderClock 注入时钟：下单日默认值、单号年月、汇率取哪一天都要可断言。

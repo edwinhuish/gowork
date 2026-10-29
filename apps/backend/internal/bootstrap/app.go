@@ -88,6 +88,8 @@ func New(cfg *config.Config) (*App, error) {
 		&model.DocNoRename{},
 		&model.SalesOrder{},
 		&model.SalesOrderItem{},
+		&model.SalesOrderChange{},
+		&model.SalesOrderChangeLine{},
 		&model.PurchaseOrder{},
 		&model.PurchaseOrderItem{},
 		&model.Shipment{},
@@ -197,7 +199,8 @@ func New(cfg *config.Config) (*App, error) {
 		repository.NewCreditRepository(db), partnerRepo, service.WithCreditLogger(log))
 	orderSvc := service.NewSalesOrderService(
 		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc, creditSvc,
-		service.WithSalesOrderLogger(log))
+		service.WithSalesOrderLogger(log),
+		service.WithSalesOrderChanges(repository.NewSalesOrderChangeRepository(db)))
 	// 报价单要在转换时建订单，所以它依赖销售订单服务；顺序不能反。
 	quotationSvc := service.NewQuotationService(
 		quotationRepo, partnerRepo, productRepo, sourceRepo, currencySvc, docNoSvc, orderSvc, txs,

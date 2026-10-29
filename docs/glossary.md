@@ -103,6 +103,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 产品货源 | `ProductSource` | `md_product_source` | 某产品在某供应商处的采购来源与货号、价格、交期。一个产品可有多个货源 |
 | 报价单 | `Quotation` | `biz_quotation`（明细 `biz_quotation_item`） | 向客户发出的价格方案，含贸易术语、币种、有效期与多轮版本 |
 | 销售订单 | `SalesOrder` | `biz_sales_order`（明细 `biz_sales_order_item`） | 客户下达的订单，含明细行；金额由明细汇总 |
+| 订单变更单 | `SalesOrderChange` | `biz_sales_order_change`（明细 `biz_sales_order_change_line`） | 已确认订单的改量 / 改价 / 改交期记录：原因、操作人、每行的前后值。**订单本身更新到新值**，变更单只留痕。单号由订单号派生（`{订单号}-CH{n}`），不单独发号。**不允许增删行**——出货分配与以销定采都按明细行 id 引用 |
 | 采购订单 | `PurchaseOrder` | `biz_purchase_order`（明细 `biz_purchase_order_item`） | 向供应商下达的订单，可挂到销售订单行上 |
 | 出货批次 | `Shipment` | `biz_shipment`（分配 `biz_shipment_allocation`） | 一次实际发运。与订单是多对多（分批出货、合并出货） |
 | 库存流水 | `StockMovement` | `inv_stock_movement` | 每一次出入库记录，库存的权威来源 |

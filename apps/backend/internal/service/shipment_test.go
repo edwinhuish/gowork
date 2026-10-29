@@ -39,6 +39,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 	db := openTestDB(t,
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Product{},
 		&model.SalesOrder{}, &model.SalesOrderItem{}, &model.DocSeq{},
+		&model.SalesOrderChange{}, &model.SalesOrderChangeLine{},
 		&model.Shipment{}, &model.ShipmentAllocation{},
 		&model.ShipmentCharge{}, &model.CustomsDeclaration{})
 
@@ -81,6 +82,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 		orderRepo, partnerRepo, productRepo, shipmentRepo, currencySvc, docNoSvc,
 		NewCreditService(repository.NewCreditRepository(db), partnerRepo),
 		WithSalesOrderClock(clock),
+		WithSalesOrderChanges(repository.NewSalesOrderChangeRepository(db)),
 	)
 
 	createOrder := func(partnerID, productID uint, qty float64) *model.SalesOrder {
@@ -635,4 +637,41 @@ func TestShipmentPacking(t *testing.T) {
 			t.Fatalf("装箱数据留空应允许，实际 %v", err)
 		}
 	})
+}
+
+// 变更不能把数量改到低于已出货量：已经发走的货不会因为改单回到仓库。
+func TestSalesOrderChangeRespectsShippedQty(t *testing.T) {
+	ctx := WithActor(context.Background(), &Principal{UserID: 1, Username: "carol"})
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+
+	item := fx.orderA.Items[0]
+	if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate: "2026-10-28",
+		Allocations: []dto.ShipmentAllocationInput{
+			{SalesOrderItemID: item.ID, Qty: qtyOf(60)},
+		},
+	}); err != nil {
+		t.Fatalf("建出货单失败: %v", err)
+	}
+
+	_, err := fx.orders.Change(ctx, fx.orderA.ID, dto.SalesOrderChangeInput{
+		Reason: "客户说少做一点",
+		Lines: []dto.SalesOrderChangeLineInput{
+			{SalesOrderItemID: item.ID, Qty: qtyOf(50), UnitPrice: item.UnitPrice},
+		},
+	})
+	if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
+		t.Fatalf("改到低于已出货量应返回 40901，实际 %v", err)
+	}
+
+	// 改到仍高于已出量的数，允许。
+	if _, err := fx.orders.Change(ctx, fx.orderA.ID, dto.SalesOrderChangeInput{
+		Reason: "还剩一些没做",
+		Lines: []dto.SalesOrderChangeLineInput{
+			{SalesOrderItemID: item.ID, Qty: qtyOf(80), UnitPrice: item.UnitPrice},
+		},
+	}); err != nil {
+		t.Fatalf("改到高于已出货量应允许: %v", err)
+	}
 }

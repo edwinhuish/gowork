@@ -232,6 +232,9 @@ func New(
 		orders.PUT("/:id", h.SalesOrder.Update)
 		orders.DELETE("/:id", h.SalesOrder.Delete)
 		orders.PUT("/:id/status", h.SalesOrder.UpdateStatus)
+		// 已确认订单的变更：不能直接 PUT，改走变更单留痕（T-44）。
+		orders.GET("/:id/changes", h.SalesOrder.Changes)
+		orders.POST("/:id/changes", h.SalesOrder.Change)
 
 		// 采购订单：销售订单的镜像，明细可挂到销售订单行做「以销定采」。
 		purchases := secured.Group("/purchase-orders")

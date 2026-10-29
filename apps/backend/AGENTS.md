@@ -183,6 +183,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/sales-orders` | `SalesOrder.List` / `.Create` | 合计只由明细汇总（入参无总额字段）；单号 `{案号}-SO{NN}`，从报价转来时沿用来源的案号与序号 |
 | GET / PUT / DELETE | `/api/v1/sales-orders/:id` | `SalesOrder.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
+| GET | `/api/v1/sales-orders/:id/changes` | `SalesOrder.Changes` | 变更历史，按序号倒序；订单不存在时 404，而不是返回空历史 |
+| POST | `/api/v1/sales-orders/:id/changes` | `SalesOrder.Change` | 已确认/备货中的订单改量改价改交期：原因必填、操作人从 ctx 取、改后数量不得低于已出货量（409）、不允许增删行、带 `updated_at` 走乐观锁 |
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-{YYMM}-{NNN}`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
