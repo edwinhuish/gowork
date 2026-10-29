@@ -957,6 +957,34 @@ export interface SalesDashboard {
 }
 
 /**
+ * 一条操作日志（T-33）。
+ *
+ * 记的是**提交意图**：谁在什么时候对哪张单提交了什么、结果如何，
+ * 不是数据库的前后 diff。`body` 已脱敏并截断。
+ */
+export interface AuditLog {
+  id: number
+  actor_id: number
+  actor_name: string
+  actor_role: string
+  /** HTTP 方法。 */
+  method: string
+  /** 业务动作：create / update / delete / status / merge / restore … */
+  action: string
+  /** 资源名，如 sales-orders。 */
+  entity: string
+  /** 路径上的 :id；集合级操作（如重算快照）为 0。 */
+  entity_id: number
+  path: string
+  route: string
+  status: number
+  request_id: string
+  ip: string
+  body: string
+  created_at: string
+}
+
+/**
  * 客户当前占用的信用额度，单位本币。
  *
  * 敞口 = 未结清应收 + 已确认未开票订单。只算前一半会漏掉已经承诺出去、还没开票的货。

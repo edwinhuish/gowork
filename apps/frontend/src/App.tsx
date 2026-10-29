@@ -10,6 +10,7 @@ import {
   DatabaseOutlined,
   DollarOutlined,
   FileProtectOutlined,
+  FileSearchOutlined,
   FileTextOutlined,
   FundOutlined,
   GlobalOutlined,
@@ -42,6 +43,7 @@ import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
 import { AgingPage } from '@/pages/aging'
 import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
+import { AuditLogList } from '@/pages/audit-logs'
 import { CollectionPage } from '@/pages/collection'
 import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
@@ -308,6 +310,12 @@ export default function App() {
                 create: '/exchange-rates/create',
                 meta: { label: '汇率', icon: <SwapOutlined /> },
               },
+              {
+                // 操作日志只读、且只有管理员能查：里面装着全公司单据的提交内容。
+                name: 'audit-logs',
+                list: '/audit-logs',
+                meta: { label: '操作日志', icon: <FileSearchOutlined /> },
+              },
             ]}
             options={{
               syncWithLocation: true,
@@ -475,6 +483,10 @@ export default function App() {
                   <Route path="exchange-rates">
                     <Route index element={<ExchangeRateList />} />
                     <Route path="create" element={<ExchangeRateCreate />} />
+                  </Route>
+
+                  <Route path="audit-logs">
+                    <Route index element={<AuditLogList />} />
                   </Route>
                 </Route>
               </Route>
