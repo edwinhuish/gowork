@@ -58,7 +58,7 @@ import { ExchangeRateCreate, ExchangeRateList } from '@/pages/exchange-rates'
 import { ForwarderCreate, ForwarderEdit, ForwarderList, ForwarderShow } from '@/pages/forwarders'
 import { LeadCreate, LeadEdit, LeadList } from '@/pages/leads'
 import { LoginPage } from '@/pages/login'
-import { OpportunityCreate, OpportunityEdit, OpportunityList } from '@/pages/opportunities'
+import { OpportunityCreate, OpportunityEdit, OpportunityList, OpportunityShow } from '@/pages/opportunities'
 import { PayableCreate, PayableEdit, PayableList, PayableShow } from '@/pages/payables'
 import { PaymentCreate, PaymentEdit, PaymentList, PaymentShow } from '@/pages/payments'
 import { ProductCreate, ProductEdit, ProductList, ProductShow } from '@/pages/products'
@@ -192,6 +192,7 @@ export default function App() {
                 list: '/opportunities',
                 create: '/opportunities/create',
                 edit: '/opportunities/edit/:id',
+                show: '/opportunities/show/:id',
                 meta: { label: '商机', icon: <FundOutlined /> },
               },
               {
@@ -409,6 +410,7 @@ export default function App() {
                   </Route>
 
                   <Route path="opportunities">
+                    <Route path="show/:id" element={<OpportunityShow />} />
                     <Route index element={<OpportunityList />} />
                     <Route path="create" element={<OpportunityCreate />} />
                     <Route path="edit/:id" element={<OpportunityEdit />} />
