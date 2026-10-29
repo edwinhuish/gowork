@@ -5,6 +5,7 @@ import type {
   ExchangeGainReport,
   PageResult,
   Partner360,
+  ProductProfitReport,
   SalesDashboard,
   ShipmentProfit,
   TodoReport,
@@ -50,6 +51,13 @@ export interface CollectionParams {
   as_of?: string
   /** 超期明细行数上限，留空 50；0 取后端上限 500。 */
   limit?: number
+}
+
+export interface ProductProfitParams {
+  product_id: number
+  /** 按出货日筛，闭区间；留空不限。 */
+  from?: string
+  to?: string
 }
 
 export interface TodoParams {
@@ -102,6 +110,10 @@ export const reportApi = {
    */
   partner360: (params: Partner360Params) =>
     http.get<Partner360>(`/reports/partner-360${toQuery({ ...params })}`),
+
+  /** 产品毛利下钻：某个产品逐票的收入 / 成本 / 运杂费 / 毛利（按出货日倒序）。 */
+  productProfit: (params: ProductProfitParams) =>
+    http.get<ProductProfitReport>(`/reports/product-profit${toQuery({ ...params })}`),
 
   /** 待办清单：待跟进、应收待催、缺当日汇率（T-34）。 */
   todos: (params: TodoParams = {}) =>

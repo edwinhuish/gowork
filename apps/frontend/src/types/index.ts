@@ -793,6 +793,35 @@ export interface CollectionReport {
   truncated: boolean
 }
 
+/** 某个产品在**一票**货里的获利情况（T-31 下钻）。按票聚合，不是按订单行。 */
+export interface ProductProfitRow {
+  shipment_id: number
+  doc_no: string
+  ship_date: string
+  partner_id: number
+  partner_name: string
+  qty: string
+  revenue: string
+  cost: string
+  charge: string
+  profit: string
+  cost_missing: boolean
+}
+
+export interface ProductProfitReport {
+  product_id: number
+  from: string
+  to: string
+  rows: ProductProfitRow[]
+  revenue: string
+  cost: string
+  charge: string
+  profit: string
+  /** 0.2254 = 22.54%。收入为 0 时给 0。 */
+  margin: string
+  cost_missing: boolean
+}
+
 /** 一条该跟进的记录（T-34）。到期当天不算，所以 overdue_days 从 1 起。 */
 export interface TodoFollowup {
   id: number

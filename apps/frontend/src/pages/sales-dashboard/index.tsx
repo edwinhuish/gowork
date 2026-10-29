@@ -1,16 +1,29 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Card, Input, Radio, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import {
+  Alert,
+  Card,
+  Input,
+  Modal,
+  Radio,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd'
 
 import { reportApi } from '@/api/reports'
-import { Empty, Money } from '@/components/fields'
-import type { SalesDashboardRow } from '@/types'
+import { Empty, Mono, Money } from '@/components/fields'
+import type { ProductProfitRow, SalesDashboardRow } from '@/types'
 
-type Dimension = 'customer' | 'product' | 'country' | 'month'
+type Dimension = 'customer' | 'product' | 'category' | 'country' | 'month'
 
 const DIMENSION_OPTIONS: { value: Dimension; label: string }[] = [
   { value: 'customer', label: '客户' },
   { value: 'product', label: '产品' },
+  { value: 'category', label: '品类' },
   { value: 'country', label: '国家' },
   { value: 'month', label: '月份' },
 ]
@@ -18,6 +31,7 @@ const DIMENSION_OPTIONS: { value: Dimension; label: string }[] = [
 const DIMENSION_COLUMN: Record<Dimension, string> = {
   customer: '客户',
   product: '产品',
+  category: '品类',
   country: '国家',
   month: '月份',
 }
@@ -87,6 +101,8 @@ export function SalesDashboardPage() {
   const [toInput, setToInput] = useState(initial.to)
   const [range, setRange] = useState(initial)
   const [limit, setLimit] = useState(20)
+  // 产品维度的下钻：点某个 SKU，看它逐票卖得怎么样。
+  const [drill, setDrill] = useState<{ id: number; label: string } | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['report-sales-dashboard', dimension, range, limit],
@@ -224,7 +240,17 @@ export function SalesDashboardPage() {
             width={240}
             render={(value: string, row: SalesDashboardRow) => (
               <Space size={4}>
-                <span className={dimension === 'month' ? 'cell-mono' : undefined}>{value}</span>
+                {dimension === 'product' ? (
+                  // 只有产品维度能下钻：品类/客户/国家的"逐票"是另一个问题，
+                  // 顺手都给会让人以为点进去能看到该品类每票的毛利，实际只能分摊。
+                  <Typography.Link
+                    onClick={() => setDrill({ id: Number(row.key), label: value })}
+                  >
+                    {value}
+                  </Typography.Link>
+                ) : (
+                  <span className={dimension === 'month' ? 'cell-mono' : undefined}>{value}</span>
+                )}
                 {row.cost_missing && (
                   <Tooltip title="这一行里有出货行没挂采购单，成本偏低，毛利因此偏高">
                     <Tag color="warning">成本不全</Tag>
@@ -308,6 +334,130 @@ export function SalesDashboardPage() {
           草稿与已取消的单据不计入；汇兑损益单独成表，不混进毛利。
         </Typography.Paragraph>
       </Card>
+
+      {drill && (
+        <ProductDrillModal
+          productId={drill.id}
+          label={drill.label}
+          range={range}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </Space>
+  )
+}
+
+/**
+ * 产品毛利下钻：某个 SKU 逐票的收入、成本、摊到的运杂费与毛利。
+ *
+ * 行按**票**聚合（不是按订单行）：分批出货时同一产品在一票里可能出现两次，
+ * 拆成两行就看不出"这一票赚了多少"。
+ */
+function ProductDrillModal({
+  productId,
+  label,
+  range,
+  onClose,
+}: {
+  productId: number
+  label: string
+  range: { from: string; to: string }
+  onClose: () => void
+}) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['report-product-profit', productId, range],
+    queryFn: () =>
+      reportApi.productProfit({
+        product_id: productId,
+        from: range.from || undefined,
+        to: range.to || undefined,
+      }),
+  })
+
+  return (
+    <Modal
+      open
+      title={`${label} · 逐票毛利`}
+      footer={null}
+      width={980}
+      onCancel={onClose}
+      destroyOnHidden
+    >
+      {error && <Alert type="error" showIcon message={(error as Error).message} />}
+
+      <Table<ProductProfitRow>
+        size="small"
+        rowKey="shipment_id"
+        loading={isLoading}
+        dataSource={data?.rows ?? []}
+        pagination={false}
+        scroll={{ x: 900 }}
+        locale={{ emptyText: '范围内没有这个产品的出货' }}
+        summary={() =>
+          data && data.rows.length > 0 ? (
+            <Table.Summary.Row>
+              <Table.Summary.Cell index={0}>
+                <span className="cell-strong">合计</span>
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={1} />
+              <Table.Summary.Cell index={2} align="right">
+                <Money value={data.revenue} />
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={3} align="right">
+                <Money value={data.cost} />
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={4} align="right">
+                <Money value={data.charge} />
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={5} align="right">
+                <ProfitCell value={data.profit} strong />
+              </Table.Summary.Cell>
+            </Table.Summary.Row>
+          ) : null
+        }
+      >
+        <Table.Column
+          dataIndex="doc_no"
+          title="出货单"
+          width={170}
+          render={(value: string) => <Mono>{value}</Mono>}
+        />
+        <Table.Column dataIndex="ship_date" title="出货日" width={110} />
+        <Table.Column
+          title="客户"
+          width={200}
+          render={(_, row: ProductProfitRow) => row.partner_name || <Empty />}
+        />
+        <Table.Column
+          title="收入"
+          width={130}
+          align="right"
+          render={(_, row: ProductProfitRow) => <Money value={row.revenue} />}
+        />
+        <Table.Column
+          title="成本"
+          width={130}
+          align="right"
+          render={(_, row: ProductProfitRow) => <Money value={row.cost} />}
+        />
+        <Table.Column
+          title="运杂费"
+          width={110}
+          align="right"
+          render={(_, row: ProductProfitRow) => <Money value={row.charge} />}
+        />
+        <Table.Column
+          title="毛利"
+          width={130}
+          align="right"
+          render={(_, row: ProductProfitRow) => <ProfitCell value={row.profit} strong />}
+        />
+      </Table>
+
+      <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
+        与看板同一份分摊：收入按本票数量占销售行的比例、成本按采购加权单价、
+        运杂费按该产品在本票的收入占比摊。成本不全的票，毛利会偏高。
+      </Typography.Paragraph>
+    </Modal>
   )
 }
