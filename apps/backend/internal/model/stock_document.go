@@ -24,11 +24,16 @@ const (
 	StockDocTransfer StockDocType = 30
 	// StockDocCount 盘点：填实盘数，确认时按「实盘 − 账面」生成盈亏流水。
 	StockDocCount StockDocType = 40
+	// StockDocPurchaseReturn 采购退货（T-52b3）：把货退回工厂，方向出。
+	//
+	// 在此之前退给供应商的货只能靠盘点把数平回去——盘点单是对账工具，
+	// 拿它当退货单会让「这个月盘亏多少」变成一句假话。
+	StockDocPurchaseReturn StockDocType = 50
 )
 
 func (t StockDocType) IsValid() bool {
 	switch t {
-	case StockDocPurchaseIn, StockDocSalesOut, StockDocTransfer, StockDocCount:
+	case StockDocPurchaseIn, StockDocSalesOut, StockDocTransfer, StockDocCount, StockDocPurchaseReturn:
 		return true
 	}
 	return false
@@ -38,7 +43,7 @@ func (t StockDocType) IsValid() bool {
 // 但当前没有仓库维度，"调到自己"会生成两条方向相反的流水，等于什么也没发生。
 func (t StockDocType) IsImplemented() bool {
 	switch t {
-	case StockDocPurchaseIn, StockDocSalesOut, StockDocCount:
+	case StockDocPurchaseIn, StockDocSalesOut, StockDocCount, StockDocPurchaseReturn:
 		return true
 	}
 	return false
@@ -54,6 +59,8 @@ func (t StockDocType) Label() string {
 		return "调拨"
 	case StockDocCount:
 		return "盘点"
+	case StockDocPurchaseReturn:
+		return "采购退货"
 	default:
 		return fmt.Sprintf("未知类型(%d)", int8(t))
 	}
@@ -80,6 +87,9 @@ func (t StockDocType) DocType() DocType {
 		return DocTypeStockIn
 	case StockDocSalesOut:
 		return DocTypeStockOut
+	case StockDocPurchaseReturn:
+		// 退货也是出库，沿用 OUT 号段：单号本身就是"货往哪个方向走"。
+		return DocTypeStockOut
 	case StockDocCount:
 		return DocTypeStockCount
 	default:
@@ -94,6 +104,8 @@ func (t StockDocType) FixedDirection() (StockDirection, bool) {
 	case StockDocPurchaseIn:
 		return StockDirectionIn, true
 	case StockDocSalesOut:
+		return StockDirectionOut, true
+	case StockDocPurchaseReturn:
 		return StockDirectionOut, true
 	default:
 		return 0, false

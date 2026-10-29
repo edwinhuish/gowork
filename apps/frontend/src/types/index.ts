@@ -1375,7 +1375,7 @@ export interface StockDocumentItem {
 export interface StockDocument {
   id: number
   doc_no: string
-  /** 10 采购入库 / 20 销售出库 / 40 盘点（30 调拨预留，尚未实现）。 */
+  /** 10 采购入库 / 20 销售出库 / 40 盘点 / 50 采购退货（30 调拨预留，尚未实现）。 */
   type: number
   status: number
   doc_date: string
