@@ -106,3 +106,20 @@ func (h *StockDocumentHandler) Confirm(c *gin.Context) {
 	}
 	response.OK(c, doc)
 }
+
+// Reverse POST /api/v1/stock-documents/:id/reverse
+//
+// 红冲（T-52c）：生成一张方向相反的单据并立刻确认，库存回到原单确认前的数值。
+// 不直接改快照：原单是发生过的事实，改它等于改历史。
+func (h *StockDocumentHandler) Reverse(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	doc, err := h.docs.Reverse(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Created(c, doc)
+}

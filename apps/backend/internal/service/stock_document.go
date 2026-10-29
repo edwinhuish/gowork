@@ -34,6 +34,8 @@ type StockDocumentService interface {
 	IssuePurchaseIn(ctx context.Context, in dto.PurchaseInIssueInput) (*model.StockDocument, error)
 	// IssuePurchaseReturn 由采购退货调用：建一张采购退货出库单并立刻确认（T-52b3）。
 	IssuePurchaseReturn(ctx context.Context, in dto.PurchaseReturnIssueInput) (*model.StockDocument, error)
+	// Reverse 红冲一张已确认的出入库单（T-52c）：生成反向单据并立刻确认。
+	Reverse(ctx context.Context, id uint) (*model.StockDocument, error)
 }
 
 type stockDocumentService struct {
@@ -510,7 +512,19 @@ func (s *stockDocumentService) resolvePosting(
 	ctx context.Context, doc *model.StockDocument, item model.StockDocumentItem,
 ) (model.StockDirection, money.Decimal, *money.Decimal, error) {
 	if fixed, ok := doc.Type.FixedDirection(); ok {
+		// 红冲单方向取反（T-52c）：入的冲成出，出的冲成入，数量不变。
+		if doc.ReversalOfID != nil {
+			if fixed == model.StockDirectionIn {
+				return model.StockDirectionOut, item.Qty, nil, nil
+			}
+			return model.StockDirectionIn, item.Qty, nil, nil
+		}
 		return fixed, item.Qty, nil, nil
+	}
+	if doc.ReversalOfID != nil {
+		// 盘点单的红冲没有意义：盘点本来就是按差异生成流水的，
+		// 再冲一次等于把差异抵消掉，而不是把库存改回去。
+		return 0, money.Zero(), nil, errs.BadRequest("盘点单不支持红冲，请重新盘点")
 	}
 
 	bookQty, err := s.docs.CurrentQty(ctx, item.ProductID)
@@ -595,4 +609,63 @@ func checkTransferInput(t model.StockDocType, in dto.StockDocumentInput) error {
 		return errs.BadRequest("源仓与目标仓不能是同一个")
 	}
 	return nil
+}
+
+// Reverse 红冲一张已确认的出入库单（T-52c）。
+//
+// 红冲 = 生成一张**反向**单据并立刻确认，而不是把原单改废：
+// 原单是"当时确实这么动过"的事实，改它等于改历史。反向单据引用原单，
+// 两边都能查到对方，库存也随之回到原单确认前的数值。
+func (s *stockDocumentService) Reverse(ctx context.Context, id uint) (*model.StockDocument, error) {
+	doc, err := s.docs.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Status != model.DocumentStatusConfirmed {
+		return nil, errs.ErrConflict.WithMsg("只有已确认的单据可以红冲")
+	}
+	if doc.ReversalOfID != nil {
+		return nil, errs.BadRequest("红冲单不能再红冲")
+	}
+	done, err := s.docs.ExistsReversal(ctx, doc.ID)
+	if err != nil {
+		return nil, err
+	}
+	if done {
+		return nil, errs.ErrConflict.WithMsg("这张单已经红冲过，不能重复红冲")
+	}
+
+	docNo, err := s.docNos.Next(ctx, doc.Type.DocType())
+	if err != nil {
+		return nil, err
+	}
+	revID := doc.ID
+	rev := &model.StockDocument{
+		DocNo:        docNo,
+		Type:         doc.Type,
+		Status:       model.DocumentStatusDraft,
+		DocDate:      model.DateOnly(s.clock()),
+		PartnerID:    doc.PartnerID,
+		SourceDocNo:  doc.DocNo,
+		ReversalOfID: &revID,
+		Remark:       "红冲 " + doc.DocNo,
+	}
+	items := make([]model.StockDocumentItem, 0, len(doc.Items))
+	for _, it := range doc.Items {
+		items = append(items, model.StockDocumentItem{
+			ProductID: it.ProductID,
+			SKUCode:   it.SKUCode,
+			NameCN:    it.NameCN,
+			Spec:      it.Spec,
+			Unit:      it.Unit,
+			BatchNo:   it.BatchNo,
+			Qty:       it.Qty,
+			Remark:    it.Remark,
+		})
+	}
+	if err := s.docs.CreateWithItems(ctx, rev, items); err != nil {
+		return nil, err
+	}
+	s.log.Info("红冲出入库单", "src", doc.DocNo, "reversal", docNo)
+	return s.Confirm(ctx, rev.ID)
 }

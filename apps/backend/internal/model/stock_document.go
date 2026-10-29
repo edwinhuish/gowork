@@ -144,10 +144,15 @@ type StockDocument struct {
 	//
 	// 分开两列而不是"源 / 目标"通用：入库只有目标、出库只有源，
 	// 硬套两个字段会逼每个读者去猜"这一列在这个类型下是什么意思"。
-	WarehouseID       *uint               `gorm:"index" json:"warehouse_id"`
-	TargetWarehouseID *uint               `gorm:"index" json:"target_warehouse_id"`
-	PostedAt          *time.Time          `json:"posted_at"`
-	Items             []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
+	WarehouseID       *uint `gorm:"index" json:"warehouse_id"`
+	TargetWarehouseID *uint `gorm:"index" json:"target_warehouse_id"`
+	// ReversalOfID 指向被红冲的原单（T-52c）。为空表示这是一张普通单据。
+	//
+	// 红冲生成的是**一张新单据**而不是把原单改废：原单是"当时确实这么动过"的
+	// 事实，改它等于改历史；而库存要回到动之前，所以新单的方向与原单相反。
+	ReversalOfID *uint               `gorm:"index" json:"reversal_of_id"`
+	PostedAt     *time.Time          `json:"posted_at"`
+	Items        []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
 }
 
 func (StockDocument) TableName() string { return "inv_stock_document" }

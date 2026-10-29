@@ -54,6 +54,9 @@ type StockDocumentRepository interface {
 	// ExistsBySource 报告某类单据是否已经由这个来源单号生成过。
 	// 出货确认据此挡住重复出库（T-40）：同一票货只能出一张销售出库单。
 	ExistsBySource(ctx context.Context, t model.StockDocType, sourceDocNo string) (bool, error)
+	// ExistsReversal 判断这张单是否已经被红冲过（T-52c）。一张单只允许红冲一次：
+	// 冲两次等于把库存改两遍，而对账时找不到依据。
+	ExistsReversal(ctx context.Context, id uint) (bool, error)
 	// Post 把单据置为已确认、回写账面数、写入流水并更新快照，全部在一个事务里。
 	//
 	// 拆成多次调用就会出现"单据已确认但库存没动"的中间态，
@@ -257,4 +260,15 @@ func (r *stockDocumentRepo) Post(
 		}
 		return nil
 	})
+}
+
+func (r *stockDocumentRepo) ExistsReversal(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	err := r.conn(ctx).Model(&model.StockDocument{}).
+		Where("reversal_of_id = ?", id).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("检查单据 %d 是否已被红冲: %w", id, err)
+	}
+	return count > 0, nil
 }

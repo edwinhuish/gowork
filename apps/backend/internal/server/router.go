@@ -494,6 +494,8 @@ func New(
 		stockDocs.PUT("/:id", h.StockDoc.Update)
 		stockDocs.DELETE("/:id", h.StockDoc.Delete)
 		stockDocs.POST("/:id/confirm", h.StockDoc.Confirm)
+		// 红冲（T-52c）：生成一张方向相反的单据，库存回到原单确认前。
+		stockDocs.POST("/:id/reverse", h.StockDoc.Reverse)
 
 		// 附件：横切的归档能力，不挂在任何业务前缀下——挂什么由 entity_type 决定。
 		// 列表与上传共用同一个入口，且 entity_type + entity_id 都是必填：
