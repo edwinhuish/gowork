@@ -35,6 +35,8 @@ type ReportService interface {
 	Collection(ctx context.Context, q dto.CollectionQuery) (*dto.CollectionReport, error)
 	// Partner360 聚一个主体的订单、出货、应收、跟进、商机（T-30）。
 	Partner360(ctx context.Context, q dto.Partner360Query) (*dto.Partner360, error)
+	// Todos 汇总今天该处理的事：待跟进、应收待催、缺当日汇率（T-34）。
+	Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoReport, error)
 }
 
 type reportService struct {

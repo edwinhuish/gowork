@@ -66,6 +66,19 @@ type ReportRepository interface {
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
 	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]money.Decimal, error)
 
+	// ---- 待办与提醒（T-34）----
+
+	// ListTodoFollowups 取到期待跟进的记录（next_follow_at < asOf）。
+	ListTodoFollowups(
+		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+	) ([]TodoFollowup, int64, error)
+	// ListTodoReceivables 取已到期待收的应收（due_date <= asOf 且未结清）。
+	ListTodoReceivables(
+		ctx context.Context, asOf time.Time, ownerID *uint, limit int,
+	) ([]TodoReceivable, int64, error)
+	// ListMissingRates 取今天还没有汇率的外币。
+	ListMissingRates(ctx context.Context, asOf time.Time) ([]TodoCurrency, error)
+
 	// ---- 客户 360（T-30）----
 
 	// GetPartnerBrief 取主体抬头（编码 / 名称 / 国别 / 角色位），不存在返回 ErrNotFound。

@@ -36,6 +36,22 @@ func (h *ReportHandler) ExchangeGains(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Todos GET /api/v1/reports/todos
+//
+// 参数：limit（每类行数，留空 20，0 取上限 100）、as_of（"今天"，留空取服务器当天）。
+func (h *ReportHandler) Todos(c *gin.Context) {
+	var q dto.TodoQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.Todos(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // Partner360 GET /api/v1/reports/partner-360
 //
 // 参数：partner_id（必填）、limit（每块行数，留空 10，0 取上限 50）、

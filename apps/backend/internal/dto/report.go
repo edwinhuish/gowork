@@ -169,6 +169,59 @@ type ExchangeGainReport struct {
 	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }
 
+// TodoQuery 是待办清单的查询条件。
+type TodoQuery struct {
+	// Limit 是每类清单的行数上限，留空 20；0 取内部上限 100。
+	Limit *int `form:"limit"`
+	// AsOf 是"今天"，留空取服务器当天。放到参数里是为了测试能钉住日期。
+	AsOf string `form:"as_of" binding:"max=10"`
+}
+
+// TodoFollowup 是一条该跟进的记录。
+type TodoFollowup struct {
+	ID           uint   `json:"id"`
+	PartnerID    uint   `json:"partner_id"`
+	PartnerName  string `json:"partner_name"`
+	Subject      string `json:"subject"`
+	NextFollowAt string `json:"next_follow_at"`
+	// OverdueDays 是超过下次跟进日的天数。
+	OverdueDays int `json:"overdue_days"`
+}
+
+// TodoReceivable 是一张该催的应收。
+type TodoReceivable struct {
+	ID              uint          `json:"id"`
+	DocNo           string        `json:"doc_no"`
+	PartnerID       uint          `json:"partner_id"`
+	PartnerName     string        `json:"partner_name"`
+	DueDate         string        `json:"due_date"`
+	OutstandingBase money.Decimal `json:"outstanding_base"`
+	OverdueDays     int           `json:"overdue_days"`
+}
+
+// TodoCurrency 是一个今天没有汇率的外币。
+type TodoCurrency struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// TodoReport 是待办清单。
+//
+// 每类都给「全量条数 + 前 N 条」：条数是"还剩多少事没做"，
+// 清单是"先做哪几件"——只给清单会让人以为做完就没事了。
+type TodoReport struct {
+	AsOf string `json:"as_of"`
+
+	Followups     []TodoFollowup `json:"followups"`
+	FollowupCount int64          `json:"followup_count"`
+
+	Receivables     []TodoReceivable `json:"receivables"`
+	ReceivableCount int64            `json:"receivable_count"`
+
+	// MissingRates 是今天还没有汇率的外币，没有上限（币种总量本来就少）。
+	MissingRates []TodoCurrency `json:"missing_rates"`
+}
+
 // Partner360Query 是客户 360 的查询条件。
 type Partner360Query struct {
 	PartnerID uint `form:"partner_id" binding:"required"`
