@@ -6,6 +6,7 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"gorm.io/gorm/schema"
 
 	"github.com/edwinhuish/gowork/internal/config"
+	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
 // Open 按配置打开数据库连接并设置连接池。
@@ -37,6 +39,9 @@ func Open(cfg config.Database, log *slog.Logger) (*gorm.DB, error) {
 		// 关闭 gorm 的默认事务包装：单条写入本来就在隐式事务里，
 		// 多一层显式事务会让 sqlite 的写锁持有时间变长（三库里只有它对此敏感）。
 		SkipDefaultTransaction: cfg.Driver == config.DriverSQLite,
+		// 把驱动返回的约束错误统一成 gorm.ErrDuplicatedKey，
+		// 否则三个库给出三种错误文本，上层没法一处翻译。
+		TranslateError: true,
 	}
 
 	dialector, err := newDialector(cfg.Driver, dsn)
@@ -69,8 +74,45 @@ func Open(cfg config.Database, log *slog.Logger) (*gorm.DB, error) {
 		return nil, fmt.Errorf("数据库 ping 失败: %w", err)
 	}
 
+	if err := registerErrorTranslators(db); err != nil {
+		return nil, fmt.Errorf("注册错误翻译: %w", err)
+	}
+
 	log.Info("数据库已连接", "driver", cfg.Driver, "max_open", maxOpen)
 	return db, nil
+}
+
+// registerErrorTranslators 把驱动层的约束错误翻译成业务错误码。
+//
+// 放在 gorm 的回调里而不是各个调用点：写入出口有 Base 的通用方法、各仓储自己开的
+// 事务、事务里的 tx.Create 三条路，逐个翻译必然漏一处。漏掉的那处表现为
+// "偶尔保存失败，刷新一下又好了"——其实是一次 500，用户只会当成网络问题重试。
+//
+// 唯一索引真正被撞上的场合是并发：两个请求都通过了前置的 Exists 校验，
+// 第二个必然撞约束。所以这不是防御性代码，是并发路径上唯一有效的拦截。
+func registerErrorTranslators(db *gorm.DB) error {
+	translate := func(tx *gorm.DB) {
+		if errors.Is(tx.Error, gorm.ErrDuplicatedKey) {
+			// 不带上具体字段名：驱动给的信息三个库各不相同，
+			// 拼进提示里会出现 "duplicate key value violates unique constraint ..."。
+			tx.Error = errs.ErrConflict.WithMsg(
+				"数据已存在：编码、编号或单号与已有记录重复，可能是一次重复提交")
+		}
+	}
+
+	specs := []struct {
+		name string
+		reg  func(name string, fn func(*gorm.DB)) error
+	}{
+		{"gowork:translate_duplicate_create", db.Callback().Create().After("gorm:create").Register},
+		{"gowork:translate_duplicate_update", db.Callback().Update().After("gorm:update").Register},
+	}
+	for _, s := range specs {
+		if err := s.reg(s.name, translate); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func newDialector(driver, dsn string) (gorm.Dialector, error) {

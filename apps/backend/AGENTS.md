@@ -138,7 +138,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
-| GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409） |
+| GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409）；删除产品在同一事务里清掉它的编号，旧号可立即复用 |
 | GET / POST | `/api/v1/product-codes` | `ProductCode.List` / `.Create` | 产品编号（旧 SKU / 客户物料号 / 供应商货号 / 工厂号）：`?product_id=` 必填；归一化后同产品重复 409、跨产品可共用；`code_norm` 由服务端算 |
 | DELETE | `/api/v1/product-codes/:id` | `ProductCode.Delete` | **硬删**：软删会让「删掉再加回来」撞唯一索引，而列表里又看不见那行 |
 | GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |
@@ -449,6 +449,7 @@ task backend:test       # go test ./... -count=1
 | `go build` 报 `no space left on device` | 某些环境 `/tmp` 很小，构建临时目录写满 | `export TMPDIR=<大分区目录>` |
 | sqlite 下并发写报 `database is locked` | SQLite 单写者模型 | 已配 WAL + `busy_timeout`，连接数已收敛；批量写要考虑合并事务 |
 | PostgreSQL 上 `keyword` 搜不到小写结果 | PG 的 `LIKE` 区分大小写 | 用 `likeAny`（内部按方言选 `ILIKE`），别自己拼 SQL |
+| 并发重复提交返回 500 | 前置的 Exists 校验挡不住并发，第二个请求撞上唯一索引，而驱动给的原始错误没被翻译 | `database.Open` 已开 `TranslateError`，并在 Create/Update 回调里统一翻成 40901；不要在调用点比错误字符串，三个库的文本各不相同 |
 | 登出后旧令牌还能用 | 绕过了会话校验 | `AuthService.Verify` 里那次 `sessions.Get` 不能删 |
 | 重启后登录态全没了 | memory 缓存没落盘 | `cache.memory.persist: true` 且 `Close()` 被调用（`main` 里靠 defer 保证） |
 | 生产误用了内存缓存 | `cache.driver` 配错 | 生产 `fallback_to_memory: false`，连不上 Redis 直接启动失败 |
