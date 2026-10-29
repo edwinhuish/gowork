@@ -210,7 +210,7 @@ func New(cfg *config.Config) (*App, error) {
 	// 合同只从报价单或订单抄快照，读的是两边仓储而不是两个服务：
 	// 它要的是"那张单现在是什么状态、金额多少"，不是"能不能改"。
 	contractSvc := service.NewContractService(
-		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc,
+		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc, partnerRepo,
 		service.WithContractLogger(log))
 
 	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
@@ -241,7 +241,7 @@ func New(cfg *config.Config) (*App, error) {
 	// 收付款单读应收 / 应付仓储只为了填核销行与给出可读的错误，
 	// 真正的额度判定在仓储事务里做，所以这里依赖仓储而不是两个服务。
 	paymentSvc := service.NewPaymentService(
-		paymentRepo, receivableRepo, payableRepo, currencySvc, docNoSvc,
+		paymentRepo, receivableRepo, payableRepo, currencySvc, docNoSvc, partnerRepo,
 		service.WithPaymentLogger(log))
 	// 库存只依赖流水仓储与产品（取快照用的 SKU / 品名），不依赖任何单据服务：
 	// 单据产生流水的那一步由 T-16 的单据层调用，方向始终是"单据 → 流水"。
@@ -262,6 +262,8 @@ func New(cfg *config.Config) (*App, error) {
 	// 审计服务只被中间件写、被一个只读接口读：业务代码不调用它，
 	// 所以它不挂在任何业务服务上。
 	auditSvc := service.NewAuditService(auditRepo, service.WithAuditLogger(log))
+	// 账号目录只有"把客户转给谁"这一个用途，所以只暴露一个只读列表。
+	userSvc := service.NewUserService(userRepo)
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, auditSvc, c, server.Handlers{
@@ -293,6 +295,7 @@ func New(cfg *config.Config) (*App, error) {
 		Dashboard:   handler.NewDashboardHandler(dashboardSvc),
 		Attachment:  handler.NewAttachmentHandler(attachmentSvc),
 		Audit:       handler.NewAuditHandler(auditSvc),
+		User:        handler.NewUserHandler(userSvc),
 	})
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}

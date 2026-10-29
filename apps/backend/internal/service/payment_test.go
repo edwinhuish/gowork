@@ -132,6 +132,7 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 			repository.NewReceivableRepository(db),
 			repository.NewPayableRepository(db),
 			currencySvc, docNoSvc,
+			repository.NewPartnerRepository(db),
 			WithPaymentClock(clock)),
 		receivables:  receivables,
 		payables:     payables,

@@ -107,7 +107,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	)
 	contractSvc := NewContractService(
 		contractRepo, quotationRepo, orderRepo,
-		currencySvc, docNoSvc,
+		currencySvc, docNoSvc, partnerRepo,
 		WithContractClock(clock),
 	)
 

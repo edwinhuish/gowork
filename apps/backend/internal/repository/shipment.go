@@ -21,6 +21,9 @@ type ShipmentFilter struct {
 	// SalesOrderID 查"这张订单出了几次货"，走 EXISTS 子查询而不是 JOIN：
 	// 一票装多张订单时 JOIN 会让同一票在结果里出现多次，分页总数也跟着虚高。
 	SalesOrderID *uint
+	// OwnerID 只看装着本业务员（或未分配）客户的货的批次（T-32）。
+	// 一票可能拼几家的货，所以判据是"其中有没有我的货"，而不是票头属于谁。
+	OwnerID *uint
 }
 
 func (f ShipmentFilter) scopes() []Scope {
@@ -45,8 +48,28 @@ func (f ShipmentFilter) scopes() []Scope {
 			)`, soID)
 		})
 	}
+	if f.OwnerID != nil {
+		owner := *f.OwnerID
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where(ownerGoodsExistsSQL, owner)
+		})
+	}
 	return scopes
 }
+
+// ownerGoodsExistsSQL 判断这票里有没有归属某业务员（或未分配）客户的货。
+//
+// 出货批次没有 partner_id：一票可能拼几家的货，所以判据只能是
+// "其中有没有我的货"，而不是"票头属于谁"。
+const ownerGoodsExistsSQL = `EXISTS (
+	SELECT 1 FROM biz_shipment_allocation a
+	JOIN biz_sales_order_item i ON i.id = a.sales_order_item_id
+	JOIN biz_sales_order o ON o.id = i.sales_order_id
+	JOIN md_partner p ON p.id = o.partner_id
+	WHERE a.shipment_id = biz_shipment.id
+	  AND a.deleted_at = 0 AND i.deleted_at = 0 AND o.deleted_at = 0
+	  AND (p.owner_id = ? OR p.owner_id = 0)
+)`
 
 type ShipmentRepository interface {
 	CreateWithAllocations(
@@ -62,6 +85,9 @@ type ShipmentRepository interface {
 	// 用 SQL 自增而不是"读出来 +1 再写回"：两个窗口同时点重开，
 	// 后写的那次会覆盖前一次，两版并成一版，而客户手上已经拿到了其中一版。
 	BumpInvoiceRevision(ctx context.Context, id uint) (int, error)
+	// ContainsOwnerGoods 报告这票里有没有归属该业务员（或未分配）客户的货，
+	// 供详情做越权校验（T-32）：拼柜时一票装几家的货，判据不是"票头属于谁"。
+	ContainsOwnerGoods(ctx context.Context, shipmentID, ownerID uint) (bool, error)
 	FindByID(ctx context.Context, id uint) (*model.Shipment, error)
 	List(ctx context.Context, f ShipmentFilter, p Pagination) ([]model.Shipment, int64, error)
 	// AllocatedQty 返回某条销售订单行**已被有效出货占用**的数量。
@@ -201,6 +227,21 @@ func (r *shipmentRepo) BumpInvoiceRevision(ctx context.Context, id uint) (int, e
 		return 0, fmt.Errorf("读取商票版本 id=%d: %w", id, err)
 	}
 	return rev, nil
+}
+
+func (r *shipmentRepo) ContainsOwnerGoods(
+	ctx context.Context, shipmentID, ownerID uint,
+) (bool, error) {
+	var hit int64
+	err := r.conn(ctx).
+		Table("biz_shipment").
+		Where("biz_shipment.id = ?", shipmentID).
+		Where(ownerGoodsExistsSQL, ownerID).
+		Count(&hit).Error
+	if err != nil {
+		return false, fmt.Errorf("判断出货 %d 的归属: %w", shipmentID, err)
+	}
+	return hit > 0, nil
 }
 
 func (r *shipmentRepo) FindByID(ctx context.Context, id uint) (*model.Shipment, error) {

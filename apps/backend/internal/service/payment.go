@@ -38,8 +38,10 @@ type paymentService struct {
 	payables    repository.PayableRepository
 	currencies  CurrencyService
 	docNos      DocNoService
-	clock       func() time.Time
-	log         *slog.Logger
+	// partners 只用来判数据范围（T-32）：收付款的归属跟着对方主体走。
+	partners repository.PartnerRepository
+	clock    func() time.Time
+	log      *slog.Logger
 }
 
 type PaymentOption func(*paymentService)
@@ -58,6 +60,7 @@ func NewPaymentService(
 	payables repository.PayableRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
+	partners repository.PartnerRepository,
 	opts ...PaymentOption,
 ) PaymentService {
 	s := &paymentService{
@@ -66,6 +69,7 @@ func NewPaymentService(
 		payables:    payables,
 		currencies:  currencies,
 		docNos:      docNos,
+		partners:    partners,
 		clock:       time.Now,
 		log:         slog.Default(),
 	}
@@ -240,7 +244,15 @@ func (s *paymentService) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *paymentService) Get(ctx context.Context, id uint) (*model.Payment, error) {
-	return s.repo.FindByID(ctx, id)
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 越权 403 而不是 404：这张收付款确实存在，只是不归你看。
+	if err := ensurePartnerVisible(ctx, s.partners, m.PartnerID); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (s *paymentService) List(

@@ -38,8 +38,11 @@ type contractService struct {
 	orders     repository.SalesOrderRepository
 	currencies CurrencyService
 	docNos     DocNoService
-	clock      func() time.Time
-	log        *slog.Logger
+	// partners 只用来判数据范围（T-32）：合同归属跟着客户走，
+	// 而合同的 partner_id 只在库里，服务手上没有别的办法知道这单是谁的。
+	partners repository.PartnerRepository
+	clock    func() time.Time
+	log      *slog.Logger
 }
 
 type ContractOption func(*contractService)
@@ -59,6 +62,7 @@ func NewContractService(
 	orders repository.SalesOrderRepository,
 	currencies CurrencyService,
 	docNos DocNoService,
+	partners repository.PartnerRepository,
 	opts ...ContractOption,
 ) ContractService {
 	s := &contractService{
@@ -67,6 +71,7 @@ func NewContractService(
 		orders:     orders,
 		currencies: currencies,
 		docNos:     docNos,
+		partners:   partners,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -215,7 +220,15 @@ func (s *contractService) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *contractService) Get(ctx context.Context, id uint) (*model.Contract, error) {
-	return s.contracts.FindByID(ctx, id)
+	m, err := s.contracts.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 越权 403 而不是 404：合同确实存在，只是不归你看。
+	if err := ensurePartnerVisible(ctx, s.partners, m.PartnerID); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (s *contractService) List(

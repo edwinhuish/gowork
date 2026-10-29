@@ -47,6 +47,7 @@ type Handlers struct {
 	Dashboard   *handler.DashboardHandler
 	Attachment  *handler.AttachmentHandler
 	Audit       *handler.AuditHandler
+	User        *handler.UserHandler
 }
 
 // New 构建 gin 引擎。
@@ -88,6 +89,9 @@ func New(
 
 		// 操作日志：只读，且只有管理员能看——里面装着全公司单据的提交内容。
 		secured.GET("/audit-logs", middleware.RequireAdmin(), h.Audit.List)
+
+		// 账号目录：只服务"把客户转给谁"的选择器，业务员在 service 里被拒 403。
+		secured.GET("/users", h.User.ListActive)
 
 		products := secured.Group("/products")
 		products.GET("", h.Product.List)

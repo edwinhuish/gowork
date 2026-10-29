@@ -181,7 +181,22 @@ func (s *shipmentService) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *shipmentService) Get(ctx context.Context, id uint) (*model.Shipment, error) {
-	return s.load(ctx, id)
+	m, err := s.load(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// 越权 403 而不是 404；判据是"这票里有没有我的货"——拼柜时一票装几家的货，
+	// 只要有自己的就得看得见（货什么时候走，业务员必须知道）。
+	if owner := ownerScope(ctx); owner != nil {
+		ok, err := s.shipments.ContainsOwnerGoods(ctx, id, *owner)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errs.ErrForbidden
+		}
+	}
+	return m, nil
 }
 
 func (s *shipmentService) List(
@@ -189,9 +204,11 @@ func (s *shipmentService) List(
 ) (*dto.PageResult[model.Shipment], error) {
 	q.PageQuery.Normalize()
 
+	// 范围由身份决定：一票装了谁的货，就出现在谁的列表里。
 	filter := repository.ShipmentFilter{
 		Keyword:      q.Keyword,
 		SalesOrderID: q.SalesOrderID,
+		OwnerID:      ownerScope(ctx),
 	}
 	if q.Status != nil {
 		st := model.DocumentStatus(*q.Status)
