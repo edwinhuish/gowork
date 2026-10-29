@@ -310,6 +310,11 @@ type salesLine struct {
 	cost        money.Decimal
 	charge      money.Decimal
 	missing     bool
+	// 分摊分母用到的三项（T-59）与这票选择的分摊依据。
+	volume  money.Decimal
+	gross   money.Decimal
+	cartons money.Decimal
+	basis   string
 }
 
 // computeSalesLines 把出货分配行摊成"每行都有收入、成本、运杂费"的明细。
@@ -382,12 +387,37 @@ func (s *reportService) computeSalesLines(
 			revenue:     revenue,
 			cost:        cost,
 			missing:     missing,
+			volume:      r.Volume,
+			gross:       r.GrossWeight,
+			cartons:     money.FromInt(int64(r.Cartons)),
+			basis:       r.ChargeAllocBasis,
 		})
 	}
 
-	// 运杂费按票发生，但要按行归集：按收入占比摊到每行。
-	// 每票最后一行的份额取「票上总额 − 已经摊出去的」，这样四舍五入的零头不会丢，
+	// 运杂费按票发生，但要按行归集（T-59）：分摊依据取票头，
+	// 默认按金额——与改造前一致，所以没有设置过的票算出来的数不变。
+	//
+	// 每票最后一行的份额取「票上总额 − 已经摊出去的」，四舍五入的零头不会丢，
 	// 各行相加精确等于票面，各维度算出来的运杂费合计与单票毛利逐票相加完全相等。
+	basis := make(map[uint]string, len(shipmentIDs))
+	denomSum := make(map[uint]money.Decimal, len(shipmentIDs))
+	revenueSum := make(map[uint]money.Decimal, len(shipmentIDs))
+	for _, l := range lines {
+		if _, ok := basis[l.shipmentID]; !ok {
+			basis[l.shipmentID] = l.basis
+		}
+		denomSum[l.shipmentID] = denomSum[l.shipmentID].Add(allocDenominator(l.basis, l))
+		revenueSum[l.shipmentID] = revenueSum[l.shipmentID].Add(l.revenue)
+	}
+	// 分母为 0 时回退金额：按体积摊但没人维护箱规时，全部运费会落到最后一行，
+	// 那一行的毛利就成了一个明显的假数，而看报表的人只会以为是这票亏了。
+	for id, v := range denomSum {
+		if v.Cmp(money.Zero()) <= 0 {
+			basis[id] = chargeBasisAmount
+			denomSum[id] = revenueSum[id]
+		}
+	}
+
 	remaining := make(map[uint]money.Decimal, len(charges))
 	for id, v := range charges {
 		remaining[id] = v
@@ -402,15 +432,43 @@ func (s *reportService) computeSalesLines(
 			continue
 		}
 		total := charges[l.shipmentID]
-		base := revenueByShipment[l.shipmentID]
+		base := denomSum[l.shipmentID]
 		share := money.Zero()
-		if total.IsPositive() && base.IsPositive() {
-			share = total.Mul(l.revenue.Div(base)).Round(4)
+		if total.IsPositive() && base.Cmp(money.Zero()) > 0 {
+			share = total.Mul(allocDenominator(basis[l.shipmentID], l).Div(base)).Round(4)
 		}
 		lines[i].charge = share
 		remaining[l.shipmentID] = remaining[l.shipmentID].Sub(share)
 	}
 	return lines, nil
+}
+
+// 运杂费的分摊依据（T-59）。与 model.Shipment.ChargeAllocBasis 的取值一致。
+const (
+	chargeBasisAmount  = "amount"
+	chargeBasisQty     = "qty"
+	chargeBasisVolume  = "volume"
+	chargeBasisWeight  = "weight"
+	chargeBasisCartons = "cartons"
+)
+
+// allocDenominator 给出这一行在某种分摊依据下的权重。
+//
+// 未知取值一律按金额：票头上的值是配置，读到一个不认识的值时，
+// 报表要照常出，而不是让整张看板 500。
+func allocDenominator(basis string, l salesLine) money.Decimal {
+	switch basis {
+	case chargeBasisQty:
+		return l.qty
+	case chargeBasisVolume:
+		return l.volume
+	case chargeBasisWeight:
+		return l.gross
+	case chargeBasisCartons:
+		return l.cartons
+	default:
+		return l.revenue
+	}
 }
 
 func salesLimit(raw *int) (int, error) {

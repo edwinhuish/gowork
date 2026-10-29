@@ -46,6 +46,12 @@ type SalesShipmentLine struct {
 	Qty            money.Decimal
 	ItemQty        money.Decimal
 	ItemAmountBase money.Decimal
+	// 包装与分摊依据（T-59）：按体积 / 毛重 / 箱数分摊时用这几列，
+	// 它们就在分配行上，不必再查一次。
+	Cartons          int
+	GrossWeight      money.Decimal
+	Volume           money.Decimal
+	ChargeAllocBasis string
 }
 
 // ListSalesShipmentLines 取范围内参与统计的出货分配行。
@@ -72,7 +78,11 @@ func (r *reportRepo) ListSalesShipmentLines(
 			a.sales_order_item_id,
 			a.qty,
 			i.qty AS item_qty,
-			i.amount_base AS item_amount_base`).
+			i.amount_base AS item_amount_base,
+			a.cartons,
+			a.gross_weight,
+			a.volume,
+			s.charge_alloc_basis`).
 		Joins("JOIN biz_shipment AS s ON s.id = a.shipment_id AND s.deleted_at = 0").
 		Joins("JOIN biz_sales_order_item AS i ON i.id = a.sales_order_item_id AND i.deleted_at = 0").
 		Joins("JOIN biz_sales_order AS o ON o.id = i.sales_order_id AND o.deleted_at = 0").

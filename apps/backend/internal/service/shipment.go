@@ -97,6 +97,17 @@ func WithShipmentPartners(repo repository.PartnerRepository) ShipmentOption {
 	return func(s *shipmentService) { s.partners = repo }
 }
 
+// chargeBasisOf 归一化运杂费分摊依据：空值落 amount（T-59）。
+//
+// 不认识的值交给 dto 的 oneof 拦在绑定阶段；这里只处理"没填"，
+// 因为空是常态（绝大多数票不需要改分摊方式）。
+func chargeBasisOf(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return chargeBasisAmount
+	}
+	return strings.TrimSpace(raw)
+}
+
 // checkForwarder 校验票头上的货代确实是货代。
 //
 // 不校验的后果不是数据错，而是单证错：订舱委托的抬头写了一家供应商，
@@ -163,11 +174,13 @@ func (s *shipmentService) Create(
 		return nil, err
 	}
 	m := &model.Shipment{
-		DocNo:       docNo,
-		Status:      model.DocumentStatusDraft,
-		ShipDate:    shipDate,
-		ForwarderID: in.ForwarderID,
-		Remark:      in.Remark,
+		DocNo:    docNo,
+		Status:   model.DocumentStatusDraft,
+		ShipDate: shipDate,
+		// 空值落 amount：与改造前的口径一致，没设置的票算出来的数不变（T-59）。
+		ChargeAllocBasis: chargeBasisOf(in.ChargeAllocBasis),
+		ForwarderID:      in.ForwarderID,
+		Remark:           in.Remark,
 	}
 	if err := s.shipments.CreateWithAllocations(ctx, m, rows); err != nil {
 		return nil, err
@@ -200,9 +213,10 @@ func (s *shipmentService) Update(
 		return nil, err
 	}
 	fields := map[string]any{
-		"ship_date":    shipDate,
-		"forwarder_id": in.ForwarderID,
-		"remark":       in.Remark,
+		"ship_date":          shipDate,
+		"charge_alloc_basis": chargeBasisOf(in.ChargeAllocBasis),
+		"forwarder_id":       in.ForwarderID,
+		"remark":             in.Remark,
 	}
 	if in.UpdatedAt != nil {
 		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
