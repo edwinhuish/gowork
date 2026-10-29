@@ -308,9 +308,10 @@ func (r *shipmentRepo) ListShippableItems(
 		Where("i.qty > COALESCE(t.shipped_qty, 0) + 0.000001")
 
 	if kw := strings.TrimSpace(keyword); kw != "" {
-		like := "%" + kw + "%"
-		q = q.Where("(o.doc_no LIKE ? OR i.sku_code LIKE ? OR i.name_cn LIKE ? OR p.name LIKE ?)",
-			like, like, like, like)
+		// 走 likeAny 而不是手写 LIKE：PG 的 LIKE 区分大小写，用户小写输
+		// `qt-2610` 就搜不到 `QT-2610-0001`，而列表页用的都是 likeAny（内部按方言选 ILIKE）。
+		// 它同时处理通配符转义——手写的这段没有转义，输一个 `%` 会把全部候选带出来。
+		q = q.Scopes(likeAny(kw, "o.doc_no", "i.sku_code", "i.name_cn", "p.name"))
 	}
 
 	var rows []ShippableItem

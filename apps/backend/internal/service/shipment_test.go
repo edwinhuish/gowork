@@ -244,6 +244,32 @@ func TestShipmentCandidates(t *testing.T) {
 			t.Fatalf("按 SKU 搜到的候选 = %+v", list)
 		}
 	})
+
+	t.Run("通配符被转义", func(t *testing.T) {
+		// 手写 LIKE 时没有转义：用户输一个 % 会把全部候选带出来。
+		// 走 likeAny 之后 % 只是一个普通字符，没有任何单号或 SKU 含它。
+		for _, kw := range []string{"%", "_", "!"} {
+			list, err := fx.shipments.Candidates(ctx, kw, 0)
+			if err != nil {
+				t.Fatalf("搜 %q 失败: %v", kw, err)
+			}
+			if len(list) != 0 {
+				t.Errorf("搜 %q 得到 %d 条，期望 0 条（通配符应被当作普通字符）", kw, len(list))
+			}
+		}
+	})
+
+	t.Run("大小写不影响匹配", func(t *testing.T) {
+		// PG 的 LIKE 区分大小写，其他两个库不区分；likeAny 内部按方言选 ILIKE，
+		// 所以这里在三个库上应当一致地命中。
+		list, err := fx.shipments.Candidates(ctx, strings.ToLower(fx.orderA.DocNo), 0)
+		if err != nil {
+			t.Fatalf("小写关键词搜索失败: %v", err)
+		}
+		if len(list) != 1 || list[0].SalesOrderItemID != itemA.ID {
+			t.Fatalf("小写订单号没命中: %+v", list)
+		}
+	})
 }
 
 func TestShipmentRules(t *testing.T) {
