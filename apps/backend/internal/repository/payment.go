@@ -191,9 +191,14 @@ func applyAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if a.Amount.Cmp(money.Zero()) <= 0 {
 			return errs.BadRequest("核销金额必须大于 0")
 		}
+		// 未结清额还要扣掉已开的贷项（T-52b）：退货冲减掉的那部分钱不能再收一次。
+		credited, err := creditedFor(tx, m.ID)
+		if err != nil {
+			return err
+		}
 		// 超收判定逐位比较：金额与核销额都按末位精确存取，
 		// 多核 0.0001 也是多核，放过去就成了"这张单收的钱比开的票多"。
-		if remaining := m.Amount.Sub(m.SettledAmount); a.Amount.Cmp(remaining) > 0 {
+		if remaining := m.Amount.Sub(m.SettledAmount).Sub(credited); a.Amount.Cmp(remaining) > 0 {
 			return errs.BadRequest(fmt.Sprintf(
 				"应收单 %s 只剩 %s %s 未结清，不能核销 %s",
 				m.DocNo, m.CurrencyCode, remaining, a.Amount))
@@ -283,4 +288,20 @@ func maxDecimal(a, b money.Decimal) money.Decimal {
 		return a
 	}
 	return b
+}
+
+// creditedFor 汇总某张应收单已被贷项冲减的金额（T-52b）。
+//
+// 在事务里直接查表而不是注入仓储：applyAllocation 是包内函数，
+// 为一个辅助查询多一个构造参数，会让所有调用点跟着改。
+func creditedFor(tx *gorm.DB, receivableID uint) (money.Decimal, error) {
+	var rows []model.CreditNote
+	if err := tx.Select("amount").Where("receivable_id = ?", receivableID).Find(&rows).Error; err != nil {
+		return money.Zero(), fmt.Errorf("汇总应收单 %d 的贷项: %w", receivableID, err)
+	}
+	sum := money.Zero()
+	for _, row := range rows {
+		sum = sum.Add(row.Amount)
+	}
+	return sum, nil
 }

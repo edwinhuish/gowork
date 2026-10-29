@@ -31,7 +31,7 @@ func newExchangeFixture(t *testing.T) exchangeFixture {
 	t.Helper()
 	db := openTestDB(t,
 		&model.Partner{}, &model.Receivable{}, &model.Payable{},
-		&model.Payment{}, &model.PaymentAllocation{})
+		&model.Payment{}, &model.PaymentAllocation{}, &model.CreditNote{})
 	return exchangeFixture{
 		reports: NewReportService(repository.NewReportRepository(db)),
 		db:      db,

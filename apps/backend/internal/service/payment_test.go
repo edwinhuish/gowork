@@ -39,7 +39,7 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 		&model.SalesOrder{}, &model.SalesOrderItem{},
 		&model.PurchaseOrder{}, &model.PurchaseOrderItem{},
 		&model.DocSeq{}, &model.Receivable{}, &model.Payable{},
-		&model.Payment{}, &model.PaymentAllocation{})
+		&model.Payment{}, &model.PaymentAllocation{}, &model.CreditNote{})
 
 	clock := func() time.Time { return now }
 	partnerRepo := repository.NewPartnerRepository(db)

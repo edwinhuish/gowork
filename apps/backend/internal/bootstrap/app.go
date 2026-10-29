@@ -97,6 +97,7 @@ func New(cfg *config.Config) (*App, error) {
 		&model.PurchaseReceipt{},
 		&model.PurchaseReceiptItem{},
 		&model.Inspection{},
+		&model.CreditNote{},
 		&model.PurchaseOrderItem{},
 		&model.Shipment{},
 		&model.ShipmentAllocation{},
@@ -289,6 +290,10 @@ func New(cfg *config.Config) (*App, error) {
 	// 加一个可挂载的实体不用改这里的装配。
 	attachmentSvc := service.NewAttachmentService(
 		attachmentRepo, service.WithAttachmentLogger(log))
+	// 贷项通知单（T-52b）：冲减应收，核销校验会把它算进未结清额。
+	creditNoteSvc := service.NewCreditNoteService(
+		repository.NewCreditNoteRepository(db), receivableRepo, docNoSvc,
+		service.WithCreditNoteLogger(log))
 	// 报表只读不写，也不缓存：数字要能和明细逐笔对上。
 	reportSvc := service.NewReportService(reportRepo, service.WithReportLogger(log))
 	dashboardSvc := service.NewDashboardService(productRepo, partnerRepo, c, service.WithDashboardLogger(log))
@@ -323,6 +328,7 @@ func New(cfg *config.Config) (*App, error) {
 		Charge:          handler.NewShipmentChargeHandler(chargeSvc),
 		Customs:         handler.NewCustomsDeclarationHandler(customsSvc),
 		Receivable:      handler.NewReceivableHandler(receivableSvc),
+		CreditNote:      handler.NewCreditNoteHandler(creditNoteSvc),
 		Payable:         handler.NewPayableHandler(payableSvc),
 		Payment:         handler.NewPaymentHandler(paymentSvc),
 		Report:          handler.NewReportHandler(reportSvc),
