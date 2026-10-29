@@ -519,6 +519,40 @@ export interface Contract {
   partner?: Partner | null
   /** 列表不带分期，只有详情带。 */
   terms?: ContractTerm[]
+  /** 条款**快照**：生成时从模板抄下来的，改模板不会影响这里。 */
+  clauses?: ContractClause[]
+  created_at: string
+  updated_at: string
+}
+
+/** 合同上的一条条款快照（T-27）。正文是当时的抄件，不是对模板的引用。 */
+export interface ContractClause {
+  id: number
+  contract_id: number
+  /** 来源模板 id，可空（手写条款没有模板）。 */
+  clause_id: number | null
+  seq: number
+  title: string
+  body: string
+}
+
+/**
+ * 可复用的合同条款模板（主数据）。
+ *
+ * 注意别与 `ContractTerm` 混了：那个是**付款分期**（30% 订金 / 70% 见提单副本），
+ * 这个是文本条款。
+ */
+export interface Clause {
+  id: number
+  code: string
+  title: string
+  body: string
+  /** 付款 / 质量 / 违约 …… 自由文本，不做枚举。 */
+  category: string
+  status: number
+  remark: string
+  /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
+  deleted_at?: number
   created_at: string
   updated_at: string
 }

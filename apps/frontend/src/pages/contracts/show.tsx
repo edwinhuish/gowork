@@ -2,7 +2,17 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useInvalidate, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
-import { Button, Descriptions, Divider, message, Popconfirm, Space, Table, Tag } from 'antd'
+import {
+  Button,
+  Descriptions,
+  Divider,
+  message,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd'
 
 import { download } from '@/api/client'
 import { contractApi } from '@/api/contracts'
@@ -12,7 +22,7 @@ import {
   contractStatusLabel,
   contractTypeLabel,
 } from '@/constants/catalog'
-import type { Contract, ContractTerm } from '@/types'
+import type { Contract, ContractClause, ContractTerm } from '@/types'
 import { formatDate } from '@/utils/format'
 
 function statusColor(value: number): string {
@@ -40,6 +50,8 @@ export function ContractShow() {
 
   const c = result
   const terms = c?.terms ?? []
+  // 条款快照：只有详情带（列表不带）。
+  const clauses = c?.clauses ?? []
   // 金额是定点字符串，这里的合计只用于「分期是否与总额相符」的显示判断；
   // 服务端保存时已经按末位判过一次，前端不再要求逐位相等。
   const termsTotal = terms.reduce((acc, t) => acc + Number(t.amount), 0)
@@ -245,6 +257,39 @@ export function ContractShow() {
           render={(value: string) => value || <Empty />}
         />
       </Table>
+
+      {/* 条款是**快照**：这里显示的是生成时抄下来的那几句话，
+          改条款库的模板不会改动已经生成的合同。没选条款就不占版面。 */}
+      {clauses.length > 0 && (
+        <>
+          <Divider orientation="left" style={{ margin: '24px 0 12px' }}>
+            合同条款
+          </Divider>
+          <Table<ContractClause>
+            rowKey="id"
+            size="small"
+            dataSource={clauses}
+            pagination={false}
+          >
+            <Table.Column dataIndex="seq" title="#" width={56} />
+            <Table.Column
+              dataIndex="title"
+              title="条款"
+              width={220}
+              render={(value: string) => <span className="cell-strong">{value}</span>}
+            />
+            <Table.Column
+              dataIndex="body"
+              title="正文"
+              render={(value: string) => (
+                <Typography.Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+                  {value}
+                </Typography.Paragraph>
+              )}
+            />
+          </Table>
+        </>
+      )}
 
       <div style={{ marginTop: 12, color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
         合同不存货物明细：明细留在来源单据上，这里只有一份对外承诺的快照。

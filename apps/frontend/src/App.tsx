@@ -1,5 +1,6 @@
 import {
   AccountBookOutlined,
+  BookOutlined,
   AlertOutlined,
   AppstoreOutlined,
   BellOutlined,
@@ -45,6 +46,7 @@ import { AgingPage } from '@/pages/aging'
 import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { AuditLogList } from '@/pages/audit-logs'
+import { ClauseList } from '@/pages/clauses'
 import { CollectionPage } from '@/pages/collection'
 import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
 import { CurrencyCreate, CurrencyEdit, CurrencyList } from '@/pages/currencies'
@@ -208,6 +210,12 @@ export default function App() {
                 edit: '/contracts/edit/:id',
                 show: '/contracts/show/:id',
                 meta: { label: '合同', icon: <FileProtectOutlined /> },
+              },
+              {
+                // 条款模板库（T-27）：主数据，合同生成时抄成快照。
+                name: 'clauses',
+                list: '/clauses',
+                meta: { label: '条款库', icon: <BookOutlined /> },
               },
               {
                 // 订单：报价谈成之后要出货的那张凭证，状态走完整状态机。
@@ -410,6 +418,10 @@ export default function App() {
                     <Route path="create" element={<ContractCreate />} />
                     <Route path="edit/:id" element={<ContractEdit />} />
                     <Route path="show/:id" element={<ContractShow />} />
+                  </Route>
+
+                  <Route path="clauses">
+                    <Route index element={<ClauseList />} />
                   </Route>
 
                   <Route path="sales-orders">

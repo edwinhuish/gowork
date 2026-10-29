@@ -12,6 +12,7 @@ import {
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { Contract, Quotation, SalesOrder } from '@/types'
 
+import { ContractClausePicker } from './clause-picker'
 import { ContractTermsEditor } from './terms-editor'
 
 /** 今天，YYYY-MM-DD。签订日默认今天：合同多半是当场出具。 */
@@ -189,6 +190,12 @@ export function ContractCreate() {
             currencyCode={source?.currency_code}
           />
         </div>
+
+        <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
+          合同条款
+        </Divider>
+
+        <ContractClausePicker />
       </Form>
     </Create>
   )
