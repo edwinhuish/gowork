@@ -101,6 +101,12 @@ func New(
 			exports.GET("/products", h.Product.Export)
 		}
 
+		// 导入（T-35）：先 dry_run 出报告，确认后再落库。导出文件可直接当模板。
+		imports := secured.Group("/imports")
+		{
+			imports.POST("/partners", h.Partner.Import)
+		}
+
 		products := secured.Group("/products")
 		products.GET("", h.Product.List)
 		products.POST("", h.Product.Create)

@@ -43,6 +43,10 @@ type PartnerService interface {
 	Merge(ctx context.Context, id uint, in dto.PartnerMergeInput) (*dto.PartnerMergeResult, error)
 	// TransferOwner 把主体转给另一个业务员（或退回未分配）。仅管理员与主管可用。
 	TransferOwner(ctx context.Context, id uint, in dto.PartnerOwnerInput) (*model.Partner, error)
+	// ImportPartners 按行导入主体（T-35）：dryRun 为 true 时只出报告不落库。
+	ImportPartners(
+		ctx context.Context, rows []dto.PartnerImportRow, dryRun bool,
+	) (*dto.PartnerImportReport, error)
 }
 
 type partnerService struct {
