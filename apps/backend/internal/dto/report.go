@@ -192,7 +192,10 @@ type ProductProfitRow struct {
 	Revenue     money.Decimal `json:"revenue"`
 	Cost        money.Decimal `json:"cost"`
 	Charge      money.Decimal `json:"charge"`
-	Profit      money.Decimal `json:"profit"`
+	// ChargeByAmount 是按金额分摊的对照值（T-59）：默认口径下与 Charge 相同，
+	// 换过分摊方式之后并排看，才知道"换口径会差多少"。
+	ChargeByAmount money.Decimal `json:"charge_by_amount"`
+	Profit         money.Decimal `json:"profit"`
 	// CostMissing 表示这一票里有出货行没有可用采购成本，成本与毛利因此偏高。
 	CostMissing bool `json:"cost_missing"`
 }

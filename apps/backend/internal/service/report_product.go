@@ -56,6 +56,7 @@ func (s *reportService) ProductProfit(
 		item.row.Revenue = item.row.Revenue.Add(l.revenue)
 		item.row.Cost = item.row.Cost.Add(l.cost)
 		item.row.Charge = item.row.Charge.Add(l.charge)
+		item.row.ChargeByAmount = item.row.ChargeByAmount.Add(l.chargeByAmount)
 		item.row.CostMissing = item.row.CostMissing || l.missing
 	}
 
@@ -70,6 +71,7 @@ func (s *reportService) ProductProfit(
 		item.row.Revenue = revenue
 		item.row.Cost = cost
 		item.row.Charge = charge
+		item.row.ChargeByAmount = item.row.ChargeByAmount.Round(4)
 		item.row.Profit = revenue.Sub(cost).Sub(charge).Round(4)
 
 		// 合计从没舍入的数加：报表上的合计是被人拿去对账的。

@@ -1,5 +1,6 @@
-import { Form, Input } from 'antd'
+import { Form, Input, Select } from 'antd'
 
+import { CHARGE_ALLOC_BASIS_OPTIONS } from '@/constants/catalog'
 import { todayString } from '../orders/form-fields'
 
 /**
@@ -18,6 +19,16 @@ export function ShipmentFormFields() {
         extra="留空取今天；决定这票落在哪个统计月份"
       >
         <Input placeholder={todayString()} />
+      </Form.Item>
+
+      {/* 运杂费按票发生、按行归集（T-59）：拼柜时高价值小体积的货会背走多数运费，
+          按体积或重量摊更贴近实际占用。默认按金额，与改造前一致。 */}
+      <Form.Item
+        name="charge_alloc_basis"
+        label="运杂费分摊"
+        tooltip="这票的运费按什么摊到各产品行。改它只影响本票的毛利下钻，不改票面费用总额"
+      >
+        <Select options={CHARGE_ALLOC_BASIS_OPTIONS} placeholder="按金额" allowClear />
       </Form.Item>
 
       <Form.Item name="remark" label="备注" className="form-item-full">

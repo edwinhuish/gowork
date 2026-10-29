@@ -764,6 +764,8 @@ export interface Shipment {
   invoice_revision: number
   /** 实际（或计划）出货日，决定它落在哪个统计月份。 */
   ship_date: string
+  /** 运杂费摊到行的依据（T-59）：amount / qty / volume / weight / cartons。 */
+  charge_alloc_basis: string
   /**
    * 物流节点。它们是订舱之后才知道的，所以不走编辑页：
    * 用 `shipmentApi.updateLogistics` 单独保存，任何状态都能改。

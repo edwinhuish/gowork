@@ -315,6 +315,9 @@ type salesLine struct {
 	gross   money.Decimal
 	cartons money.Decimal
 	basis   string
+	// chargeByAmount 是按**金额**摊出来的对照值（T-59）：默认口径下它与 charge 相同，
+	// 换过分摊方式之后两者不同，并排看才知道"换口径会差多少"。
+	chargeByAmount money.Decimal
 }
 
 // computeSalesLines 把出货分配行摊成"每行都有收入、成本、运杂费"的明细。
@@ -418,27 +421,49 @@ func (s *reportService) computeSalesLines(
 		}
 	}
 
-	remaining := make(map[uint]money.Decimal, len(charges))
-	for id, v := range charges {
-		remaining[id] = v
-	}
-	lastIndex := make(map[uint]int, len(shipmentIDs))
-	for i, l := range lines {
-		lastIndex[l.shipmentID] = i
-	}
-	for i, l := range lines {
-		if lastIndex[l.shipmentID] == i {
-			lines[i].charge = remaining[l.shipmentID]
-			continue
+	alloc := func(basisOf func(uint) string) map[int]money.Decimal {
+		denom := make(map[uint]money.Decimal, len(shipmentIDs))
+		for _, l := range lines {
+			denom[l.shipmentID] = denom[l.shipmentID].Add(allocDenominator(basisOf(l.shipmentID), l))
 		}
-		total := charges[l.shipmentID]
-		base := denomSum[l.shipmentID]
-		share := money.Zero()
-		if total.IsPositive() && base.Cmp(money.Zero()) > 0 {
-			share = total.Mul(allocDenominator(basis[l.shipmentID], l).Div(base)).Round(4)
+		for id, v := range denom {
+			if v.Cmp(money.Zero()) <= 0 {
+				denom[id] = revenueSum[id]
+			}
 		}
-		lines[i].charge = share
-		remaining[l.shipmentID] = remaining[l.shipmentID].Sub(share)
+		remaining := make(map[uint]money.Decimal, len(charges))
+		for id, v := range charges {
+			remaining[id] = v
+		}
+		lastIndex := make(map[uint]int, len(shipmentIDs))
+		for i, l := range lines {
+			lastIndex[l.shipmentID] = i
+		}
+		out := make(map[int]money.Decimal, len(lines))
+		for i, l := range lines {
+			if lastIndex[l.shipmentID] == i {
+				out[i] = remaining[l.shipmentID]
+				continue
+			}
+			total := charges[l.shipmentID]
+			base := denom[l.shipmentID]
+			share := money.Zero()
+			if total.IsPositive() && base.Cmp(money.Zero()) > 0 {
+				share = total.Mul(allocDenominator(basisOf(l.shipmentID), l).Div(base)).Round(4)
+			}
+			out[i] = share
+			remaining[l.shipmentID] = remaining[l.shipmentID].Sub(share)
+		}
+		return out
+	}
+
+	// 按票头的依据摊一遍，再按金额摊一遍做对照（T-59）。
+	// 两遍都用余额法，所以两套数各自都能精确等于票面。
+	byBasis := alloc(func(id uint) string { return basis[id] })
+	byAmount := alloc(func(uint) string { return chargeBasisAmount })
+	for i := range lines {
+		lines[i].charge = byBasis[i]
+		lines[i].chargeByAmount = byAmount[i]
 	}
 	return lines, nil
 }

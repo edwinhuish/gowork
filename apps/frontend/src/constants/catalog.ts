@@ -228,6 +228,20 @@ export const PARTNER_ENTITY_TYPE_OPTIONS = [
 ]
 
 /**
+ * 运杂费分摊依据（T-59）。取值必须与后端 model.Shipment.ChargeAllocBasis 一致。
+ *
+ * 默认按金额：拼柜时高价值小体积的货会背走多数运费，按体积或重量摊更贴近
+ * 实际占用；但换口径会让历史报表的数变，所以默认值保持与改造前一致。
+ */
+export const CHARGE_ALLOC_BASIS_OPTIONS = [
+  { value: 'amount', label: '按金额' },
+  { value: 'qty', label: '按数量' },
+  { value: 'volume', label: '按体积 CBM' },
+  { value: 'weight', label: '按毛重' },
+  { value: 'cartons', label: '按箱数' },
+]
+
+/**
  * 主体地址用途。取值必须与后端 model.PartnerAddressType 一致。
  *
  * 顺序即单证上出现的顺序：先发票抬头，再收货人，最后通知方。
