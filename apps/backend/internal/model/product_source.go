@@ -20,6 +20,13 @@ type ProductSource struct {
 	// 允许为空：打样阶段对方还没给号，而"先记下这家的报价"本身就有价值。
 	// 但同一产品在同一供应商下只能有一条空货号的行——再挂一条就是同一件事录了两次。
 	SupplierSKU string `gorm:"size:64;index" json:"supplier_sku"`
+	// SupplierSKUNorm 是 SupplierSKU 的检索形态（见 pkg/code），与 md_product_code.code_norm
+	// 用同一个函数。供应商报货号时写的可能是 `A-100` 也可能是 `a 100`，产品列表的关键词
+	// 要一次命中，所以两边必须按同一口径归一化。
+	//
+	// 归一化值落库而不是查询时现算：现算意味着 WHERE 里套函数，索引失效，
+	// 三库的函数名还不一样。录入与改货号时由 service 计算。
+	SupplierSKUNorm string `gorm:"size:64;index" json:"-"`
 
 	// 采购价按「原币价 + 币种 + 本币价 + 汇率」四件套存（蓝图第五节第 1 条）。
 	// 只存原币，比价时得先手工算汇率，而汇率每天都在变——比价结果过一天就不成立。

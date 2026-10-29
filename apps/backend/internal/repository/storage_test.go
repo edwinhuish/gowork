@@ -70,10 +70,12 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		t.Fatalf("方言应为 %s，实际 %s", driver, got)
 	}
 
-	// 产品编号必须一起迁移：产品列表的关键词条件会子查询 md_product_code，
-	// 少了这张表，三库里只有"搜关键词"那几条会失败，而其他都正常。
+	// 产品编号与货源必须一起迁移：产品列表的关键词条件会分别子查询
+	// md_product_code 与 md_product_source，少了任一张表，三库里
+	// 只有"搜关键词"那几条会失败，而其他都正常。
 	if err := database.AutoMigrate(db,
-		&model.Partner{}, &model.Product{}, &model.ProductCode{}); err != nil {
+		&model.Partner{}, &model.Product{}, &model.ProductCode{},
+		&model.ProductSource{}); err != nil {
 		t.Fatalf("迁移失败: %v", err)
 	}
 

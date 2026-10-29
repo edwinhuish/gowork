@@ -126,6 +126,10 @@ func TestProductSourceRules(t *testing.T) {
 		if m.SupplierSKU != "A-100" {
 			t.Errorf("supplier_sku = %q，期望去掉首尾空格", m.SupplierSKU)
 		}
+		// 归一化值供产品列表的关键词检索用，口径与 md_product_code.code_norm 一致。
+		if m.SupplierSKUNorm != "A100" {
+			t.Errorf("supplier_sku_norm = %q，期望 A100", m.SupplierSKUNorm)
+		}
 		if m.PurchasePriceBase.Cmp(money.MustParse("8.52")) != 0 {
 			t.Errorf("purchase_price_base = %s，期望 8.52", m.PurchasePriceBase)
 		}

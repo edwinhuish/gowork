@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
@@ -91,6 +92,7 @@ func (s *productSourceService) Create(
 		ProductID:         in.ProductID,
 		PartnerID:         in.PartnerID,
 		SupplierSKU:       terms.SupplierSKU,
+		SupplierSKUNorm:   terms.SupplierSKUNorm,
 		PurchasePrice:     terms.PurchasePrice,
 		CurrencyCode:      terms.CurrencyCode,
 		PurchasePriceBase: terms.PurchasePriceBase,
@@ -131,6 +133,7 @@ func (s *productSourceService) Update(
 
 	fields := map[string]any{
 		"supplier_sku":        terms.SupplierSKU,
+		"supplier_sku_norm":   terms.SupplierSKUNorm,
 		"purchase_price":      terms.PurchasePrice,
 		"currency_code":       terms.CurrencyCode,
 		"purchase_price_base": terms.PurchasePriceBase,
@@ -184,7 +187,9 @@ func (s *productSourceService) List(
 // 与商机同理用结构体而不是 map：新建路径要按字段逐个赋值，
 // map 得靠类型断言取出来，断错了是运行时 panic。
 type productSourceTerms struct {
-	SupplierSKU       string
+	SupplierSKU string
+	// SupplierSKUNorm 与 md_product_code.code_norm 同口径，产品列表的关键词靠它命中。
+	SupplierSKUNorm   string
 	PurchasePrice     money.Decimal
 	CurrencyCode      string
 	PurchasePriceBase money.Decimal
@@ -248,6 +253,7 @@ func (s *productSourceService) buildTerms(
 
 	out = productSourceTerms{
 		SupplierSKU:       sku,
+		SupplierSKUNorm:   codenorm.Normalize(sku),
 		PurchasePrice:     in.PurchasePrice,
 		CurrencyCode:      code,
 		PurchasePriceBase: priceBase,

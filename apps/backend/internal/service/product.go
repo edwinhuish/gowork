@@ -219,8 +219,14 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 		if err != nil {
 			return nil, err
 		}
+		// 供应商货号在货源表上，同属"别人怎么叫这件货"，一起回填；
+		// 漏了它就会出现"按货号搜到了，但看不出是这个号"。
+		sourceHits, err := s.sources.MatchSupplierSKUByKeyword(ctx, ids, q.Keyword)
+		if err != nil {
+			return nil, err
+		}
 		for i := range list {
-			list[i].MatchedCodes = hits[list[i].ID]
+			list[i].MatchedCodes = mergeCodes(hits[list[i].ID], sourceHits[list[i].ID])
 		}
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
@@ -270,6 +276,28 @@ func (s *productService) archiveOldSKU(ctx context.Context, productID uint, oldS
 		CodeNorm:  norm,
 		Source:    model.ProductCodeSourceSKU,
 	})
+}
+
+// mergeCodes 把编号表与货源表的命中合并成一条提示，去重时按归一化值判断：
+// 同一个号可能既录进了编号表、又挂在货源上，两处写法不同也算同一个号，
+// 提示里出现两次会让用户以为有两条不同的编号。
+func mergeCodes(fromCodes, fromSources []string) []string {
+	if len(fromSources) == 0 {
+		return fromCodes
+	}
+	out := make([]string, 0, len(fromCodes)+len(fromSources))
+	seen := make(map[string]bool, cap(out))
+	for _, group := range [][]string{fromCodes, fromSources} {
+		for _, c := range group {
+			key := codenorm.Normalize(c)
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func defaultUnit(unit string) string {

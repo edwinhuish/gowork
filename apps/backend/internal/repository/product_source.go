@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/code"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
@@ -65,6 +66,14 @@ type ProductSourceRepository interface {
 	) (bool, error)
 	// CountByProductID 统计某产品下的货源条数，供产品删除前判断有没有引用。
 	CountByProductID(ctx context.Context, productID uint) (int64, error)
+	// MatchSupplierSKUByKeyword 取这些产品里命中关键词的供应商货号，供产品列表的
+	// 「命中编号」提示。
+	//
+	// 判定与产品列表关键词里的货源那一路共用同一条 LIKE：两处写得不一样，
+	// 会出现"列表命中了但看不出为什么"。
+	MatchSupplierSKUByKeyword(
+		ctx context.Context, productIDs []uint, keyword string,
+	) (map[uint][]string, error)
 	// FindCheapestByProductID 取该产品本币价最低的**启用**货源，供报价单落成本快照。
 	//
 	// 取最低价而不是"产品上的默认供应商"：报价时要比的就是"现在从谁家进最便宜"，
@@ -133,6 +142,36 @@ func (r *productSourceRepo) CountByProductID(ctx context.Context, productID uint
 	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
 		return db.Where("product_id = ?", productID)
 	})
+}
+
+// MatchSupplierSKUByKeyword 与 ProductCodeRepository.MatchByKeyword 同一个用途、
+// 同一个判定口径：这里查的是货源表上的货号，那边查的是编号表。
+// 分成两张表是因为货号的真相在货源里（它跟着供应商与价格走），编号表只放"没有别处可挂"的别名。
+func (r *productSourceRepo) MatchSupplierSKUByKeyword(
+	ctx context.Context, productIDs []uint, keyword string,
+) (map[uint][]string, error) {
+	out := make(map[uint][]string, len(productIDs))
+	norm := code.Normalize(keyword)
+	if len(productIDs) == 0 || norm == "" {
+		return out, nil
+	}
+
+	var rows []model.ProductSource
+	err := r.conn(ctx).
+		Select("id", "product_id", "supplier_sku").
+		Where("product_id IN ?", productIDs).
+		Scopes(func(db *gorm.DB) *gorm.DB {
+			return db.Where(likeClause(db, "supplier_sku_norm"), likePattern(norm))
+		}).
+		Order("id ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询命中的供应商货号: %w", err)
+	}
+	for _, row := range rows {
+		out[row.ProductID] = append(out[row.ProductID], row.SupplierSKU)
+	}
+	return out, nil
 }
 
 func (r *productSourceRepo) FindCheapestByProductID(

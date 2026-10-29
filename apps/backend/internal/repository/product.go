@@ -49,7 +49,8 @@ func (f ProductFilter) scopes() []Scope {
 }
 
 // keywordScope 是产品列表的关键词条件：SKU、中英文品名，以及**任何编号**（旧 SKU、
-// 客户物料号、供应商货号）。
+// 客户物料号、工厂号、供应商货号）。编号分散在两张表：md_product_code 存没有别处
+// 可挂的别名，md_product_source 存跟着供应商走的货号，两路都要查。
 //
 // 编号走子查询而不是 JOIN：一个产品可能同时命中多个编号，JOIN 会让它在一页里出现
 // 好几行，count 也跟着变大——用户看到的是「搜一个词，同一条货出现三遍」。
@@ -73,6 +74,15 @@ func keywordScope(keyword string) Scope {
 			parts = append(parts,
 				"id IN (SELECT product_id FROM md_product_code WHERE "+
 					likeClause(db, "code_norm")+")")
+			args = append(args, likePattern(norm))
+
+			// 供应商货号放在货源表上，不在编号表里：它跟着供应商与采购价走，
+			// 复制一份到编号表就是两处真相，改价时得记得同步两遍。
+			// 子查询显式排除软删行——原生的 IN 子查询不经过 gorm 的软删条件，
+			// 少了这一句，删掉的货源仍会把产品带出来。
+			parts = append(parts,
+				"id IN (SELECT product_id FROM md_product_source WHERE "+
+					likeClause(db, "supplier_sku_norm")+" AND deleted_at IS NULL)")
 			args = append(args, likePattern(norm))
 		}
 		return db.Where(strings.Join(parts, " OR "), args...)

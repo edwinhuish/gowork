@@ -6,24 +6,37 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
 type productCodeFixture struct {
-	products ProductService
-	codes    ProductCodeService
-	productA uint
-	productB uint
+	products   ProductService
+	codes      ProductCodeService
+	sources    repository.ProductSourceRepository
+	productA   uint
+	productB   uint
+	supplierID uint
 }
 
 func newProductCodeFixture(t *testing.T) productCodeFixture {
 	t.Helper()
 	ctx := context.Background()
 
-	db := openTestDB(t, &model.Partner{}, &model.Product{}, &model.ProductCode{})
+	db := openTestDB(t,
+		&model.Partner{}, &model.Product{}, &model.ProductCode{}, &model.ProductSource{})
 	partnerRepo := repository.NewPartnerRepository(db)
 	productRepo := repository.NewProductRepository(db)
 	codeRepo := repository.NewProductCodeRepository(db)
+	sourceRepo := repository.NewProductSourceRepository(db)
+
+	supplier := &model.Partner{
+		Code: "SUP001", Name: "永康五金厂", Role: model.PartnerRoleSupplier,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	if err := partnerRepo.Create(ctx, supplier); err != nil {
+		t.Fatalf("建供应商失败: %v", err)
+	}
 
 	a := &model.Product{
 		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS", Status: model.EnableStatusOn,
@@ -38,11 +51,12 @@ func newProductCodeFixture(t *testing.T) productCodeFixture {
 	}
 
 	return productCodeFixture{
-		products: NewProductService(
-			productRepo, partnerRepo, repository.NewProductSourceRepository(db), codeRepo),
-		codes:    NewProductCodeService(codeRepo, productRepo),
-		productA: a.ID,
-		productB: b.ID,
+		products:   NewProductService(productRepo, partnerRepo, sourceRepo, codeRepo),
+		codes:      NewProductCodeService(codeRepo, productRepo),
+		sources:    sourceRepo,
+		productA:   a.ID,
+		productB:   b.ID,
+		supplierID: supplier.ID,
 	}
 }
 
@@ -158,6 +172,68 @@ func TestProductSKUChangeArchivesOldCode(t *testing.T) {
 		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS",
 	}); err != nil {
 		t.Errorf("改回自己的旧 SKU 应被允许: %v", err)
+	}
+}
+
+// 供应商货号挂在 md_product_source 上，不在编号表里：按它搜产品也要能命中，
+// 否则「录在货源面板的货号」和「能搜到的货号」就是两套东西。
+func TestProductListFindsBySupplierSKU(t *testing.T) {
+	ctx := context.Background()
+	f := newProductCodeFixture(t)
+
+	src := &model.ProductSource{
+		ProductID:       f.productA,
+		PartnerID:       f.supplierID,
+		SupplierSKU:     "A-100",
+		SupplierSKUNorm: codenorm.Normalize("A-100"),
+		CurrencyCode:    "CNY",
+		Status:          model.EnableStatusOn,
+	}
+	if err := f.sources.Create(ctx, src); err != nil {
+		t.Fatalf("建货源失败: %v", err)
+	}
+
+	// 换个写法搜：小写 + 空格代替连字符。
+	res := f.search(t, "a 100")
+	if res.Total != 1 || len(res.List) != 1 || res.List[0].ID != f.productA {
+		t.Fatalf("按供应商货号搜索命中 %d 条（total=%d），期望只有 A", len(res.List), res.Total)
+	}
+	if got := res.List[0].MatchedCodes; len(got) != 1 || got[0] != "A-100" {
+		t.Errorf("命中编号 = %v，期望 [A-100]（原写法）", got)
+	}
+
+	// 软删的货源不再参与检索：那条子查询是原生 SQL，不经过 gorm 的软删条件，
+	// 少了 deleted_at IS NULL，删掉的货号会一直把产品带出来。
+	if err := f.sources.Delete(ctx, src.ID); err != nil {
+		t.Fatalf("删除货源失败: %v", err)
+	}
+	if gone := f.search(t, "a 100"); gone.Total != 0 {
+		t.Errorf("软删的货源仍被搜到：%d 条", gone.Total)
+	}
+
+	// 同一个号既录进编号表、又挂在货源上时只提示一次：提示里出现两遍，
+	// 用户会以为这是两个不同的编号。
+	if err := f.sources.Create(ctx, &model.ProductSource{
+		ProductID:       f.productA,
+		PartnerID:       f.supplierID,
+		SupplierSKU:     "A-100",
+		SupplierSKUNorm: codenorm.Normalize("A-100"),
+		CurrencyCode:    "CNY",
+		Status:          model.EnableStatusOn,
+	}); err != nil {
+		t.Fatalf("重建货源失败: %v", err)
+	}
+	if _, err := f.codes.Create(ctx, dto.ProductCodeInput{
+		ProductID: f.productA, Code: "A 100", Source: model.ProductCodeSourceSupplier,
+	}); err != nil {
+		t.Fatalf("新增编号失败: %v", err)
+	}
+	merged := f.search(t, "A100")
+	if merged.Total != 1 || len(merged.List) != 1 {
+		t.Fatalf("同一个号录了两处，命中 %d 条（total=%d），期望 1 条", len(merged.List), merged.Total)
+	}
+	if got := merged.List[0].MatchedCodes; len(got) != 1 {
+		t.Errorf("命中编号 = %v，期望去重后只剩 1 条", got)
 	}
 }
 

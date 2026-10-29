@@ -7,7 +7,9 @@ const (
 	ProductCodeSourceSKU = "sku"
 	// ProductCodeSourceCustomer 是客户自己的物料号（客户下单时写的那串）。
 	ProductCodeSourceCustomer = "customer"
-	// ProductCodeSourceSupplier 是供应商货号（与 md_product_source.supplier_sku 同源）。
+	// ProductCodeSourceSupplier 是供应商给过、但**没挂在货源上**的货号。
+	// 真正挂在某条货源上的货号由 md_product_source.supplier_sku 承载
+	// （它跟着供应商与采购价走），检索时一并命中，不必在这里再录一遍。
 	ProductCodeSourceSupplier = "supplier"
 	// ProductCodeSourceFactory 是工厂内部号。
 	ProductCodeSourceFactory = "factory"

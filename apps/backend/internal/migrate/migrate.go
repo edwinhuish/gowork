@@ -38,6 +38,9 @@ func Run(db *gorm.DB, log *slog.Logger) error {
 	if err := RenameShipmentDocNos(db, log); err != nil {
 		return err
 	}
+	if err := BackfillSupplierSKUNorm(db, log); err != nil {
+		return err
+	}
 	return nil
 }
 
