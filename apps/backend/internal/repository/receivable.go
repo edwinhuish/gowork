@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // ReceivableFilter 是应收单的查询条件。
@@ -71,7 +72,7 @@ type ReceivableRepository interface {
 	// 作废的单不计入：作废的意思是这笔钱不收了，它还占着额度就永远开不出新单。
 	SumAmountBySource(
 		ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
-	) (float64, error)
+	) (money.Decimal, error)
 }
 
 type receivableRepo struct {
@@ -118,8 +119,10 @@ func (r *receivableRepo) List(
 
 func (r *receivableRepo) SumAmountBySource(
 	ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
-) (float64, error) {
-	var sum float64
+) (money.Decimal, error) {
+	// 扫进结构体而不是标量：SUM 出来的列要落到 money.Decimal 上，
+	// 它靠 Scan 实现收数，走 gorm 的字段映射比裸标量稳。
+	var row struct{ Total money.Decimal }
 	q := r.DB().WithContext(ctx).
 		Model(&model.Receivable{}).
 		Where("source_type = ? AND source_id = ? AND status <> ?",
@@ -127,8 +130,8 @@ func (r *receivableRepo) SumAmountBySource(
 	if excludeID != 0 {
 		q = q.Where("id <> ?", excludeID)
 	}
-	if err := q.Select("COALESCE(SUM(amount), 0)").Scan(&sum).Error; err != nil {
-		return 0, fmt.Errorf("汇总来源应收 source=%d/%d: %w", sourceType, sourceID, err)
+	if err := q.Select("COALESCE(SUM(amount), 0) AS total").Scan(&row).Error; err != nil {
+		return money.Zero(), fmt.Errorf("汇总来源应收 source=%d/%d: %w", sourceType, sourceID, err)
 	}
-	return sum, nil
+	return row.Total, nil
 }

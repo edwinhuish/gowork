@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // PaymentQuery 是收付款单的查询条件。
 type PaymentQuery struct {
 	PageQuery
@@ -10,9 +12,9 @@ type PaymentQuery struct {
 // PaymentAllocationInput 是一行核销：还的是哪张单、还多少。
 type PaymentAllocationInput struct {
 	// TargetType 10=应收单 20=应付单，必须与收付款方向匹配（收款只能核应收）。
-	TargetType int8    `json:"target_type" binding:"required"`
-	TargetID   uint    `json:"target_id" binding:"required"`
-	Amount     float64 `json:"amount" binding:"required,gt=0"`
+	TargetType int8          `json:"target_type" binding:"required"`
+	TargetID   uint          `json:"target_id" binding:"required"`
+	Amount     money.Decimal `json:"amount"`
 }
 
 // PaymentInput 新建收付款单。
@@ -24,14 +26,14 @@ type PaymentAllocationInput struct {
 // partner_id / currency_code / amount 都可以不传：分别从核销目标带出、
 // 从核销目标带出、取核销合计。只有"预收款"（暂不核销）时才必须显式给。
 type PaymentInput struct {
-	Direction    int8    `json:"direction" binding:"required"`
-	PartnerID    uint    `json:"partner_id"`
-	PayDate      string  `json:"pay_date"`
-	CurrencyCode string  `json:"currency_code" binding:"max=8"`
-	Amount       float64 `json:"amount" binding:"gte=0"`
-	Method       string  `json:"method" binding:"max=8"`
-	Reference    string  `json:"reference" binding:"max=64"`
-	Remark       string  `json:"remark" binding:"max=255"`
+	Direction    int8          `json:"direction" binding:"required"`
+	PartnerID    uint          `json:"partner_id"`
+	PayDate      string        `json:"pay_date"`
+	CurrencyCode string        `json:"currency_code" binding:"max=8"`
+	Amount       money.Decimal `json:"amount"`
+	Method       string        `json:"method" binding:"max=8"`
+	Reference    string        `json:"reference" binding:"max=64"`
+	Remark       string        `json:"remark" binding:"max=255"`
 
 	Allocations []PaymentAllocationInput `json:"allocations"`
 }

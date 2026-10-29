@@ -1,5 +1,7 @@
 package model
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 import (
 	"fmt"
 	"time"
@@ -89,10 +91,10 @@ type Payment struct {
 	// 账龄与汇兑损益都按它算，所以它是"钱动的那天"而不是"单开的那天"。
 	PayDate time.Time `gorm:"type:date;not null;index" json:"pay_date"`
 
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
-	Amount       float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
-	AmountBase   float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	Amount       money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	AmountBase   money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 
 	// Method 是结算方式（TT / LC …），与主体的默认结算方式同源。
 	Method SettlementMethod `gorm:"size:8" json:"method"`
@@ -108,10 +110,10 @@ func (Payment) TableName() string { return "biz_payment" }
 
 // AllocatedAmount 是这笔收付款已核销出去的原币金额。
 // 小于 Amount 的部分是预收 / 预付（还没对应到任何单据）。
-func (p Payment) AllocatedAmount() float64 {
-	var sum float64
+func (p Payment) AllocatedAmount() money.Decimal {
+	sum := money.Zero()
 	for _, a := range p.Allocations {
-		sum += a.Amount
+		sum = sum.Add(a.Amount)
 	}
 	return sum
 }
@@ -133,10 +135,10 @@ type PaymentAllocation struct {
 	// Amount 是核销的原币金额，币种跟随收付款单。
 	// **必须与目标单据的币种一致**：跨币种核销要先约定换算口径，
 	// 而那种约定一出口岸就各家不同，先不做（见 service 的校验）。
-	Amount float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	Amount money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
 	// AmountBase 是本币金额，按**收付款单的汇率**折。
 	// 它与目标单据上锁定的本币金额之差，就是这一笔的汇兑损益原料。
-	AmountBase float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	AmountBase money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 }
 
 func (PaymentAllocation) TableName() string { return "biz_payment_allocation" }
@@ -145,13 +147,13 @@ func (PaymentAllocation) TableName() string { return "biz_payment_allocation" }
 //
 // 状态是金额的派生值，不单独维护：允许两者各改各的，就会出现
 // "状态写着已结清、已收金额却差 500"的单据，而这种矛盾没人负责解释。
-func SettlementStatusFor(amount, settled float64) SettlementStatus {
+func SettlementStatusFor(amount, settled money.Decimal) SettlementStatus {
 	switch {
-	case settled <= 0:
+	case settled.Cmp(money.Zero()) <= 0:
 		return SettlementStatusOpen
-	// 金额按 4 位小数存，允许 0.0001 的浮点余量：分批收款累加到最后一笔时，
-	// 差一个末位就把单据卡在"部分结清"上，比数字不准更让人困惑。
-	case settled+0.0001 >= amount:
+	// 定点之后不再留浮点余量：金额与核销额都按末位精确落库，
+	// 差一个末位就是真的差一分钱，把它算成"已结清"等于把差额藏起来。
+	case settled.Cmp(amount) >= 0:
 		return SettlementStatusSettled
 	default:
 		return SettlementStatusPartial

@@ -9,6 +9,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // PaymentFilter 是收付款单的查询条件。
@@ -153,18 +154,20 @@ func applyAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if m.Status == model.SettlementStatusVoid {
 			return errs.ErrConflict.WithMsg(fmt.Sprintf("应收单 %s 已作废，不能核销", m.DocNo))
 		}
-		if a.Amount <= 0 {
+		if a.Amount.Cmp(money.Zero()) <= 0 {
 			return errs.BadRequest("核销金额必须大于 0")
 		}
-		if remaining := m.Amount - m.SettledAmount; a.Amount > remaining+0.0001 {
+		// 超收判定逐位比较：金额与核销额都按末位精确存取，
+		// 多核 0.0001 也是多核，放过去就成了"这张单收的钱比开的票多"。
+		if remaining := m.Amount.Sub(m.SettledAmount); a.Amount.Cmp(remaining) > 0 {
 			return errs.BadRequest(fmt.Sprintf(
-				"应收单 %s 只剩 %s %.4f 未结清，不能核销 %.4f",
+				"应收单 %s 只剩 %s %s 未结清，不能核销 %s",
 				m.DocNo, m.CurrencyCode, remaining, a.Amount))
 		}
-		settled := m.SettledAmount + a.Amount
+		settled := m.SettledAmount.Add(a.Amount)
 		return tx.Model(&model.Receivable{}).Where("id = ?", m.ID).Updates(map[string]any{
 			"settled_amount":      settled,
-			"settled_amount_base": m.SettledAmountBase + a.AmountBase,
+			"settled_amount_base": m.SettledAmountBase.Add(a.AmountBase),
 			"status":              model.SettlementStatusFor(m.Amount, settled),
 		}).Error
 
@@ -180,18 +183,18 @@ func applyAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if m.Status == model.SettlementStatusVoid {
 			return errs.ErrConflict.WithMsg(fmt.Sprintf("应付单 %s 已作废，不能核销", m.DocNo))
 		}
-		if a.Amount <= 0 {
+		if a.Amount.Cmp(money.Zero()) <= 0 {
 			return errs.BadRequest("核销金额必须大于 0")
 		}
-		if remaining := m.Amount - m.SettledAmount; a.Amount > remaining+0.0001 {
+		if remaining := m.Amount.Sub(m.SettledAmount); a.Amount.Cmp(remaining) > 0 {
 			return errs.BadRequest(fmt.Sprintf(
-				"应付单 %s 只剩 %s %.4f 未结清，不能核销 %.4f",
+				"应付单 %s 只剩 %s %s 未结清，不能核销 %s",
 				m.DocNo, m.CurrencyCode, remaining, a.Amount))
 		}
-		settled := m.SettledAmount + a.Amount
+		settled := m.SettledAmount.Add(a.Amount)
 		return tx.Model(&model.Payable{}).Where("id = ?", m.ID).Updates(map[string]any{
 			"settled_amount":      settled,
-			"settled_amount_base": m.SettledAmountBase + a.AmountBase,
+			"settled_amount_base": m.SettledAmountBase.Add(a.AmountBase),
 			"status":              model.SettlementStatusFor(m.Amount, settled),
 		}).Error
 
@@ -211,16 +214,13 @@ func reverseAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if err := tx.First(&m, a.TargetID).Error; err != nil {
 			return fmt.Errorf("回滚时查询应收单 id=%d: %w", a.TargetID, err)
 		}
-		settled := m.SettledAmount - a.Amount
-		if settled < -0.0001 {
+		settled := m.SettledAmount.Sub(a.Amount)
+		if settled.IsNegative() {
 			return fmt.Errorf("应收单 %s 的已核销金额不足以回滚", m.DocNo)
-		}
-		if settled < 0 {
-			settled = 0
 		}
 		return tx.Model(&model.Receivable{}).Where("id = ?", m.ID).Updates(map[string]any{
 			"settled_amount":      settled,
-			"settled_amount_base": maxFloat(m.SettledAmountBase-a.AmountBase, 0),
+			"settled_amount_base": maxDecimal(m.SettledAmountBase.Sub(a.AmountBase), money.Zero()),
 			"status":              model.SettlementStatusFor(m.Amount, settled),
 		}).Error
 
@@ -229,16 +229,13 @@ func reverseAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if err := tx.First(&m, a.TargetID).Error; err != nil {
 			return fmt.Errorf("回滚时查询应付单 id=%d: %w", a.TargetID, err)
 		}
-		settled := m.SettledAmount - a.Amount
-		if settled < -0.0001 {
+		settled := m.SettledAmount.Sub(a.Amount)
+		if settled.IsNegative() {
 			return fmt.Errorf("应付单 %s 的已核销金额不足以回滚", m.DocNo)
-		}
-		if settled < 0 {
-			settled = 0
 		}
 		return tx.Model(&model.Payable{}).Where("id = ?", m.ID).Updates(map[string]any{
 			"settled_amount":      settled,
-			"settled_amount_base": maxFloat(m.SettledAmountBase-a.AmountBase, 0),
+			"settled_amount_base": maxDecimal(m.SettledAmountBase.Sub(a.AmountBase), money.Zero()),
 			"status":              model.SettlementStatusFor(m.Amount, settled),
 		}).Error
 
@@ -247,8 +244,8 @@ func reverseAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 	}
 }
 
-func maxFloat(a, b float64) float64 {
-	if a > b {
+func maxDecimal(a, b money.Decimal) money.Decimal {
+	if a.Cmp(b) > 0 {
 		return a
 	}
 	return b

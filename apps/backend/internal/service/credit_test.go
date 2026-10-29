@@ -101,9 +101,10 @@ func (f creditFixture) addReceivable(
 		Settlement: model.Settlement{
 			DocNo: docNo, PartnerID: f.customerID,
 			SourceType: model.SettlementSourceSalesOrder, SourceID: sourceID, SourceDocNo: "SO-TEST",
-			CurrencyCode: "CNY", ExchangeRate: 1,
-			Amount: amountBase, AmountBase: amountBase,
-			SettledAmount: settledBase, SettledAmountBase: settledBase,
+			CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+			Amount: money.FromFloat(amountBase), AmountBase: money.FromFloat(amountBase),
+			SettledAmount:     money.FromFloat(settledBase),
+			SettledAmountBase: money.FromFloat(settledBase),
 			DueDate: model.DateOnly(f.now), Status: status,
 		},
 	}

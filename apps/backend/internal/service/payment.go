@@ -98,7 +98,7 @@ func (s *paymentService) Create(
 	currency := strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
 	partnerID := in.PartnerID
 	allocations := make([]model.PaymentAllocation, 0, len(in.Allocations))
-	var allocSum float64
+	allocSum := money.Zero()
 
 	for _, a := range in.Allocations {
 		if model.SettlementTarget(a.TargetType) != target {
@@ -125,11 +125,11 @@ func (s *paymentService) Create(
 				fmt.Sprintf("核销目标的对方主体不一致：%s 不属于同一个往来单位", docNo))
 		}
 
-		amount := money.Round(a.Amount, 4)
-		if amount <= 0 {
+		amount := a.Amount.Round(4)
+		if amount.Cmp(money.Zero()) <= 0 {
 			return nil, errs.BadRequest("核销金额必须大于 0；要撤销核销请删掉整张收付款单")
 		}
-		allocSum += amount
+		allocSum = allocSum.Add(amount)
 		allocations = append(allocations, model.PaymentAllocation{
 			TargetType:  target,
 			TargetID:    a.TargetID,
@@ -137,7 +137,7 @@ func (s *paymentService) Create(
 			Amount:      amount,
 		})
 	}
-	allocSum = money.Round(allocSum, 4)
+	allocSum = allocSum.Round(4)
 
 	if partnerID == 0 {
 		return nil, errs.BadRequest("请指定往来单位，或至少核销一张单据")
@@ -145,17 +145,18 @@ func (s *paymentService) Create(
 
 	// 金额留空 = 全额核销。不核销的预收款必须显式给金额，
 	// 否则会得到一张 0 元的收款单。
-	amount := money.Round(in.Amount, 4)
-	if amount == 0 {
-		if allocSum == 0 {
+	amount := in.Amount.Round(4)
+	if amount.IsZero() {
+		if allocSum.IsZero() {
 			return nil, errs.BadRequest(fmt.Sprintf(
 				"%s金额不能为 0：预收 / 预付不核销时必须显式填写金额", dir.Label()))
 		}
 		amount = allocSum
 	}
-	if amount+0.0001 < allocSum {
+	// 核销合计不得超过本单金额。定点之后逐位比较：多核一分钱也是多核。
+	if amount.Cmp(allocSum) < 0 {
 		return nil, errs.BadRequest(fmt.Sprintf(
-			"核销合计 %.4f 超过%s金额 %.4f", allocSum, dir.Label(), amount))
+			"核销合计 %s 超过%s金额 %s", allocSum, dir.Label(), amount))
 	}
 
 	if currency == "" {
@@ -167,13 +168,15 @@ func (s *paymentService) Create(
 	}
 
 	// 汇率取**到账日**的，不是应收开单时锁的：两者的差就是汇兑损益。
-	amountBase, rate, err := s.currencies.ToBase(ctx, amount, currency, payDate)
+	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, amount, currency, payDate)
 	if err != nil {
 		return nil, err
 	}
-	amountBase = money.Round(amountBase, 4)
+	amountBase = amountBase.Round(4)
+	// 每行按本单汇率折本币，逐行舍入后与单据本币相差不超过几行末位——
+	// 汇兑损益逐笔算，所以这里不能把单据本币按行数摊回去。
 	for i := range allocations {
-		allocations[i].AmountBase = money.Round(allocations[i].Amount*rate, 4)
+		allocations[i].AmountBase = allocations[i].Amount.Mul(rate).Round(4)
 	}
 
 	docNo, err := s.docNos.Next(ctx, model.DocTypePayment)

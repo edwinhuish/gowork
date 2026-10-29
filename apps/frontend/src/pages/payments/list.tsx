@@ -67,7 +67,7 @@ export function PaymentList() {
           title="金额"
           width={170}
           align="right"
-          render={(value: number, record: Payment) => (
+          render={(value: string, record: Payment) => (
             <Space size={6}>
               <Money value={value} />
               <Tag>{record.currency_code}</Tag>
@@ -79,14 +79,15 @@ export function PaymentList() {
           title="汇率"
           width={100}
           align="right"
-          render={(value: number) => (value === 1 ? '1' : value.toFixed(4))}
+          render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
         />
         <Table.Column
           title="已核销"
           width={130}
           align="right"
+          // 已核销与未核销只用于列表提示，算术在服务端按末位做。
           render={(_, record: Payment) => {
-            const allocated = (record.allocations ?? []).reduce((sum, a) => sum + a.amount, 0)
+            const allocated = (record.allocations ?? []).reduce((sum, a) => sum + Number(a.amount), 0)
             if (allocated <= 0) {
               return <Tag>{record.direction === 20 ? '预付' : '预收'}</Tag>
             }
@@ -98,8 +99,8 @@ export function PaymentList() {
           width={120}
           align="right"
           render={(_, record: Payment) => {
-            const allocated = (record.allocations ?? []).reduce((sum, a) => sum + a.amount, 0)
-            const rest = record.amount - allocated
+            const allocated = (record.allocations ?? []).reduce((sum, a) => sum + Number(a.amount), 0)
+            const rest = Number(record.amount) - allocated
             return rest > 0.0001 ? <Money value={rest} /> : <Empty />
           }}
         />

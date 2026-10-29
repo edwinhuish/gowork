@@ -9,6 +9,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
 
@@ -67,9 +68,10 @@ func (f reportFixture) addReceivable(
 		Settlement: model.Settlement{
 			DocNo: docNo, PartnerID: partnerID,
 			SourceType: model.SettlementSourceSalesOrder, SourceID: 1, SourceDocNo: "SO-TEST",
-			CurrencyCode: currency, ExchangeRate: rate,
-			Amount: amount, AmountBase: amount * rate,
-			SettledAmount: settled, SettledAmountBase: settled * rate,
+			CurrencyCode: currency, ExchangeRate: dec(rate),
+			Amount: dec(amount), AmountBase: dec(amount).Mul(dec(rate)).Round(4),
+			SettledAmount:     dec(settled),
+			SettledAmountBase: dec(settled).Mul(dec(rate)).Round(4),
 			DueDate: model.DateOnly(due), Status: status,
 		},
 	}
@@ -86,8 +88,8 @@ func (f reportFixture) addPayable(
 		Settlement: model.Settlement{
 			DocNo: docNo, PartnerID: partnerID,
 			SourceType: model.SettlementSourcePurchaseOrder, SourceID: 1, SourceDocNo: "PO-TEST",
-			CurrencyCode: "CNY", ExchangeRate: 1,
-			Amount: amount, AmountBase: amount,
+			CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+			Amount: dec(amount), AmountBase: dec(amount),
 			DueDate: model.DateOnly(due), Status: model.SettlementStatusOpen,
 		},
 	}

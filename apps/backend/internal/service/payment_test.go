@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
@@ -167,24 +166,24 @@ func TestPaymentUsesPayDateRate(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     1000,
+			Amount:     money.MustParse("1000"),
 		}},
 	})
 	if err != nil {
 		t.Fatalf("登记收款失败: %v", err)
 	}
 
-	if m.ExchangeRate != 7.6 {
-		t.Errorf("汇率应取到账日的 7.6，得到 %v", m.ExchangeRate)
+	if m.ExchangeRate.Cmp(money.MustParse("7.6")) != 0 {
+		t.Errorf("汇率应取到账日的 7.6，得到 %s", m.ExchangeRate)
 	}
-	if want := 1000 * 7.6; math.Abs(m.AmountBase-want) > 0.001 {
-		t.Errorf("本币金额应为 %.4f，得到 %.4f", want, m.AmountBase)
+	if want := money.MustParse("7600"); m.AmountBase.Cmp(want) != 0 {
+		t.Errorf("本币金额应为 %s，得到 %s", want, m.AmountBase)
 	}
 	if m.CurrencyCode != "USD" || m.PartnerID != f.customerID {
 		t.Errorf("币种与对方主体应从核销目标带出，得到 %s / %d", m.CurrencyCode, m.PartnerID)
 	}
-	if m.Amount != 1000 {
-		t.Errorf("金额留空应取核销合计 1000，得到 %.4f", m.Amount)
+	if m.Amount.Cmp(money.MustParse("1000")) != 0 {
+		t.Errorf("金额留空应取核销合计 1000，得到 %s", m.Amount)
 	}
 	// 单号与核销行的单号摊平值。
 	if len(m.DocNo) < 3 || m.DocNo[:3] != "PM-" {
@@ -193,19 +192,20 @@ func TestPaymentUsesPayDateRate(t *testing.T) {
 	if len(m.Allocations) != 1 {
 		t.Fatalf("应有 1 条核销行，得到 %d", len(m.Allocations))
 	}
-	if a := m.Allocations[0]; a.TargetDocNo == "" || math.Abs(a.AmountBase-7600) > 0.001 {
-		t.Errorf("核销行应带目标单号与按到账汇率折的本币金额，得到 %q / %.4f",
+	if a := m.Allocations[0]; a.TargetDocNo == "" ||
+		a.AmountBase.Cmp(money.MustParse("7600")) != 0 {
+		t.Errorf("核销行应带目标单号与按到账汇率折的本币金额，得到 %q / %s",
 			a.TargetDocNo, a.AmountBase)
 	}
 
 	rc := f.receivable(t, f.receivableID)
-	if math.Abs(rc.SettledAmount-1000) > 0.001 || rc.Status != model.SettlementStatusSettled {
-		t.Errorf("应收应被全额核销并结清，得到已核销 %.4f、状态 %s",
+	if rc.SettledAmount.Cmp(money.MustParse("1000")) != 0 || rc.Status != model.SettlementStatusSettled {
+		t.Errorf("应收应被全额核销并结清，得到已核销 %s、状态 %s",
 			rc.SettledAmount, rc.Status.Label())
 	}
 	// 应收单自己锁的汇率不因收款而改变。
-	if rc.ExchangeRate != 7.1 {
-		t.Errorf("应收单的锁定汇率不应被收款改动，得到 %v", rc.ExchangeRate)
+	if rc.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+		t.Errorf("应收单的锁定汇率不应被收款改动，得到 %s", rc.ExchangeRate)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestPaymentSettlesPayable(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetPayable),
 			TargetID:   f.payableID,
-			Amount:     3000,
+			Amount:     money.MustParse("3000"),
 		}},
 	})
 	if err != nil {
@@ -230,8 +230,10 @@ func TestPaymentSettlesPayable(t *testing.T) {
 	if m.PartnerID != f.supplierID || m.CurrencyCode != "CNY" {
 		t.Errorf("对方主体与币种应从应付单带出，得到 %d / %s", m.PartnerID, m.CurrencyCode)
 	}
-	if m.Amount != 3000 || m.AmountBase != 3000 || m.ExchangeRate != 1 {
-		t.Errorf("本币付款应保持金额一致，得到 %.4f / %.4f @%v",
+	threeK := money.MustParse("3000")
+	if m.Amount.Cmp(threeK) != 0 || m.AmountBase.Cmp(threeK) != 0 ||
+		m.ExchangeRate.Cmp(money.FromInt(1)) != 0 {
+		t.Errorf("本币付款应保持金额一致，得到 %s / %s @%s",
 			m.Amount, m.AmountBase, m.ExchangeRate)
 	}
 
@@ -239,8 +241,8 @@ func TestPaymentSettlesPayable(t *testing.T) {
 	if err := f.db.First(&py, f.payableID).Error; err != nil {
 		t.Fatalf("读应付单失败: %v", err)
 	}
-	if py.SettledAmount != 3000 || py.Status != model.SettlementStatusSettled {
-		t.Errorf("应付应被全额核销并结清，得到已核销 %.4f、状态 %s",
+	if py.SettledAmount.Cmp(threeK) != 0 || py.Status != model.SettlementStatusSettled {
+		t.Errorf("应付应被全额核销并结清，得到已核销 %s、状态 %s",
 			py.SettledAmount, py.Status.Label())
 	}
 }
@@ -256,7 +258,7 @@ func TestPaymentPartialThenFull(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     400,
+			Amount:     money.MustParse("400"),
 		}},
 	}); err != nil {
 		t.Fatalf("登记第一笔收款失败: %v", err)
@@ -270,14 +272,14 @@ func TestPaymentPartialThenFull(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     600,
+			Amount:     money.MustParse("600"),
 		}},
 	}); err != nil {
 		t.Fatalf("登记第二笔收款失败: %v", err)
 	}
 	rc := f.receivable(t, f.receivableID)
-	if math.Abs(rc.SettledAmount-1000) > 0.001 || rc.Status != model.SettlementStatusSettled {
-		t.Errorf("两笔收齐后应结清，得到已核销 %.4f、状态 %s",
+	if rc.SettledAmount.Cmp(money.MustParse("1000")) != 0 || rc.Status != model.SettlementStatusSettled {
+		t.Errorf("两笔收齐后应结清，得到已核销 %s、状态 %s",
 			rc.SettledAmount, rc.Status.Label())
 	}
 }
@@ -294,13 +296,14 @@ func TestPaymentRejectsOverAllocation(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     1200,
+			Amount:     money.MustParse("1200"),
 		}},
 	}); err == nil {
 		t.Fatal("核销超过应收金额应被拒绝")
 	}
-	if rc := f.receivable(t, f.receivableID); rc.SettledAmount != 0 || rc.Status != model.SettlementStatusOpen {
-		t.Errorf("被拒的收款不应改动应收，得到已核销 %.4f、状态 %s",
+	if rc := f.receivable(t, f.receivableID); !rc.SettledAmount.IsZero() ||
+		rc.Status != model.SettlementStatusOpen {
+		t.Errorf("被拒的收款不应改动应收，得到已核销 %s、状态 %s",
 			rc.SettledAmount, rc.Status.Label())
 	}
 }
@@ -317,7 +320,7 @@ func TestPaymentDirectionMustMatchTarget(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     100,
+			Amount:     money.MustParse("100"),
 		}},
 	}); err == nil {
 		t.Error("付款不应能核销应收单")
@@ -328,7 +331,7 @@ func TestPaymentDirectionMustMatchTarget(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetPayable),
 			TargetID:   f.payableID,
-			Amount:     100,
+			Amount:     money.MustParse("100"),
 		}},
 	}); err == nil {
 		t.Error("收款不应能核销应付单")
@@ -347,7 +350,7 @@ func TestPaymentDeleteRollsBack(t *testing.T) {
 		Allocations: []dto.PaymentAllocationInput{{
 			TargetType: int8(model.SettlementTargetReceivable),
 			TargetID:   f.receivableID,
-			Amount:     600,
+			Amount:     money.MustParse("600"),
 		}},
 	})
 	if err != nil {
@@ -362,8 +365,8 @@ func TestPaymentDeleteRollsBack(t *testing.T) {
 	}
 
 	rc := f.receivable(t, f.receivableID)
-	if rc.SettledAmount != 0 || rc.SettledAmountBase != 0 {
-		t.Errorf("删除后应收的已核销金额应归零，得到 %.4f / %.4f",
+	if !rc.SettledAmount.IsZero() || !rc.SettledAmountBase.IsZero() {
+		t.Errorf("删除后应收的已核销金额应归零，得到 %s / %s",
 			rc.SettledAmount, rc.SettledAmountBase)
 	}
 	if rc.Status != model.SettlementStatusOpen {
@@ -401,7 +404,7 @@ func TestPaymentPrepayNeedsAmount(t *testing.T) {
 		Direction:    int8(model.PaymentDirectionIn),
 		PartnerID:    f.customerID,
 		CurrencyCode: "CNY",
-		Amount:       500,
+		Amount:       money.MustParse("500"),
 	})
 	if err != nil {
 		t.Fatalf("登记预收款失败: %v", err)
@@ -409,13 +412,13 @@ func TestPaymentPrepayNeedsAmount(t *testing.T) {
 	if len(m.Allocations) != 0 {
 		t.Errorf("预收款不应带核销行，得到 %d 条", len(m.Allocations))
 	}
-	if m.ExchangeRate != 1 || m.AmountBase != 500 {
-		t.Errorf("本币收款的汇率应为 1、本币金额 500，得到 %v / %.4f",
+	if m.ExchangeRate.Cmp(money.FromInt(1)) != 0 || m.AmountBase.Cmp(money.MustParse("500")) != 0 {
+		t.Errorf("本币收款的汇率应为 1、本币金额 500，得到 %s / %s",
 			m.ExchangeRate, m.AmountBase)
 	}
 	// 预收款不核销，应收单不受影响。
-	if rc := f.receivable(t, f.receivableID); rc.SettledAmount != 0 {
-		t.Errorf("预收款不应核销应收，得到已核销 %.4f", rc.SettledAmount)
+	if rc := f.receivable(t, f.receivableID); !rc.SettledAmount.IsZero() {
+		t.Errorf("预收款不应核销应收，得到已核销 %s", rc.SettledAmount)
 	}
 }
 
@@ -430,8 +433,8 @@ func TestPaymentRejectsMixedCurrency(t *testing.T) {
 		Settlement: model.Settlement{
 			DocNo: "RC-MIX-0001", PartnerID: f.customerID,
 			SourceType: model.SettlementSourceSalesOrder, SourceID: 1,
-			CurrencyCode: "CNY", ExchangeRate: 1,
-			Amount: 100, AmountBase: 100,
+			CurrencyCode: "CNY", ExchangeRate: money.FromInt(1),
+			Amount: money.MustParse("100"), AmountBase: money.MustParse("100"),
 			DueDate: model.DateOnly(now), Status: model.SettlementStatusOpen,
 		},
 	}
@@ -442,8 +445,14 @@ func TestPaymentRejectsMixedCurrency(t *testing.T) {
 	if _, err := f.payments.Create(ctx, dto.PaymentInput{
 		Direction: int8(model.PaymentDirectionIn),
 		Allocations: []dto.PaymentAllocationInput{
-			{TargetType: int8(model.SettlementTargetReceivable), TargetID: f.receivableID, Amount: 100},
-			{TargetType: int8(model.SettlementTargetReceivable), TargetID: cny.ID, Amount: 100},
+			{
+				TargetType: int8(model.SettlementTargetReceivable), TargetID: f.receivableID,
+				Amount: money.MustParse("100"),
+			},
+			{
+				TargetType: int8(model.SettlementTargetReceivable), TargetID: cny.ID,
+				Amount: money.MustParse("100"),
+			},
 		},
 	}); err == nil {
 		t.Error("币种不一致的核销应被拒绝")
@@ -463,8 +472,8 @@ func TestPaymentRejectsOtherPartner(t *testing.T) {
 		Settlement: model.Settlement{
 			DocNo: "RC-MIX-0002", PartnerID: f.supplierID,
 			SourceType: model.SettlementSourceSalesOrder, SourceID: 1,
-			CurrencyCode: "USD", ExchangeRate: 7.1,
-			Amount: 100, AmountBase: 710,
+			CurrencyCode: "USD", ExchangeRate: money.MustParse("7.1"),
+			Amount: money.MustParse("100"), AmountBase: money.MustParse("710"),
 			DueDate: model.DateOnly(now), Status: model.SettlementStatusOpen,
 		},
 	}
@@ -475,8 +484,14 @@ func TestPaymentRejectsOtherPartner(t *testing.T) {
 	if _, err := f.payments.Create(ctx, dto.PaymentInput{
 		Direction: int8(model.PaymentDirectionIn),
 		Allocations: []dto.PaymentAllocationInput{
-			{TargetType: int8(model.SettlementTargetReceivable), TargetID: f.receivableID, Amount: 100},
-			{TargetType: int8(model.SettlementTargetReceivable), TargetID: other.ID, Amount: 100},
+			{
+				TargetType: int8(model.SettlementTargetReceivable), TargetID: f.receivableID,
+				Amount: money.MustParse("100"),
+			},
+			{
+				TargetType: int8(model.SettlementTargetReceivable), TargetID: other.ID,
+				Amount: money.MustParse("100"),
+			},
 		},
 	}); err == nil {
 		t.Error("跨往来单位的核销应被拒绝")

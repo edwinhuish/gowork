@@ -26,12 +26,14 @@ function AllocationsEditor({ direction, partnerId }: { direction: number; partne
     pagination: { mode: 'off' },
   })
 
+  // 金额是定点字符串：未结余额只用于下拉提示与预填，真正的判定在服务端。
+  const outstandingOf = (d: Settlement) => Number(d.amount) - Number(d.settled_amount)
   const docs = (result?.data ?? []).filter(
-    (d) => (d.status === 10 || d.status === 20) && d.amount - d.settled_amount > 0.0001,
+    (d) => (d.status === 10 || d.status === 20) && outstandingOf(d) > 0.0001,
   )
   const options = docs.map((d) => ({
     value: d.id,
-    label: `${d.doc_no} · ${d.currency_code} ${(d.amount - d.settled_amount).toFixed(2)} 未结`,
+    label: `${d.doc_no} · ${d.currency_code} ${outstandingOf(d).toFixed(2)} 未结`,
   }))
 
   return (
@@ -62,9 +64,10 @@ function AllocationsEditor({ direction, partnerId }: { direction: number; partne
                     onChange={(id: number) => {
                       const doc = docs.find((d) => d.id === id)
                       if (doc) {
+                        // 预填走字符串：金额一旦经过 number，末位就开始漂。
                         form.setFieldValue(
                           ['allocations', name, 'amount'],
-                          Number((doc.amount - doc.settled_amount).toFixed(4)),
+                          outstandingOf(doc).toFixed(4),
                         )
                       }
                     }}
@@ -81,6 +84,7 @@ function AllocationsEditor({ direction, partnerId }: { direction: number; partne
                     min={0.0001}
                     step={0.01}
                     precision={4}
+                    stringMode
                     placeholder="核销金额（原币）"
                   />
                 </Form.Item>
@@ -198,13 +202,13 @@ export function PaymentCreate() {
           name="amount"
           label="金额（原币）"
           tooltip="留空 = 取核销合计。预收 / 预付必须自己填，否则会得到一张 0 元的单"
-          rules={[{ type: 'number', min: 0, message: '不能为负' }]}
         >
           <InputNumber
             style={{ width: '100%' }}
             min={0}
             step={0.01}
             precision={4}
+            stringMode
             placeholder="留空 = 取核销合计"
           />
         </Form.Item>

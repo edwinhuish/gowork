@@ -1,5 +1,7 @@
 package model
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 import (
 	"fmt"
 	"time"
@@ -109,17 +111,17 @@ type Settlement struct {
 	// 金额四件套。汇率**开单时锁定**（F3 的硬规则）：之后汇率表怎么变都不影响
 	// 这张单——反过来做（每次查询取最新汇率）会让同一张单在两天里显示两个本币金额，
 	// 对账时无法解释。
-	CurrencyCode string  `gorm:"size:8;not null" json:"currency_code"`
-	ExchangeRate float64 `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
-	Amount       float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
-	AmountBase   float64 `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
+	CurrencyCode string        `gorm:"size:8;not null" json:"currency_code"`
+	ExchangeRate money.Decimal `gorm:"type:decimal(18,8);not null;default:1" json:"exchange_rate"`
+	Amount       money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
+	AmountBase   money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount_base"`
 
 	// SettledAmount 是已核销金额，**派生值**：唯一维护方是 T-21 的核销表。
 	// 与库存快照同一条规矩——派生值可以存，但只能由流水重算，不接受直接编辑。
 	// 之所以不每次现算：列表页每行都要 join 一次核销表，而账龄（T-22）
 	// 要按这个数分组，扫描全表时更明显。
-	SettledAmount     float64 `gorm:"type:decimal(16,4);not null;default:0" json:"settled_amount"`
-	SettledAmountBase float64 `gorm:"type:decimal(16,4);not null;default:0" json:"settled_amount_base"`
+	SettledAmount     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"settled_amount"`
+	SettledAmountBase money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"settled_amount_base"`
 
 	// DueDate 是到期日。它是账龄分桶（30/60/90+）的唯一依据，
 	// 所以不允许为空——没有到期日的应收，账龄报表里哪一桶都放不进去。
@@ -131,8 +133,8 @@ type Settlement struct {
 
 // Outstanding 是未核销的原币金额。账龄与毛利都按它算，
 // 而不是按单据金额：已经收回来的钱不再是敞口。
-func (s Settlement) Outstanding() float64 {
-	return s.Amount - s.SettledAmount
+func (s Settlement) Outstanding() money.Decimal {
+	return s.Amount.Sub(s.SettledAmount)
 }
 
 // Receivable 是应收单：应向客户收取的一笔款项。

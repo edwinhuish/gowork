@@ -11,8 +11,8 @@ export interface PayableInput {
   /** 只接受 30（采购订单）。 */
   source_type: number
   source_id: number
-  /** 留空（或 0）表示把来源未开票余额全开出来。 */
-  amount?: number
+  /** 留空（或 "0"）表示把来源未开票余额全开出来。定点字符串。 */
+  amount?: string
   due_date?: string
   /** 只在编辑时用：90 表示作废。 */
   status?: number

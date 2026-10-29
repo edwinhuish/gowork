@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
@@ -139,14 +138,14 @@ func TestReceivableLocksOrderRate(t *testing.T) {
 		t.Fatalf("由订单生成应收失败: %v", err)
 	}
 
-	if m.Amount != 1000 || m.CurrencyCode != "USD" {
-		t.Errorf("金额与币种应取订单值，得到 %s %.4f", m.CurrencyCode, m.Amount)
+	if m.Amount.Cmp(money.MustParse("1000")) != 0 || m.CurrencyCode != "USD" {
+		t.Errorf("金额与币种应取订单值，得到 %s %s", m.CurrencyCode, m.Amount)
 	}
-	if m.ExchangeRate != 7.1 {
-		t.Errorf("汇率应锁定订单上的 7.1，得到 %v", m.ExchangeRate)
+	if m.ExchangeRate.Cmp(money.MustParse("7.1")) != 0 {
+		t.Errorf("汇率应锁定订单上的 7.1，得到 %s", m.ExchangeRate)
 	}
-	if want := 1000 * 7.1; math.Abs(m.AmountBase-want) > 0.001 {
-		t.Errorf("本币金额应为 %.4f，得到 %.4f", want, m.AmountBase)
+	if want := money.MustParse("7100"); m.AmountBase.Cmp(want) != 0 {
+		t.Errorf("本币金额应为 %s，得到 %s", want, m.AmountBase)
 	}
 	if m.PartnerID != f.customerID {
 		t.Errorf("对方主体应取订单客户 %d，得到 %d", f.customerID, m.PartnerID)
@@ -171,7 +170,7 @@ func TestReceivableSplit(t *testing.T) {
 	if _, err := f.receivables.Create(ctx, dto.ReceivableInput{
 		SourceType: int8(model.SettlementSourceSalesOrder),
 		SourceID:   f.salesOrderID,
-		Amount:     300,
+		Amount:     money.MustParse("300"),
 	}); err != nil {
 		t.Fatalf("开第一期失败: %v", err)
 	}
@@ -183,14 +182,14 @@ func TestReceivableSplit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("开第二期失败: %v", err)
 	}
-	if second.Amount != 700 {
-		t.Errorf("第二期应取余额 700，得到 %.4f", second.Amount)
+	if second.Amount.Cmp(money.MustParse("700")) != 0 {
+		t.Errorf("第二期应取余额 700，得到 %s", second.Amount)
 	}
 
 	if _, err := f.receivables.Create(ctx, dto.ReceivableInput{
 		SourceType: int8(model.SettlementSourceSalesOrder),
 		SourceID:   f.salesOrderID,
-		Amount:     1,
+		Amount:     money.MustParse("1"),
 	}); err == nil {
 		t.Error("已全额开票后再开应被拒绝")
 	}
@@ -255,8 +254,9 @@ func TestPayableFromPurchaseOrder(t *testing.T) {
 	if m.PartnerID != f.supplierID {
 		t.Errorf("对方主体应取供应商 %d，得到 %d", f.supplierID, m.PartnerID)
 	}
-	if m.Amount != 3000 || m.CurrencyCode != "CNY" || m.ExchangeRate != 1 {
-		t.Errorf("应付应取采购单的金额与币种，得到 %s %.4f @%v",
+	if m.Amount.Cmp(money.MustParse("3000")) != 0 || m.CurrencyCode != "CNY" ||
+		m.ExchangeRate.Cmp(money.FromInt(1)) != 0 {
+		t.Errorf("应付应取采购单的金额与币种，得到 %s %s @%s",
 			m.CurrencyCode, m.Amount, m.ExchangeRate)
 	}
 	// 供应商账期 0 = 即期，到期日等于单据日。
@@ -290,7 +290,7 @@ func TestReceivableSettledIsLocked(t *testing.T) {
 
 	// T-21 才会写这个字段；这里直接改库，模拟"已经收过 100"。
 	if err := f.db.Model(&model.Receivable{}).Where("id = ?", m.ID).
-		Updates(map[string]any{"settled_amount": 100}).Error; err != nil {
+		Updates(map[string]any{"settled_amount": money.MustParse("100")}).Error; err != nil {
 		t.Fatalf("模拟核销失败: %v", err)
 	}
 
@@ -300,7 +300,7 @@ func TestReceivableSettledIsLocked(t *testing.T) {
 	if _, err := f.receivables.Update(ctx, m.ID, dto.ReceivableInput{
 		SourceType: int8(model.SettlementSourceSalesOrder),
 		SourceID:   f.salesOrderID,
-		Amount:     500,
+		Amount:     money.MustParse("500"),
 	}); err == nil {
 		t.Error("已有核销的应收单不应能改金额")
 	}

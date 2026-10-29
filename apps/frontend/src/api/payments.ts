@@ -6,7 +6,8 @@ export interface PaymentAllocationInput {
   /** 10 应收单 / 20 应付单，必须与方向匹配；收款只能核应收。 */
   target_type: number
   target_id: number
-  amount: number
+  /** 定点字符串（后端 money.Decimal）：算术一律在服务端。 */
+  amount: string
 }
 
 /**
@@ -26,8 +27,8 @@ export interface PaymentInput {
   pay_date?: string
   /** 留空随核销目标的币种，没有核销目标时用本币。 */
   currency_code?: string
-  /** 留空（或 0）= 取核销合计。 */
-  amount?: number
+  /** 留空（或 "0"）= 取核销合计。 */
+  amount?: string
   method?: string
   reference?: string
   remark: string

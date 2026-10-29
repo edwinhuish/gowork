@@ -115,9 +115,9 @@ func (s *payableService) Update(
 	if existing.Status == model.SettlementStatusVoid {
 		return nil, errs.ErrConflict.WithMsg("应付单已作废，不能再改")
 	}
-	if existing.SettledAmount > 0 {
+	if existing.SettledAmount.Cmp(money.Zero()) > 0 {
 		return nil, errs.ErrConflict.WithMsg(
-			fmt.Sprintf("应付单已有付款核销（%s %.4f），金额与到期日不能再改",
+			fmt.Sprintf("应付单已有付款核销（%s %s），金额与到期日不能再改",
 				existing.CurrencyCode, existing.SettledAmount))
 	}
 
@@ -154,7 +154,7 @@ func (s *payableService) Delete(ctx context.Context, id uint) error {
 	if err != nil {
 		return err
 	}
-	if existing.SettledAmount > 0 {
+	if existing.SettledAmount.Cmp(money.Zero()) > 0 {
 		return errs.ErrConflict.WithMsg("已有付款核销的应付单不能删除，请改为作废")
 	}
 	return s.repo.Delete(ctx, id)
@@ -191,9 +191,9 @@ type payableTerms struct {
 	PartnerID    uint
 	SourceDocNo  string
 	CurrencyCode string
-	ExchangeRate float64
-	Amount       float64
-	AmountBase   float64
+	ExchangeRate money.Decimal
+	Amount       money.Decimal
+	AmountBase   money.Decimal
 	DueDate      time.Time
 }
 
@@ -226,21 +226,23 @@ func (s *payableService) buildTerms(
 	if err != nil {
 		return out, err
 	}
-	// 已开票金额还在结算表里（float64，改造到资金那一片时去掉这次往返）。
-	remaining := order.AmountTotal.Sub(money.FromFloat(issued)).Round(4).Float64()
-	if remaining <= 0 {
+	remaining := order.AmountTotal.Sub(issued).Round(4)
+	if remaining.Cmp(money.Zero()) <= 0 {
 		return out, errs.ErrConflict.WithMsg(
-			fmt.Sprintf("采购订单 %s 已全额开票（%s %.4f）", order.DocNo, order.CurrencyCode, issued))
+			fmt.Sprintf("采购订单 %s 已全额开票（%s %s）", order.DocNo, order.CurrencyCode, issued))
 	}
 
 	amount := in.Amount
-	if amount == 0 {
+	if amount.IsZero() {
 		amount = remaining
 	}
-	amount = money.Round(amount, 4)
-	if amount > remaining {
+	if amount.IsNegative() {
+		return out, errs.BadRequest("应付金额不能为负；要冲减请作废这张单重开")
+	}
+	amount = amount.Round(4)
+	if amount.Cmp(remaining) > 0 {
 		return out, errs.BadRequest(
-			fmt.Sprintf("金额超出未开票余额：%s 最多可开 %.4f", order.DocNo, remaining))
+			fmt.Sprintf("金额超出未开票余额：%s 最多可开 %s", order.DocNo, remaining))
 	}
 
 	// 供应商账期与销售侧是两套：付工厂通常是月结 30 天，收客户可能是即期。
@@ -253,9 +255,9 @@ func (s *payableService) buildTerms(
 		PartnerID:    order.SupplierID,
 		SourceDocNo:  order.DocNo,
 		CurrencyCode: order.CurrencyCode,
-		ExchangeRate: order.ExchangeRate.Float64(),
+		ExchangeRate: order.ExchangeRate,
 		Amount:       amount,
-		AmountBase:   money.Round(amount*order.ExchangeRate.Float64(), 4),
+		AmountBase:   amount.Mul(order.ExchangeRate).Round(4),
 		DueDate:      dueDate,
 	}
 	return out, nil

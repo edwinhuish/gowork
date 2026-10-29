@@ -9,8 +9,13 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 	"github.com/edwinhuish/gowork/internal/repository"
 )
+
+// 造数据的辅助函数保留 float64 入参：这些测试要摆的是"汇率 7.1、1000 美元"这种
+// 一眼能读的数，转成定点只在写库那一步做。
+func dec(v float64) money.Decimal { return money.FromFloat(v) }
 
 type exchangeFixture struct {
 	reports ReportService
@@ -46,8 +51,8 @@ func (f *exchangeFixture) addReceivableIn(
 		Settlement: model.Settlement{
 			DocNo: docNo, PartnerID: 1,
 			SourceType: model.SettlementSourceSalesOrder, SourceID: 1, SourceDocNo: "SO-X",
-			CurrencyCode: currency, ExchangeRate: rate,
-			Amount: amount, AmountBase: amount * rate,
+			CurrencyCode: currency, ExchangeRate: dec(rate),
+			Amount: dec(amount), AmountBase: dec(amount).Mul(dec(rate)).Round(4),
 			DueDate: model.DateOnly(time.Now()), Status: model.SettlementStatusSettled,
 		},
 	}
@@ -63,8 +68,8 @@ func (f *exchangeFixture) addPayable(t *testing.T, docNo string, rate, amount fl
 		Settlement: model.Settlement{
 			DocNo: docNo, PartnerID: 2,
 			SourceType: model.SettlementSourcePurchaseOrder, SourceID: 1, SourceDocNo: "PO-X",
-			CurrencyCode: "USD", ExchangeRate: rate,
-			Amount: amount, AmountBase: amount * rate,
+			CurrencyCode: "USD", ExchangeRate: dec(rate),
+			Amount: dec(amount), AmountBase: dec(amount).Mul(dec(rate)).Round(4),
 			DueDate: model.DateOnly(time.Now()), Status: model.SettlementStatusSettled,
 		},
 	}
@@ -86,8 +91,8 @@ func (f *exchangeFixture) addPayment(
 	m := &model.Payment{
 		DocNo: docNo, Direction: dir, PartnerID: partnerID,
 		PayDate:      model.DateOnly(payDate),
-		CurrencyCode: currency, ExchangeRate: rate,
-		Amount: amount, AmountBase: amountBase,
+		CurrencyCode: currency, ExchangeRate: dec(rate),
+		Amount: dec(amount), AmountBase: dec(amountBase),
 	}
 	if err := f.db.Create(m).Error; err != nil {
 		t.Fatalf("建收付款失败: %v", err)
@@ -102,7 +107,7 @@ func (f *exchangeFixture) allocate(
 	t.Helper()
 	m := &model.PaymentAllocation{
 		PaymentID: paymentID, TargetType: target, TargetID: targetID,
-		TargetDocNo: targetDocNo, Amount: amount, AmountBase: amountBase,
+		TargetDocNo: targetDocNo, Amount: dec(amount), AmountBase: dec(amountBase),
 	}
 	if err := f.db.Create(m).Error; err != nil {
 		t.Fatalf("建核销行失败: %v", err)

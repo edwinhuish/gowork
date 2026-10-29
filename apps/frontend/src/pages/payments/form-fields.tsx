@@ -6,7 +6,8 @@ import { SETTLEMENT_METHOD_OPTIONS } from '@/constants/catalog'
 /** 表单里的一行核销：选哪张单、核多少。 */
 export interface PaymentAllocationFormValue {
   target_id?: number
-  amount?: number
+  /** 定点字符串（后端 money.Decimal）。 */
+  amount?: string
 }
 
 /**
@@ -21,7 +22,8 @@ export interface PaymentFormValues {
   partner_id?: number
   pay_date?: string
   currency_code?: string
-  amount?: number
+  /** 定点字符串（后端 money.Decimal）。 */
+  amount?: string
   method?: string
   reference?: string
   remark?: string
@@ -41,8 +43,8 @@ export function toPaymentInput(values: PaymentFormValues): PaymentInput {
     partner_id: values.partner_id,
     pay_date: values.pay_date?.trim() ?? '',
     currency_code: values.currency_code ?? '',
-    // 0 表示「取核销合计」；预收 / 预付款必须自己填，否则后端会拒。
-    amount: values.amount ?? 0,
+    // 留空（或 "0"）表示「取核销合计」；预收 / 预付款必须自己填，否则后端会拒。
+    amount: values.amount ?? '',
     method: values.method ?? '',
     reference: values.reference?.trim() ?? '',
     remark: values.remark ?? '',
@@ -51,7 +53,7 @@ export function toPaymentInput(values: PaymentFormValues): PaymentInput {
       .map((a) => ({
         target_type: targetType,
         target_id: a.target_id as number,
-        amount: a.amount ?? 0,
+        amount: a.amount ?? '',
       })),
   }
 }

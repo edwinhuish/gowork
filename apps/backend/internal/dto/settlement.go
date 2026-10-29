@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // ReceivableQuery 是应收单的查询条件。
 type ReceivableQuery struct {
 	PageQuery
@@ -27,8 +29,9 @@ type ReceivableInput struct {
 	// SourceType 只能是 10 销售订单。
 	SourceType int8 `json:"source_type" binding:"required"`
 	SourceID   uint `json:"source_id" binding:"required"`
-	// Amount 为 0 表示"把来源未开票余额全开出来"。
-	Amount float64 `json:"amount" binding:"gte=0"`
+	// Amount 为 0 表示"把来源未开票余额全开出来"。按字符串收发（money.Decimal），
+	// 负数在服务层判：binding 的数值大小校验对定点类型不生效。
+	Amount money.Decimal `json:"amount"`
 	// DueDate 留空表示按客户账期推算（订单日 + credit_days）。
 	DueDate string `json:"due_date"`
 	// Status 只在编辑时用于作废；新建恒为未结清。
@@ -38,10 +41,10 @@ type ReceivableInput struct {
 
 // PayableInput 新建与编辑共用，规则同应收，来源是采购订单。
 type PayableInput struct {
-	SourceType int8    `json:"source_type" binding:"required"`
-	SourceID   uint    `json:"source_id" binding:"required"`
-	Amount     float64 `json:"amount" binding:"gte=0"`
-	DueDate    string  `json:"due_date"`
-	Status     *int8   `json:"status"`
-	Remark     string  `json:"remark" binding:"max=255"`
+	SourceType int8          `json:"source_type" binding:"required"`
+	SourceID   uint          `json:"source_id" binding:"required"`
+	Amount     money.Decimal `json:"amount"`
+	DueDate    string        `json:"due_date"`
+	Status     *int8         `json:"status"`
+	Remark     string        `json:"remark" binding:"max=255"`
 }

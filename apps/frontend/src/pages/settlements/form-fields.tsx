@@ -59,9 +59,15 @@ export function SettlementFormFields({
         name="amount"
         label="金额（原币）"
         tooltip="留空表示把来源单的未开票余额全开出来。超额会被后端拒绝——来源总额是硬上限"
-        rules={[{ type: 'number', min: 0, message: '不能为负' }]}
       >
-        <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={4} placeholder="留空 = 全额" />
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          step={0.01}
+          precision={4}
+          stringMode
+          placeholder="留空 = 全额"
+        />
       </Form.Item>
 
       <Form.Item

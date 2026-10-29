@@ -10,6 +10,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // PayableFilter 是应付单的查询条件。
@@ -52,7 +53,7 @@ type PayableRepository interface {
 	// SumAmountBySource 汇总某来源已开出的应付金额（原币），规则同应收。
 	SumAmountBySource(
 		ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
-	) (float64, error)
+	) (money.Decimal, error)
 }
 
 type payableRepo struct {
@@ -99,8 +100,8 @@ func (r *payableRepo) List(
 
 func (r *payableRepo) SumAmountBySource(
 	ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
-) (float64, error) {
-	var sum float64
+) (money.Decimal, error) {
+	var row struct{ Total money.Decimal }
 	q := r.DB().WithContext(ctx).
 		Model(&model.Payable{}).
 		Where("source_type = ? AND source_id = ? AND status <> ?",
@@ -108,8 +109,8 @@ func (r *payableRepo) SumAmountBySource(
 	if excludeID != 0 {
 		q = q.Where("id <> ?", excludeID)
 	}
-	if err := q.Select("COALESCE(SUM(amount), 0)").Scan(&sum).Error; err != nil {
-		return 0, fmt.Errorf("汇总来源应付 source=%d/%d: %w", sourceType, sourceID, err)
+	if err := q.Select("COALESCE(SUM(amount), 0) AS total").Scan(&row).Error; err != nil {
+		return money.Zero(), fmt.Errorf("汇总来源应付 source=%d/%d: %w", sourceType, sourceID, err)
 	}
-	return sum, nil
+	return row.Total, nil
 }

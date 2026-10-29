@@ -583,12 +583,13 @@ export interface Settlement {
   /** 来源单号，摊平存一份，列表页不必再 join。 */
   source_doc_no: string
   currency_code: string
-  exchange_rate: number
-  amount: number
-  amount_base: number
+  /** 金额与汇率是定点字符串：前端只展示，算术在服务端。 */
+  exchange_rate: string
+  amount: string
+  amount_base: string
   /** 已核销金额，派生值：唯一维护方是核销（T-21）。 */
-  settled_amount: number
-  settled_amount_base: number
+  settled_amount: string
+  settled_amount_base: string
   /** YYYY-MM-DD。账龄分桶的唯一依据，不可为空。 */
   due_date: string
   /** 10 未结清 / 20 部分结清 / 30 已结清 / 90 已作废 */
@@ -617,10 +618,10 @@ export interface PaymentAllocation {
   target_id: number
   /** 目标单号，摊平存一份，清单不必再 join 应收应付表。 */
   target_doc_no: string
-  /** 核销的原币金额，币种跟随收付款单。 */
-  amount: number
+  /** 核销的原币金额，币种跟随收付款单。定点字符串。 */
+  amount: string
   /** 本币金额，按**收付款单的汇率**折——与目标单据锁定本币之差就是汇兑损益。 */
-  amount_base: number
+  amount_base: string
   created_at: string
   updated_at: string
 }
@@ -764,9 +765,10 @@ export interface Payment {
   /** YYYY-MM-DD：钱动的那天，不是录入日。 */
   pay_date: string
   currency_code: string
-  exchange_rate: number
-  amount: number
-  amount_base: number
+  /** 金额与汇率是定点字符串：前端只展示，算术在服务端。 */
+  exchange_rate: string
+  amount: string
+  amount_base: string
   /** TT / LC / DP / DA / OA，与主体的默认结算方式同源。 */
   method: string
   /** 银行水单号，外部号：只记录、不参与发号与唯一性。 */

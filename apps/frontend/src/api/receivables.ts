@@ -12,8 +12,8 @@ export interface ReceivableInput {
   /** 只接受 10（销售订单）。 */
   source_type: number
   source_id: number
-  /** 留空（或 0）表示把来源未开票余额全开出来。 */
-  amount?: number
+  /** 留空（或 "0"）表示把来源未开票余额全开出来。定点字符串。 */
+  amount?: string
   /** 留空表示按客户账期推算：订单日 + credit_days。 */
   due_date?: string
   /** 只在编辑时用：90 表示作废。 */

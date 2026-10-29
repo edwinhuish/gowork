@@ -29,7 +29,8 @@ export function SettlementShow({
   const isReceivable = direction === 'receivable'
   const { result, query } = useShow<Settlement>({ resource })
 
-  const outstanding = result ? result.amount - result.settled_amount : 0
+  // 金额是定点字符串，这里的差额只用于显示；服务端按末位精确算。
+  const outstanding = result ? Number(result.amount) - Number(result.settled_amount) : 0
 
   return (
     <Show isLoading={query.isLoading} title={result?.doc_no ?? (isReceivable ? '应收详情' : '应付详情')}>
@@ -68,7 +69,7 @@ export function SettlementShow({
           {
             key: 'exchange_rate',
             label: '汇率（开单时锁定）',
-            children: result ? (result.exchange_rate === 1 ? '1' : result.exchange_rate.toFixed(4)) : <Empty />,
+            children: result ? (Number(result.exchange_rate) === 1 ? '1' : Number(result.exchange_rate).toFixed(4)) : <Empty />,
           },
           {
             key: 'amount',
@@ -83,7 +84,7 @@ export function SettlementShow({
           {
             key: 'settled',
             label: '已结清',
-            children: result && result.settled_amount > 0 ? (
+            children: result && Number(result.settled_amount) > 0 ? (
               <Money value={result.settled_amount} />
             ) : (
               <Empty />

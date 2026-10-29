@@ -90,7 +90,7 @@ export function SettlementList({
           title="金额"
           width={160}
           align="right"
-          render={(value: number, record: Settlement) => (
+          render={(value: string, record: Settlement) => (
             <Space size={6}>
               <Money value={value} />
               <Tag>{record.currency_code}</Tag>
@@ -102,16 +102,21 @@ export function SettlementList({
           title="已结清"
           width={120}
           align="right"
-          render={(value: number) =>
-            value > 0 ? <Money value={value} /> : <Empty />
+          render={(value: string) =>
+            Number(value) > 0 ? <Money value={value} /> : <Empty />
           }
         />
         <Table.Column
           title="未结清"
           width={120}
           align="right"
+          // 金额是定点字符串：未结清只是显示用的差，真正的余额在服务端按末位算。
           render={(_, record: Settlement) =>
-            record.status === 90 ? <Empty /> : <Money value={record.amount - record.settled_amount} />
+            record.status === 90 ? (
+              <Empty />
+            ) : (
+              <Money value={Number(record.amount) - Number(record.settled_amount)} />
+            )
           }
         />
         <Table.Column

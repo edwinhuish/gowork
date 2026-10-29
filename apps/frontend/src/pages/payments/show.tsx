@@ -22,9 +22,10 @@ import { formatDate, formatTime } from '@/utils/format'
 export function PaymentShow() {
   const { result, query } = useShow<Payment>({ resource: 'payments' })
 
+  // 金额是定点字符串：下面的合计只用于显示，服务端按末位精确算。
   const allocations = result?.allocations ?? []
-  const allocated = allocations.reduce((sum, a) => sum + a.amount, 0)
-  const outstanding = (result?.amount ?? 0) - allocated
+  const allocated = allocations.reduce((sum, a) => sum + Number(a.amount), 0)
+  const outstanding = Number(result?.amount ?? 0) - allocated
 
   return (
     <Show
@@ -65,9 +66,9 @@ export function PaymentShow() {
             key: 'exchange_rate',
             label: '汇率（到账日）',
             children: result
-              ? result.exchange_rate === 1
+              ? Number(result.exchange_rate) === 1
                 ? '1'
-                : result.exchange_rate.toFixed(4)
+                : Number(result.exchange_rate).toFixed(4)
               : <Empty />,
           },
           {
@@ -138,14 +139,14 @@ export function PaymentShow() {
             title: '核销金额（原币）',
             width: 180,
             align: 'right',
-            render: (value: number) => <Money value={value} />,
+            render: (value: string) => <Money value={value} />,
           },
           {
             dataIndex: 'amount_base',
             title: '核销金额（本币）',
             width: 180,
             align: 'right',
-            render: (value: number) => <Money value={value} />,
+            render: (value: string) => <Money value={value} />,
           },
         ]}
       />
