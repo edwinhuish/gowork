@@ -41,6 +41,9 @@ func Run(db *gorm.DB, log *slog.Logger) error {
 	if err := BackfillSupplierSKUNorm(db, log); err != nil {
 		return err
 	}
+	if err := BackfillOpportunityRateLockedOn(db, log); err != nil {
+		return err
+	}
 	return nil
 }
 
