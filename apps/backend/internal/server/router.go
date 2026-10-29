@@ -45,6 +45,7 @@ type Handlers struct {
 	Customs         *handler.CustomsDeclarationHandler
 	Receivable      *handler.ReceivableHandler
 	CreditNote      *handler.CreditNoteHandler
+	DebitNote       *handler.DebitNoteHandler
 	Payable         *handler.PayableHandler
 	Payment         *handler.PaymentHandler
 	Report          *handler.ReportHandler
@@ -410,6 +411,11 @@ func New(
 		// 应收 / 应付：由订单生成，币种与汇率从来源单据锁定（蓝图 F3 的硬规则）。
 		// 一期一张单，核销（T-21）按单进行。
 		// 贷项通知单（T-52b）：冲减某张应收的一部分（退货 / 折让 / 短装）。
+		// 借项通知单（T-52b3）：冲减某张应付的一部分，与贷项对称。
+		debitNotes := secured.Group("/debit-notes")
+		debitNotes.GET("", h.DebitNote.List)
+		debitNotes.POST("", h.DebitNote.Create)
+
 		creditNotes := secured.Group("/credit-notes")
 		creditNotes.GET("", h.CreditNote.List)
 		creditNotes.POST("", h.CreditNote.Create)

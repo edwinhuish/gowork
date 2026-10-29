@@ -311,7 +311,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		// 所以定点改造必须在三库上都验一遍：写进去什么样，读出来就什么样，
 		// 求和之后也不得多出末位。
 		if err := database.AutoMigrate(db,
-			&model.Partner{}, &model.Receivable{}, &model.CreditNote{}); err != nil {
+			&model.Partner{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{}); err != nil {
 			t.Fatalf("迁移应收表失败: %v", err)
 		}
 		receivables := NewReceivableRepository(db)
@@ -323,7 +323,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			t.Fatalf("创建客户: %v", err)
 		}
 		t.Cleanup(func() {
-			_ = db.Unscoped().Where("partner_id = ?", customer.ID).Delete(&model.Receivable{}, &model.CreditNote{}).Error
+			_ = db.Unscoped().Where("partner_id = ?", customer.ID).Delete(&model.Receivable{}, &model.CreditNote{}, &model.DebitNote{}).Error
 			_ = db.Unscoped().Where("id = ?", customer.ID).Delete(&model.Partner{}).Error
 		})
 

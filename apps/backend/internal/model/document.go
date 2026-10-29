@@ -152,6 +152,8 @@ const (
 	DocTypePurchaseReceipt DocType = "RCV"
 	// DocTypeCreditNote 是贷项通知单（T-52b）：冲减某张应收的一部分。
 	DocTypeCreditNote DocType = "CN"
+	// DocTypeDebitNote 是借项通知单（T-52b3）：冲减某张应付的一部分，与贷项对称。
+	DocTypeDebitNote DocType = "DBN"
 	// 形式发票与销售合同共用一张表、各自一条序列：单号一眼能看出是哪种，
 	// 而"同一份东西两个名字"的问题只存在于类型命名，不存在于号段。
 	DocTypeProformaInvoice DocType = "PI"
@@ -169,6 +171,7 @@ func (t DocType) IsValid() bool {
 		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount,
 		DocTypePurchaseReceipt,
 		DocTypeCreditNote,
+		DocTypeDebitNote,
 		DocTypeProformaInvoice, DocTypeSalesContract:
 		return true
 	}

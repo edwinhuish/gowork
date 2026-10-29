@@ -30,7 +30,7 @@ func newReportFixture(t *testing.T, now time.Time) reportFixture {
 	t.Helper()
 	ctx := context.Background()
 
-	db := openTestDB(t, &model.Partner{}, &model.Receivable{}, &model.CreditNote{}, &model.Payable{})
+	db := openTestDB(t, &model.Partner{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{}, &model.Payable{})
 	partnerRepo := repository.NewPartnerRepository(db)
 
 	customer := &model.Partner{

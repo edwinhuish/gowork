@@ -39,7 +39,7 @@ func newCreditFixture(t *testing.T, now time.Time, limit float64) creditFixture 
 	db := openTestDB(t,
 		&model.Partner{}, &model.SalesOrder{}, &model.SalesOrderItem{},
 		&model.Shipment{}, &model.ShipmentAllocation{},
-		&model.Receivable{}, &model.CreditNote{}, &model.Payable{})
+		&model.Receivable{}, &model.CreditNote{}, &model.DebitNote{}, &model.Payable{})
 
 	partnerRepo := repository.NewPartnerRepository(db)
 	customer := &model.Partner{

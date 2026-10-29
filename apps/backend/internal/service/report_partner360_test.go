@@ -29,7 +29,7 @@ func newPartner360Fixture(t *testing.T, now time.Time) partner360Fixture {
 	db := openTestDB(t,
 		&model.Partner{}, &model.Activity{}, &model.Opportunity{},
 		&model.SalesOrder{}, &model.SalesOrderItem{},
-		&model.Shipment{}, &model.ShipmentAllocation{}, &model.Receivable{}, &model.CreditNote{})
+		&model.Shipment{}, &model.ShipmentAllocation{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{})
 
 	return partner360Fixture{
 		reports: NewReportService(

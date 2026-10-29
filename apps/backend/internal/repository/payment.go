@@ -225,7 +225,12 @@ func applyAllocation(tx *gorm.DB, a model.PaymentAllocation) error {
 		if a.Amount.Cmp(money.Zero()) <= 0 {
 			return errs.BadRequest("核销金额必须大于 0")
 		}
-		if remaining := m.Amount.Sub(m.SettledAmount); a.Amount.Cmp(remaining) > 0 {
+		// 未结清额扣掉已开的借项（T-52b3）：退货冲掉的那部分钱不能再付一次。
+		debited, derr := debitedFor(tx, m.ID)
+		if derr != nil {
+			return derr
+		}
+		if remaining := m.Amount.Sub(m.SettledAmount).Sub(debited); a.Amount.Cmp(remaining) > 0 {
 			return errs.BadRequest(fmt.Sprintf(
 				"应付单 %s 只剩 %s %s 未结清，不能核销 %s",
 				m.DocNo, m.CurrencyCode, remaining, a.Amount))
@@ -298,6 +303,19 @@ func creditedFor(tx *gorm.DB, receivableID uint) (money.Decimal, error) {
 	var rows []model.CreditNote
 	if err := tx.Select("amount").Where("receivable_id = ?", receivableID).Find(&rows).Error; err != nil {
 		return money.Zero(), fmt.Errorf("汇总应收单 %d 的贷项: %w", receivableID, err)
+	}
+	sum := money.Zero()
+	for _, row := range rows {
+		sum = sum.Add(row.Amount)
+	}
+	return sum, nil
+}
+
+// debitedFor 汇总某张应付单已被借项冲减的金额（T-52b3），与 creditedFor 对称。
+func debitedFor(tx *gorm.DB, payableID uint) (money.Decimal, error) {
+	var rows []model.DebitNote
+	if err := tx.Select("amount").Where("payable_id = ?", payableID).Find(&rows).Error; err != nil {
+		return money.Zero(), fmt.Errorf("汇总应付单 %d 的借项: %w", payableID, err)
 	}
 	sum := money.Zero()
 	for _, row := range rows {

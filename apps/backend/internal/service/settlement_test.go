@@ -37,7 +37,7 @@ func newSettlementFixture(t *testing.T, now time.Time) settlementFixture {
 		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{},
 		&model.SalesOrder{}, &model.SalesOrderItem{},
 		&model.PurchaseOrder{}, &model.PurchaseOrderItem{},
-		&model.DocSeq{}, &model.Receivable{}, &model.CreditNote{}, &model.Payable{})
+		&model.DocSeq{}, &model.Receivable{}, &model.CreditNote{}, &model.DebitNote{}, &model.Payable{})
 
 	clock := func() time.Time { return now }
 	partnerRepo := repository.NewPartnerRepository(db)

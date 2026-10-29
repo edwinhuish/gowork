@@ -23,7 +23,7 @@ func newCollectionFixture(t *testing.T, now time.Time) collectionFixture {
 	t.Helper()
 	db := openTestDB(t,
 		&model.Partner{}, &model.Receivable{}, &model.Payable{},
-		&model.Payment{}, &model.PaymentAllocation{}, &model.CreditNote{})
+		&model.Payment{}, &model.PaymentAllocation{}, &model.CreditNote{}, &model.DebitNote{})
 	partnerRepo := repository.NewPartnerRepository(db)
 
 	customer := &model.Partner{

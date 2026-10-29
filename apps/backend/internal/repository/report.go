@@ -212,6 +212,15 @@ func (r *reportRepo) ListOutstandingSettlements(
 
 	// 求和类字段一律扫进 money.Decimal：SQL 里算出来的是十进制字面量，
 	// 让它落到 float64 上，报表的合计立刻与明细对不上。
+	// 应收扣贷项、应付扣借项（T-52b3）：两张反向表都把"这笔钱不用收了/不用付了"
+	// 记在自己的表里，所以这里要按 target 选子查询，不能写死 credit。
+	offsetExpr := creditSubquery("s")
+	offsetBaseExpr := creditBaseSubquery("s")
+	if target == model.SettlementTargetPayable {
+		offsetExpr = debitSubquery("s")
+		offsetBaseExpr = debitBaseSubquery("s")
+	}
+
 	rows := make([]OutstandingSettlement, 0, 64)
 	// 用 Table 而不是 Model：两张表结构相同，写成 Model(&model.Receivable{}) +
 	// 切表名反而绕。代价是软删除条件要自己写 —— 漏了就会把已删的单据算进账龄。
@@ -227,15 +236,15 @@ func (r *reportRepo) ListOutstandingSettlements(
 			s.settled_amount,
 			s.amount_base,
 			s.settled_amount_base,
-			`+creditSubquery("s")+` AS credited,
-			`+creditBaseSubquery("s")+` AS credited_base,
+			`+offsetExpr+` AS credited,
+			`+offsetBaseExpr+` AS credited_base,
 			s.due_date`).
 		Joins("LEFT JOIN md_partner AS p ON p.id = s.partner_id AND p.deleted_at = 0").
 		Where("s.deleted_at = 0").
 		Where("s.status <> ?", model.SettlementStatusVoid).
 		// 扣掉贷项：退过货的单只剩很小一笔未结时会掉出账龄，
 		// 这正是它该有的样子——那部分钱客户不用付了。
-		Where("s.amount - s.settled_amount - "+creditSubquery("s")+" > ?", 0.0001).
+		Where("s.amount - s.settled_amount - "+offsetExpr+" > ?", 0.0001).
 		Find(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("查询未结清单据(%s): %w", table, err)

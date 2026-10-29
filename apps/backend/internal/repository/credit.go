@@ -108,3 +108,15 @@ func creditBaseSubquery(alias string) string {
 	return "COALESCE((SELECT SUM(c.amount_base) FROM biz_credit_note c WHERE c.receivable_id = " +
 		alias + ".id AND c.deleted_at = 0), 0)"
 }
+
+// debitSubquery / debitBaseSubquery 与贷项的两个对称（T-52b3）：
+// 应付侧的未结清额 = amount − settled − debited。
+func debitSubquery(alias string) string {
+	return "COALESCE((SELECT SUM(d.amount) FROM biz_debit_note d WHERE d.payable_id = " +
+		alias + ".id AND d.deleted_at = 0), 0)"
+}
+
+func debitBaseSubquery(alias string) string {
+	return "COALESCE((SELECT SUM(d.amount_base) FROM biz_debit_note d WHERE d.payable_id = " +
+		alias + ".id AND d.deleted_at = 0), 0)"
+}
