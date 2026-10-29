@@ -90,15 +90,16 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 	}
 
 	m := &model.Product{
-		SKUCode:    in.SKUCode,
-		NameCN:     in.NameCN,
-		NameEN:     in.NameEN,
-		Category:   in.Category,
-		Spec:       in.Spec,
-		Unit:       defaultUnit(in.Unit),
-		SupplierID: in.SupplierID,
-		CostPrice:  in.CostPrice,
-		SalePrice:  in.SalePrice,
+		SKUCode:      in.SKUCode,
+		NameCN:       in.NameCN,
+		NameEN:       in.NameEN,
+		Category:     in.Category,
+		Spec:         in.Spec,
+		Unit:         defaultUnit(in.Unit),
+		SupplierID:   in.SupplierID,
+		BatchManaged: in.BatchManaged,
+		CostPrice:    in.CostPrice,
+		SalePrice:    in.SalePrice,
 
 		PackQty:           in.PackQty,
 		CartonGrossWeight: in.CartonGrossWeight,
@@ -155,15 +156,16 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	}
 
 	fields := map[string]any{
-		"sku_code":    in.SKUCode,
-		"name_cn":     in.NameCN,
-		"name_en":     in.NameEN,
-		"category":    in.Category,
-		"spec":        in.Spec,
-		"unit":        defaultUnit(in.Unit),
-		"supplier_id": in.SupplierID,
-		"cost_price":  in.CostPrice,
-		"sale_price":  in.SalePrice,
+		"sku_code":      in.SKUCode,
+		"name_cn":       in.NameCN,
+		"name_en":       in.NameEN,
+		"category":      in.Category,
+		"spec":          in.Spec,
+		"unit":          defaultUnit(in.Unit),
+		"supplier_id":   in.SupplierID,
+		"batch_managed": in.BatchManaged,
+		"cost_price":    in.CostPrice,
+		"sale_price":    in.SalePrice,
 
 		"pack_qty":            in.PackQty,
 		"carton_gross_weight": in.CartonGrossWeight,

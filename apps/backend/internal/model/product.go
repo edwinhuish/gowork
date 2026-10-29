@@ -32,8 +32,13 @@ type Product struct {
 	// 没有这个标记，被清成 0 的成本价与"真的 0"在界面上分不开，
 	// 而两者的含义完全相反：一个是"你看不到"，一个是"这件货不要钱"。
 	// 不落库：它描述的是"这次是谁在看"，不是产品本身。
-	CostHidden bool          `gorm:"-" json:"cost_hidden,omitempty"`
-	SalePrice  money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
+	// BatchManaged 表示这个产品按批次管理（T-58）：出库必须指定批次号。
+	//
+	// 做成开关而不是全局强制：不是所有货都需要批号（标准件、辅料），
+	// 一律强制只会逼人给每一行随手填一个假批号，追溯反而失效。
+	BatchManaged bool          `gorm:"not null;default:false;index" json:"batch_managed"`
+	CostHidden   bool          `gorm:"-" json:"cost_hidden,omitempty"`
+	SalePrice    money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
 
 	// 包装规格：单箱数量与单箱毛净重、体积、外箱尺寸。
 	//

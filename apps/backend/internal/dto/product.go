@@ -30,8 +30,10 @@ type ProductInput struct {
 	Unit       string `json:"unit" binding:"max=16"`
 	SupplierID *uint  `json:"supplier_id"`
 	// 金额按字符串收发（money.Decimal），过一遍 float64 就把定点精度丢了。
-	CostPrice money.Decimal `json:"cost_price"`
-	SalePrice money.Decimal `json:"sale_price"`
+	// BatchManaged 开启后，这个产品出库必须指定批次号（T-58）。
+	BatchManaged bool          `json:"batch_managed"`
+	CostPrice    money.Decimal `json:"cost_price"`
+	SalePrice    money.Decimal `json:"sale_price"`
 
 	// 包装规格（T-50）：每箱数量、单箱毛净重（kg）、单箱体积（m³）、外箱尺寸。
 	// 全部可选；0 表示未维护，出货分配行仍按人工填的合计走。

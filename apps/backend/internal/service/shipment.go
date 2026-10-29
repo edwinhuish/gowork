@@ -632,6 +632,11 @@ func (s *shipmentService) buildAllocations(
 				// 报关要素**总是**快照，不受「人工填了装箱数据」影响：
 				// 一个是装箱方案，一个是申报口径，两件事互不相干。
 				snapshotCustoms(&alloc, p)
+				// 按批次管理的产品出库必须指定批次（T-58）：缺了它，
+				// "这批货发给谁了"就永远答不出来，而产品已经声明要管批次。
+				if p.BatchManaged && strings.TrimSpace(alloc.BatchNo) == "" {
+					return nil, errs.BadRequest(item.SKUCode + " 按批次管理，出货必须填批次号")
+				}
 			}
 		}
 		rows = append(rows, alloc)
