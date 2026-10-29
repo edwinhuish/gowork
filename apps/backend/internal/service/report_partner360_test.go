@@ -246,6 +246,10 @@ func TestPartner360Overview(t *testing.T) {
 		if v.Totals.LastActivityAt != "2026-09-11" {
 			t.Errorf("最近跟进日应为 2026-09-11，得到 %q", v.Totals.LastActivityAt)
 		}
+		// 字段必须在，空串说明列名与字段没对上（扫描会静默给零值）。
+		if v.Activities[0].Type != string(model.ActivityTypeCall) {
+			t.Errorf("跟进方式应为 call，得到 %q", v.Activities[0].Type)
+		}
 		if v.Totals.OpenOpportunityCount != 1 {
 			t.Errorf("已赢单不该占预测，期望 1 条在谈，得到 %d", v.Totals.OpenOpportunityCount)
 		}

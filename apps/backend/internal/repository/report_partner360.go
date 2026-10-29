@@ -224,8 +224,8 @@ func (r *reportRepo) ListPartnerActivities(
 	rows := make([]Partner360Activity, 0, limit)
 	err := r.conn(ctx).
 		Table("crm_activity").
-		// type 在部分方言里是关键字，取别名避开各库的反引号差异。
-		Select("id, type AS activity_type, subject, occurred_at, next_follow_at").
+		// 不要给 type 取别名：列名一改，扫描就按别名去找字段，值会静默变成空串。
+		Select("id, type, subject, occurred_at, next_follow_at").
 		Where("partner_id = ? AND deleted_at = 0", partnerID).
 		Order("occurred_at DESC, id DESC").
 		Limit(limit).
