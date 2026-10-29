@@ -162,7 +162,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 税号 | `Partner.TaxID` | `md_partner.tax_id` | 开票与报关用的纳税人识别号。公司主体不强制，但单证上缺它会被客户退回 |
 | 客户组 / 区域 | `Partner.CustomerGroup` / `Partner.Region` | `md_partner` 两列 | 报表分组用。**区域是我方划分的销售片区，不是国家**——同一个国家可以有两个片区 |
 | 客户分级 | `Partner.Grade` | `md_partner.grade` | ABC 分级，只做标签与筛选，**不做权限**。分级规则尚未定，见 `docs/roadmap.md` 第五节 |
-| 包装规格 | `Product.PackQty` / `CartonGrossWeight` / `CartonNetWeight` / `CartonVolume` | `md_product` 四列 | 每箱数量、单箱毛重 / 净重（kg）、单箱体积（CBM）。分配行的整行合计由「箱数 × 单箱值」推出并可人工覆盖 |
+| 包装规格 | `Product.PackQty` / `CartonGrossWeight` / `CartonNetWeight` / `CartonVolume` / `CartonSize` | `md_product` 五列 | **已实现（T-50）**。每箱数量、单箱毛重 / 净重（kg）、单箱体积（m³，6 位小数）、外箱尺寸文本。分配行整行未填时由「箱数 × 单箱值」推出（箱数 = 数量 ÷ 每箱数量，有余数向上取整）；人工填了任意一项就整行不覆盖——实际装箱与规格不同是常态 |
 | 采购收货单 | `PurchaseReceipt` | `biz_purchase_receipt`（明细 `_item`） | 一次实际到货，挂采购订单**行**，支持分批；确认时生成采购入库流水。**在途量 = 订购 − 已收** |
 | 验货记录 | `Inspection` | `biz_inspection` | 一次验货的结论：抽检比例、合格与否、缺陷项、附件。**与「验货节点」区分**：`PurchaseMilestone` 只记「哪天验的」，本表记「验出了什么」 |
 | 贷项通知单 | `CreditNote` | `biz_credit_note` | 引用原应收单的负向凭证，用于退货与折让。累计不得超过原单金额（409），**不改也不删原单** |
@@ -184,8 +184,9 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 订舱委托 | `BookingRequest` | 有 | 向货代订舱的委托书（S/O）：收货人、通知方、柜型、品名、体积 |
 | 报关要素快照 | `ShipmentAllocation.HSCode` 等 | 随报关单 | 出货时把产品的六项要素抄到分配行，改产品不影响历史单证 |
 
-**「装箱数据」那条会随 T-50 变化**：现在是整行合计（人工填总重），T-50 之后由「箱数 × 单箱毛净重」
-推导，人工只在例外时覆盖。届时本条要改写，不要两套口径并存。
+**「装箱数据」的现状**：分配行存的是**整行合计**（箱数、毛净重、体积、外箱尺寸），
+由 T-50 按产品箱规推导；人工填了任意一项就整行按人工的走。
+订舱与装箱单都读分配行的合计，不要去读产品上的单箱值——那是推导的输入，不是结果。
 
 ### 交易条件（不是实体，是单据上的字段）
 

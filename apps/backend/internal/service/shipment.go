@@ -55,6 +55,9 @@ type shipmentService struct {
 	// stockOut 负责建那张销售出库单。用窄接口而不是整个出入库服务：
 	// 出货只做一件事——出一张销售出库。
 	stockOut SalesOutIssuer
+	// products 用来按产品箱规补全装箱数据（T-50）。为 nil 时分配行完全按人工填的走，
+	// 所以测试与老调用方不必为它准备仓储。
+	products repository.ProductRepository
 	clock    func() time.Time
 	log      *slog.Logger
 }
@@ -76,6 +79,14 @@ func WithShipmentLogger(l *slog.Logger) ShipmentOption {
 // WithShipmentClock 注入时钟：出货日默认值与单号年月要可断言。
 func WithShipmentClock(now func() time.Time) ShipmentOption {
 	return func(s *shipmentService) { s.clock = now }
+}
+
+// WithShipmentProducts 注入产品仓储，用于按箱规补全装箱数据（T-50）。
+//
+// 用 Option 而不是加构造参数：出货服务已有七个位置参数，加一个要牵动
+// bootstrap 与四处测试调用点，而箱规只是"产品维护了才带出来"的增强。
+func WithShipmentProducts(repo repository.ProductRepository) ShipmentOption {
+	return func(s *shipmentService) { s.products = repo }
 }
 
 func NewShipmentService(
@@ -550,7 +561,7 @@ func (s *shipmentService) buildAllocations(
 			return nil, err
 		}
 
-		rows = append(rows, model.ShipmentAllocation{
+		alloc := model.ShipmentAllocation{
 			SalesOrderItemID: item.ID,
 			SKUCode:          item.SKUCode,
 			NameCN:           item.NameCN,
@@ -562,9 +573,63 @@ func (s *shipmentService) buildAllocations(
 			GrossWeight:      row.GrossWeight,
 			NetWeight:        row.NetWeight,
 			Measurement:      strings.TrimSpace(row.Measurement),
-		})
+		}
+		// 产品维护了箱规就补全这一行的装箱数据（T-50）。
+		// 查不到产品不是错误：产品可能刚被停用，装箱数据留空即可。
+		if s.products != nil {
+			if p, err := s.products.FindByID(ctx, item.ProductID); err == nil {
+				fillPackingFromProduct(&alloc, p)
+			}
+		}
+		rows = append(rows, alloc)
 	}
 	return rows, nil
+}
+
+// fillPackingFromProduct 按产品箱规补全分配行的装箱数据。
+//
+// 三条规则，都是为了"不把人工填的数据改错"：
+//   - 只在整行都没填时补。人工填了其中任意一项，说明这一票的实际装箱
+//     与产品规格不同（混装、临时加箱），此时按规格算出来的数只会更不准。
+//   - 箱数按「数量 ÷ 每箱数量」向上取整：100 件、每箱 30 件是 4 箱，最后一箱零头。
+//   - 体积按单箱体积 × 箱数，保留 6 位：小纸箱 0.072 m³，按 3 位存会把一堆箱子的
+//     合计放大约 0.4%，而订舱按 CBM 计费。
+func fillPackingFromProduct(a *model.ShipmentAllocation, p *model.Product) {
+	if p == nil || p.PackQty <= 0 {
+		return
+	}
+	if a.Cartons != 0 || !a.GrossWeight.IsZero() || !a.NetWeight.IsZero() {
+		return
+	}
+	if !a.Qty.IsPositive() {
+		return
+	}
+
+	per := money.FromInt(int64(p.PackQty))
+	ratio := a.Qty.Div(per)
+	boxes := ratio.Round(0)
+	if boxes.Cmp(ratio) < 0 {
+		// 有余数就多一箱：半箱货也得占一个箱子，订舱不会因为你没装满就少算体积。
+		boxes = boxes.Add(money.FromInt(1))
+	}
+	cartons := int(boxes.Float64())
+	if cartons <= 0 {
+		return
+	}
+	a.Cartons = cartons
+
+	if !p.CartonGrossWeight.IsZero() {
+		a.GrossWeight = p.CartonGrossWeight.MulInt(int64(cartons)).Round(3)
+	}
+	if !p.CartonNetWeight.IsZero() {
+		a.NetWeight = p.CartonNetWeight.MulInt(int64(cartons)).Round(3)
+	}
+	if !p.CartonVolume.IsZero() {
+		a.Volume = p.CartonVolume.MulInt(int64(cartons)).Round(6)
+	}
+	if a.Measurement == "" {
+		a.Measurement = strings.TrimSpace(p.CartonSize)
+	}
 }
 
 // checkPacking 校验一行装箱数据。

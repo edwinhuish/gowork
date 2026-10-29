@@ -301,9 +301,11 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 
 	items := make([]map[string]string, 0, len(sd.Allocations))
 	orderNos := make([]string, 0, len(sd.Allocations))
+	totalVolume := money.Zero()
 	for i, a := range sd.Allocations {
 		orderNo := allocationOrderNo(a)
 		orderNos = appendUnique(orderNos, orderNo)
+		totalVolume = totalVolume.Add(a.Volume)
 
 		items = append(items, map[string]string{
 			"no":          strconv.Itoa(i + 1),
@@ -315,6 +317,7 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 			"gross":       packedWeight(a.GrossWeight),
 			"net":         packedWeight(a.NetWeight),
 			"measurement": orDash(a.Measurement),
+			"cbm":         volumeText(a.Volume),
 		})
 	}
 
@@ -332,6 +335,9 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 	values["cartons_total"] = packedInt(cartons)
 	values["gross_total"] = packedWeight(gross)
 	values["net_total"] = packedWeight(net)
+	// 体积逐行累加：订舱按 CBM 计费，行上没维护箱规时这一栏是「—」，
+	// 合计里也不算它——空着比给一个按错规格算出来的数好。
+	values["volume_total"] = volumeText(totalVolume)
 	// 装箱单的抬头同样是买方，但"货送到哪"另有一栏：取 consignee。
 	// 与 CI 一致，没配 consignee 地址时不印这一块。
 	s.partnerValues(ctx, values, order.Partner, model.PartnerAddressInvoice)
@@ -579,6 +585,17 @@ func packedWeight(v money.Decimal) string {
 		return "—"
 	}
 	return qtyText(v)
+}
+
+// volumeText 印体积（m³），保留 3 位；0 印「—」。
+//
+// 分配行的体积只在产品维护了箱规、且这一行是自动算出的时候才有值。
+// 印一个 0.000 会让货代以为是"这票没有体积"，比留破折号更糟。
+func volumeText(v money.Decimal) string {
+	if v.Cmp(money.Zero()) <= 0 {
+		return "—"
+	}
+	return v.StringFixed(3)
 }
 
 // partnerValues 填买方区块：名称取主体，地址按用途取默认地址。

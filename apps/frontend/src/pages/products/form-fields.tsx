@@ -125,6 +125,53 @@ export function ProductFormFields() {
         <Input placeholder="千克" />
       </Form.Item>
 
+      {/* 包装规格（T-50）：维护之后出货分配行的箱数与毛净重由「箱数 × 单箱值」
+          推导，订舱要的 CBM 也一起算出来。全部可选——没维护时分配行仍按人工填的走。 */}
+      <Form.Item
+        name="pack_qty"
+        label="每箱数量"
+        tooltip="一件货一箱就留空。填了之后出货时按「数量 ÷ 每箱数量」向上取整算箱数"
+        rules={[{ type: 'number', min: 0, max: 100000, message: '请填 0 到 100000' }]}
+      >
+        <InputNumber min={0} max={100000} precision={0} placeholder="20" style={{ width: '100%' }} />
+      </Form.Item>
+
+      <Form.Item
+        name="carton_gross_weight"
+        label="单箱毛重 kg"
+        tooltip="含纸箱的重量。出货时按「箱数 × 单箱毛重」算出整行合计"
+        rules={[{ max: 32, message: '最多 32 个字符' }]}
+      >
+        <Input placeholder="12.5" />
+      </Form.Item>
+
+      <Form.Item
+        name="carton_net_weight"
+        label="单箱净重 kg"
+        tooltip="货本身的重量，不含纸箱。不能大于毛重"
+        rules={[{ max: 32, message: '最多 32 个字符' }]}
+      >
+        <Input placeholder="11.8" />
+      </Form.Item>
+
+      <Form.Item
+        name="carton_volume"
+        label="单箱体积 m³"
+        tooltip="订舱按 CBM 计费。一个小纸箱约 0.072，填单箱值而不是整批"
+        rules={[{ max: 32, message: '最多 32 个字符' }]}
+      >
+        <Input placeholder="0.072" />
+      </Form.Item>
+
+      <Form.Item
+        name="carton_size"
+        label="外箱尺寸"
+        tooltip="如 60×40×30CM，原样印在装箱单上"
+        rules={[{ max: 64, message: '最多 64 个字符' }]}
+      >
+        <Input placeholder="60×40×30CM" />
+      </Form.Item>
+
       <Form.Item
         name="declared_name_cn"
         label="申报品名（中文）"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
@@ -84,6 +85,9 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
 		return nil, err
 	}
+	if err := checkCartonSpec(in); err != nil {
+		return nil, err
+	}
 
 	m := &model.Product{
 		SKUCode:    in.SKUCode,
@@ -95,6 +99,12 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 		SupplierID: in.SupplierID,
 		CostPrice:  in.CostPrice,
 		SalePrice:  in.SalePrice,
+
+		PackQty:           in.PackQty,
+		CartonGrossWeight: in.CartonGrossWeight,
+		CartonNetWeight:   in.CartonNetWeight,
+		CartonVolume:      in.CartonVolume,
+		CartonSize:        strings.TrimSpace(in.CartonSize),
 
 		HSCode:         in.HSCode,
 		DeclaredNameCN: in.DeclaredNameCN,
@@ -140,6 +150,9 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	if err := s.checkSupplier(ctx, in.SupplierID); err != nil {
 		return nil, err
 	}
+	if err := checkCartonSpec(in); err != nil {
+		return nil, err
+	}
 
 	fields := map[string]any{
 		"sku_code":    in.SKUCode,
@@ -151,6 +164,12 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		"supplier_id": in.SupplierID,
 		"cost_price":  in.CostPrice,
 		"sale_price":  in.SalePrice,
+
+		"pack_qty":            in.PackQty,
+		"carton_gross_weight": in.CartonGrossWeight,
+		"carton_net_weight":   in.CartonNetWeight,
+		"carton_volume":       in.CartonVolume,
+		"carton_size":         strings.TrimSpace(in.CartonSize),
 
 		"hs_code":          in.HSCode,
 		"declared_name_cn": in.DeclaredNameCN,
@@ -177,6 +196,21 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		}
 	}
 	return s.repo.FindByID(ctx, id)
+}
+
+// checkCartonSpec 校验包装规格（T-50）。
+//
+// 只拦"一定录反了"的情形，不要求填全：箱规是可选信息，逼着填只会让人随手填 1。
+// 单箱净重大于毛重是唯一能确定填反的组合——净重是货本身，毛重是货加纸箱。
+func checkCartonSpec(in dto.ProductInput) error {
+	if in.CartonGrossWeight.IsNegative() || in.CartonNetWeight.IsNegative() ||
+		in.CartonVolume.IsNegative() {
+		return errs.BadRequest("包装规格的重量与体积不能为负")
+	}
+	if in.CartonNetWeight.Cmp(in.CartonGrossWeight) > 0 {
+		return errs.BadRequest("单箱净重不能大于单箱毛重，两栏可能填反了")
+	}
+	return nil
 }
 
 // Delete 在有货源挂靠时拒绝删除。

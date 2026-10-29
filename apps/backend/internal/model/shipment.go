@@ -98,6 +98,12 @@ type ShipmentAllocation struct {
 	// 存文本而不是长宽高三个数字：装箱单只把它原样印出来，系统不算体积、
 	// 也不校验格式——分箱方案要到实际装箱时才定（蓝图 §五.4.4）。
 	Measurement string `gorm:"size:64" json:"measurement"`
+	// Volume 是这一行的**合计**体积（m³），由「箱数 × 产品单箱体积」算出。
+	//
+	// 单独存而不是查询时现算：订舱按 CBM 计费，一票货报出去之后再改箱规，
+	// 报给货代的数字不能跟着变。人工填装箱数据时它保持 0——留空比填一个
+	// 按错规格算出来的数更有用，装箱单上那一栏也就不印。
+	Volume money.Decimal `gorm:"type:decimal(12,6);not null;default:0" json:"volume"`
 
 	// SalesOrderItem 只用于展示"这行来自哪张订单"（单号在它下面一层），
 	// 不参与任何计算。

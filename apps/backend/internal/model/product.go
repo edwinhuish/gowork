@@ -35,6 +35,24 @@ type Product struct {
 	CostHidden bool          `gorm:"-" json:"cost_hidden,omitempty"`
 	SalePrice  money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
 
+	// 包装规格：单箱数量与单箱毛净重、体积、外箱尺寸。
+	//
+	// 在此之前，装箱数据只存在出货分配行上，而且是"这一行的合计"，
+	// 所以订舱要的 CBM、装箱单要的单箱重量只能人工算一遍。
+	// 箱规放在产品上是唯一不会重复录的位置：同一个 SKU 一年也改不了一次。
+	//
+	// 全部可选，0 表示未维护——未维护时分配行仍按人工填的合计走，
+	// 不会因为产品没配规格就变成空白。
+	PackQty           int           `gorm:"not null;default:0" json:"pack_qty"`
+	CartonGrossWeight money.Decimal `gorm:"type:decimal(10,3);not null;default:0" json:"carton_gross_weight"`
+	CartonNetWeight   money.Decimal `gorm:"type:decimal(10,3);not null;default:0" json:"carton_net_weight"`
+	// CartonVolume 是**单箱**体积，单位立方米。用 6 位小数：
+	// 一个小纸箱是 0.072 m³，按 3 位存会把一堆箱子的合计放大约 0.4%。
+	CartonVolume money.Decimal `gorm:"type:decimal(10,6);not null;default:0" json:"carton_volume"`
+	// CartonSize 是外箱尺寸文本（如 60×40×30CM），原样印在装箱单上。
+	// 不拆成三个数字：订舱系统要的是长宽高之和而非单独值，拆开只多三列。
+	CartonSize string `gorm:"size:64" json:"carton_size"`
+
 	// 以下六项是报关要素的**默认值**，全部可选。
 	//
 	// HS 编码随目的国与用途变：同一个产品出口到欧盟和美国可能归不同税号，

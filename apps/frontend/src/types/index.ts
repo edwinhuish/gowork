@@ -346,6 +346,17 @@ export interface Product {
    */
   cost_hidden?: boolean
   sale_price: string
+  /**
+   * 包装规格：每箱数量、单箱毛净重（kg）、单箱体积（m³）、外箱尺寸。
+   *
+   * 全部可选，0 表示未维护。维护之后出货分配行的箱数与毛净重由
+   * 「箱数 × 单箱值」推导，订舱要的 CBM 也随之算出来，不再人工算。
+   */
+  pack_qty: number
+  carton_gross_weight: string
+  carton_net_weight: string
+  carton_volume: string
+  carton_size: string
   /** 报关要素的默认值。真实报关以出货批次上填的为准，这里是带出来的缺省。 */
   hs_code: string
   declared_name_cn: string

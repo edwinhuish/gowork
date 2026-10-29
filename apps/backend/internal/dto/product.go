@@ -33,6 +33,14 @@ type ProductInput struct {
 	CostPrice money.Decimal `json:"cost_price"`
 	SalePrice money.Decimal `json:"sale_price"`
 
+	// 包装规格（T-50）：每箱数量、单箱毛净重（kg）、单箱体积（m³）、外箱尺寸。
+	// 全部可选；0 表示未维护，出货分配行仍按人工填的合计走。
+	PackQty           int           `json:"pack_qty" binding:"gte=0,lte=100000"`
+	CartonGrossWeight money.Decimal `json:"carton_gross_weight"`
+	CartonNetWeight   money.Decimal `json:"carton_net_weight"`
+	CartonVolume      money.Decimal `json:"carton_volume"`
+	CartonSize        string        `json:"carton_size" binding:"max=64"`
+
 	// 报关要素的默认值，全部可选：真实报关以出货批次上填的为准，
 	// 这里只是省掉每票重复录入。长度上限与 model.Product 的列宽一致。
 	HSCode         string `json:"hs_code" binding:"max=16"`
