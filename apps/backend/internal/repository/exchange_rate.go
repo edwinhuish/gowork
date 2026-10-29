@@ -40,7 +40,12 @@ type ExchangeRateRepository interface {
 	Create(ctx context.Context, m *model.ExchangeRate) error
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.ExchangeRate, error)
-	ExistsByPair(ctx context.Context, currencyCode, baseCode string, effectiveDate time.Time, excludeID uint) (bool, error)
+	// ExistsByPair 判重。**必须按 rate_type 分开判**（T-60）：
+	// 同一天同一币种本来就该能存买入价与卖出价，不分开判等于双价存不进去。
+	ExistsByPair(
+		ctx context.Context, currencyCode, baseCode string, effectiveDate time.Time,
+		rateType string, excludeID uint,
+	) (bool, error)
 	List(ctx context.Context, f ExchangeRateFilter, p Pagination) ([]model.ExchangeRate, int64, error)
 	// CountByCurrencyCode 统计某外币的汇率条数，供"能不能删这个币种"判断。
 	CountByCurrencyCode(ctx context.Context, currencyCode string) (int64, error)
@@ -75,11 +80,12 @@ func (r *exchangeRateRepo) FindByID(ctx context.Context, id uint) (*model.Exchan
 }
 
 func (r *exchangeRateRepo) ExistsByPair(
-	ctx context.Context, currencyCode, baseCode string, effectiveDate time.Time, excludeID uint,
+	ctx context.Context, currencyCode, baseCode string, effectiveDate time.Time,
+	rateType string, excludeID uint,
 ) (bool, error) {
 	return r.Exists(ctx, func(db *gorm.DB) *gorm.DB {
-		q := db.Where("currency_code = ? AND base_code = ? AND effective_date = ?",
-			currencyCode, baseCode, effectiveDate)
+		q := db.Where("currency_code = ? AND base_code = ? AND effective_date = ? AND rate_type = ?",
+			currencyCode, baseCode, effectiveDate, rateType)
 		if excludeID > 0 {
 			q = q.Where("id <> ?", excludeID)
 		}

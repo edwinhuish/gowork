@@ -84,7 +84,9 @@ func (s *exchangeRateService) Create(
 		return nil, errs.BadRequest("本币相对自身不需要汇率：" + code)
 	}
 
-	dup, err := s.rates.ExistsByPair(ctx, code, base.Code, date, 0)
+	// 判重按「币种 + 日期 + 类型」：同一天要能同时录买入价与卖出价（T-60）。
+	rateType := normalizeRateType(in.RateType)
+	dup, err := s.rates.ExistsByPair(ctx, code, base.Code, date, rateType, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +96,9 @@ func (s *exchangeRateService) Create(
 	}
 
 	m := &model.ExchangeRate{
-		CurrencyCode: code,
-		BaseCode:     base.Code,
-		// 类型留空按中间价（T-60）：存量调用方不传这个字段，行为与改造前一致。
-		RateType:      normalizeRateType(in.RateType),
+		CurrencyCode:  code,
+		BaseCode:      base.Code,
+		RateType:      rateType,
 		Rate:          in.Rate,
 		EffectiveDate: date,
 		Source:        in.Source,
