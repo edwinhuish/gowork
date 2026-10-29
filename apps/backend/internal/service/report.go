@@ -28,6 +28,9 @@ type ReportService interface {
 	ExchangeGains(
 		ctx context.Context, q dto.ExchangeGainQuery,
 	) (*dto.ExchangeGainReport, error)
+	// SalesDashboard 按客户 / 产品 / 国家 / 月汇总订单额与毛利（T-28）。
+	// 口径复用 ShipmentProfits，换维度只换分组键。
+	SalesDashboard(ctx context.Context, q dto.SalesDashboardQuery) (*dto.SalesDashboard, error)
 }
 
 type reportService struct {

@@ -64,6 +64,17 @@ type ReportRepository interface {
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
 	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]money.Decimal, error)
 
+	// ---- 销售看板（T-28）----
+
+	// ListSalesShipmentLines 取范围内参与统计的出货分配行，带上客户与产品两套维度字段。
+	//
+	// 一次取全、在 service 里换分组键：若每个维度各写一份 SQL，四个维度就有四份口径，
+	// 迟早出现"按客户看 21%、按产品看 19%"这种谁也解释不清的差。
+	ListSalesShipmentLines(ctx context.Context, f SalesFilter) ([]SalesShipmentLine, error)
+	// ListSalesOrderLines 取范围内的销售订单明细行，用于「订单额」这一列。
+	// 草稿与已取消的订单不算：草稿还会改，取消的那张不会成交。
+	ListSalesOrderLines(ctx context.Context, f SalesFilter) ([]SalesOrderLine, error)
+
 	// ListExchangeGains 列出每一笔核销产生的汇兑差额原料（T-23）。
 	//
 	// 一行 = 一次核销：收付款单上锁的到账汇率 vs 目标单据上锁的开单汇率。

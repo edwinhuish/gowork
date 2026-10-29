@@ -36,6 +36,23 @@ func (h *ReportHandler) ExchangeGains(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// SalesDashboard GET /api/v1/reports/sales-dashboard
+//
+// 参数：dimension=customer|product|country|month（留空按客户）、from / to（闭区间）、
+// limit（留空 20，0 取上限 500）。订单额按下单日、毛利按出货日，两个口径并排。
+func (h *ReportHandler) SalesDashboard(c *gin.Context) {
+	var q dto.SalesDashboardQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.SalesDashboard(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // ShipmentProfits GET /api/v1/reports/shipment-profits
 //
 // 参数：shipment_id（只取一票）、page / page_size。金额全是本币。

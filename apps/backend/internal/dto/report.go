@@ -168,3 +168,52 @@ type ExchangeGainReport struct {
 	Subtotals     []ExchangeGainSubtotal `json:"subtotals"`
 	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }
+
+// SalesDashboardQuery 是销售看板的查询条件。
+type SalesDashboardQuery struct {
+	// Dimension 取 customer / product / country / month，留空按 customer。
+	Dimension string `form:"dimension" binding:"max=16"`
+	// From / To 是闭区间的 YYYY-MM-DD，留空表示不限。
+	// 出货毛利按出货日、订单额按下单日各自筛，见 SalesDashboardRow 的说明。
+	From string `form:"from" binding:"max=10"`
+	To   string `form:"to" binding:"max=10"`
+	// Limit 是返回行数上限，留空取 20；0 表示不截断（内部上限 500）。
+	Limit *int `form:"limit"`
+}
+
+// SalesDashboardRow 是看板的一行：同一维度键下的金额汇总。
+//
+// 两个口径并排放在一行里，但**不是同一批单据**：
+// OrderAmount 是按下单日统计的订单金额，Revenue 是出货日在范围内那部分货的收入。
+// 两者相减没有意义，所以列名与页头说明都要写清各自的时间口径。
+type SalesDashboardRow struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+
+	OrderAmount money.Decimal `json:"order_amount"`
+	Revenue     money.Decimal `json:"revenue"`
+	Cost        money.Decimal `json:"cost"`
+	Charge      money.Decimal `json:"charge"`
+	Profit      money.Decimal `json:"profit"`
+	// Margin 是毛利率（0.2254 = 22.54%）。收入为 0 时给 0，不给 NaN。
+	Margin money.Decimal `json:"margin"`
+
+	// Shipments 是这一行涉及的出货票数（去重），用来看"这个数是几票堆出来的"。
+	Shipments int `json:"shipments"`
+	// CostMissing 表示这一行里有出货行没有可用成本（没挂采购单，或采购单还是草稿）。
+	// 不标出来，等于把"没录采购"报成"毛利极高"。
+	CostMissing bool `json:"cost_missing"`
+}
+
+// SalesDashboard 是销售看板的响应体。
+type SalesDashboard struct {
+	Dimension string `json:"dimension"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+
+	Rows []SalesDashboardRow `json:"rows"`
+	// Total 是**全量**合计，不受 limit 截断影响——截断后拿 Rows 自己加会少算。
+	Total SalesDashboardRow `json:"total"`
+	// Truncated 表示 Rows 被 limit 截断过。
+	Truncated bool `json:"truncated"`
+}

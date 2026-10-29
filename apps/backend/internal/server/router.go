@@ -329,6 +329,8 @@ func New(
 		reports.GET("/shipment-profits", h.Report.ShipmentProfits)
 		// 汇兑损益：逐笔核销的到账汇率与单据锁定汇率之差，正收益负损失。
 		reports.GET("/exchange-gains", h.Report.ExchangeGains)
+		// 销售看板：按客户 / 产品 / 国家 / 月汇总订单额与毛利，口径与单票毛利同源。
+		reports.GET("/sales-dashboard", h.Report.SalesDashboard)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)
