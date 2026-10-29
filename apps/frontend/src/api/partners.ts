@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { Partner, PartnerDuplicateCandidate } from '@/types'
+import type { Partner, PartnerDuplicateCandidate, PartnerMergeResult } from '@/types'
 
 export interface PartnerDuplicateQuery {
   name?: string
@@ -33,4 +33,16 @@ export const partnerApi = {
    */
   duplicateCandidates: (q: PartnerDuplicateQuery) =>
     http.get<PartnerDuplicateCandidate[]>(`/partner-duplicates/candidates${toQuery({ ...q })}`),
+
+  /**
+   * 把 sourceId 并进 survivorId：引用整体迁过去，被合并方软删。
+   *
+   * 方向写死在参数名里——"哪条留下"是最容易点反的一步，而它不可逆。
+   * updatedAt 是主记录打开时的版本，走乐观锁；不传则按普通更新处理。
+   */
+  merge: (survivorId: number, sourceId: number, updatedAt?: string) =>
+    http.post<PartnerMergeResult>(`/partners/${survivorId}/merge`, {
+      source_id: sourceId,
+      updated_at: updatedAt,
+    }),
 }

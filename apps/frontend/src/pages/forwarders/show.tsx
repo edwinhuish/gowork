@@ -1,16 +1,25 @@
+import { useState } from 'react'
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions } from 'antd'
+import { Button, Descriptions } from 'antd'
 
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
+import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function ForwarderShow() {
   const { result, query } = useShow<Partner>({ resource: 'forwarders' })
+  const [mergeOpen, setMergeOpen] = useState(false)
 
   return (
-    <Show isLoading={query.isLoading} title={result?.name ?? '货代详情'}>
+    <Show
+      isLoading={query.isLoading}
+      title={result?.name ?? '货代详情'}
+      headerButtons={
+        result ? <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button> : null
+      }
+    >
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered
@@ -34,6 +43,15 @@ export function ForwarderShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {result && (
+        <PartnerMergeModal
+          open={mergeOpen}
+          partner={result}
+          resource="forwarders"
+          onClose={() => setMergeOpen(false)}
+        />
+      )}
     </Show>
   )
 }

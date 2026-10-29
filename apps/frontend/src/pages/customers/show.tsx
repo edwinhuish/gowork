@@ -1,17 +1,27 @@
+import { useState } from 'react'
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions } from 'antd'
+import { Button, Descriptions } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
+import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import type { Partner } from '@/types'
 import { formatTime } from '@/utils/format'
 
 export function CustomerShow() {
   const { result, query } = useShow<Partner>({ resource: 'customers' })
+  const [mergeOpen, setMergeOpen] = useState(false)
 
   return (
-    <Show isLoading={query.isLoading} title={result?.name ?? '客户详情'}>
+    <Show
+      isLoading={query.isLoading}
+      title={result?.name ?? '客户详情'}
+      // 合并入口放在详情页而不是列表：点错一行就并掉一家客户，代价太大。
+      headerButtons={
+        result ? <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button> : null
+      }
+    >
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered
@@ -61,6 +71,15 @@ export function CustomerShow() {
       {result?.id ? (
         <AttachmentPanel entityType="partner" entityId={result.id} title="资质与证件" />
       ) : null}
+
+      {result && (
+        <PartnerMergeModal
+          open={mergeOpen}
+          partner={result}
+          resource="customers"
+          onClose={() => setMergeOpen(false)}
+        />
+      )}
     </Show>
   )
 }

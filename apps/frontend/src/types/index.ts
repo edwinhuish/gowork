@@ -82,6 +82,18 @@ export interface PartnerDuplicateCandidate {
 }
 
 /**
+ * 合并主体的结果。
+ *
+ * partner 是留下的那条（角色已并集、空字符串字段已补齐），absorbed 是被并入并软删的
+ * 那条，moved 是各表被迁移的引用条数——合并不可逆，至少要能说清动过哪些表。
+ */
+export interface PartnerMergeResult {
+  partner: Partner
+  absorbed: Partner
+  moved: Record<string, number>
+}
+
+/**
  * 往来单位下的具体自然人（CRM）。
  *
  * 一个主体可有多个联系人，各自有电话、邮箱、职位、语言。
