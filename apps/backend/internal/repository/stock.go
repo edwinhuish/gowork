@@ -122,10 +122,12 @@ func (r *stockRepo) FindMovementByID(ctx context.Context, id uint) (*model.Stock
 
 func (r *stockRepo) CreateMovement(ctx context.Context, m *model.StockMovement) error {
 	err := r.conn(ctx).Transaction(func(tx *gorm.DB) error {
+		// 手工录入的流水不带仓库：归到默认仓，保证与快照落在同一个地方。
+		normalizeWarehouse(tx, m)
 		if err := tx.Create(m).Error; err != nil {
 			return fmt.Errorf("写入库存流水: %w", err)
 		}
-		return addToSnapshot(tx, m.ProductID, m.SignedQty(), m.ID, m.OccurredAt)
+		return addToSnapshot(tx, m.WarehouseID, m.ProductID, m.SignedQty(), m.ID, m.OccurredAt)
 	})
 	return err
 }
@@ -140,7 +142,7 @@ func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) 
 			return errs.ErrNotFound
 		}
 		// 回滚这条流水对快照的影响：删一条入库，存量要减回去。
-		return addToSnapshot(tx, m.ProductID, m.SignedQty().Neg(), m.ID, m.OccurredAt)
+		return addToSnapshot(tx, m.WarehouseID, m.ProductID, m.SignedQty().Neg(), m.ID, m.OccurredAt)
 	})
 }
 
@@ -150,10 +152,9 @@ func (r *stockRepo) DeleteMovement(ctx context.Context, m *model.StockMovement) 
 // 两边都查到"还没有快照"，就会各插一行，撞唯一索引报错；
 // 或者都读到旧值再各自写回，后写的把前一个的增量吃掉。
 func addToSnapshot(
-	tx *gorm.DB, productID uint, delta money.Decimal, movementID uint, occurredAt time.Time,
+	tx *gorm.DB, warehouseID, productID uint, delta money.Decimal,
+	movementID uint, occurredAt time.Time,
 ) error {
-	// 仓库维度取默认仓（T-56）：建单是低频操作，把默认仓 id 一路透传要改三层签名。
-	warehouseID := defaultWarehouseID(tx)
 	delta = delta.Round(3)
 	now := time.Now()
 	row := model.StockSnapshot{
@@ -345,4 +346,14 @@ func defaultWarehouseID(tx *gorm.DB) uint {
 		return 0
 	}
 	return ids[0]
+}
+
+// normalizeWarehouse 把未指定的仓库（0）归到默认仓，并把结果写回流水。
+//
+// 流水与快照必须落在同一个仓库上：流水记 0、快照记默认仓的话，
+// 一次"全量重算"就会算出与增量不同的结果，而这正是库存对不上的典型成因。
+func normalizeWarehouse(tx *gorm.DB, m *model.StockMovement) {
+	if m.WarehouseID == 0 {
+		m.WarehouseID = defaultWarehouseID(tx)
+	}
 }

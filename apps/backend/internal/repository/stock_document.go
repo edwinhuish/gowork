@@ -241,11 +241,16 @@ func (r *stockDocumentRepo) Post(
 		}
 
 		if len(movements) > 0 {
+			// 仓库先归一化再写库：流水落 0、快照落默认仓的话，
+			// 一次全量重算就会得出与增量不同的数（T-56）。
+			for i := range movements {
+				normalizeWarehouse(tx, &movements[i])
+			}
 			if err := tx.Create(&movements).Error; err != nil {
 				return fmt.Errorf("写入库存流水: %w", err)
 			}
 			for _, m := range movements {
-				if err := addToSnapshot(tx, m.ProductID, m.SignedQty(), m.ID, m.OccurredAt); err != nil {
+				if err := addToSnapshot(tx, m.WarehouseID, m.ProductID, m.SignedQty(), m.ID, m.OccurredAt); err != nil {
 					return err
 				}
 			}
