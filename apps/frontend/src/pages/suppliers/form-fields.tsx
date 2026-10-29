@@ -1,5 +1,6 @@
 import { Form, Input, Radio, Select } from 'antd'
 
+import { PartnerDuplicateHint } from '@/components/partner-duplicate-hint'
 import { ENABLE_STATUS_OPTIONS, PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
 
 /** 供应商表单字段。新建与编辑共用，校验规则只此一份。 */
@@ -56,6 +57,10 @@ export function SupplierFormFields() {
       >
         <Input />
       </Form.Item>
+
+      {/* 客户与供应商共用一行记录，重复的供应商同样该提示：同一家工厂两个编码，
+          采购价就永远对不齐。 */}
+      <PartnerDuplicateHint />
 
       <Form.Item name="status" label="状态" initialValue={1}>
         <Select options={ENABLE_STATUS_OPTIONS} />

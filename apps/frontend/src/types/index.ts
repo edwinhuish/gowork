@@ -71,6 +71,17 @@ export interface Partner {
 }
 
 /**
+ * 一条查重候选：某个已有主体与正在录入的记录像在哪里。
+ *
+ * 只提示不阻断——外贸同名公司在不同国家确实存在，拦住等于让人把询盘丢掉。
+ * reasons 是命中的规则说明（名称+国家 / 邮箱同域 / 电话尾号），可能不止一条。
+ */
+export interface PartnerDuplicateCandidate {
+  partner: Partner
+  reasons: string[]
+}
+
+/**
  * 往来单位下的具体自然人（CRM）。
  *
  * 一个主体可有多个联系人，各自有电话、邮箱、职位、语言。

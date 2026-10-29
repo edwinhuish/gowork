@@ -1,6 +1,7 @@
 import { useSelect } from '@refinedev/core'
 import { Form, Input, InputNumber, Radio, Select } from 'antd'
 
+import { PartnerDuplicateHint } from '@/components/partner-duplicate-hint'
 import {
   ENABLE_STATUS_OPTIONS,
   PARTNER_ENTITY_TYPE_OPTIONS,
@@ -71,6 +72,9 @@ export function CustomerFormFields() {
       >
         <Input />
       </Form.Item>
+
+      {/* 放在四个参与查重的字段之后：名称、国家、电话、邮箱都填了才谈得上比对。 */}
+      <PartnerDuplicateHint />
 
       <Form.Item
         name="trade_term"
