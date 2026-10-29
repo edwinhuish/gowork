@@ -14,6 +14,7 @@ import {
   GlobalOutlined,
   HistoryOutlined,
   ImportOutlined,
+  PieChartOutlined,
   ProfileOutlined,
   SendOutlined,
   ShoppingCartOutlined,
@@ -85,6 +86,7 @@ import {
   StockDocumentShow,
 } from '@/pages/stock-documents'
 import { StockMovementCreate, StockMovementList } from '@/pages/stock-movements'
+import { SalesDashboardPage } from '@/pages/sales-dashboard'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
@@ -279,6 +281,12 @@ export default function App() {
                 meta: { label: '汇兑损益', icon: <LineChartOutlined /> },
               },
               {
+                // 销售看板：按客户 / 产品 / 国家 / 月汇总，口径与单票毛利同源。
+                name: 'sales-dashboard',
+                list: '/sales-dashboard',
+                meta: { label: '销售看板', icon: <PieChartOutlined /> },
+              },
+              {
                 name: 'currencies',
                 list: '/currencies',
                 create: '/currencies/create',
@@ -440,6 +448,10 @@ export default function App() {
 
                   <Route path="exchange-gains">
                     <Route index element={<ExchangeGainsPage />} />
+                  </Route>
+
+                  <Route path="sales-dashboard">
+                    <Route index element={<SalesDashboardPage />} />
                   </Route>
 
                   <Route path="currencies">

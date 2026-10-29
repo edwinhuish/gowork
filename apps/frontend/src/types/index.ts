@@ -796,6 +796,38 @@ export interface ExchangeGainReport {
 }
 
 /**
+ * 销售看板的一行（T-28）：同一维度键下的金额汇总，全部本币。
+ *
+ * `order_amount` 与 `revenue` **不是同一批单据**：前者按下单日统计的订单金额，
+ * 后者是出货日在范围内那部分货的收入。所以两者相减没有意义，表头也要分开标注。
+ */
+export interface SalesDashboardRow {
+  key: string
+  label: string
+  order_amount: string
+  revenue: string
+  cost: string
+  charge: string
+  profit: string
+  /** 毛利率：0.2254 = 22.54%。收入为 0 时给 0。 */
+  margin: string
+  /** 这一行涉及的出货票数（去重）。 */
+  shipments: number
+  /** 有出货行没有可用采购成本：此时成本与毛利都不完整。 */
+  cost_missing: boolean
+}
+
+export interface SalesDashboard {
+  dimension: 'customer' | 'product' | 'country' | 'month'
+  from: string
+  to: string
+  rows: SalesDashboardRow[]
+  /** 全量合计，不受 `limit` 截断影响。 */
+  total: SalesDashboardRow
+  truncated: boolean
+}
+
+/**
  * 客户当前占用的信用额度，单位本币。
  *
  * 敞口 = 未结清应收 + 已确认未开票订单。只算前一半会漏掉已经承诺出去、还没开票的货。
