@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -146,4 +147,55 @@ func statusText(status model.EnableStatus) string {
 		return "启用"
 	}
 	return "停用"
+}
+
+// ExportShipments GET /api/v1/exports/shipments
+//
+// 参数与出货列表一致（status / sales_order_id），导出的就是列表上那一批。
+// 一票一行（不是一行一分配行）：出货台账按票看，客户对账也是按票对。
+// 箱数与毛净重取整票合计——它们印在装箱单上，也是货代最常来问的三个数。
+func (h *ShipmentHandler) ExportShipments(c *gin.Context) {
+	var q dto.ShipmentQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+
+	list, err := fetchAll(func(page, size int) ([]model.Shipment, int64, error) {
+		q.Page, q.PageSize = page, size
+		res, err := h.shipments.List(c.Request.Context(), q)
+		if err != nil {
+			return nil, 0, err
+		}
+		return res.List, res.Total, nil
+	})
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	out := make([][]string, 0, len(list))
+	for _, s := range list {
+		cartons, gross, net := s.PackingTotals()
+		out = append(out, []string{
+			s.DocNo,
+			model.DateOnly(s.ShipDate).Format("2006-01-02"),
+			s.Vessel, s.BLNo,
+			dateOrEmpty(s.ETD), dateOrEmpty(s.ETA),
+			strconv.Itoa(cartons),
+			gross.StringFixed(3), net.StringFixed(3),
+			s.Status.Label(),
+		})
+	}
+
+	writeCSV(c, "shipments",
+		[]string{"单号", "出货日", "船名", "提单号", "ETD", "ETA", "箱数", "毛重(kg)", "净重(kg)", "状态"},
+		out)
+}
+
+// dateOrEmpty 印日期，nil 留空而不是印一个零值时间。
+func dateOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return model.DateOnly(*t).Format("2006-01-02")
 }
