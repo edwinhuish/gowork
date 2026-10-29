@@ -107,7 +107,9 @@ func (t StockDocType) FixedDirection() (StockDirection, bool) {
 // 错了要做一张反向单（红字），这样两次操作都留在账上。
 type StockDocument struct {
 	Base
-	DocNo  string         `gorm:"size:32;not null;uniqueIndex" json:"doc_no"`
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt    `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_stock_document_doc_no,priority:2" json:"-"`
+	DocNo     string       `gorm:"size:32;not null;uniqueIndex:uni_stock_document_doc_no,priority:1" json:"doc_no"`
 	Type   StockDocType   `gorm:"not null;index" json:"type"`
 	Status DocumentStatus `gorm:"not null;index" json:"status"`
 	// DocDate 是业务发生日，决定这批货算在哪个月。

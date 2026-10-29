@@ -82,7 +82,7 @@ func keywordScope(keyword string) Scope {
 			// 少了这一句，删掉的货源仍会把产品带出来。
 			parts = append(parts,
 				"id IN (SELECT product_id FROM md_product_source WHERE "+
-					likeClause(db, "supplier_sku_norm")+" AND deleted_at IS NULL)")
+					likeClause(db, "supplier_sku_norm")+" AND deleted_at = 0)")
 			args = append(args, likePattern(norm))
 		}
 		return db.Where(strings.Join(parts, " OR "), args...)

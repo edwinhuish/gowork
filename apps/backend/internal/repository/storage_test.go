@@ -277,6 +277,34 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 	})
 
+	t.Run("软删后同编码可重建", func(t *testing.T) {
+		// 未删除的行 deleted_at 恒为 0，唯一索引是 (sku_code, deleted_at)，
+		// 表达的就是「未删才唯一」：上一条子测试删掉的 SKU 现在可以再用。
+		// 单列唯一索引做不到这一点，所以三库里都必须验一遍。
+		reborn := &model.Product{
+			SKUCode: products[1].SKUCode, NameCN: "重建的六角螺栓",
+			Unit: "PCS", Status: model.EnableStatusOn, SupplierID: &supplier.ID,
+		}
+		if err := repo.Create(ctx, reborn); err != nil {
+			t.Fatalf("软删后重建同 SKU 失败: %v", err)
+		}
+		if reborn.ID == products[1].ID {
+			t.Fatal("重建应是一条新记录")
+		}
+
+		var raw int64
+		if err := db.Unscoped().Model(&model.Product{}).
+			Where("sku_code = ?", products[1].SKUCode).Count(&raw).Error; err != nil {
+			t.Fatalf("统计: %v", err)
+		}
+		if raw != 2 {
+			t.Fatalf("同 SKU 应有 2 行（一删一未删），得到 %d", raw)
+		}
+		t.Cleanup(func() {
+			_ = db.Unscoped().Where("id = ?", reborn.ID).Delete(&model.Product{}).Error
+		})
+	})
+
 	t.Run("定点金额跨库逐位往返", func(t *testing.T) {
 		// 三种库对 DECIMAL 的落地方式不同（sqlite 实际存 REAL），
 		// 所以定点改造必须在三库上都验一遍：写进去什么样，读出来就什么样，

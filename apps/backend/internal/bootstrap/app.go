@@ -53,44 +53,50 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("执行表改名迁移: %w", err)
 	}
 
+	// 全部业务表集中在这里声明一次：结构同步、软删标记改造、以及将来的
+	// 备份与迁移都读同一份清单，分开写必然漏表。
+	models := []any{
+		&model.User{},
+		&model.Partner{},
+		&model.Product{},
+		&model.ProductCode{},
+		&model.Currency{},
+		&model.ExchangeRate{},
+		&model.ProductSource{},
+		&model.DocSeq{},
+		&model.Contact{},
+		&model.Activity{},
+		&model.Opportunity{},
+		&model.Lead{},
+		&model.Quotation{},
+		&model.QuotationItem{},
+		&model.Contract{},
+		&model.ContractTerm{},
+		&model.DocNoRename{},
+		&model.SalesOrder{},
+		&model.SalesOrderItem{},
+		&model.PurchaseOrder{},
+		&model.PurchaseOrderItem{},
+		&model.Shipment{},
+		&model.ShipmentAllocation{},
+		&model.ShipmentCharge{},
+		&model.CustomsDeclaration{},
+		&model.Receivable{},
+		&model.Payable{},
+		&model.Payment{},
+		&model.PaymentAllocation{},
+		&model.StockMovement{},
+		&model.StockSnapshot{},
+		&model.StockDocument{},
+		&model.StockDocumentItem{},
+		&model.Attachment{},
+		&model.AttachmentContent{},
+	}
+
 	if cfg.Database.AutoMigrate {
-		if err := database.AutoMigrate(db,
-			&model.User{},
-			&model.Partner{},
-			&model.Product{},
-			&model.ProductCode{},
-			&model.Currency{},
-			&model.ExchangeRate{},
-			&model.ProductSource{},
-			&model.DocSeq{},
-			&model.Contact{},
-			&model.Activity{},
-			&model.Opportunity{},
-			&model.Lead{},
-			&model.Quotation{},
-			&model.QuotationItem{},
-			&model.Contract{},
-			&model.ContractTerm{},
-			&model.DocNoRename{},
-			&model.SalesOrder{},
-			&model.SalesOrderItem{},
-			&model.PurchaseOrder{},
-			&model.PurchaseOrderItem{},
-			&model.Shipment{},
-			&model.ShipmentAllocation{},
-			&model.ShipmentCharge{},
-			&model.CustomsDeclaration{},
-			&model.Receivable{},
-			&model.Payable{},
-			&model.Payment{},
-			&model.PaymentAllocation{},
-			&model.StockMovement{},
-			&model.StockSnapshot{},
-			&model.StockDocument{},
-			&model.StockDocumentItem{},
-			&model.Attachment{},
-			&model.AttachmentContent{},
-		); err != nil {
+		// 软删标记的列改造藏在 AutoMigrate 里：任何调用点都会得到同一条升级路径，
+		// 不会因为某个入口漏调而升级到一半炸开。
+		if err := database.AutoMigrate(db, models...); err != nil {
 			_ = database.Close(db)
 			return nil, err
 		}

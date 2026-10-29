@@ -149,7 +149,8 @@ func TestMergeLegacyCustomersAndSuppliers(t *testing.T) {
 		if !ok {
 			t.Fatal("软删除的供应商没有被迁移")
 		}
-		if p.DeletedAt.Time.IsZero() {
+		// 新模型的删除标记是 Unix 毫秒整数，0 表示未删除。
+		if p.DeletedAt == 0 {
 			t.Fatal("软删除标记丢失，已删除的主体复活了")
 		}
 	})

@@ -75,9 +75,11 @@ func (t ContractSourceType) Label() string {
 // 等于单方面修改已经报出去的价，与报价转订单是同一条规矩。
 type Contract struct {
 	Base
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_contract_doc_no,priority:2" json:"-"`
 	// DocNo 单号：PI 用 PI- 前缀、销售合同用 SC- 前缀，各自一条序列。
 	// 单号本身能看出这是哪一种，不必再翻 type 列。
-	DocNo string       `gorm:"size:32;uniqueIndex;not null" json:"doc_no"`
+	DocNo string       `gorm:"size:32;uniqueIndex:uni_contract_doc_no,priority:1;not null" json:"doc_no"`
 	Type  ContractType `gorm:"not null;index" json:"type"`
 
 	PartnerID uint `gorm:"index;not null" json:"partner_id"`

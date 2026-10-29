@@ -16,7 +16,9 @@ import (
 // 才能回答"哪些货还没采""这单的毛利里采购成本是多少"；没有它，只能靠人记。
 type PurchaseOrder struct {
 	Base
-	DocNo string `gorm:"size:32;uniqueIndex;not null" json:"doc_no"`
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_purchase_order_doc_no,priority:2" json:"-"`
+	DocNo     string    `gorm:"size:32;uniqueIndex:uni_purchase_order_doc_no,priority:1;not null" json:"doc_no"`
 	// SupplierID 指向承担供应商角色的主体，由 service 校验角色位。
 	SupplierID uint           `gorm:"index;not null" json:"supplier_id"`
 	TradeTerm  TradeTerm      `gorm:"size:8;not null" json:"trade_term"`

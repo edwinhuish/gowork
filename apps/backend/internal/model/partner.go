@@ -135,7 +135,9 @@ func (t PartnerEntityType) IsValid() bool {
 // 两侧引用同一行，不做同步。
 type Partner struct {
 	Base
-	Code string `gorm:"size:32;uniqueIndex;not null" json:"code"`
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_partner_code,priority:2" json:"-"`
+	Code      string    `gorm:"size:32;uniqueIndex:uni_partner_code,priority:1;not null" json:"code"`
 	Name string `gorm:"size:128;not null" json:"name"`
 	// Role 决定这个主体出现在哪些业务的候选列表里，至少一位。
 	Role PartnerRole `gorm:"not null;index" json:"role"`

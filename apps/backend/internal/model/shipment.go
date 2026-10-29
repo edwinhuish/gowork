@@ -13,7 +13,9 @@ import (
 // ——外贸拼柜是常态。所以出货与订单是多对多，"一次出货"必须能独立存在。
 type Shipment struct {
 	Base
-	DocNo  string         `gorm:"size:32;uniqueIndex;not null" json:"doc_no"`
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt    `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_shipment_doc_no,priority:2" json:"-"`
+	DocNo     string       `gorm:"size:32;uniqueIndex:uni_shipment_doc_no,priority:1;not null" json:"doc_no"`
 	Status DocumentStatus `gorm:"not null;index" json:"status"`
 	// ShipDate 是实际（或计划）出货日，决定它落在哪个统计月份。
 	ShipDate time.Time `gorm:"type:date;not null;index" json:"ship_date"`

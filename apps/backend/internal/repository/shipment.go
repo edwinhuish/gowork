@@ -41,7 +41,7 @@ func (f ShipmentFilter) scopes() []Scope {
 				SELECT 1 FROM biz_shipment_allocation a
 				JOIN biz_sales_order_item i ON i.id = a.sales_order_item_id
 				WHERE a.shipment_id = biz_shipment.id
-				  AND a.deleted_at IS NULL AND i.sales_order_id = ?
+				  AND a.deleted_at = 0 AND i.sales_order_id = ?
 			)`, soID)
 		})
 	}
@@ -231,7 +231,7 @@ func (r *shipmentRepo) AllocatedQty(
 		Joins("JOIN biz_shipment ON biz_shipment.id = biz_shipment_allocation.shipment_id").
 		Where("biz_shipment_allocation.sales_order_item_id = ?", salesOrderItemID).
 		Where("biz_shipment.status <> ?", model.DocumentStatusCancelled).
-		Where("biz_shipment.deleted_at IS NULL")
+		Where("biz_shipment.deleted_at = 0")
 	if excludeShipmentID > 0 {
 		q = q.Where("biz_shipment_allocation.shipment_id <> ?", excludeShipmentID)
 	}
@@ -259,7 +259,7 @@ func (r *shipmentRepo) ShippedQtyByOrder(
 		Joins(`JOIN biz_sales_order_item ON biz_sales_order_item.id = biz_shipment_allocation.sales_order_item_id`).
 		Where("biz_sales_order_item.sales_order_id = ?", salesOrderID).
 		Where("biz_shipment.status <> ?", model.DocumentStatusCancelled).
-		Where("biz_shipment.deleted_at IS NULL").
+		Where("biz_shipment.deleted_at = 0").
 		Group("biz_shipment_allocation.sales_order_item_id").
 		Select(`biz_shipment_allocation.sales_order_item_id AS sales_order_item_id,
 			COALESCE(SUM(biz_shipment_allocation.qty), 0) AS qty`).
@@ -283,8 +283,8 @@ func (r *shipmentRepo) ListShippableItems(
 ) ([]ShippableItem, error) {
 	shippedQ := r.conn(ctx).Table("biz_shipment_allocation AS a").
 		Joins("JOIN biz_shipment AS s ON s.id = a.shipment_id").
-		Where("a.deleted_at IS NULL").
-		Where("s.deleted_at IS NULL").
+		Where("a.deleted_at = 0").
+		Where("s.deleted_at = 0").
 		Where("s.status <> ?", model.DocumentStatusCancelled)
 	if excludeShipmentID > 0 {
 		shippedQ = shippedQ.Where("a.shipment_id <> ?", excludeShipmentID)
@@ -298,8 +298,8 @@ func (r *shipmentRepo) ListShippableItems(
 		Joins("JOIN biz_sales_order AS o ON o.id = i.sales_order_id").
 		Joins("LEFT JOIN md_partner AS p ON p.id = o.partner_id").
 		Joins("LEFT JOIN (?) AS t ON t.sales_order_item_id = i.id", shipped).
-		Where("i.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
+		Where("i.deleted_at = 0").
+		Where("o.deleted_at = 0").
 		Where("o.status IN ?", []model.DocumentStatus{
 			model.DocumentStatusConfirmed, model.DocumentStatusPreparing,
 		}).

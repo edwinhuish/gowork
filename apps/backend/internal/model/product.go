@@ -8,7 +8,12 @@ import "github.com/edwinhuish/gowork/internal/pkg/money"
 // 价格、供应商、包装等易变信息放在独立字段里，不参与编码。
 type Product struct {
 	Base
-	SKUCode  string `gorm:"size:32;uniqueIndex;not null" json:"sku_code"`
+	// 与 Base.DeletedAt 同名字段（外层遮蔽内层），只为把它排进复合唯一索引：
+	// 嵌入式字段没法按表定制索引。未删除的行 deleted_at 恒为 0，
+	// 所以 (sku_code, deleted_at) 表达的就是「未删除的产品里 SKU 唯一」——
+	// 删掉一个产品后，同 SKU 可以立刻重建。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_product_sku,priority:2" json:"-"`
+	SKUCode   string    `gorm:"size:32;uniqueIndex:uni_product_sku,priority:1;not null" json:"sku_code"`
 	NameCN   string `gorm:"size:128;not null" json:"name_cn"`
 	NameEN   string `gorm:"size:128" json:"name_en"`
 	Category string `gorm:"size:32;index" json:"category"`

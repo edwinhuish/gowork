@@ -124,7 +124,7 @@ func (r *productCodeRepo) ExistsNormAnywhere(
 			// 子查询手写而不交给 gorm：在 scope 里用同一个 *gorm.DB 构造子查询
 			// 会污染外层语句（gorm 把 IN 的参数当成同一张表的延续），
 			// 生成的 SQL 会自引用并带上残缺的 IN ()。
-			Where("product_id IN (SELECT id FROM md_product WHERE deleted_at IS NULL)")
+			Where("product_id IN (SELECT id FROM md_product WHERE deleted_at = 0)")
 		if excludeProductID > 0 {
 			q = q.Where("product_id <> ?", excludeProductID)
 		}

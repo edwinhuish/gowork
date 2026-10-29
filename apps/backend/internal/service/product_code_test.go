@@ -210,7 +210,7 @@ func TestProductListFindsBySupplierSKU(t *testing.T) {
 	}
 
 	// 软删的货源不再参与检索：那条子查询是原生 SQL，不经过 gorm 的软删条件，
-	// 少了 deleted_at IS NULL，删掉的货号会一直把产品带出来。
+	// 少了 deleted_at = 0，删掉的货号会一直把产品带出来。
 	if err := f.sources.Delete(ctx, src.ID); err != nil {
 		t.Fatalf("删除货源失败: %v", err)
 	}

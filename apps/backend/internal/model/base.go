@@ -6,8 +6,19 @@ package model
 import (
 	"time"
 
-	"gorm.io/gorm"
+	"gorm.io/plugin/soft_delete"
 )
+
+// DeletedAt 是软删除标记的类型别名（gorm.io/plugin/soft_delete）。
+//
+// 用别名而不是让每个模型文件都 import 插件：模型里只写 `DeletedAt DeletedAt`，
+// 真要换实现时改这一处。
+//
+// 为什么不用 gorm.DeletedAt（内部是 sql.NullTime）：它把"未删除"表示成 NULL，
+// 而 NULL 在唯一索引里不参与比较——两行未删记录各自是 NULL，互不冲突，
+// "同一编码只能有一行未删除"这条规则在数据库层根本落不下去。
+// 插件用整数标记（未删除 = 0，删除 = Unix 毫秒），可以直接进复合唯一索引。
+type DeletedAt = soft_delete.DeletedAt
 
 // EnableStatus 是主数据与账号的启用状态。
 //
@@ -25,12 +36,17 @@ const (
 )
 
 // Base 是所有业务表的公共字段。
-// 软删除用 gorm.DeletedAt：删除只置位，历史单据与追溯链不会断。
+// 软删除只置标记：删除不抹数据，历史单据与追溯链不会断。
 type Base struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// 未删除为 0，删除时写 Unix 毫秒（列类型是整数，不是时间戳）。
+	//
+	// 带业务唯一键的模型会在自己的结构体里再声明一次同名字段，
+	// 并把 deleted_at 排进复合唯一索引——外层字段遮蔽这里这个，
+	// gorm 解析时只认外层那份，仍然只有一列。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;index" json:"-"`
 }
 
 // DateOnly 把时间截到"业务日期"：取本地日历日，存成 UTC 零点。

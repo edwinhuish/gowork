@@ -164,7 +164,10 @@ func addToSnapshot(
 	row.UpdatedAt = now
 
 	err := tx.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "product_id"}},
+		// 快照的唯一键是 (product_id, deleted_at)：未删除的行 deleted_at 恒为 0，
+		// 所以带上它仍然等价于"每个产品一行"，同时不会与已删除的历史快照相撞。
+		// 只写 product_id 的话 PG/SQLite 会报"ON CONFLICT 不匹配任何唯一约束"。
+		Columns: []clause.Column{{Name: "product_id"}, {Name: "deleted_at"}},
 		DoUpdates: clause.Assignments(map[string]any{
 			// 右侧不带表名：MySQL 的 ON DUPLICATE KEY UPDATE 与
 			// PostgreSQL 的 DO UPDATE 对表名前缀的接受程度不同，裸列名三库通用。
@@ -192,8 +195,8 @@ func (r *stockRepo) ListSnapshots(
 	base := func() *gorm.DB {
 		q := r.conn(ctx).
 			Table("inv_stock_snapshot AS s").
-			Joins("LEFT JOIN md_product AS p ON p.id = s.product_id AND p.deleted_at IS NULL").
-			Where("s.deleted_at IS NULL")
+			Joins("LEFT JOIN md_product AS p ON p.id = s.product_id AND p.deleted_at = 0").
+			Where("s.deleted_at = 0")
 		if keyword != "" {
 			q = q.Scopes(likeAny(keyword, "p.sku_code", "p.name_cn", "p.spec"))
 		}
@@ -295,7 +298,8 @@ func (r *stockRepo) ReplaceSnapshot(ctx context.Context, productID uint, sum Sto
 	row.UpdatedAt = now
 
 	err := r.conn(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "product_id"}},
+		// 同 CalcSnapshot 里的说明：唯一键含 deleted_at。
+		Columns: []clause.Column{{Name: "product_id"}, {Name: "deleted_at"}},
 		DoUpdates: clause.Assignments(map[string]any{
 			"qty":              qty,
 			"last_movement_id": sum.LastID,

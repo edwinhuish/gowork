@@ -173,7 +173,7 @@ func (r *stockDocumentRepo) CurrentQty(
 	err := r.conn(ctx).
 		Table("inv_stock_snapshot").
 		Select("qty").
-		Where("product_id = ? AND deleted_at IS NULL", productID).
+		Where("product_id = ? AND deleted_at = 0", productID).
 		Limit(1).
 		Scan(&row).Error
 	if err != nil {

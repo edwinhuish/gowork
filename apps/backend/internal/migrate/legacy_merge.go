@@ -22,9 +22,13 @@ const mergeLegacyRecord = "20261028_merge_customer_supplier_into_party"
 // （供应商表没有 country，读出来就是空串）。
 //
 // 读取时**必须加 Unscoped**：软删除条件是由目标 struct 的 schema 决定的，
-// 只要结构体里有 DeletedAt 字段，gorm 就会自动追加 `deleted_at IS NULL`，
+// 只要结构体里有 DeletedAt 字段，gorm 就会自动追加条件，
 // 用 Table() 指定表名也绕不过去。软删除的主体必须一起搬过去，
 // 否则引用它们的历史单据会指向一个查不到的主体。
+//
+// DeletedAt 这里仍用 gorm.DeletedAt（timestamp + IS NULL），不跟新模型统一：
+// 旧表就是这么建的表，列类型是时间戳，换成整数类型反而读不出来。
+// 搬到新模型时再换算成 Unix 毫秒，见 mergeLegacyTable 里的转换。
 type legacyPartner struct {
 	ID        uint
 	Code      string
@@ -164,7 +168,11 @@ func importLegacy(
 		// 不应该让所有记录看起来都是"今天刚建的"，也不该让已删除的主体复活。
 		p.CreatedAt = row.CreatedAt
 		p.UpdatedAt = row.UpdatedAt
-		p.DeletedAt = row.DeletedAt
+		// 旧表的 deleted_at 是 timestamp（gorm.DeletedAt），新表是 Unix 毫秒整数，
+		// 这里换算一次：直接赋值类型不同，而丢掉删除标记会让已删主体复活。
+		if row.DeletedAt.Valid {
+			p.DeletedAt = model.DeletedAt(row.DeletedAt.Time.UnixMilli())
+		}
 
 		if err := tx.Create(p).Error; err != nil {
 			return nil, fmt.Errorf("导入 %s id=%d: %w", table, row.ID, err)

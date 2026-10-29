@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/edwinhuish/gowork/internal/infra/database"
 	"github.com/edwinhuish/gowork/internal/model"
 )
@@ -26,7 +24,7 @@ func TestBackfillSupplierSKUNorm(t *testing.T) {
 		{
 			ProductID: 1, PartnerID: 3, SupplierSKU: "B-200", CurrencyCode: "CNY",
 			Status: model.EnableStatusOn,
-			Base:   model.Base{DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true}},
+			Base:   model.Base{DeletedAt: model.DeletedAt(time.Now().UnixMilli())},
 		},
 	}
 	for _, r := range rows {

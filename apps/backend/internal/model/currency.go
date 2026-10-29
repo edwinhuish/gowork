@@ -21,7 +21,9 @@ const (
 // 与单据都会指向一个不存在的币种，而数据库层面看不出任何异常。
 type Currency struct {
 	Base
-	Code string `gorm:"size:8;uniqueIndex;not null" json:"code"`
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_currency_code,priority:2" json:"-"`
+	Code      string    `gorm:"size:8;uniqueIndex:uni_currency_code,priority:1;not null" json:"code"`
 	Name string `gorm:"size:64;not null" json:"name"`
 	// Symbol 仅用于界面展示（$ / € / ¥），不参与计算。
 	Symbol string `gorm:"size:8" json:"symbol"`
@@ -48,6 +50,8 @@ func (Currency) TableName() string { return "md_currency" }
 // 覆盖历史会让三个月前那张报价单的成本重算成另一个数。
 type ExchangeRate struct {
 	Base
+	// 遮蔽 Base 里的同名字段：汇率也是软删，"未删才唯一"要把它排进复合索引。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_exchange_rate_pair,priority:4" json:"-"`
 	// CurrencyCode 外币代码（USD / EUR）。
 	CurrencyCode string `gorm:"size:8;not null;index;uniqueIndex:uni_exchange_rate_pair,priority:1" json:"currency_code"`
 	// BaseCode 记录当时的本币代码。冗余存一份而不是 join 出来：

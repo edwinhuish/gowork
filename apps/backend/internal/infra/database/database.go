@@ -157,7 +157,13 @@ func sqliteFilePath(dsn string) string {
 }
 
 // AutoMigrate 同步表结构。生产环境建议改为显式迁移脚本，此处仅为骨架期便利。
+//
+// 软删标记的表示要先修（见 prepareSoftDelete）：老库里它是 timestamp，
+// 直接交给 AutoMigrate 时 PG 会 ALTER 失败、sqlite 又会因为列上挂着索引而拒绝删列。
 func AutoMigrate(db *gorm.DB, models ...any) error {
+	if err := prepareSoftDelete(db, models...); err != nil {
+		return fmt.Errorf("准备软删除标记: %w", err)
+	}
 	if err := db.AutoMigrate(models...); err != nil {
 		return fmt.Errorf("自动迁移失败: %w", err)
 	}

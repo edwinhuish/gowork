@@ -51,7 +51,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 	var open struct{ Amount money.Decimal }
 	err := r.conn(ctx).
 		Table("biz_receivable").
-		Where("deleted_at IS NULL").
+		Where("deleted_at = 0").
 		Where("partner_id = ?", partnerID).
 		Where("status <> ?", model.SettlementStatusVoid).
 		Where("amount_base - settled_amount_base > ?", 0.0001).
@@ -68,7 +68,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 	var unbilled struct{ Amount money.Decimal }
 	err = r.conn(ctx).
 		Table("biz_sales_order AS o").
-		Where("o.deleted_at IS NULL").
+		Where("o.deleted_at = 0").
 		Where("o.partner_id = ?", partnerID).
 		Where("o.status IN ?", []model.DocumentStatus{
 			model.DocumentStatusConfirmed, model.DocumentStatusPreparing,
@@ -76,7 +76,7 @@ func (r *creditRepo) Exposure(ctx context.Context, partnerID uint) (CreditExposu
 		}).
 		Where(`NOT EXISTS (
 			SELECT 1 FROM biz_receivable AS r
-			WHERE r.deleted_at IS NULL
+			WHERE r.deleted_at = 0
 			  AND r.source_type = ?
 			  AND r.source_id = o.id
 		)`, model.SettlementSourceSalesOrder).

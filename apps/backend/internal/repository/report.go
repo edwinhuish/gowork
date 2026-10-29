@@ -165,8 +165,8 @@ func (r *reportRepo) ListOutstandingSettlements(
 			s.amount_base,
 			s.settled_amount_base,
 			s.due_date`).
-		Joins("LEFT JOIN md_partner AS p ON p.id = s.partner_id AND p.deleted_at IS NULL").
-		Where("s.deleted_at IS NULL").
+		Joins("LEFT JOIN md_partner AS p ON p.id = s.partner_id AND p.deleted_at = 0").
+		Where("s.deleted_at = 0").
 		Where("s.status <> ?", model.SettlementStatusVoid).
 		Where("s.amount - s.settled_amount > ?", 0.0001).
 		Find(&rows).Error
@@ -186,7 +186,7 @@ func (r *reportRepo) ListShipments(
 	base := func() *gorm.DB {
 		q := r.conn(ctx).
 			Table("biz_shipment AS s").
-			Where("s.deleted_at IS NULL").
+			Where("s.deleted_at = 0").
 			Where("s.status NOT IN ?", []model.DocumentStatus{
 				model.DocumentStatusDraft, model.DocumentStatusCancelled,
 			})
@@ -228,8 +228,8 @@ func (r *reportRepo) ListShipmentLines(
 			a.qty,
 			i.qty AS item_qty,
 			i.amount_base AS item_amount_base`).
-		Joins("JOIN biz_sales_order_item AS i ON i.id = a.sales_order_item_id AND i.deleted_at IS NULL").
-		Where("a.deleted_at IS NULL").
+		Joins("JOIN biz_sales_order_item AS i ON i.id = a.sales_order_item_id AND i.deleted_at = 0").
+		Where("a.deleted_at = 0").
 		Where("a.shipment_id IN ?", shipmentIDs).
 		Find(&lines).Error
 	if err != nil {
@@ -254,8 +254,8 @@ func (r *reportRepo) PurchaseCostBySalesItem(
 	err := r.conn(ctx).
 		Table("biz_purchase_order_item AS i").
 		Select("i.sales_order_item_id, SUM(i.qty) AS qty, SUM(i.amount_base) AS amount_base").
-		Joins("JOIN biz_purchase_order AS o ON o.id = i.purchase_order_id AND o.deleted_at IS NULL").
-		Where("i.deleted_at IS NULL").
+		Joins("JOIN biz_purchase_order AS o ON o.id = i.purchase_order_id AND o.deleted_at = 0").
+		Where("i.deleted_at = 0").
 		Where("i.sales_order_item_id IN ?", salesItemIDs).
 		Where("o.status NOT IN ?", []model.DocumentStatus{
 			model.DocumentStatusDraft, model.DocumentStatusCancelled,
@@ -286,7 +286,7 @@ func (r *reportRepo) SumChargesByShipment(
 	err := r.conn(ctx).
 		Table("biz_shipment_charge AS c").
 		Select("c.shipment_id, SUM(c.amount_base) AS amount_base").
-		Where("c.deleted_at IS NULL").
+		Where("c.deleted_at = 0").
 		Where("c.shipment_id IN ?", shipmentIDs).
 		Group("c.shipment_id").
 		Scan(&rows).Error
@@ -330,10 +330,10 @@ func (r *reportRepo) ListExchangeGains(
 				a.target_doc_no,
 				a.amount,
 				a.amount_base`).
-			Joins("JOIN biz_payment AS p ON p.id = a.payment_id AND p.deleted_at IS NULL").
-			Joins("JOIN "+t.table+" AS d ON d.id = a.target_id AND d.deleted_at IS NULL").
-			Joins("LEFT JOIN md_partner AS pt ON pt.id = p.partner_id AND pt.deleted_at IS NULL").
-			Where("a.deleted_at IS NULL").
+			Joins("JOIN biz_payment AS p ON p.id = a.payment_id AND p.deleted_at = 0").
+			Joins("JOIN "+t.table+" AS d ON d.id = a.target_id AND d.deleted_at = 0").
+			Joins("LEFT JOIN md_partner AS pt ON pt.id = p.partner_id AND pt.deleted_at = 0").
+			Where("a.deleted_at = 0").
 			Where("a.target_type = ?", t.kind)
 
 		if f.PartnerID != nil {

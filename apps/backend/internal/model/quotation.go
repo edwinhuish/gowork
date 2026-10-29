@@ -17,6 +17,8 @@ import (
 // 只允许草稿可改，已确认的那版永远保持发给客户时的样子。
 type Quotation struct {
 	Base
+	// 遮蔽 Base 里的同名字段，把它排进「未删才唯一」的复合索引，见 Product 的说明。
+	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_quotation_doc_version,priority:3" json:"-"`
 	// DocNo 与 Version 联合唯一：同一份报价的一个版本只能存在一条。
 	DocNo   string `gorm:"size:32;not null;uniqueIndex:uni_quotation_doc_version,priority:1" json:"doc_no"`
 	Version int    `gorm:"not null;default:1;uniqueIndex:uni_quotation_doc_version,priority:2" json:"version"`
