@@ -43,7 +43,8 @@ func (t StockDocType) IsValid() bool {
 // 但当前没有仓库维度，"调到自己"会生成两条方向相反的流水，等于什么也没发生。
 func (t StockDocType) IsImplemented() bool {
 	switch t {
-	case StockDocPurchaseIn, StockDocSalesOut, StockDocCount, StockDocPurchaseReturn:
+	case StockDocPurchaseIn, StockDocSalesOut, StockDocCount,
+		StockDocPurchaseReturn, StockDocTransfer:
 		return true
 	}
 	return false
@@ -75,6 +76,8 @@ func (t StockDocType) MovementType() StockMovementType {
 		return StockMovementSales
 	case StockDocCount:
 		return StockMovementCount
+	case StockDocTransfer:
+		return StockMovementTransfer
 	default:
 		return 0
 	}
@@ -90,6 +93,9 @@ func (t StockDocType) DocType() DocType {
 	case StockDocPurchaseReturn:
 		// 退货也是出库，沿用 OUT 号段：单号本身就是"货往哪个方向走"。
 		return DocTypeStockOut
+	case StockDocTransfer:
+		// 调拨既不是入库也不是出库，单独一段号：看到 TR 就知道要去看两个仓。
+		return DocTypeTransfer
 	case StockDocCount:
 		return DocTypeStockCount
 	default:
@@ -131,10 +137,17 @@ type StockDocument struct {
 	Partner   *Partner `gorm:"foreignKey:PartnerID" json:"partner,omitempty"`
 	// SourceDocNo 记来源单号（PO-… / SH-…），只作追溯，不做外键校验：
 	// 存 id 而不校验会制造悬空引用，而真正对账时用单号查得到就够了。
-	SourceDocNo string              `gorm:"size:32" json:"source_doc_no"`
-	Remark      string              `gorm:"size:255" json:"remark"`
-	PostedAt    *time.Time          `json:"posted_at"`
-	Items       []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
+	SourceDocNo string `gorm:"size:32" json:"source_doc_no"`
+	Remark      string `gorm:"size:255" json:"remark"`
+	// WarehouseID 是发生仓：入库落到哪、出库从哪出、调拨从哪转出。
+	// TargetWarehouseID 只有调拨用：转到哪个仓。
+	//
+	// 分开两列而不是"源 / 目标"通用：入库只有目标、出库只有源，
+	// 硬套两个字段会逼每个读者去猜"这一列在这个类型下是什么意思"。
+	WarehouseID       *uint               `gorm:"index" json:"warehouse_id"`
+	TargetWarehouseID *uint               `gorm:"index" json:"target_warehouse_id"`
+	PostedAt          *time.Time          `json:"posted_at"`
+	Items             []StockDocumentItem `gorm:"foreignKey:DocumentID" json:"items,omitempty"`
 }
 
 func (StockDocument) TableName() string { return "inv_stock_document" }

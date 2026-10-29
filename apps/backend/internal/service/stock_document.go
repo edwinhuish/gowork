@@ -145,6 +145,11 @@ func (s *stockDocumentService) Create(
 		SourceDocNo: strings.TrimSpace(in.SourceDocNo),
 		Remark:      strings.TrimSpace(in.Remark),
 	}
+	if err := checkTransferInput(t, in); err != nil {
+		return nil, err
+	}
+	doc.WarehouseID = in.WarehouseID
+	doc.TargetWarehouseID = in.TargetWarehouseID
 	if err := s.docs.CreateWithItems(ctx, doc, items); err != nil {
 		return nil, err
 	}
@@ -182,10 +187,12 @@ func (s *stockDocumentService) Update(
 	}
 
 	fields := map[string]any{
-		"doc_date":      docDate,
-		"partner_id":    in.PartnerID,
-		"source_doc_no": strings.TrimSpace(in.SourceDocNo),
-		"remark":        strings.TrimSpace(in.Remark),
+		"warehouse_id":        in.WarehouseID,
+		"target_warehouse_id": in.TargetWarehouseID,
+		"doc_date":            docDate,
+		"partner_id":          in.PartnerID,
+		"source_doc_no":       strings.TrimSpace(in.SourceDocNo),
+		"remark":              strings.TrimSpace(in.Remark),
 	}
 	if in.UpdatedAt != nil {
 		fields[repository.FieldUpdatedAt] = *in.UpdatedAt
@@ -240,7 +247,48 @@ func (s *stockDocumentService) Confirm(
 	items := make([]model.StockDocumentItem, 0, len(doc.Items))
 	movements := make([]model.StockMovement, 0, len(doc.Items))
 
+	if doc.Type == model.StockDocTransfer &&
+		(doc.WarehouseID == nil || doc.TargetWarehouseID == nil) {
+		return nil, errs.ErrConflict.WithMsg("调拨单缺少源仓或目标仓，不能确认")
+	}
+
 	for _, item := range doc.Items {
+		if doc.Type == model.StockDocTransfer {
+			// 调拨对每个明细生成两条方向相反的流水：源仓出、目标仓入。
+			// 总量不变，变的是分布——这是调拨唯一要保证的事。
+			if !item.Qty.IsPositive() {
+				return nil, errs.BadRequest(item.SKUCode + " 的调拨数量必须大于 0")
+			}
+			items = append(items, item)
+			for _, dir := range []model.StockDirection{model.StockDirectionOut, model.StockDirectionIn} {
+				wid := *doc.WarehouseID
+				if dir == model.StockDirectionIn {
+					wid = *doc.TargetWarehouseID
+				}
+				mvNo, err := s.docNos.Next(ctx, model.DocTypeStockMovement)
+				if err != nil {
+					return nil, err
+				}
+				movements = append(movements, model.StockMovement{
+					DocNo:       mvNo,
+					WarehouseID: wid,
+					ProductID:   item.ProductID,
+					SKUCode:     item.SKUCode,
+					NameCN:      item.NameCN,
+					Spec:        item.Spec,
+					Unit:        item.Unit,
+					Type:        model.StockMovementTransfer,
+					Direction:   dir,
+					Qty:         item.Qty,
+					OccurredAt:  doc.DocDate,
+					SourceType:  model.StockSourceStockDocument,
+					SourceID:    doc.ID,
+					SourceDocNo: doc.DocNo,
+					Remark:      item.Remark,
+				})
+			}
+			continue
+		}
 		direction, qty, bookQty, err := s.resolvePosting(ctx, doc, item)
 		if err != nil {
 			return nil, err
@@ -528,4 +576,21 @@ func resolveStockDocType(raw int8) (model.StockDocType, error) {
 			"「%s」要等仓库维度落地后才能用（见 docs/roadmap.md T-16b）", t.Label()))
 	}
 	return t, nil
+}
+
+// checkTransferInput 校验调拨单的两个仓（T-56）。
+//
+// 只在调拨时要求两个仓：入库只有目标、出库只有源，硬要求两个字段
+// 会逼人给出库单随便填一个"目标仓"，那是假数据。
+func checkTransferInput(t model.StockDocType, in dto.StockDocumentInput) error {
+	if t != model.StockDocTransfer {
+		return nil
+	}
+	if in.WarehouseID == nil || in.TargetWarehouseID == nil {
+		return errs.BadRequest("调拨单必须同时指定源仓与目标仓")
+	}
+	if *in.WarehouseID == *in.TargetWarehouseID {
+		return errs.BadRequest("源仓与目标仓不能是同一个")
+	}
+	return nil
 }

@@ -299,16 +299,18 @@ func TestStockDocumentRules(t *testing.T) {
 	fx := newStockDocFixture(t, &now)
 	pid := fx.product.ID
 
-	t.Run("调拨还没实现", func(t *testing.T) {
+	t.Run("调拨必须指定两个不同的仓", func(t *testing.T) {
+		// T-56 之后调拨不再是"未实现"，但两个仓仍然必填：
+		// 少一个就无法判断货从哪出、到哪去。
 		_, err := fx.docs.Create(ctx, dto.StockDocumentInput{
 			Type:  int8(model.StockDocTransfer),
 			Items: []dto.StockDocumentItemInput{{ProductID: pid, Qty: qtyPtr(1)}},
 		})
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
-			t.Fatalf("调拨应 400，实际 %v", err)
+			t.Fatalf("缺仓的调拨应 400，实际 %v", err)
 		}
-		if !strings.Contains(err.Error(), "T-16b") {
-			t.Errorf("提示应指向未实现的原因：%q", err.Error())
+		if !strings.Contains(err.Error(), "源仓") {
+			t.Errorf("提示应说明缺哪个仓：%q", err.Error())
 		}
 	})
 

@@ -150,6 +150,8 @@ const (
 	// DocTypePurchaseReceipt 是采购收货单（T-51a）。单独一段号：
 	// 收货单不是采购单的一部分，它有自己的发生日与自己的对账口径。
 	DocTypePurchaseReceipt DocType = "RCV"
+	// DocTypeTransfer 是调拨单（T-56）：仓间转移，总量不变，要看得见两个仓。
+	DocTypeTransfer DocType = "TR"
 	// DocTypeCreditNote 是贷项通知单（T-52b）：冲减某张应收的一部分。
 	DocTypeCreditNote DocType = "CN"
 	// DocTypeDebitNote 是借项通知单（T-52b3）：冲减某张应付的一部分，与贷项对称。
@@ -170,6 +172,7 @@ func (t DocType) IsValid() bool {
 		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms,
 		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount,
 		DocTypePurchaseReceipt,
+		DocTypeTransfer,
 		DocTypeCreditNote,
 		DocTypeDebitNote,
 		DocTypeProformaInvoice, DocTypeSalesContract:

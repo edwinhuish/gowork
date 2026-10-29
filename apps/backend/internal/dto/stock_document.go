@@ -29,6 +29,10 @@ type StockDocumentItemInput struct {
 //
 // 没有 status：状态只能由"确认"这个动作推进，不接受前端直接指定。
 type StockDocumentInput struct {
+	// WarehouseID / TargetWarehouseID 只有调拨必须两个都填：
+	// 一个是"从哪转出"，一个是"转到哪"。其余类型留空即落默认仓。
+	WarehouseID       *uint `json:"warehouse_id"`
+	TargetWarehouseID *uint `json:"target_warehouse_id"`
 	// Type 只接受已实现的类型（采购入库 / 销售出库 / 盘点），
 	// 调拨要等仓库维度（T-16b）。
 	Type        int8                     `json:"type" binding:"required"`
