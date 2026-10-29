@@ -98,6 +98,18 @@ export function ContractShow() {
     }
   }
 
+  // 给某一期开票（T-61）：金额、币种、汇率都取合同上的值，不重算。
+  const invoice = async (term: ContractTerm) => {
+    if (!c) return
+    try {
+      const r = await contractApi.invoiceTerm(c.id, term.id)
+      message.success(`已生成应收 ${r.doc_no}`)
+      await query.refetch()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '开票失败')
+    }
+  }
+
   return (
     <Show
       isLoading={query.isLoading}
@@ -220,7 +232,7 @@ export function ContractShow() {
               <Table.Summary.Cell index={2} align="right">
                 <Money value={termsBaseTotal} />
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={3} colSpan={2} />
+              <Table.Summary.Cell index={3} colSpan={3} />
             </Table.Summary.Row>
           )
         }
@@ -256,6 +268,20 @@ export function ContractShow() {
           dataIndex="trigger"
           title="付款条件"
           render={(value: string) => value || <Empty />}
+        />
+        <Table.Column
+          title="开票"
+          width={110}
+          render={(_, row: ContractTerm) => {
+            if (row.receivable_id) return <Tag color="success">已开票</Tag>
+            // 草稿与已取消的合同不能开票：货还没确认，开出来没有依据。
+            if (c?.status !== 20) return <Empty />
+            return (
+              <Button size="small" type="link" onClick={() => void invoice(row)}>
+                开票
+              </Button>
+            )
+          }}
         />
       </Table>
 

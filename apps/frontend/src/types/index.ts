@@ -537,6 +537,8 @@ export interface QuotationDetail extends Quotation {
  * 又会和合同总额差一个末位（舍入位置不同）。
  */
 export interface ContractTerm {
+  /** 这一期开出的应收单 id；为空表示还没开票（T-61）。 */
+  receivable_id?: number | null
   id: number
   contract_id: number
   /** 展示顺序，从 1 开始：付款有先后，顺序不是装饰。 */
