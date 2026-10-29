@@ -63,7 +63,8 @@ type SalesOrderItem struct {
 	NameCN  string  `gorm:"size:128" json:"name_cn"`
 	Spec    string  `gorm:"size:128" json:"spec"`
 	Unit    string  `gorm:"size:16" json:"unit"`
-	Qty     float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	// Qty 是定点数：数量与单价一起决定行金额，中间过一遍 float64 就会把末位带歪。
+	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 
 	UnitPrice  money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
 	Amount     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`
@@ -79,8 +80,8 @@ type SalesOrderItem struct {
 	// 以下两项是只读投影，不落库（gorm:"-"）：由出货分配算出来，
 	// 只在按单取回时填充（详情 / 新建 / 编辑 / 改状态），列表接口不查——
 	// 否则一页 20 张单要跑几十次聚合，而列表并不显示这个数。
-	ShippedQty   float64 `gorm:"-" json:"shipped_qty"`
-	UnshippedQty float64 `gorm:"-" json:"unshipped_qty"`
+	ShippedQty   money.Decimal `gorm:"-" json:"shipped_qty"`
+	UnshippedQty money.Decimal `gorm:"-" json:"unshipped_qty"`
 }
 
 func (SalesOrderItem) TableName() string { return "biz_sales_order_item" }

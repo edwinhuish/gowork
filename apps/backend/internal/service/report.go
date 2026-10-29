@@ -290,20 +290,19 @@ func buildShipmentProfit(
 	missing := false
 
 	for _, l := range lines {
-		// 分摊比例来自数量，而数量仍是 float64；乘法本身在定点里做，
-		// 所以金额的末位只受比例这一个来源影响。
-		if l.ItemQty > 0 {
-			revenue = revenue.Add(l.ItemAmountBase.Mul(money.FromFloat(l.Qty / l.ItemQty)))
+		// 分摊比例也走定点：数量与金额都已是 Decimal，比例不必再绕 float64。
+		if l.ItemQty.Cmp(money.Zero()) > 0 {
+			revenue = revenue.Add(l.ItemAmountBase.Mul(l.Qty.Div(l.ItemQty)))
 		}
 
 		pc, ok := costs[l.SalesOrderItemID]
-		if !ok || pc.Qty <= 0 {
+		if !ok || pc.Qty.Cmp(money.Zero()) <= 0 {
 			// 没有采购记录不等于成本为 0：这一行的毛利算不出来，
 			// 标出来比给一个漂亮的数字有用。
 			missing = true
 			continue
 		}
-		cost = cost.Add(pc.AmountBase.Mul(money.FromFloat(l.Qty / pc.Qty)))
+		cost = cost.Add(pc.AmountBase.Mul(l.Qty.Div(pc.Qty)))
 	}
 
 	revenue = revenue.Round(4)

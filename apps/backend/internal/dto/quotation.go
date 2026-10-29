@@ -17,8 +17,9 @@ type QuotationQuery struct {
 // 没有 amount / cost_price 这类字段：金额由 service 按「数量 × 单价 × 单据汇率」算，
 // 成本从货源取。前端提交合计一律不被信任——"改了明细没改总额"是必然会发生的事。
 type QuotationItemInput struct {
-	ProductID uint    `json:"product_id" binding:"required"`
-	Qty       float64 `json:"qty" binding:"required,gt=0"`
+	ProductID uint `json:"product_id" binding:"required"`
+	// Qty 定点收发。binding 的 gt 对结构体不生效，"必须大于 0"由服务层判。
+	Qty money.Decimal `json:"qty"`
 	// UnitPrice 报价币种的单价。字符串收发（money.Decimal）：
 	// 单价被乘上数量、再乘汇率，进来时掉一位精度，最后就会落到合计上。
 	UnitPrice money.Decimal `json:"unit_price"`
@@ -77,7 +78,7 @@ type QuotationPreviewItem struct {
 	SKUCode     string        `json:"sku_code"`
 	NameCN      string        `json:"name_cn"`
 	Unit        string        `json:"unit"`
-	Qty         float64       `json:"qty"`
+	Qty         money.Decimal `json:"qty"`
 	UnitPrice   money.Decimal `json:"unit_price"`
 	Amount      money.Decimal `json:"amount"`
 	AmountBase  money.Decimal `json:"amount_base"`

@@ -11,6 +11,7 @@ import (
 
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
 // ShipmentFilter 是出货列表的查询条件。
@@ -68,12 +69,14 @@ type ShipmentRepository interface {
 	// 已取消的出货不计入：取消的意义就是把数量还回去，否则那一行会被永久占死，
 	// 客户取消一票再补一票时就会报"超出未出数量"——而实际上什么都没出。
 	// excludeShipmentID 供编辑时排除自己。
-	AllocatedQty(ctx context.Context, salesOrderItemID uint, excludeShipmentID uint) (float64, error)
+	AllocatedQty(
+		ctx context.Context, salesOrderItemID uint, excludeShipmentID uint,
+	) (money.Decimal, error)
 	// ShippedQtyByOrder 返回一张销售订单下每行已出数量，key 是明细行 ID。
 	//
 	// 一次聚合取整张单，而不是每行查一次：订单详情页一屏就有十几行，
 	// 逐行查会把"打开一张订单"变成十几次往返。
-	ShippedQtyByOrder(ctx context.Context, salesOrderID uint) (map[uint]float64, error)
+	ShippedQtyByOrder(ctx context.Context, salesOrderID uint) (map[uint]money.Decimal, error)
 	// ListShippableItems 列出"还能出货的销售订单行"，供出货单选行。
 	//
 	// 过滤条件与 service 的校验是同一套语义：订单已确认或备货中、且未出数量大于 0。
@@ -96,8 +99,8 @@ type ShippableItem struct {
 	NameCN           string
 	Spec             string
 	Unit             string
-	Qty              float64
-	ShippedQty       float64
+	Qty              money.Decimal
+	ShippedQty       money.Decimal
 	DeliveryDate     *time.Time
 }
 
@@ -222,7 +225,7 @@ func (r *shipmentRepo) List(
 
 func (r *shipmentRepo) AllocatedQty(
 	ctx context.Context, salesOrderItemID uint, excludeShipmentID uint,
-) (float64, error) {
+) (money.Decimal, error) {
 	q := r.DB().WithContext(ctx).
 		Model(&model.ShipmentAllocation{}).
 		Joins("JOIN biz_shipment ON biz_shipment.id = biz_shipment_allocation.shipment_id").
@@ -233,21 +236,22 @@ func (r *shipmentRepo) AllocatedQty(
 		q = q.Where("biz_shipment_allocation.shipment_id <> ?", excludeShipmentID)
 	}
 
-	var sum float64
-	if err := q.Select("COALESCE(SUM(biz_shipment_allocation.qty), 0)").Scan(&sum).Error; err != nil {
-		return 0, fmt.Errorf("统计销售订单行已出数量 item=%d: %w", salesOrderItemID, err)
+	var row struct{ Total money.Decimal }
+	err := q.Select("COALESCE(SUM(biz_shipment_allocation.qty), 0) AS total").Scan(&row).Error
+	if err != nil {
+		return money.Zero(), fmt.Errorf("统计销售订单行已出数量 item=%d: %w", salesOrderItemID, err)
 	}
-	return sum, nil
+	return row.Total, nil
 }
 
 // ShippedQtyByOrder 与 AllocatedQty 同一口径（已取消的出货不算），
 // 区别只是按键汇总：一处口径写两遍，早晚会在某个报表里对不上。
 func (r *shipmentRepo) ShippedQtyByOrder(
 	ctx context.Context, salesOrderID uint,
-) (map[uint]float64, error) {
+) (map[uint]money.Decimal, error) {
 	var rows []struct {
 		SalesOrderItemID uint
-		Qty              float64
+		Qty              money.Decimal
 	}
 	err := r.DB().WithContext(ctx).
 		Model(&model.ShipmentAllocation{}).
@@ -263,7 +267,7 @@ func (r *shipmentRepo) ShippedQtyByOrder(
 	if err != nil {
 		return nil, fmt.Errorf("统计销售订单已出数量 order=%d: %w", salesOrderID, err)
 	}
-	out := make(map[uint]float64, len(rows))
+	out := make(map[uint]money.Decimal, len(rows))
 	for _, row := range rows {
 		out[row.SalesOrderItemID] = row.Qty
 	}
@@ -299,6 +303,8 @@ func (r *shipmentRepo) ListShippableItems(
 		Where("o.status IN ?", []model.DocumentStatus{
 			model.DocumentStatusConfirmed, model.DocumentStatusPreparing,
 		}).
+		// 0.000001 是存储层的余量，不是业务口径：sqlite 把 DECIMAL 存成 REAL，
+		// 恰好出完的行可能剩 1e-6 的尾巴，那种行不该继续出现在下拉里。
 		Where("i.qty > COALESCE(t.shipped_qty, 0) + 0.000001")
 
 	if kw := strings.TrimSpace(keyword); kw != "" {

@@ -233,9 +233,9 @@ func (s *shipmentService) Candidates(
 			NameCN:           it.NameCN,
 			Spec:             it.Spec,
 			Unit:             it.Unit,
-			Qty:              it.Qty,
-			ShippedQty:       money.Round(it.ShippedQty, 3),
-			UnshippedQty:     money.Round(it.Qty-it.ShippedQty, 3),
+			Qty:              it.Qty.Round(3),
+			ShippedQty:       it.ShippedQty.Round(3),
+			UnshippedQty:     it.Qty.Sub(it.ShippedQty).Round(3),
 		}
 		if it.DeliveryDate != nil {
 			c.DeliveryDate = it.DeliveryDate.Format(rateDateLayout)
@@ -372,7 +372,7 @@ func (s *shipmentService) buildAllocations(
 ) ([]model.ShipmentAllocation, error) {
 	rows := make([]model.ShipmentAllocation, 0, len(in))
 	// used 记录本次请求里已经给每一行分配了多少，用于捕获同请求内的重复行。
-	used := make(map[uint]float64, len(in))
+	used := make(map[uint]money.Decimal, len(in))
 	// dealPartnerID 记住这票货的客户：一票只能装同一个客户的订单。
 	// 货代可以拼柜，单据不能拼——送货单、商业发票、装箱单上只有一个收货人。
 	var dealPartnerID uint
@@ -381,7 +381,11 @@ func (s *shipmentService) buildAllocations(
 	var currencyCode string
 
 	for _, row := range in {
-		if row.Qty <= 0 {
+		// 数量列是 3 位小数：先把入参定下来，再拿去和"还能出多少"比。
+		row.Qty = row.Qty.Round(3)
+		row.GrossWeight = row.GrossWeight.Round(3)
+		row.NetWeight = row.NetWeight.Round(3)
+		if row.Qty.Cmp(money.Zero()) <= 0 {
 			return nil, errs.BadRequest("出货数量必须大于 0")
 		}
 		item, err := s.salesOrds.FindItemByID(ctx, row.SalesOrderItemID)
@@ -417,14 +421,17 @@ func (s *shipmentService) buildAllocations(
 		if err != nil {
 			return nil, err
 		}
-		remaining := item.Qty - allocated - used[item.ID]
-		if row.Qty > remaining+qtyEpsilon {
+		remaining := item.Qty.Sub(allocated).Sub(used[item.ID]).Round(3)
+		if row.Qty.Cmp(remaining) > 0 {
+			if remaining.IsNegative() {
+				remaining = money.Zero()
+			}
 			return nil, errs.ErrConflict.WithMsg(fmt.Sprintf(
 				"%s 的 %s 最多还能出 %s，本次填了 %s",
 				orderDocNo(item), item.SKUCode,
-				formatQty(max(remaining, 0)), formatQty(row.Qty)))
+				formatQty(remaining), formatQty(row.Qty)))
 		}
-		used[item.ID] += row.Qty
+		used[item.ID] = used[item.ID].Add(row.Qty)
 
 		if err := checkPacking(item, row); err != nil {
 			return nil, err
@@ -452,12 +459,17 @@ func (s *shipmentService) buildAllocations(
 // 只拦"一定录反了"的情形，不要求填全：装箱数据是装箱时才有的，
 // 草稿阶段留空很正常，逼着填只会让人随手填 0。
 func checkPacking(item *model.SalesOrderItem, row dto.ShipmentAllocationInput) error {
-	if row.Cartons < 0 || row.GrossWeight < 0 || row.NetWeight < 0 {
+	if row.Cartons < 0 || row.GrossWeight.IsNegative() || row.NetWeight.IsNegative() {
 		return errs.BadRequest(item.SKUCode + " 的箱数与毛净重不能为负")
+	}
+	// 上限沿用 1000 吨：一行明细装不了更重，多半是把"单箱重量 × 箱数"算重了。
+	if row.GrossWeight.Cmp(money.FromInt(1_000_000)) > 0 ||
+		row.NetWeight.Cmp(money.FromInt(1_000_000)) > 0 {
+		return errs.BadRequest(item.SKUCode + " 的毛净重超出可录入范围")
 	}
 	// 净重是货物本身，毛重是货物加包装：净重大于毛重只可能是两栏填反了。
 	// 装箱单上这两个数是要申报的，印出去再改就是改证。
-	if row.NetWeight > row.GrossWeight+qtyEpsilon {
+	if row.NetWeight.Cmp(row.GrossWeight) > 0 {
 		return errs.BadRequest(fmt.Sprintf(
 			"%s 的净重 %s 大于毛重 %s，两栏可能填反了",
 			item.SKUCode, formatQty(row.NetWeight), formatQty(row.GrossWeight)))
@@ -492,8 +504,6 @@ func orderDocNo(item *model.SalesOrderItem) string {
 	return item.SalesOrder.DocNo
 }
 
-// formatQty 去掉末尾的 0：出货数量多数是整数，"800.000" 读起来像有小数。
-func formatQty(v float64) string {
-	r := money.Round(v, 3)
-	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", r), "0"), ".")
-}
+// formatQty 按 3 位小数取整再去掉末尾的 0：出货数量多数是整数，
+// "800.000" 读起来像有小数。
+func formatQty(v money.Decimal) string { return v.Round(3).String() }

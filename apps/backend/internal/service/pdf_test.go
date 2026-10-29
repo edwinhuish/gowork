@@ -142,10 +142,10 @@ func TestPDFShipmentDocuments(t *testing.T) {
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
 			{
-				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40,
-				Cartons: 8, GrossWeight: 168.5, NetWeight: 160, Measurement: "60×40×30CM",
+				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(40),
+				Cartons: 8, GrossWeight: qtyOf(168.5), NetWeight: qtyOf(160), Measurement: "60×40×30CM",
 			},
-			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20, Cartons: 2, GrossWeight: 21, NetWeight: 20},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: qtyOf(20), Cartons: 2, GrossWeight: qtyOf(21), NetWeight: qtyOf(20)},
 		},
 	})
 	if err != nil {
@@ -176,9 +176,9 @@ func TestPDFCartonLabels(t *testing.T) {
 	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
-			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40, Cartons: 3},
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(40), Cartons: 3},
 			// 箱数没填的行也先给一张：样箱上也要贴，总比"打不出来"强。
-			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: qtyOf(20)},
 		},
 	})
 	if err != nil {
@@ -258,17 +258,17 @@ func TestPDFTextHelpers(t *testing.T) {
 	}
 
 	qtyCases := []struct {
-		v    float64
+		v    string
 		want string
 	}{
-		{1000, "1,000"},
-		{12.5, "12.5"},
-		{0, "0"},
-		{1234.567, "1,234.567"},
+		{"1000", "1,000"},
+		{"12.5", "12.5"},
+		{"0", "0"},
+		{"1234.567", "1,234.567"},
 	}
 	for _, c := range qtyCases {
-		if got := qtyText(c.v); got != c.want {
-			t.Errorf("qtyText(%v) = %q，期望 %q", c.v, got, c.want)
+		if got := qtyText(money.MustParse(c.v)); got != c.want {
+			t.Errorf("qtyText(%s) = %q，期望 %q", c.v, got, c.want)
 		}
 	}
 

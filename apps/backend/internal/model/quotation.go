@@ -115,7 +115,8 @@ type QuotationItem struct {
 	Spec    string `gorm:"size:128" json:"spec"`
 	Unit    string `gorm:"size:16" json:"unit"`
 
-	Qty float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	// Qty 是定点数：与单价相乘决定行金额，中途转 float64 会把末位带歪。
+	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// UnitPrice 报价币种的单价；Amount 是它的合计（原币）。
 	UnitPrice money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
 	Amount    money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`

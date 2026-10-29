@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/edwinhuish/gowork/internal/pkg/money"
+
 // ShipmentQuery 是出货列表的查询条件。
 type ShipmentQuery struct {
 	PageQuery
@@ -13,15 +15,17 @@ type ShipmentQuery struct {
 // 挂到销售订单**行**而不是订单头：一张订单里两行可能是同一产品的不同包装，
 // 按订单头分配就分不清出的到底是哪一种。
 type ShipmentAllocationInput struct {
-	SalesOrderItemID uint    `json:"sales_order_item_id" binding:"required"`
-	Qty              float64 `json:"qty" binding:"required,gt=0"`
+	SalesOrderItemID uint `json:"sales_order_item_id" binding:"required"`
+	// Qty / 毛净重都是定点收发：gt / gte 这类数值校验对结构体不生效，
+	// 范围由服务层的 checkPacking 与数量校验接手。
+	Qty money.Decimal `json:"qty"`
 
 	// 装箱数据，只有印装箱单时才需要；留空就是"还没装箱"，不拦。
 	//
 	// 重量是这一行的合计（不是单箱），与装箱单上每行的 G.W. / N.W. 对应。
-	Cartons     int     `json:"cartons" binding:"gte=0,lte=100000"`
-	GrossWeight float64 `json:"gross_weight" binding:"gte=0,lte=1000000"`
-	NetWeight   float64 `json:"net_weight" binding:"gte=0,lte=1000000"`
+	Cartons     int           `json:"cartons" binding:"gte=0,lte=100000"`
+	GrossWeight money.Decimal `json:"gross_weight"`
+	NetWeight   money.Decimal `json:"net_weight"`
 	// Measurement 是外箱尺寸，如 "60×40×30CM"，原样印在装箱单上。
 	Measurement string `json:"measurement" binding:"max=64"`
 
@@ -70,9 +74,9 @@ type ShipmentCandidate struct {
 	NameCN           string  `json:"name_cn"`
 	Spec             string  `json:"spec"`
 	Unit             string  `json:"unit"`
-	Qty              float64 `json:"qty"`
-	ShippedQty       float64 `json:"shipped_qty"`
-	UnshippedQty     float64 `json:"unshipped_qty"`
+	Qty              money.Decimal `json:"qty"`
+	ShippedQty       money.Decimal `json:"shipped_qty"`
+	UnshippedQty     money.Decimal `json:"unshipped_qty"`
 	// DeliveryDate 是订单上的约定交期，YYYY-MM-DD；没约定则空。
 	DeliveryDate string `json:"delivery_date,omitempty"`
 }

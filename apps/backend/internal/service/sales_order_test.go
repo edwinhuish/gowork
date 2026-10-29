@@ -111,8 +111,8 @@ func TestSalesOrderRules(t *testing.T) {
 		OrderDate:    "2026-10-28",
 		CurrencyCode: "usd",
 		Items: []dto.SalesOrderItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
-			{ProductID: fx.product2ID, Qty: 20, UnitPrice: money.MustParse("5")},
+			{ProductID: fx.productID, Qty: qtyOf(100), UnitPrice: money.MustParse("10")},
+			{ProductID: fx.product2ID, Qty: qtyOf(20), UnitPrice: money.MustParse("5")},
 		},
 	}
 

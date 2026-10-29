@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/edwinhuish/gowork/internal/pkg/money"
+)
 
 // Shipment 是一次出货（一票）。
 //
@@ -42,11 +46,11 @@ func (Shipment) TableName() string { return "biz_shipment" }
 //
 // 汇总只由分配行相加得出，不在票头上另存一份：两处数字一旦分家，
 // 装箱单的合计与明细就对不上，而客户是按明细逐行点数、按合计签收的。
-func (s Shipment) PackingTotals() (cartons int, gross, net float64) {
+func (s Shipment) PackingTotals() (cartons int, gross, net money.Decimal) {
 	for _, a := range s.Allocations {
 		cartons += a.Cartons
-		gross += a.GrossWeight
-		net += a.NetWeight
+		gross = gross.Add(a.GrossWeight)
+		net = net.Add(a.NetWeight)
 	}
 	return cartons, gross, net
 }
@@ -73,8 +77,9 @@ type ShipmentAllocation struct {
 	Spec    string `gorm:"size:128" json:"spec"`
 	Unit    string `gorm:"size:16" json:"unit"`
 
-	Qty    float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
-	Remark string  `gorm:"size:255" json:"remark"`
+	// Qty 是定点数：可出数量的校验全靠逐位比较，"差不多的 0.0001"就是超发。
+	Qty    money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
+	Remark string        `gorm:"size:255" json:"remark"`
 
 	// 装箱数据：装箱单靠这几项才印得出来。
 	//
@@ -83,9 +88,9 @@ type ShipmentAllocation struct {
 	//
 	// 重量是**这一行的合计**，不是单箱重量：合计直接相加就对得上，
 	// 若按单箱记，改一次箱数就要把所有合计重算一遍，迟早对不上。
-	Cartons     int     `gorm:"not null;default:0" json:"cartons"`
-	GrossWeight float64 `gorm:"type:decimal(12,3);not null;default:0" json:"gross_weight"`
-	NetWeight   float64 `gorm:"type:decimal(12,3);not null;default:0" json:"net_weight"`
+	Cartons     int           `gorm:"not null;default:0" json:"cartons"`
+	GrossWeight money.Decimal `gorm:"type:decimal(12,3);not null;default:0" json:"gross_weight"`
+	NetWeight   money.Decimal `gorm:"type:decimal(12,3);not null;default:0" json:"net_weight"`
 	// Measurement 是外箱尺寸，人工填成 "60×40×30CM"。
 	//
 	// 存文本而不是长宽高三个数字：装箱单只把它原样印出来，系统不算体积、

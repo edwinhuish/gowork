@@ -121,16 +121,15 @@ type ShipmentLine struct {
 	ShipmentID       uint
 	SalesOrderItemID uint
 	// Qty 是本票出的数量。
-	Qty float64
+	Qty money.Decimal
 	// ItemQty / ItemAmountBase 是所属销售行的整行数量与本币金额，用于按比例分摊收入。
-	ItemQty        float64
+	ItemQty        money.Decimal
 	ItemAmountBase money.Decimal
 }
 
 // PurchaseCost 是某条销售订单行累计的采购数量与本币金额。
 type PurchaseCost struct {
-	// Qty 仍是 float64：数量字段不在 T-37 的范围内，它不参与金额的逐位对账。
-	Qty        float64
+	Qty        money.Decimal
 	AmountBase money.Decimal
 }
 
@@ -249,7 +248,7 @@ func (r *reportRepo) PurchaseCostBySalesItem(
 
 	var rows []struct {
 		SalesOrderItemID uint
-		Qty              float64
+		Qty              money.Decimal
 		AmountBase       money.Decimal
 	}
 	err := r.DB().WithContext(ctx).

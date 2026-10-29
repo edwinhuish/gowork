@@ -291,7 +291,7 @@ func (s *purchaseOrderService) buildItems(
 	items := make([]model.PurchaseOrderItem, 0, len(in))
 
 	for _, row := range in {
-		if row.Qty <= 0 {
+		if row.Qty.Cmp(money.Zero()) <= 0 {
 			return nil, totals, errs.BadRequest("明细数量必须大于 0")
 		}
 		if row.UnitPrice.IsNegative() {
@@ -312,7 +312,8 @@ func (s *purchaseOrderService) buildItems(
 			return nil, totals, err
 		}
 
-		qty := money.FromFloat(row.Qty)
+		// 数量列是 decimal(14,3)：先按 3 位定下来，再乘单价与汇率。
+		qty := row.Qty.Round(3)
 		amount := row.UnitPrice.Mul(qty).Round(t.CurrencyDecimals)
 		amountBase := amount.Mul(t.ExchangeRate).Round(t.BaseDecimals)
 
@@ -322,7 +323,7 @@ func (s *purchaseOrderService) buildItems(
 			NameCN:           product.NameCN,
 			Spec:             product.Spec,
 			Unit:             product.Unit,
-			Qty:              row.Qty,
+			Qty:              qty,
 			UnitPrice:        row.UnitPrice,
 			Amount:           amount,
 			AmountBase:       amountBase,

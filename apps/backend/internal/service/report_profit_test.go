@@ -60,7 +60,7 @@ func (f *profitFixture) addSalesLine(
 	item := &model.SalesOrderItem{
 		SalesOrderID: order.ID, ProductID: 1,
 		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS",
-		Qty:        qty,
+		Qty:        qtyOf(qty),
 		UnitPrice:  money.FromFloat(unitPrice),
 		Amount:     money.FromFloat(qty * unitPrice),
 		AmountBase: money.FromFloat(amountBase),
@@ -90,7 +90,7 @@ func (f *profitFixture) addPurchase(
 	item := &model.PurchaseOrderItem{
 		PurchaseOrderID: order.ID, ProductID: 1,
 		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS",
-		Qty:              qty,
+		Qty:              qtyOf(qty),
 		UnitPrice:        money.FromFloat(amountBase / qty),
 		Amount:           money.FromFloat(amountBase),
 		AmountBase:       money.FromFloat(amountBase),
@@ -115,7 +115,7 @@ func (f *profitFixture) addShipment(
 	}
 	alloc := &model.ShipmentAllocation{
 		ShipmentID: m.ID, SalesOrderItemID: salesItemID,
-		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS", Qty: qty,
+		SKUCode: "SKU-1", NameCN: "测试品", Unit: "PCS", Qty: qtyOf(qty),
 	}
 	if err := f.db.Create(alloc).Error; err != nil {
 		t.Fatalf("建分配行失败: %v", err)

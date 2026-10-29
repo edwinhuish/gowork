@@ -575,7 +575,7 @@ func (s *quotationService) buildItems(
 	items := make([]model.QuotationItem, 0, len(in))
 
 	for _, row := range in {
-		if row.Qty <= 0 {
+		if row.Qty.Cmp(money.Zero()) <= 0 {
 			return nil, totals, errs.BadRequest("明细数量必须大于 0")
 		}
 		if row.UnitPrice.IsNegative() {
@@ -593,10 +593,9 @@ func (s *quotationService) buildItems(
 			return nil, totals, err
 		}
 
-		// 数量仍是 float64（qty 不在 T-37 的范围），乘进去之前转成定点：
-		// 数量本身是十进制录入的，FromFloat 只做一次精确转换（3 位小数远在 float64 的
-		// 有效位之内），之后的乘法与舍入都在定点里做。
-		qty := money.FromFloat(row.Qty)
+		// 数量列是 decimal(14,3)：先按 3 位定下来，再乘单价与汇率。
+		// 不在这里舍的话，库里存 3 位、算时用 6 位，行金额与「数量 × 单价」对不上。
+		qty := row.Qty.Round(3)
 		amount := row.UnitPrice.Mul(qty).Round(t.CurrencyDecimals)
 		amountBase := amount.Mul(t.ExchangeRate).Round(t.BaseDecimals)
 		costAmount := src.PurchasePriceBase.Mul(qty).Round(t.BaseDecimals)
@@ -607,7 +606,7 @@ func (s *quotationService) buildItems(
 			NameCN:     product.NameCN,
 			Spec:       product.Spec,
 			Unit:       product.Unit,
-			Qty:        row.Qty,
+			Qty:        qty,
 			UnitPrice:  row.UnitPrice,
 			Amount:     amount,
 			AmountBase: amountBase,

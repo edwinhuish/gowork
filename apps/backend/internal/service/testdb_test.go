@@ -50,3 +50,12 @@ func wantDecimal(t *testing.T, label string, got money.Decimal, want string) {
 		t.Errorf("%s 应为 %s，得到 %s", label, w, got)
 	}
 }
+
+// qtyOf 是测试里构造数量的简写：数量也是定点数，字面量写成 qtyOf(100)。
+func qtyOf(v float64) money.Decimal { return money.FromFloat(v) }
+
+// approxQty 判断定点数量是否等于给定字面量。数量存 3 位小数，来回一趟不该有尾差，
+// 所以这里不留容差——留了就等于允许"少发一件也过"。
+func approxQty(a money.Decimal, want float64) bool {
+	return a.Cmp(money.FromFloat(want)) == 0
+}

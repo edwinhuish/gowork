@@ -90,7 +90,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 			OrderDate:    now.Format("2006-01-02"),
 			CurrencyCode: "CNY",
 			Items: []dto.SalesOrderItemInput{
-				{ProductID: productID, Qty: qty, UnitPrice: money.MustParse("10")},
+				{ProductID: productID, Qty: qtyOf(qty), UnitPrice: money.MustParse("10")},
 			},
 		})
 		if err != nil {
@@ -177,7 +177,7 @@ func TestShipmentCandidates(t *testing.T) {
 		if !ok {
 			t.Fatal("未列到 orderA 的行")
 		}
-		if !approx(c.UnshippedQty, 100) || !approx(c.ShippedQty, 0) {
+		if !approxQty(c.UnshippedQty, 100) || !approxQty(c.ShippedQty, 0) {
 			t.Errorf("未出 / 已出 = %v / %v，期望 100 / 0", c.UnshippedQty, c.ShippedQty)
 		}
 		if c.SalesOrderDocNo != fx.orderA.DocNo || c.SKUCode != "BH01-0001" {
@@ -190,7 +190,7 @@ func TestShipmentCandidates(t *testing.T) {
 
 	t.Run("已出数量随出货单变化", func(t *testing.T) {
 		s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 60}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(60)}},
 		})
 		if err != nil {
 			t.Fatalf("建出货批次失败: %v", err)
@@ -199,13 +199,13 @@ func TestShipmentCandidates(t *testing.T) {
 		if !ok {
 			t.Fatal("出了一部分的行仍应留在候选里")
 		}
-		if !approx(c.ShippedQty, 60) || !approx(c.UnshippedQty, 40) {
+		if !approxQty(c.ShippedQty, 60) || !approxQty(c.UnshippedQty, 40) {
 			t.Errorf("已出 / 未出 = %v / %v，期望 60 / 40", c.ShippedQty, c.UnshippedQty)
 		}
 
 		// 出完就该从候选里消失，而不是留一个"还能出 0"的选项。
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 40}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(40)}},
 		}); err != nil {
 			t.Fatalf("建出货批次失败: %v", err)
 		}
@@ -223,7 +223,7 @@ func TestShipmentCandidates(t *testing.T) {
 		if !ok {
 			t.Fatal("取消后这一行应重新可出")
 		}
-		if !approx(c.UnshippedQty, 60) {
+		if !approxQty(c.UnshippedQty, 60) {
 			t.Errorf("取消后未出 = %v，期望 60", c.UnshippedQty)
 		}
 	})
@@ -260,8 +260,8 @@ func TestShipmentRules(t *testing.T) {
 		s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			Remark: "拼柜第一票",
 			Allocations: []dto.ShipmentAllocationInput{
-				{SalesOrderItemID: itemA.ID, Qty: 60},
-				{SalesOrderItemID: itemB.ID, Qty: 20},
+				{SalesOrderItemID: itemA.ID, Qty: qtyOf(60)},
+				{SalesOrderItemID: itemB.ID, Qty: qtyOf(20)},
 			},
 		})
 		if err != nil {
@@ -296,7 +296,7 @@ func TestShipmentRules(t *testing.T) {
 	t.Run("超过未出数量被拒", func(t *testing.T) {
 		// A 已出 60，剩 40；要 50 必须给 409 并把剩余量说清楚。
 		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 50}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(50)}},
 		})
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
 			t.Fatalf("超出未出数量应返回 409，实际 %v", err)
@@ -310,8 +310,8 @@ func TestShipmentRules(t *testing.T) {
 		// 40 是剩余量，两行各 25 合计 50：逐行看都没超，合起来就超了。
 		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			Allocations: []dto.ShipmentAllocationInput{
-				{SalesOrderItemID: itemA.ID, Qty: 25},
-				{SalesOrderItemID: itemA.ID, Qty: 25},
+				{SalesOrderItemID: itemA.ID, Qty: qtyOf(25)},
+				{SalesOrderItemID: itemA.ID, Qty: qtyOf(25)},
 			},
 		})
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
@@ -321,7 +321,7 @@ func TestShipmentRules(t *testing.T) {
 
 	t.Run("恰好出完不算超量", func(t *testing.T) {
 		s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 40}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(40)}},
 		})
 		if err != nil {
 			t.Fatalf("恰好等于剩余量应允许，实际 %v", err)
@@ -330,7 +330,7 @@ func TestShipmentRules(t *testing.T) {
 			t.Errorf("doc_no = %q，期望 DN-2610-002", s.DocNo)
 		}
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 1}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(1)}},
 		}); err == nil {
 			t.Fatal("已出完的行不该还能再出货")
 		}
@@ -340,17 +340,17 @@ func TestShipmentRules(t *testing.T) {
 		// 第一票占 60、第二票占 40。把第一票改成 50 是可行的（合计 90），
 		// 但这要求统计时先把第一票自己的 60 扣掉；否则永远判超量。
 		s, err := fx.shipments.Update(ctx, first.ID, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 50}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(50)}},
 		})
 		if err != nil {
 			t.Fatalf("编辑应排除自身已占数量，实际 %v", err)
 		}
-		if len(s.Allocations) != 1 || !approx(s.Allocations[0].Qty, 50) {
+		if len(s.Allocations) != 1 || !approxQty(s.Allocations[0].Qty, 50) {
 			t.Errorf("编辑后分配行 = %+v，期望一行 50", s.Allocations)
 		}
 		// 40（第二票）+ 70 > 100，仍然要拒。
 		if _, err := fx.shipments.Update(ctx, first.ID, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 70}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(70)}},
 		}); err == nil {
 			t.Fatal("把数量改到超过总量应被拒")
 		}
@@ -363,7 +363,7 @@ func TestShipmentRules(t *testing.T) {
 			t.Fatalf("确认出货单失败: %v", err)
 		}
 		if _, err := fx.shipments.Update(ctx, first.ID, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 10}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(10)}},
 		}); err == nil {
 			t.Fatal("已确认的出货单不该允许修改")
 		}
@@ -380,12 +380,12 @@ func TestShipmentRules(t *testing.T) {
 			t.Fatalf("取消出货单失败: %v", err)
 		}
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 60}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(60)}},
 		}); err != nil {
 			t.Fatalf("已取消的出货不该继续占着数量，实际 %v", err)
 		}
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: 1}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemA.ID, Qty: qtyOf(1)}},
 		}); err == nil {
 			t.Fatal("还回来的 60 已被新票占用，不该再能出货")
 		}
@@ -394,7 +394,7 @@ func TestShipmentRules(t *testing.T) {
 	t.Run("草稿订单不能出货", func(t *testing.T) {
 		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			Allocations: []dto.ShipmentAllocationInput{
-				{SalesOrderItemID: fx.draftOrder.Items[0].ID, Qty: 1},
+				{SalesOrderItemID: fx.draftOrder.Items[0].ID, Qty: qtyOf(1)},
 			},
 		})
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
@@ -411,17 +411,17 @@ func TestShipmentRules(t *testing.T) {
 			t.Fatalf("查订单详情失败: %v", err)
 		}
 		// A 的 100 件：第一票已取消（不计），第二票 40，第三票 60 → 已出 100。
-		if got := o.Items[0].ShippedQty; !approx(got, 100) {
+		if got := o.Items[0].ShippedQty; !approxQty(got, 100) {
 			t.Errorf("shipped_qty = %v，期望 100", got)
 		}
-		if got := o.Items[0].UnshippedQty; !approx(got, 0) {
+		if got := o.Items[0].UnshippedQty; !approxQty(got, 0) {
 			t.Errorf("unshipped_qty = %v，期望 0", got)
 		}
 	})
 
 	t.Run("数量为 0 的分配行被拒", func(t *testing.T) {
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: 0}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: qtyOf(0)}},
 		}); err == nil {
 			t.Fatal("数量为 0 应被拒")
 		}
@@ -429,7 +429,7 @@ func TestShipmentRules(t *testing.T) {
 
 	t.Run("草稿可删，单号不回收", func(t *testing.T) {
 		s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: 5}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: qtyOf(5)}},
 		})
 		if err != nil {
 			t.Fatalf("建出货批次失败: %v", err)
@@ -443,7 +443,7 @@ func TestShipmentRules(t *testing.T) {
 		// 单号不回收：删掉的 SH-XXXX 留在审计与聊天记录里，
 		// 把它发给另一票货，等于两份不同的事实共用一个号。
 		next, err := fx.shipments.Create(ctx, dto.ShipmentInput{
-			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: 5}},
+			Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: itemB.ID, Qty: qtyOf(5)}},
 		})
 		if err != nil {
 			t.Fatalf("建出货批次失败: %v", err)
@@ -464,8 +464,8 @@ func TestShipmentRejectsCrossCustomer(t *testing.T) {
 	_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
-			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
-			{SalesOrderItemID: fx.orderC.Items[0].ID, Qty: 1},
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(1)},
+			{SalesOrderItemID: fx.orderC.Items[0].ID, Qty: qtyOf(1)},
 		},
 	})
 	if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
@@ -476,8 +476,8 @@ func TestShipmentRejectsCrossCustomer(t *testing.T) {
 	if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
-			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
-			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 1},
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(1)},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: qtyOf(1)},
 		},
 	}); err != nil {
 		t.Fatalf("同客户合并一票应允许，实际 %v", err)
@@ -494,7 +494,7 @@ func TestShipmentReissue(t *testing.T) {
 	s, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
-			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 10},
+			{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(10)},
 		},
 	})
 	if err != nil {
@@ -547,11 +547,11 @@ func TestShipmentPacking(t *testing.T) {
 		ShipDate: "2026-10-28",
 		Allocations: []dto.ShipmentAllocationInput{
 			{
-				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 40,
-				Cartons: 8, GrossWeight: 168.5, NetWeight: 160,
+				SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(40),
+				Cartons: 8, GrossWeight: qtyOf(168.5), NetWeight: qtyOf(160),
 				Measurement: " 60×40×30CM ",
 			},
-			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: 20, Cartons: 2, GrossWeight: 21, NetWeight: 20},
+			{SalesOrderItemID: fx.orderB.Items[0].ID, Qty: qtyOf(20), Cartons: 2, GrossWeight: qtyOf(21), NetWeight: qtyOf(20)},
 		},
 	})
 	if err != nil {
@@ -565,11 +565,11 @@ func TestShipmentPacking(t *testing.T) {
 	if cartons != 10 {
 		t.Errorf("总箱数 = %d，期望 10", cartons)
 	}
-	if diff := gross - 189.5; diff > 1e-6 || diff < -1e-6 {
-		t.Errorf("总毛重 = %v，期望 189.5", gross)
+	if !approxQty(gross, 189.5) {
+		t.Errorf("总毛重 = %s，期望 189.5", gross)
 	}
-	if diff := net - 180; diff > 1e-6 || diff < -1e-6 {
-		t.Errorf("总净重 = %v，期望 180", net)
+	if !approxQty(net, 180) {
+		t.Errorf("总净重 = %s，期望 180", net)
 	}
 
 	t.Run("净重大于毛重被拒", func(t *testing.T) {
@@ -577,8 +577,8 @@ func TestShipmentPacking(t *testing.T) {
 			ShipDate: "2026-10-28",
 			Allocations: []dto.ShipmentAllocationInput{
 				{
-					SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1,
-					Cartons: 1, GrossWeight: 10, NetWeight: 20,
+					SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(1),
+					Cartons: 1, GrossWeight: qtyOf(10), NetWeight: qtyOf(20),
 				},
 			},
 		})
@@ -591,7 +591,7 @@ func TestShipmentPacking(t *testing.T) {
 		_, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			ShipDate: "2026-10-28",
 			Allocations: []dto.ShipmentAllocationInput{
-				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1, Cartons: -1},
+				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(1), Cartons: -1},
 			},
 		})
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
@@ -603,7 +603,7 @@ func TestShipmentPacking(t *testing.T) {
 		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
 			ShipDate: "2026-10-28",
 			Allocations: []dto.ShipmentAllocationInput{
-				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: 1},
+				{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(1)},
 			},
 		}); err != nil {
 			t.Fatalf("装箱数据留空应允许，实际 %v", err)

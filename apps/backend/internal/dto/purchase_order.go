@@ -11,8 +11,9 @@ type PurchaseOrderQuery struct {
 
 // PurchaseOrderItemInput 是一条采购明细。
 type PurchaseOrderItemInput struct {
-	ProductID uint    `json:"product_id" binding:"required"`
-	Qty       float64 `json:"qty" binding:"required,gt=0"`
+	ProductID uint `json:"product_id" binding:"required"`
+	// Qty 定点收发。binding 的 gt 对结构体不生效，"必须大于 0"由服务层判。
+	Qty money.Decimal `json:"qty"`
 	// UnitPrice 按字符串收发（money.Decimal）。
 	UnitPrice money.Decimal `json:"unit_price"`
 	// SalesOrderItemID 非空表示这一行为该销售订单行采购（以销定采）。

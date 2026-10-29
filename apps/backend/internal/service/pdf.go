@@ -231,7 +231,8 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 		if a.SalesOrderItem != nil {
 			price = a.SalesOrderItem.UnitPrice
 		}
-		amount := price.Mul(money.FromFloat(a.Qty))
+		// 发票上的行金额由「单价 × 出货数量」现算：这张票出的可能只是那行的一部分。
+		amount := price.Mul(a.Qty).Round(curDP)
 		total = total.Add(amount)
 		orderNo := allocationOrderNo(a)
 		orderNos = appendUnique(orderNos, orderNo)
@@ -424,9 +425,10 @@ func (s *pdfService) sourceItems(
 	ctx context.Context, c *model.Contract, curDP int,
 ) ([]map[string]string, string, string, error) {
 	// 报价单与订单的明细字段同名，收成同一组渲染键，模板不必为两种来源分叉。
-	// rowD 与 row 同形，只是单价与金额来自 money.Decimal：
-	// 报价明细已改定点，打印时不必先转回 float64。
-	rowD := func(i int, sku, name, spec, unit string, qty float64, unitPrice, amount money.Decimal) map[string]string {
+	rowD := func(
+		i int, sku, name, spec, unit string,
+		qty, unitPrice, amount money.Decimal,
+	) map[string]string {
 		return map[string]string{
 			"no":          strconv.Itoa(i + 1),
 			"description": itemDescription(sku, name, spec),
@@ -553,8 +555,8 @@ func packedInt(v int) string {
 }
 
 // packedWeight 印毛净重：三位小数去掉尾零，0 同上印「—」。
-func packedWeight(v float64) string {
-	if v <= 0 {
+func packedWeight(v money.Decimal) string {
+	if v.Cmp(money.Zero()) <= 0 {
 		return "—"
 	}
 	return qtyText(v)
@@ -617,11 +619,8 @@ func moneyTextD(v money.Decimal, dp int) string {
 
 // qtyText 印数量：最多三位小数，去掉无意义的尾零。
 // 1000 印成 1,000.000 会让人以为数量有精度要求。
-func qtyText(v float64) string {
-	s := strconv.FormatFloat(v, 'f', 3, 64)
-	s = strings.TrimRight(s, "0")
-	s = strings.TrimSuffix(s, ".")
-	return groupThousands(s)
+func qtyText(v money.Decimal) string {
+	return groupThousands(v.Round(3).String())
 }
 
 func groupThousands(s string) string {

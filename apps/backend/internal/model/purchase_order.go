@@ -56,7 +56,8 @@ type PurchaseOrderItem struct {
 	NameCN  string  `gorm:"size:128" json:"name_cn"`
 	Spec    string  `gorm:"size:128" json:"spec"`
 	Unit    string  `gorm:"size:16" json:"unit"`
-	Qty     float64 `gorm:"type:decimal(14,3);not null" json:"qty"`
+	// Qty 是定点数：与采购价相乘决定行金额，中途转 float64 会把末位带歪。
+	Qty money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 
 	UnitPrice  money.Decimal `gorm:"type:decimal(14,4);not null;default:0" json:"unit_price"`
 	Amount     money.Decimal `gorm:"type:decimal(16,4);not null;default:0" json:"amount"`

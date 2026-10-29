@@ -54,7 +54,7 @@ type QuotationOrderInput struct {
 // QuotationOrderLine 是转换过来的一行：产品、数量、单价都是报价单上的原值。
 type QuotationOrderLine struct {
 	ProductID uint
-	Qty       float64
+	Qty       money.Decimal
 	UnitPrice money.Decimal
 	Remark    string
 }
@@ -230,7 +230,7 @@ func (s *salesOrderService) Get(ctx context.Context, id uint) (*model.SalesOrder
 	for i := range o.Items {
 		qty := shipped[o.Items[i].ID]
 		o.Items[i].ShippedQty = qty
-		o.Items[i].UnshippedQty = money.Round(o.Items[i].Qty-qty, 3)
+		o.Items[i].UnshippedQty = o.Items[i].Qty.Sub(qty).Round(3)
 	}
 	return o, nil
 }
@@ -450,7 +450,7 @@ func (s *salesOrderService) buildItems(
 	items := make([]model.SalesOrderItem, 0, len(in))
 
 	for _, row := range in {
-		if row.Qty <= 0 {
+		if row.Qty.Cmp(money.Zero()) <= 0 {
 			return nil, totals, errs.BadRequest("明细数量必须大于 0")
 		}
 		if row.UnitPrice.IsNegative() {
@@ -464,8 +464,8 @@ func (s *salesOrderService) buildItems(
 			return nil, totals, err
 		}
 
-		// 数量仍是 float64（qty 不在 T-37 范围），乘之前转一次定点，其后全在定点里算。
-		qty := money.FromFloat(row.Qty)
+		// 数量列是 decimal(14,3)：先按 3 位定下来，再乘单价与汇率。
+		qty := row.Qty.Round(3)
 		amount := row.UnitPrice.Mul(qty).Round(t.CurrencyDecimals)
 		amountBase := amount.Mul(t.ExchangeRate).Round(t.BaseDecimals)
 
@@ -475,7 +475,7 @@ func (s *salesOrderService) buildItems(
 			NameCN:     product.NameCN,
 			Spec:       product.Spec,
 			Unit:       product.Unit,
-			Qty:        row.Qty,
+			Qty:        qty,
 			UnitPrice:  row.UnitPrice,
 			Amount:     amount,
 			AmountBase: amountBase,

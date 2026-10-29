@@ -141,7 +141,7 @@ func TestQuotationRules(t *testing.T) {
 		CurrencyCode: "usd",
 		ValidUntil:   "2026-11-30",
 		Items: []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
+			{ProductID: fx.productID, Qty: qtyOf(100), UnitPrice: money.MustParse("10")},
 		},
 	}
 
@@ -193,7 +193,7 @@ func TestQuotationRules(t *testing.T) {
 		src := fx.priceySrcID
 		in := input
 		in.Items = []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10"), SourceID: &src},
+			{ProductID: fx.productID, Qty: qtyOf(100), UnitPrice: money.MustParse("10"), SourceID: &src},
 		}
 		q, err := fx.svc.Create(ctx, in)
 		if err != nil {
@@ -209,7 +209,7 @@ func TestQuotationRules(t *testing.T) {
 
 	t.Run("产品没有货源时不给报价", func(t *testing.T) {
 		in := input
-		in.Items = []dto.QuotationItemInput{{ProductID: fx.product2ID, Qty: 10, UnitPrice: money.MustParse("10")}}
+		in.Items = []dto.QuotationItemInput{{ProductID: fx.product2ID, Qty: qtyOf(10), UnitPrice: money.MustParse("10")}}
 		_, err := fx.svc.Create(ctx, in)
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeInvalidParam {
 			t.Fatalf("期望 40001（请先维护货源），实际 %v", err)
@@ -377,7 +377,7 @@ func TestQuotationConvert(t *testing.T) {
 		CurrencyCode: "usd",
 		ValidUntil:   "2026-11-30",
 		Items: []dto.QuotationItemInput{
-			{ProductID: fx.productID, Qty: 100, UnitPrice: money.MustParse("10")},
+			{ProductID: fx.productID, Qty: qtyOf(100), UnitPrice: money.MustParse("10")},
 		},
 	}
 
@@ -447,7 +447,7 @@ func TestQuotationConvert(t *testing.T) {
 				order.AmountBaseTotal, q.AmountBaseTotal)
 		}
 		if len(order.Items) != 1 || order.Items[0].UnitPrice.Cmp(money.MustParse("10")) != 0 ||
-			!approx(order.Items[0].Qty, 100) {
+			!approxQty(order.Items[0].Qty, 100) {
 			t.Errorf("订单明细未沿用报价单: %+v", order.Items)
 		}
 
