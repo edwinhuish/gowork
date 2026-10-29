@@ -235,6 +235,9 @@ func (s *receivableService) buildTerms(
 		// 按出货开票（T-53）：分批出货按票收款是外贸常态，
 		// 一张订单分三批走，客户也是分三次付钱。
 		return s.shipmentTerms(ctx, in, excludeID)
+	case model.SettlementSourceContractTerm:
+		// 按合同分期开票（T-61）：四个值都由合同服务算好传进来。
+		return contractTermTerms(in)
 	default:
 		return out, errs.BadRequest("应收只能由销售订单（source_type=10）或出货批次（20）生成")
 	}
@@ -414,4 +417,50 @@ func (s *receivableService) resolveDueDate(
 	// 业务日期统一走 model.DateOnly：它是"哪一天"，不是某个时刻。
 	// 直接拿库里的时间加天数，会在时区边界上漂一天。
 	return model.DateOnly(base).AddDate(0, 0, p.CreditDays), nil
+}
+
+// contractTermTerms 处理"按合同分期开票"（T-61）。
+//
+// 与另外两种来源不同，这里**不查来源单据**：合同服务已经知道是哪一期、
+// 多少钱、按哪个汇率，把它算好传进来即可。反过来让应收去查合同，
+// 就成了 contract → receivable 与 receivable → contract 双向依赖。
+//
+// 累计校验也不在这里做：一张分期只开一次票，由合同服务用
+// term.receivable_id 判（已有票就 409），比在应收侧反查更直接。
+func contractTermTerms(in dto.ReceivableInput) (receivableTerms, error) {
+	var out receivableTerms
+	if in.PartnerID == nil || *in.PartnerID == 0 {
+		return out, errs.BadRequest("按合同分期开票需要在入参里带上客户")
+	}
+	code := strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
+	if code == "" {
+		return out, errs.BadRequest("按合同分期开票需要在入参里带上币种")
+	}
+	// 汇率必须显式给：分期开票不是新的汇兑事件，它应当沿用合同上锁定的那个汇率，
+	// 而不是开票当天的汇率——否则同一份合同的两期会用两个价折算。
+	if in.ExchangeRate == nil || !in.ExchangeRate.IsPositive() {
+		return out, errs.BadRequest("按合同分期开票需要在入参里带上合同汇率")
+	}
+	if !in.Amount.IsPositive() {
+		return out, errs.BadRequest("分期金额必须大于 0")
+	}
+
+	due := model.DateOnly(time.Now())
+	if strings.TrimSpace(in.DueDate) != "" {
+		d, err := parseDateOnly(in.DueDate)
+		if err != nil {
+			return out, err
+		}
+		due = d
+	}
+	amount := in.Amount.Round(4)
+	return receivableTerms{
+		PartnerID:    *in.PartnerID,
+		SourceDocNo:  "合同分期",
+		CurrencyCode: code,
+		ExchangeRate: *in.ExchangeRate,
+		Amount:       amount,
+		AmountBase:   amount.Mul(*in.ExchangeRate).Round(4),
+		DueDate:      due,
+	}, nil
 }

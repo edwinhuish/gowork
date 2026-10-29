@@ -19,13 +19,19 @@ const (
 	SettlementSourceSalesOrder SettlementSource = 10
 	// SettlementSourceShipment 出货批次：按一票出货开票，分票出货时每票一笔。
 	SettlementSourceShipment SettlementSource = 20
+	// SettlementSourceContractTerm 合同分期：按某一期开票（T-61）。
+	//
+	// 与"按订单总额开票"的区别：合同分期是已经约定好的收款节奏
+	// （30% 订金 / 70% 见提单副本），每一期各开一张。
+	SettlementSourceContractTerm SettlementSource = 40
 	// SettlementSourcePurchaseOrder 采购订单：应付的唯一来源。
 	SettlementSourcePurchaseOrder SettlementSource = 30
 )
 
 func (s SettlementSource) IsValid() bool {
 	switch s {
-	case SettlementSourceSalesOrder, SettlementSourceShipment, SettlementSourcePurchaseOrder:
+	case SettlementSourceSalesOrder, SettlementSourceShipment,
+		SettlementSourcePurchaseOrder, SettlementSourceContractTerm:
 		return true
 	}
 	return false
@@ -39,6 +45,8 @@ func (s SettlementSource) Label() string {
 		return "出货批次"
 	case SettlementSourcePurchaseOrder:
 		return "采购订单"
+	case SettlementSourceContractTerm:
+		return "合同分期"
 	default:
 		return fmt.Sprintf("未知来源(%d)", int8(s))
 	}

@@ -38,6 +38,11 @@ type ReceivableInput struct {
 	Amount money.Decimal `json:"amount"`
 	// DueDate 留空表示按客户账期推算（订单日 + credit_days）。
 	DueDate string `json:"due_date"`
+	// PartnerID / CurrencyCode / ExchangeRate 只在 source_type=40（合同分期）时必填。
+	// 应收服务不去查合同：那是合同 → 应收的反向依赖，会让两个模块互相引用。
+	PartnerID    *uint          `json:"partner_id"`
+	CurrencyCode string         `json:"currency_code"`
+	ExchangeRate *money.Decimal `json:"exchange_rate"`
 	// Status 只在编辑时用于作废；新建恒为未结清。
 	Status *int8  `json:"status"`
 	Remark string `json:"remark" binding:"max=255"`
