@@ -21,11 +21,16 @@ type PartnerFilter struct {
 	EntityType *model.PartnerEntityType
 	Country    string
 	Status     *model.EnableStatus
+	// IncludeDeleted 把已软删的主体也查出来，供「含已删除」的列表与恢复入口使用。
+	IncludeDeleted bool
 }
 
 func (f PartnerFilter) scopes() []Scope {
-	scopes := make([]Scope, 0, 5)
+	scopes := make([]Scope, 0, 6)
 
+	if f.IncludeDeleted {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
+	}
 	if f.Keyword != "" {
 		scopes = append(scopes, likeAny(f.Keyword, "code", "name", "contact"))
 	}
@@ -63,6 +68,10 @@ type PartnerRepository interface {
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Partner, error)
+	// FindByIDIncludingDeleted 连已软删的行也查，供恢复入口确认"删的是哪一条"。
+	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.Partner, error)
+	// Restore 把软删标记写回 0；编码被占用时由唯一索引拒绝（回调会翻成 409）。
+	Restore(ctx context.Context, id uint) error
 	ExistsByCode(ctx context.Context, code string, excludeID uint) (bool, error)
 	// FindByNameAndCountry 按"公司名 + 国家"查同名主体，供线索转化时提示重复。
 	// 找不到返回 errs.ErrNotFound —— 外贸同名公司确实存在，所以调用方只提示、不阻断。
@@ -94,6 +103,30 @@ func (r *partnerRepo) Delete(ctx context.Context, id uint) error {
 
 func (r *partnerRepo) FindByID(ctx context.Context, id uint) (*model.Partner, error) {
 	return r.Base.FindByID(ctx, id)
+}
+
+func (r *partnerRepo) FindByIDIncludingDeleted(
+	ctx context.Context, id uint,
+) (*model.Partner, error) {
+	var m model.Partner
+	err := r.conn(ctx).Unscoped().First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询往来单位 id=%d（含已删除）: %w", id, err)
+	}
+	return &m, nil
+}
+
+func (r *partnerRepo) Restore(ctx context.Context, id uint) error {
+	err := r.conn(ctx).Unscoped().Model(&model.Partner{}).
+		Where("id = ?", id).
+		Update("deleted_at", 0).Error
+	if err != nil {
+		return fmt.Errorf("恢复往来单位 id=%d: %w", id, err)
+	}
+	return nil
 }
 
 // ExistsByCode 做编码唯一性前置校验，excludeID 供编辑时排除自身。

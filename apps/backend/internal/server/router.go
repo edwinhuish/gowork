@@ -106,6 +106,8 @@ func New(cfg *config.Config, log *slog.Logger, auth service.AuthService, h Handl
 		partners.GET("/:id", h.Partner.Get(nil))
 		partners.PUT("/:id", h.Partner.Update(nil))
 		partners.DELETE("/:id", h.Partner.Delete(nil))
+		// 恢复与删除对称。只挂这一个入口：恢复只认 id，角色已在记录里。
+		partners.POST("/:id/restore", h.Partner.Restore)
 		// 信用额度是主体上的商务条件（A5），读它的入口跟着主体走。
 		// 只读：额度本身通过 PUT /partners/:id 改。
 		partners.GET("/:id/credit", h.Partner.Credit)

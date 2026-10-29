@@ -156,6 +156,23 @@ func (h *PartnerHandler) Update(scope *model.PartnerRole) gin.HandlerFunc {
 }
 
 // Delete DELETE /partners/:id | /customers/:id | /suppliers/:id
+// Restore POST /api/v1/partners/:id/restore
+//
+// 只挂在 /partners 下，不像增删改那样再复制一份到 /customers 与 /suppliers：
+// 恢复只认 id，角色已经在记录里，多挂两个入口只会多出"从哪个入口恢复"的问题。
+func (h *PartnerHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.partners.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 func (h *PartnerHandler) Delete(scope *model.PartnerRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseID(c)

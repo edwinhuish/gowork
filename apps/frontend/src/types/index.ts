@@ -48,6 +48,8 @@ export interface Partner {
   name: string
   role: PartnerRole
   entity_type: PartnerEntityType
+  /** 已软删时才有值（Unix 毫秒），未删除时后端不返回这个字段。 */
+  deleted_at?: number
   country: string
   contact: string
   phone: string

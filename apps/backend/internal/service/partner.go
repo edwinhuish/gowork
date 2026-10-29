@@ -31,6 +31,8 @@ type PartnerService interface {
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Partner, error)
 	List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error)
+	// Restore 把已软删的往来单位恢复回来，与产品的恢复同口径。
+	Restore(ctx context.Context, id uint) (*model.Partner, error)
 }
 
 type partnerService struct {
@@ -232,14 +234,45 @@ func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, erro
 	return s.repo.FindByID(ctx, id)
 }
 
+// Restore 把一条已软删的往来单位恢复回来。
+//
+// 与产品一样只写回标记：恢复不做任何"补数据"的动作，
+// 主体删掉期间被改过的产品引用也不会因为它回来而重新指过去。
+func (s *partnerService) Restore(ctx context.Context, id uint) (*model.Partner, error) {
+	m, err := s.repo.FindByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if m.DeletedAt == 0 {
+		return nil, errs.BadRequest("该往来单位未被删除，无需恢复")
+	}
+
+	// 先挡一次编码冲突：交给唯一索引只能给出通用的「数据已存在」，
+	// 用户看不出是哪个编码被占了。
+	occupied, err := s.repo.ExistsByCode(ctx, m.Code, id)
+	if err != nil {
+		return nil, err
+	}
+	if occupied {
+		return nil, errs.ErrConflict.WithMsg(fmt.Sprintf(
+			"编码 %s 已被另一条往来单位占用，先处理掉那条再恢复", m.Code))
+	}
+
+	if err := s.repo.Restore(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.PageResult[model.Partner], error) {
 	q.PageQuery.Normalize()
 
 	filter := repository.PartnerFilter{
-		Keyword: q.Keyword,
-		Role:    partnerRolePtr(q.Role),
-		Status:  enableStatusPtr(q.Status),
-		Country: q.Country,
+		Keyword:        q.Keyword,
+		Role:           partnerRolePtr(q.Role),
+		Status:         enableStatusPtr(q.Status),
+		Country:        q.Country,
+		IncludeDeleted: q.IncludeDeleted,
 	}
 	if q.EntityType != nil {
 		t := model.PartnerEntityType(*q.EntityType)

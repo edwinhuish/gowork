@@ -20,6 +20,8 @@ type PartnerQuery struct {
 	EntityType PartnerEntityTypeInput `form:"entity_type"`
 	Country    string                 `form:"country"`
 	Status     EnableStatusInput      `form:"status"`
+	// IncludeDeleted 把已软删的主体也列出来（「含已删除」开关），这些行只能做一件事：恢复。
+	IncludeDeleted bool `form:"include_deleted"`
 }
 
 // PartnerInput 是主体新增与编辑共用的入参。

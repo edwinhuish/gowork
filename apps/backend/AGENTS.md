@@ -139,10 +139,12 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409）；删除产品在同一事务里清掉它的编号，旧号可立即复用 |
+| POST | `/api/v1/products/:id/restore` | `Product.Restore` | 把软删标记写回 0；`?include_deleted=1` 的列表里能看到已删行。SKU 已被别的产品占用时 409，对未删除的记录调用是 400 |
 | GET / POST | `/api/v1/product-codes` | `ProductCode.List` / `.Create` | 产品编号（旧 SKU / 客户物料号 / 供应商货号 / 工厂号）：`?product_id=` 必填；归一化后同产品重复 409、跨产品可共用；`code_norm` 由服务端算 |
 | DELETE | `/api/v1/product-codes/:id` | `ProductCode.Delete` | **硬删**：软删会让「删掉再加回来」撞唯一索引，而列表里又看不见那行 |
 | GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |
 | GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
+| POST | `/api/v1/partners/:id/restore` | `Partner.Restore` | 恢复已软删的主体；只挂这一个入口，角色已在记录里，不再按 `/customers`、`/suppliers` 各复制一份 |
 | GET | `/api/v1/partners/:id/credit` | `Partner.Credit` | `CreditService.Summary`：额度、未结清应收、未开票订单、敞口；额度 0 = 不限 |
 | GET / POST | `/api/v1/customers` | `Partner.*(&customerRole)` | 同上，路由注入角色 |
 | GET / POST | `/api/v1/suppliers` | `Partner.*(&supplierRole)` | 同上 |
