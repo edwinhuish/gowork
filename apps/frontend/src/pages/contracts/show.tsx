@@ -258,6 +258,36 @@ export function ContractShow() {
           align="right"
           render={(value: number) => <Money value={value} />}
         />
+        {/* 已收 / 未收（T-61）：数来自这一期开出的应收单——核销额在单上，
+            贷项在另一张表，服务端算完再给。没开票的那一期按整期未收显示。 */}
+        <Table.Column
+          title="已收"
+          width={130}
+          align="right"
+          render={(_, row: ContractTerm) => (
+            <>
+              <Money value={row.received_amount ?? 0} currency={c?.currency_code} />
+              {Number(row.credited_amount ?? 0) > 0 && (
+                <div>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    冲减 <Money value={row.credited_amount} currency={c?.currency_code} />
+                  </Typography.Text>
+                </div>
+              )}
+            </>
+          )}
+        />
+        <Table.Column
+          title="未收"
+          width={130}
+          align="right"
+          render={(_, row: ContractTerm) => (
+            <Money
+              value={row.outstanding_amount ?? row.amount}
+              currency={c?.currency_code}
+            />
+          )}
+        />
         <Table.Column
           dataIndex="due_date"
           title="付款日"

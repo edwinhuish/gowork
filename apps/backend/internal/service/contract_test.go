@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
@@ -22,7 +24,9 @@ type contractFixture struct {
 	contractRepo  repository.ContractRepository
 	currencySvc   CurrencyService
 	// clauseSvc 是条款模板库（T-27）：合同只存快照，模板本身走它维护。
-	clauseSvc  ClauseService
+	clauseSvc ClauseService
+	// db 给需要直接落几行派生数据的用例（如分期收款现状）用。
+	db         *gorm.DB
 	now        time.Time
 	customerID uint
 	productID  uint
@@ -42,7 +46,9 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 		&model.Contract{}, &model.ContractTerm{},
 		// 条款模板与合同条款快照（T-27）：少了这两张表，生成合同时的
 		// 快照写入与 Preload("Clauses") 都会失败。
-		&model.Clause{}, &model.ContractClause{})
+		&model.Clause{}, &model.ContractClause{},
+		// 分期收款现状（T-61）读的是应收与贷项两张表。
+		&model.Receivable{}, &model.CreditNote{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -113,6 +119,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	contractSvc := NewContractService(
 		contractRepo, quotationRepo, orderRepo,
 		currencySvc, docNoSvc, partnerRepo, repository.NewClauseRepository(db),
+		repository.NewReceivableRepository(db),
 		WithContractClock(clock),
 	)
 
@@ -124,6 +131,7 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 		contractRepo:  contractRepo,
 		currencySvc:   currencySvc,
 		clauseSvc:     NewClauseService(repository.NewClauseRepository(db)),
+		db:            db,
 		now:           now,
 		customerID:    customer.ID,
 		productID:     product.ID,
@@ -445,5 +453,83 @@ func TestContractListFilters(t *testing.T) {
 	bad := int8(99)
 	if _, err := fx.svc.List(ctx, dto.ContractQuery{Type: &bad}); err == nil {
 		t.Fatal("非法 type 应该报错")
+	}
+}
+
+// TestContractTermSettlements 钉住「分期显示已收 / 未收」（T-61）。
+//
+// 口径是 three-number 的：已收（核销额）、已冲减（贷项）、未结清
+// （开票额 − 已核销 − 已贷项）。退过货的那一期，"已收 + 未收"本来就不等于金额，
+// 三个数一起给才解释得清，也给不出"显示已收但账上还有余额"那种自相矛盾。
+func TestContractTermSettlements(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newContractFixture(t, now)
+
+	q := fx.confirmedQuotation(t)
+	c, err := fx.svc.Generate(ctx, dto.ContractGenerateInput{
+		Type:       int8(model.ContractTypePI),
+		SourceType: int8(model.ContractSourceQuotation),
+		SourceID:   q.ID,
+		SignDate:   "2026-10-28",
+		Terms: []dto.ContractTermInput{
+			{Name: "订金 30%", Amount: money.MustParse("300"), DueDate: "2026-11-05"},
+			{Name: "尾款 70%", Amount: money.MustParse("700"), DueDate: "2026-12-05"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("生成合同失败: %v", err)
+	}
+
+	// 第一期开票：300 USD，已核销 120，退货开了 30 的贷项。
+	first := &model.Receivable{
+		Settlement: model.Settlement{
+			DocNo: "RC-202610-001", PartnerID: fx.customerID,
+			SourceType: model.SettlementSourceContractTerm, SourceID: c.Terms[0].ID,
+			SourceDocNo: c.DocNo, CurrencyCode: "USD",
+			ExchangeRate: money.MustParse("7.1"),
+			Amount:       money.MustParse("300"), AmountBase: money.MustParse("2130"),
+			SettledAmount: money.MustParse("120"), SettledAmountBase: money.MustParse("852"),
+			DueDate: now.AddDate(0, 0, 8), Status: model.SettlementStatusPartial,
+		},
+	}
+	if err := fx.db.Create(first).Error; err != nil {
+		t.Fatalf("落应收单失败: %v", err)
+	}
+	note := &model.CreditNote{
+		DocNo: "CN-202610-001", ReceivableID: first.ID,
+		Amount: money.MustParse("30"), CurrencyCode: "USD",
+		ExchangeRate: money.MustParse("7.1"), AmountBase: money.MustParse("213"),
+		IssuedDate: now, Reason: "短装",
+	}
+	if err := fx.db.Create(note).Error; err != nil {
+		t.Fatalf("落贷项失败: %v", err)
+	}
+	if err := fx.contractRepo.UpdateTermReceivable(ctx, c.Terms[0].ID, first.ID); err != nil {
+		t.Fatalf("回写分期应收失败: %v", err)
+	}
+
+	got, err := fx.svc.Get(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("取合同失败: %v", err)
+	}
+	if len(got.Terms) != 2 {
+		t.Fatalf("分期数 = %d，期望 2", len(got.Terms))
+	}
+
+	paid := got.Terms[0]
+	if paid.ReceivableDocNo != "RC-202610-001" {
+		t.Errorf("第一期应收单号 = %q，期望 RC-202610-001", paid.ReceivableDocNo)
+	}
+	wantDecimal(t, "第一期已收", paid.ReceivedAmount, "120")
+	wantDecimal(t, "第一期已冲减", paid.CreditedAmount, "30")
+	wantDecimal(t, "第一期未结清", paid.OutstandingAmount, "150")
+
+	// 第二期还没开票：整期未收，不是 0。
+	open := got.Terms[1]
+	wantDecimal(t, "第二期已收", open.ReceivedAmount, "0")
+	wantDecimal(t, "第二期未结清", open.OutstandingAmount, "700")
+	if open.ReceivableDocNo != "" {
+		t.Errorf("未开票的那一期不该有应收单号，实际 %q", open.ReceivableDocNo)
 	}
 }

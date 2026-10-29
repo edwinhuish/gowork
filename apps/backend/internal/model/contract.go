@@ -140,6 +140,17 @@ type ContractTerm struct {
 	// 与账龄、核销校验同一口径。只存一个 paid 布尔值的话，录错了无从纠正，
 	// 也解释不了"为什么这期显示已收但账上还有余额"。
 	ReceivableID *uint `gorm:"index" json:"receivable_id"`
+
+	// 以下四项是只读投影，不落库（T-61）：由关联应收单的核销与贷项算出来。
+	// 只在合同详情填充，列表不查——一页 20 张合同逐个算一次，而列表并不显示。
+	//
+	// ReceivedAmount 是已核销额，CreditedAmount 是已开贷项，
+	// OutstandingAmount 是未结清额（= 开票额 − 已核销 − 已贷项）：
+	// 退过货的那一期，「已收 + 未收」本来就小于金额，三个数一起给才解释得清。
+	ReceivableDocNo   string        `gorm:"-" json:"receivable_doc_no,omitempty"`
+	ReceivedAmount    money.Decimal `gorm:"-" json:"received_amount"`
+	CreditedAmount    money.Decimal `gorm:"-" json:"credited_amount"`
+	OutstandingAmount money.Decimal `gorm:"-" json:"outstanding_amount"`
 }
 
 func (ContractTerm) TableName() string { return "biz_contract_term" }

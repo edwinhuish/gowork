@@ -78,6 +78,23 @@ type ReceivableRepository interface {
 	SumAmountBySource(
 		ctx context.Context, sourceType model.SettlementSource, sourceID uint, excludeID uint,
 	) (money.Decimal, error)
+	// Settlements 批量取几张应收单的收款现状，key 是应收单 id（T-61）。
+	//
+	// 合同分期要显示「已收 / 未收」，而这些数只有应收单知道：核销额在单上，
+	// 贷项在另一张表。批量取而不是逐张查——一份合同三五期，逐张就是五个来回，
+	// 而详情页每次打开都要算一遍。
+	Settlements(ctx context.Context, ids []uint) (map[uint]ReceivableSettlement, error)
+}
+
+// ReceivableSettlement 是一张应收单的收款现状。
+//
+// Credited 是已开贷项：退货冲掉的钱不会再收，所以「未收」要把它减掉——
+// 与核销校验、信用敞口、账龄、回款率、客户 360 是同一个口径。
+type ReceivableSettlement struct {
+	DocNo    string
+	Amount   money.Decimal
+	Settled  money.Decimal
+	Credited money.Decimal
 }
 
 type receivableRepo struct {
@@ -139,4 +156,42 @@ func (r *receivableRepo) SumAmountBySource(
 		return money.Zero(), fmt.Errorf("汇总来源应收 source=%d/%d: %w", sourceType, sourceID, err)
 	}
 	return row.Total, nil
+}
+
+// Settlements 批量取应收单的收款现状（T-61）。
+//
+// 贷项用子查询取，不另发一条语句再在 Go 里拼：贷项表按 receivable_id 建过索引，
+// 一次查询就能把「开了多少票、收了多少、退了多少」三件数一起带回来。
+func (r *receivableRepo) Settlements(
+	ctx context.Context, ids []uint,
+) (map[uint]ReceivableSettlement, error) {
+	out := make(map[uint]ReceivableSettlement, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	var rows []struct {
+		ID       uint
+		DocNo    string
+		Amount   money.Decimal
+		Settled  money.Decimal
+		Credited money.Decimal
+	}
+	err := r.conn(ctx).Model(&model.Receivable{}).
+		Select("id, doc_no, amount, settled_amount AS settled, "+
+			creditSubquery("biz_receivable")+" AS credited").
+		Where("id IN ?", ids).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询应收收款现状: %w", err)
+	}
+	for _, row := range rows {
+		out[row.ID] = ReceivableSettlement{
+			DocNo:    row.DocNo,
+			Amount:   row.Amount,
+			Settled:  row.Settled,
+			Credited: row.Credited,
+		}
+	}
+	return out, nil
 }

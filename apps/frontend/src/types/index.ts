@@ -586,6 +586,17 @@ export interface ContractTerm {
   due_date: string | null
   /** "见提单副本后 7 天内"这类条件，与付款日可同时存在。 */
   trigger: string
+  /**
+   * 以下四项只在合同详情返回（列表不查）：由关联应收单的核销与贷项算出来。
+   * 退过货的那一期，「已收 + 未收」小于金额，所以才要三个数一起看。
+   */
+  receivable_doc_no?: string
+  /** 已核销（已收）金额，原币。 */
+  received_amount?: number
+  /** 已开贷项（冲减）金额，原币。 */
+  credited_amount?: number
+  /** 未结清 = 开票额 − 已核销 − 已贷项；没开票时等于整期金额。 */
+  outstanding_amount?: number
 }
 
 /**

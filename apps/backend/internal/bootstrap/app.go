@@ -234,7 +234,7 @@ func New(cfg *config.Config) (*App, error) {
 	var receivableSvc service.ReceivableService
 	contractSvc := service.NewContractService(
 		contractRepo, quotationRepo, orderRepo, currencySvc, docNoSvc, partnerRepo,
-		clauseRepo, service.WithContractLogger(log),
+		clauseRepo, receivableRepo, service.WithContractLogger(log),
 		// 分期开票（T-61）：应收服务在后面才构造，这里传取值函数避免为了顺序让步。
 		service.WithContractReceivables(func() service.ReceivableCreator { return receivableSvc }))
 	// 条款模板库（T-27）：主数据，只被合同生成时读取，不被任何业务流转依赖。

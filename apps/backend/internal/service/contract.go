@@ -52,8 +52,11 @@ type contractService struct {
 	// clauseRepo 用来把条款模板抄成快照（T-27）。合同服务不依赖条款服务的
 	// 业务逻辑，只读模板正文，所以直接拿仓储。
 	clauseRepo repository.ClauseRepository
-	clock      func() time.Time
-	log        *slog.Logger
+	// receivableRepo 只用于详情页读「这期收了多少钱」（T-61）：
+	// 写入走上面那个惰性函数，两边各管一头，互不影响装配顺序。
+	receivableRepo repository.ReceivableRepository
+	clock          func() time.Time
+	log            *slog.Logger
 }
 
 // ReceivableCreator 是合同分期开票要用的那一件事：给我开一张应收。
@@ -85,18 +88,20 @@ func NewContractService(
 	docNos DocNoService,
 	partners repository.PartnerRepository,
 	clauseRepo repository.ClauseRepository,
+	receivableRepo repository.ReceivableRepository,
 	opts ...ContractOption,
 ) ContractService {
 	s := &contractService{
-		contracts:  contracts,
-		quotations: quotations,
-		orders:     orders,
-		currencies: currencies,
-		docNos:     docNos,
-		partners:   partners,
-		clauseRepo: clauseRepo,
-		clock:      time.Now,
-		log:        slog.Default(),
+		contracts:      contracts,
+		quotations:     quotations,
+		orders:         orders,
+		currencies:     currencies,
+		docNos:         docNos,
+		partners:       partners,
+		clauseRepo:     clauseRepo,
+		receivableRepo: receivableRepo,
+		clock:          time.Now,
+		log:            slog.Default(),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -261,7 +266,60 @@ func (s *contractService) Get(ctx context.Context, id uint) (*model.Contract, er
 	if err := ensurePartnerVisible(ctx, s.partners, m.PartnerID); err != nil {
 		return nil, err
 	}
+	if err := s.fillTermSettlements(ctx, m); err != nil {
+		return nil, err
+	}
 	return m, nil
+}
+
+// fillTermSettlements 给每一期补上「已收 / 已冲减 / 未结清」（T-61）。
+//
+// 这三个数不落库：它们是应收单的现状，落了就要跟着每一次核销同步一次，
+// 而真相只有一个——应收单上的金额与核销表。没开票的那一期按"整期未收"算，
+// 那正是业务要看的东西：这一期该收多少、还差多少。
+func (s *contractService) fillTermSettlements(
+	ctx context.Context, c *model.Contract,
+) error {
+	if len(c.Terms) == 0 {
+		return nil
+	}
+	if s.receivableRepo == nil {
+		return nil
+	}
+
+	ids := make([]uint, 0, len(c.Terms))
+	for _, t := range c.Terms {
+		if t.ReceivableID != nil {
+			ids = append(ids, *t.ReceivableID)
+		}
+	}
+	settlements := map[uint]repository.ReceivableSettlement{}
+	if len(ids) > 0 {
+		found, err := s.receivableRepo.Settlements(ctx, ids)
+		if err != nil {
+			return err
+		}
+		settlements = found
+	}
+
+	for i := range c.Terms {
+		term := &c.Terms[i]
+		term.OutstandingAmount = term.Amount
+		if term.ReceivableID == nil {
+			continue
+		}
+		info, ok := settlements[*term.ReceivableID]
+		if !ok {
+			// 应收单被硬删了（正常流程不会）：金额仍按整期未收算，
+			// 不假装收过钱，也不因此让详情页打不开。
+			continue
+		}
+		term.ReceivableDocNo = info.DocNo
+		term.ReceivedAmount = info.Settled
+		term.CreditedAmount = info.Credited
+		term.OutstandingAmount = info.Amount.Sub(info.Settled).Sub(info.Credited)
+	}
+	return nil
 }
 
 func (s *contractService) List(
