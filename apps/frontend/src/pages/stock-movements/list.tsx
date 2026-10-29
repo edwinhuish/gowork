@@ -19,6 +19,9 @@ import { formatDate, formatQty } from '@/utils/format'
 interface MovementSearch {
   keyword?: string
   type?: number
+  /** 业务发生日，YYYY-MM-DD，含两端。 */
+  from?: string
+  to?: string
 }
 
 /** 只有手工录入的流水能删；单据产生的要回到单据上处理。 */
@@ -38,6 +41,13 @@ export function StockMovementList() {
       }
       if (v.type) {
         filters.push({ field: 'type', operator: 'eq', value: v.type })
+      }
+      // 只写起始或只写截止也成立：对账时经常是"从这个月 1 号起的全部流水"。
+      if (v.from?.trim()) {
+        filters.push({ field: 'from', operator: 'eq', value: v.from.trim() })
+      }
+      if (v.to?.trim()) {
+        filters.push({ field: 'to', operator: 'eq', value: v.to.trim() })
       }
       return filters
     },
@@ -61,6 +71,14 @@ export function StockMovementList() {
             style={{ width: 140 }}
             options={STOCK_MOVEMENT_OPTIONS}
           />
+        </Form.Item>
+        {/* 发生日区间用文本框而不是 RangePicker：项目没有引入 dayjs 之外的日期依赖，
+            而选择器要在 dayjs 与字符串之间来回转，对账时手输 YYYY-MM-DD 更快。 */}
+        <Form.Item name="from">
+          <Input placeholder="起日 YYYY-MM-DD" allowClear style={{ width: 150 }} />
+        </Form.Item>
+        <Form.Item name="to">
+          <Input placeholder="止日 YYYY-MM-DD" allowClear style={{ width: 150 }} />
         </Form.Item>
         <Form.Item>
           <Space>

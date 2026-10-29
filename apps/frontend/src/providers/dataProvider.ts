@@ -22,6 +22,7 @@ import type { PageResult } from '@/types'
  *   product_id 仅产品货源（产品详情页的货源面板按产品取数）
  *   shipment_id 仅运费杂费（出货详情页的费用面板按票取数）
  *   source_type / source_id 仅应收应付（查"这张订单开了几张票"）
+ *   from / to 仅库存流水（业务发生日 YYYY-MM-DD，含两端；对账要按时间段看流水）
  *   due 仅跟进记录（=1 时只取已到期未跟进，判定在后端按整天算）
  *   type 库存流水（model.StockMovementType）与运费杂费（model.ShipmentChargeType）共用
  *
@@ -42,6 +43,8 @@ const PASSTHROUGH_FILTERS = new Set([
   'shipment_id',
   'source_type',
   'source_id',
+  'from',
+  'to',
   'due',
   'stage',
   'open_only',
