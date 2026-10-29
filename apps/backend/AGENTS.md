@@ -13,9 +13,11 @@
 数据库与缓存访问。
 
 **ERP 与 CRM 是这个服务的两个域，不是两个服务。** 已落地共享主数据、CRM（联系人 / 跟进 /
-线索 / 商机）、ERP 交易（报价 / 销售订单 / 采购订单）、供应链（出货、报关、库存流水与快照、
-出入库单）与财务（应收应付、收付款与核销）、报表（账龄、单票毛利、汇兑损益）、
-订单确认时的信用额度拦截；销售看板与对账单等报表尚未开始，差距清单见 `docs/gap-analysis.md`。
+线索 / 商机 / 阶段留痕）、ERP 交易（报价 / 合同 / 销售订单 / 采购订单）、
+供应链（出货、报关、仓库与库存流水快照、出入库单、收货单、验货、批次）、
+财务（应收应付、收付款与核销、贷项 / 借项、红冲）与报表（账龄、单票毛利、汇兑损益、
+销售看板、回款与账龄、客户 360、待办）；阶段 10 的 20 条卡已全部收口，
+剩余未立卡的缺口见 `docs/gap-analysis.md`。
 域归属见 `docs/glossary.md` 第二节，判断标准是"这张表会不会被两个域
 同时写"——会，就放 `md_` 下。
 
@@ -181,6 +183,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / PUT / DELETE | `/api/v1/activities/:id` | `Activity.Get` / `.Update` / `.Delete` | 同名方法（按 occurred_at 倒序，不可改 partner_id） |
 | GET / POST | `/api/v1/opportunities` | `Oppty.List` / `.Create` | `OpportunityService.List` / `.Create`（按预计成交日升序） |
 | GET / PUT / DELETE | `/api/v1/opportunities/:id` | `Oppty.Get` / `.Update` / `.Delete` | 同名方法，阶段变更走商机状态机 |
+| POST | `/api/v1/opportunities/:id/revalue` | `Oppty.Revalue` | 按今日汇率重估本币金额（T-61）；保存**不**重算，终态商机 409 |
+| GET | `/api/v1/opportunities/:id/stage-logs` | `Oppty.StageLogs` | 阶段变更历史（T-61）：从哪到哪、赢率、操作人；只读，仓储没有改与删 |
 | GET | `/api/v1/opportunities-summary` | `Oppty.Summary` | 按阶段汇总；独立前缀，避免与 `/:id` 抢路径 |
 | GET / POST | `/api/v1/leads` | `Lead.List` / `.Create` | `LeadService.List` / `.Create`（按创建时间倒序） |
 | GET / PUT / DELETE | `/api/v1/leads/:id` | `Lead.Get` / `.Update` / `.Delete` | 同名方法（已转化不能靠改 status 完成） |
@@ -486,6 +490,11 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 - **商机阶段（`OpportunityStage`）不是单据状态**，不要复用 `DocumentStatus`：
   商机阶段可以回退（客户预算冻结时真实地退回去了），单据状态只能前进与取消。
   两者的"终态不可再改"是同一条规则，其余全不同。
+  **商机的本币金额在录入时锁汇率**（`rate_locked_on` 记折算日）：改备注、改阶段、
+  改赢率都不重算，只有金额/币种变了或显式点「按今日汇率重算」才动。想"顺手重算一下"
+  之前先想清楚——那会让上一季的加权预测跟着今天的汇率漂，季度环比就没了。
+  阶段变更写 `crm_opportunity_stage_log`（仓储只有 Create / List），
+  与商机本体同事务：只写进去一半会出现"阶段变了但没人记得是谁改的"。
 - **占用数量的单据，可用量必须在服务端算**：出货分配行的上限是
   `订单行数量 − 已占用数量`，它既不是订单行上的 qty，也不能由前端提交。
   两条既有实现要遵守的细节：编辑时要排除自己那一票（`excludeShipmentID`），
