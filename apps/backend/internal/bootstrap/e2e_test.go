@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -835,11 +836,12 @@ func TestE2EPaymentAllocation(t *testing.T) {
 
 	t.Run("超额核销被拒", func(t *testing.T) {
 		// 只剩 700 可核销，收 800 等于替客户多记了一笔回款。
+		// 到账日同样取"今天"：这个子测验的是核销上限，不是汇率表里有哪几天。
 		body := fmt.Sprintf(`{
-			"direction": 10, "partner_id": %d, "pay_date": "2026-10-29",
+			"direction": 10, "partner_id": %d, "pay_date": "%s",
 			"currency_code": "USD", "amount": "800", "method": "TT",
 			"allocations": [{"target_type": 10, "target_id": %d, "amount": "800"}]
-		}`, customerID, receivableID)
+		}`, customerID, time.Now().Format("2006-01-02"), receivableID)
 		res := call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
 		defer res.Body.Close()
 		if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {

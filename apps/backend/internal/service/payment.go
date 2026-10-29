@@ -174,10 +174,11 @@ func (s *paymentService) Create(
 	}
 
 	// 汇率取**到账日**的，不是应收开单时锁的：两者的差就是汇兑损益。
-	// 仍走中间价：ToBaseDecimalFor 已就位，但接入后 e2e 取不到汇率
-	// （测试库里老汇率行的 rate_type 为空，按类型过滤会全部落空）。
-	// 先保持改造前行为，等把"空类型视为中间价"的迁移补齐再接（T-60 剩余部分）。
-	amountBase, rate, err := s.currencies.ToBaseDecimal(ctx, amount, currency, payDate)
+	// 收款用买入价、付款用卖出价（T-60）：这是钱实际被银行吃掉的价差，
+	// 用中间价会让单票毛利长期朝一个方向偏。
+	// 该类型当天没录时回退中间价（仓储层保证），所以存量数据不受影响。
+	amountBase, rate, err := s.currencies.ToBaseDecimalFor(
+		ctx, amount, currency, payDate, paymentRateType(model.PaymentDirection(in.Direction)))
 	if err != nil {
 		return nil, err
 	}
