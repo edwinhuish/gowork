@@ -29,6 +29,14 @@
         "B/L No.: {bl_no}",
         "ETD: {etd}"
       ]
+    },
+    {
+      "label": "{consignee_label}",
+      "lines": [
+        "{consignee_name}",
+        "{consignee_address}",
+        "Attn: {consignee_contact}"
+      ]
     }
   ],
   "items": {

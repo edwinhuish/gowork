@@ -56,15 +56,26 @@ type pdfService struct {
 	// 明细只在分配行上，不回订单取。
 	shipments  repository.ShipmentRepository
 	currencies CurrencyService
-	renderer   *pdf.Renderer
-	company    CompanyInfo
-	log        *slog.Logger
+	// addresses 供多地址取址（T-49）。为 nil 时一律回退主体上的那一列地址，
+	// 所以测试与老调用方不必为它准备仓储。
+	addresses repository.PartnerAddressRepository
+	renderer  *pdf.Renderer
+	company   CompanyInfo
+	log       *slog.Logger
 }
 
 type PDFOption func(*pdfService)
 
 func WithPDFLogger(l *slog.Logger) PDFOption {
 	return func(s *pdfService) { s.log = l }
+}
+
+// WithPDFAddresses 注入多地址仓储。
+//
+// 用 Option 而不是加构造参数：PDF 服务已有七个位置参数，再加一个会牵动
+// bootstrap 与两处测试的调用点，而地址只是"取不到就回退"的可选增强。
+func WithPDFAddresses(repo repository.PartnerAddressRepository) PDFOption {
+	return func(s *pdfService) { s.addresses = repo }
 }
 
 func NewPDFService(
@@ -131,7 +142,7 @@ func (s *pdfService) Quotation(ctx context.Context, id uint) (*RenderedFile, err
 		// 结算方式是快照式的当下值：报价单没有存一份，改客户资料后重打的 PDF
 		// 会跟着变。这一点与金额不同——金额是承诺，结算方式是联系方式。
 		values["settlement_method"] = orDash(string(q.Partner.SettlementMethod))
-		s.partnerValues(values, q.Partner)
+		s.partnerValues(ctx, values, q.Partner, model.PartnerAddressInvoice)
 	} else {
 		values["settlement_method"] = "—"
 	}
@@ -194,7 +205,8 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 	values["amount_base_total"] = moneyTextD(c.AmountBaseTotal, baseDP)
 	values["terms_total"] = moneyTextD(termsTotal, curDP)
 	values["remark"] = orDash(c.Remark)
-	s.partnerValues(values, c.Partner)
+	// PI 与销售合同都是"给客户看的报价性文件"，用发票抬头地址。
+	s.partnerValues(ctx, values, c.Partner, model.PartnerAddressInvoice)
 
 	data, err := s.render("contract", pdf.Data{
 		Values: values,
@@ -263,7 +275,11 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 	values["amount_total"] = moneyTextD(total.Round(curDP), curDP)
 	values["amount_base_total"] = moneyTextD(total.Mul(order.ExchangeRate).Round(baseDP), baseDP)
 	values["substitution_note"] = substitutionNote(sd)
-	s.partnerValues(values, order.Partner)
+	// CI 三块地址各取所需：抬头是付款方，收货人与通知方常常是另外两家公司
+	// （客户的报关行、目的港代理）。没有配的时候这两块不印。
+	s.partnerValues(ctx, values, order.Partner, model.PartnerAddressInvoice)
+	s.partyBlock(ctx, values, order.Partner, model.PartnerAddressConsignee, "consignee", "CONSIGNEE")
+	s.partyBlock(ctx, values, order.Partner, model.PartnerAddressNotify, "notify", "NOTIFY PARTY")
 
 	data, err := s.render("invoice", pdf.Data{Values: values, Items: items})
 	if err != nil {
@@ -316,7 +332,10 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 	values["cartons_total"] = packedInt(cartons)
 	values["gross_total"] = packedWeight(gross)
 	values["net_total"] = packedWeight(net)
-	s.partnerValues(values, order.Partner)
+	// 装箱单的抬头同样是买方，但"货送到哪"另有一栏：取 consignee。
+	// 与 CI 一致，没配 consignee 地址时不印这一块。
+	s.partnerValues(ctx, values, order.Partner, model.PartnerAddressInvoice)
+	s.partyBlock(ctx, values, order.Partner, model.PartnerAddressConsignee, "consignee", "CONSIGNEE")
 
 	data, err := s.render("packing-list", pdf.Data{Values: values, Items: items})
 	if err != nil {
@@ -562,16 +581,83 @@ func packedWeight(v money.Decimal) string {
 	return qtyText(v)
 }
 
-// partnerValues 填客户区块。空字段留空串，模板里那一行会被跳过——
-// 与其印一行 "Address: " 让客户猜是不是漏打了，不如什么都不印。
-func (s *pdfService) partnerValues(values map[string]string, p *model.Partner) {
+// partnerValues 填买方区块：名称取主体，地址按用途取默认地址。
+//
+// typ 由调用方决定——PI / 报价 / 商业发票取 invoice（抬头），装箱单取 delivery（送到哪）。
+// 取不到该用途的地址时回退主体上那一列：存量主体还没有多地址，
+// 回退能保证它们打印出来与改动前完全一致，不会突然变成空白。
+func (s *pdfService) partnerValues(
+	ctx context.Context, values map[string]string, p *model.Partner, typ model.PartnerAddressType,
+) {
 	if p == nil {
 		return
 	}
 	values["partner_name"] = p.Name
+	if addr, ok := s.defaultAddress(ctx, p.ID, typ); ok {
+		values["partner_address"] = addressText(addr)
+		values["partner_country"] = addr.Country
+		values["partner_contact"] = strings.TrimSpace(addr.Contact + " " + addr.Phone)
+		return
+	}
+	// 空字段留空串，模板里那一行会被跳过——与其印一行 "Address: "
+	// 让客户猜是不是漏打了，不如什么都不印。
 	values["partner_address"] = p.Address
 	values["partner_country"] = p.Country
 	values["partner_contact"] = strings.TrimSpace(p.ContactName + " " + p.Phone)
+}
+
+// partyBlock 填提单上的收货人 / 通知方区块。
+//
+// 该用途没有地址时整块留空：模板里连标签也走 values，所以整个区块会消失。
+// 印一个只有 "CONSIGNEE" 标题、没有地址的区块，客户会以为漏打了内容。
+func (s *pdfService) partyBlock(
+	ctx context.Context, values map[string]string, p *model.Partner,
+	typ model.PartnerAddressType, prefix, label string,
+) {
+	if p == nil {
+		return
+	}
+	addr, ok := s.defaultAddress(ctx, p.ID, typ)
+	if !ok {
+		return
+	}
+	values[prefix+"_label"] = label
+	values[prefix+"_name"] = p.Name
+	values[prefix+"_address"] = addressText(addr)
+	values[prefix+"_contact"] = strings.TrimSpace(addr.Contact + " " + addr.Phone)
+}
+
+// defaultAddress 取某主体某用途的默认地址；没有则 ok=false。
+//
+// 仓储已按 is_default DESC 排序，正常情况下第一条就是默认；
+// 仍显式找一遍，是因为「排序即语义」这种隐含约定最容易在某次改动中失效。
+func (s *pdfService) defaultAddress(
+	ctx context.Context, partnerID uint, typ model.PartnerAddressType,
+) (*model.PartnerAddress, bool) {
+	if s.addresses == nil || partnerID == 0 {
+		return nil, false
+	}
+	rows, err := s.addresses.ListByPartner(ctx, partnerID, typ)
+	if err != nil || len(rows) == 0 {
+		return nil, false
+	}
+	for i := range rows {
+		if rows[i].IsDefault {
+			return &rows[i], true
+		}
+	}
+	return &rows[0], true
+}
+
+// addressText 把省市与街道拼成一行。国家单独一列，所以不拼进来。
+func addressText(a *model.PartnerAddress) string {
+	parts := make([]string, 0, 3)
+	for _, v := range []string{a.Province, a.City, a.Address} {
+		if strings.TrimSpace(v) != "" {
+			parts = append(parts, v)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (s *pdfService) render(name string, d pdf.Data) ([]byte, error) {

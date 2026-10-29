@@ -31,6 +31,22 @@
         "ETD: {etd}",
         "Currency: {currency_code}"
       ]
+    },
+    {
+      "label": "{consignee_label}",
+      "lines": [
+        "{consignee_name}",
+        "{consignee_address}",
+        "Attn: {consignee_contact}"
+      ]
+    },
+    {
+      "label": "{notify_label}",
+      "lines": [
+        "{notify_name}",
+        "{notify_address}",
+        "Attn: {notify_contact}"
+      ]
     }
   ],
   "items": {
