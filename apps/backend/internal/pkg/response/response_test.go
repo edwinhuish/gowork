@@ -2,6 +2,7 @@ package response
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -107,5 +108,35 @@ func TestFailKeepsClientErrorQuiet(t *testing.T) {
 	}
 	if buf.Len() != 0 {
 		t.Errorf("4xx 不应写错误日志，实际日志: %s", buf.String())
+	}
+}
+
+// 请求超时不是"服务器内部错误"：代码没坏，只是这次没算完。
+// 报 500 会让人去翻代码，而正确动作通常是重试或缩小查询范围。
+func TestFailMapsDeadlineToGatewayTimeout(t *testing.T) {
+	c, w := newContext(t, http.MethodGet, "/api/v1/reports/sales-dashboard")
+
+	Fail(c, context.DeadlineExceeded)
+
+	if w.Code != http.StatusGatewayTimeout {
+		t.Fatalf("状态码 = %d, 期望 504", w.Code)
+	}
+	body := decodeBody(t, w)
+	if body.Code != int(errs.CodeTimeout) {
+		t.Errorf("业务码 = %d, 期望 %d", body.Code, errs.CodeTimeout)
+	}
+	if body.Message != errs.ErrTimeout.Msg {
+		t.Errorf("message = %q, 期望 %q", body.Message, errs.ErrTimeout.Msg)
+	}
+}
+
+// 上游把超时包成业务错误时，仍按超时报——否则一次超时会显示成"保存失败"。
+func TestFailMapsWrappedDeadlineToGatewayTimeout(t *testing.T) {
+	c, w := newContext(t, http.MethodGet, "/api/v1/reports/aging")
+
+	Fail(c, errs.Wrap(context.DeadlineExceeded, errs.CodeInternal, "查询失败"))
+
+	if w.Code != http.StatusGatewayTimeout {
+		t.Fatalf("状态码 = %d, 期望 504", w.Code)
 	}
 }

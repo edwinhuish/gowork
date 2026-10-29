@@ -5,6 +5,8 @@
 package response
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -49,7 +51,13 @@ func Created(c *gin.Context, data any) {
 // 而终端里一片安静）。400 一类的业务错误不记，避免把用户输错参数刷成告警。
 func Fail(c *gin.Context, err error) {
 	e, ok := errs.From(err)
-	if !ok {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		// 请求超时不是"服务器内部错误"：代码没坏，只是这次没算完。
+		// 折叠成 500 会让人去翻代码，而正确动作通常是重试或缩小查询范围。
+		// 这里覆盖掉上游可能包装过的码：底层是超时，就该报超时。
+		e = errs.ErrTimeout
+	case !ok:
 		e = errs.Wrap(err, errs.CodeInternal, "服务器内部错误")
 	}
 	if e.Code.HTTPStatus() >= http.StatusInternalServerError {

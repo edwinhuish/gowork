@@ -5,6 +5,7 @@ package server
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -58,6 +59,13 @@ type Handlers struct {
 // 这类请求——那种请求只需要一个 curl 循环，不需要账号（登录接口也在保护范围内）。
 const bodyLimitBytes = 32 << 20
 
+// requestTimeout 是单个请求的处理上限。
+//
+// 取值比导出这类重活宽裕（10000 行分页取数最慢也就几秒），但远小于"用户会一直等"
+// 的时长：请求卡住时，早点返回 504 比让浏览器转到超时更好查——日志里会留下
+// 一条带 request_id 的超时错误。
+const requestTimeout = 30 * time.Second
+
 // New 构建 gin 引擎。
 func New(
 	cfg *config.Config, log *slog.Logger, auth service.AuthService,
@@ -74,6 +82,8 @@ func New(
 		// 请求体兜底上限：gin 解析 JSON 时会把整个 body 读进内存，而 Go 默认不设限。
 		// 附件那 10MB 的业务上限另算（见 BodyLimit 的注释）。
 		middleware.BodyLimit(bodyLimitBytes),
+		// 请求处理上限：超时由 ctx 取消传导到查库，最终由 response.Fail 报 504。
+		middleware.RequestTimeout(requestTimeout),
 	)
 
 	engine.GET("/healthz", handler.Health)

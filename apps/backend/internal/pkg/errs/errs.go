@@ -23,6 +23,9 @@ const (
 	CodeNotFound     Code = 40401
 	CodeConflict     Code = 40901
 	CodeInternal     Code = 50001
+	// CodeTimeout 是请求处理超时（网关超时语义）。500 与 504 的区别是
+	// "服务自己错了"与"这次没算完"：前者要查代码，后者重试往往就好了。
+	CodeTimeout Code = 50401
 )
 
 // HTTPStatus 把业务错误码映射为 HTTP 状态码。
@@ -40,6 +43,9 @@ func (c Code) HTTPStatus() int {
 		return http.StatusConflict
 	case 500:
 		return http.StatusInternalServerError
+	case 504:
+		// 超时单独映射：500 与 504 的区别是"服务自己错了"与"这次没算完"。
+		return http.StatusGatewayTimeout
 	}
 	if c == CodeOK {
 		return http.StatusOK
@@ -95,6 +101,7 @@ var (
 	ErrForbidden    = New(CodeForbidden, "没有操作权限")
 	ErrInternal     = New(CodeInternal, "服务器内部错误")
 	ErrConflict     = New(CodeConflict, "数据已存在或状态冲突")
+	ErrTimeout      = New(CodeTimeout, "请求处理超时，请稍后重试")
 )
 
 // BadRequest 构造参数错误。
