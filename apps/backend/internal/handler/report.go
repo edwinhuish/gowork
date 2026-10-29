@@ -36,6 +36,23 @@ func (h *ReportHandler) ExchangeGains(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// Collection GET /api/v1/reports/collection
+//
+// 参数：direction=10|20（留空按应收）、from / to（按到期日，闭区间）、
+// as_of（超期明细截止日，留空取今天）、limit（留空 50，0 取上限 500）。
+func (h *ReportHandler) Collection(c *gin.Context) {
+	var q dto.CollectionQuery
+	if !bindQuery(c, &q) {
+		return
+	}
+	res, err := h.reports.Collection(c.Request.Context(), q)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, res)
+}
+
 // SalesDashboard GET /api/v1/reports/sales-dashboard
 //
 // 参数：dimension=customer|product|country|month（留空按客户）、from / to（闭区间）、

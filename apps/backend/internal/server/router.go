@@ -331,6 +331,8 @@ func New(
 		reports.GET("/exchange-gains", h.Report.ExchangeGains)
 		// 销售看板：按客户 / 产品 / 国家 / 月汇总订单额与毛利，口径与单票毛利同源。
 		reports.GET("/sales-dashboard", h.Report.SalesDashboard)
+		// 回款与超期：期间回款率（流量）+ 截至 as_of 的超期明细（存量）。
+		reports.GET("/collection", h.Report.Collection)
 
 		movements := secured.Group("/stock-movements")
 		movements.GET("", h.Stock.ListMovements)

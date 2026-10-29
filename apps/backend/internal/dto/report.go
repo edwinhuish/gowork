@@ -169,6 +169,68 @@ type ExchangeGainReport struct {
 	TotalGainBase money.Decimal          `json:"total_gain_base"`
 }
 
+// CollectionQuery 是回款与超期报表的查询条件。
+type CollectionQuery struct {
+	// Direction 10 应收回款 / 20 应付付款，留空按应收。
+	Direction *int8 `form:"direction"`
+	// From / To 是回款率的统计期间，闭区间，按**到期日**筛。
+	From string `form:"from" binding:"max=10"`
+	To   string `form:"to" binding:"max=10"`
+	// AsOf 是超期明细的截止日，留空取今天。逾期天数相对它算。
+	AsOf string `form:"as_of" binding:"max=10"`
+	// Limit 是超期明细的行数上限，留空 50；0 取内部上限 500。
+	Limit *int `form:"limit"`
+}
+
+// CollectionRow 是一张**已逾期**且尚未结清的单据。
+//
+// 逐笔而不是按客户聚合：催款是按单催的，客户欠三张单时只说"他欠 8 万"
+// 没法决定先催哪一张。
+type CollectionRow struct {
+	ID           uint   `json:"id"`
+	DocNo        string `json:"doc_no"`
+	PartnerID    uint   `json:"partner_id"`
+	PartnerCode  string `json:"partner_code"`
+	PartnerName  string `json:"partner_name"`
+	CurrencyCode string `json:"currency_code"`
+	DueDate      string `json:"due_date"`
+	OverdueDays  int    `json:"overdue_days"`
+
+	// Outstanding 是未核销的原币金额，OutstandingBase 是它的本币金额。
+	Outstanding     money.Decimal `json:"outstanding"`
+	OutstandingBase money.Decimal `json:"outstanding_base"`
+}
+
+// CollectionReport 是回款率与超期明细。
+//
+// 两个数在一张表里但要分开读：**期间回款率**回答"这段时间该收的收回来多少"，
+// 分子按到账日、分母按到期日；**超期明细**回答"今天还欠着哪几笔"，
+// 是截至 as_of 的存量。前者是流量、后者是存量，不能互相校验。
+type CollectionReport struct {
+	Direction int8   `json:"direction"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	AsOf      string `json:"as_of"`
+
+	// DueAmountBase 是期间内到期的单据金额（本币），ReceivedBase 是期间内到账并核销的金额。
+	DueAmountBase money.Decimal `json:"due_amount_base"`
+	ReceivedBase  money.Decimal `json:"received_base"`
+	// CollectionRate = ReceivedBase / DueAmountBase，分母为 0 时给 0。
+	CollectionRate money.Decimal `json:"collection_rate"`
+
+	// OutstandingBase 是截至 as_of 仍未核销的总额（含未到期）。
+	OutstandingBase money.Decimal `json:"outstanding_base"`
+	// OverdueBase 是其中已逾期的那部分，OverdueBuckets 是它的账龄分桶
+	// （与账龄报表同一套规则，NotDue 恒为 0）。
+	OverdueBase    money.Decimal `json:"overdue_base"`
+	OverdueBuckets AgingBuckets  `json:"overdue_buckets"`
+
+	// OverdueRows 按逾期天数从多到少：最该催的排最前面。
+	OverdueRows []CollectionRow `json:"overdue_rows"`
+	// Truncated 表示明细被 limit 截断，OverdueBase 与分桶仍是全量。
+	Truncated bool `json:"truncated"`
+}
+
 // SalesDashboardQuery 是销售看板的查询条件。
 type SalesDashboardQuery struct {
 	// Dimension 取 customer / product / country / month，留空按 customer。

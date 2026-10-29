@@ -31,6 +31,8 @@ type ReportService interface {
 	// SalesDashboard 按客户 / 产品 / 国家 / 月汇总订单额与毛利（T-28）。
 	// 口径复用 ShipmentProfits，换维度只换分组键。
 	SalesDashboard(ctx context.Context, q dto.SalesDashboardQuery) (*dto.SalesDashboard, error)
+	// Collection 给出期间回款率与截至 as_of 的超期明细（T-29）。
+	Collection(ctx context.Context, q dto.CollectionQuery) (*dto.CollectionReport, error)
 }
 
 type reportService struct {

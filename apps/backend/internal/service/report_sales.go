@@ -350,29 +350,11 @@ func salesDimension(raw string) (string, error) {
 
 // salesDateRange 把两个 YYYY-MM-DD 解析成闭区间，并返回回显用的规范化字符串。
 func salesDateRange(from, to string) (repository.SalesFilter, string, string, error) {
-	filter := repository.SalesFilter{}
-	labelFrom, labelTo := "", ""
-
-	if strings.TrimSpace(from) != "" {
-		d, err := parseDateOnly(from)
-		if err != nil {
-			return filter, "", "", err
-		}
-		filter.From = &d
-		labelFrom = d.Format(rateDateLayout)
+	fromPtr, toPtr, labelFrom, labelTo, err := parsePeriod(from, to)
+	if err != nil {
+		return repository.SalesFilter{}, "", "", err
 	}
-	if strings.TrimSpace(to) != "" {
-		d, err := parseDateOnly(to)
-		if err != nil {
-			return filter, "", "", err
-		}
-		filter.To = &d
-		labelTo = d.Format(rateDateLayout)
-	}
-	if filter.From != nil && filter.To != nil && filter.From.After(*filter.To) {
-		return filter, "", "", errs.BadRequest("起始日期不能晚于结束日期")
-	}
-	return filter, labelFrom, labelTo, nil
+	return repository.SalesFilter{From: fromPtr, To: toPtr}, labelFrom, labelTo, nil
 }
 
 func salesLimit(raw *int) (int, error) {

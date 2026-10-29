@@ -18,6 +18,8 @@ import (
 // 只取报表需要的列：报表要的是"谁欠多少、什么时候到期"，
 // 把整张应收单（含来源单号、备注、状态机）读进来只会让聚合多背一份内存。
 type OutstandingSettlement struct {
+	ID                uint
+	DocNo             string
 	PartnerID         uint
 	PartnerCode       string
 	PartnerName       string
@@ -63,6 +65,19 @@ type ReportRepository interface {
 	PurchaseCostBySalesItem(ctx context.Context, salesItemIDs []uint) (map[uint]PurchaseCost, error)
 	// SumChargesByShipment 按票汇总运杂费本币金额（单票毛利的减项）。
 	SumChargesByShipment(ctx context.Context, shipmentIDs []uint) (map[uint]money.Decimal, error)
+
+	// ---- 回款与超期（T-29）----
+
+	// SumSettlementDue 汇总期间内到期的应收 / 应付金额（本币），回款率的分母。
+	SumSettlementDue(
+		ctx context.Context, target model.SettlementTarget, from, to *time.Time,
+	) (money.Decimal, error)
+	// SumReceivedAllocations 汇总期间内到账并核销的金额（本币），回款率的分子。
+	SumReceivedAllocations(
+		ctx context.Context,
+		direction model.PaymentDirection, target model.SettlementTarget,
+		from, to *time.Time,
+	) (money.Decimal, error)
 
 	// ---- 销售看板（T-28）----
 
@@ -167,7 +182,9 @@ func (r *reportRepo) ListOutstandingSettlements(
 	// 切表名反而绕。代价是软删除条件要自己写 —— 漏了就会把已删的单据算进账龄。
 	err = r.conn(ctx).
 		Table(table+" AS s").
-		Select(`s.partner_id,
+		Select(`s.id,
+			s.doc_no,
+			s.partner_id,
 			p.code AS partner_code,
 			p.name AS partner_name,
 			s.currency_code,
