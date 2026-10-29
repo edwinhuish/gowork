@@ -180,6 +180,7 @@ func (s *shipmentService) Create(
 		// 空值落 amount：与改造前的口径一致，没设置的票算出来的数不变（T-59）。
 		ChargeAllocBasis: chargeBasisOf(in.ChargeAllocBasis),
 		ForwarderID:      in.ForwarderID,
+		WarehouseID:      in.WarehouseID,
 		Remark:           in.Remark,
 	}
 	if err := s.shipments.CreateWithAllocations(ctx, m, rows); err != nil {
@@ -216,6 +217,7 @@ func (s *shipmentService) Update(
 		"ship_date":          shipDate,
 		"charge_alloc_basis": chargeBasisOf(in.ChargeAllocBasis),
 		"forwarder_id":       in.ForwarderID,
+		"warehouse_id":       in.WarehouseID,
 		"remark":             in.Remark,
 	}
 	if in.UpdatedAt != nil {
@@ -428,9 +430,10 @@ func (s *shipmentService) shipAndIssue(
 // 将来若允许一票拼多单，这里要按客户拆成多张出库单——先留这句话在这里。
 func (s *shipmentService) salesOutInput(sh *model.Shipment) (dto.SalesOutIssueInput, error) {
 	in := dto.SalesOutIssueInput{
-		ShipmentID: sh.ID,
-		ShipmentNo: sh.DocNo,
-		DocDate:    model.DateOnly(sh.ShipDate),
+		WarehouseID: sh.WarehouseID,
+		ShipmentID:  sh.ID,
+		ShipmentNo:  sh.DocNo,
+		DocDate:     model.DateOnly(sh.ShipDate),
 	}
 	if len(sh.Allocations) == 0 {
 		return in, errs.BadRequest("这次出货没有分配行，不能确认出货")

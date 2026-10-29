@@ -57,9 +57,11 @@ type SalesOutIssueInput struct {
 	// 同一次出货只能有一张出库单。
 	ShipmentNo string
 	PartnerID  *uint
-	DocDate    time.Time
-	Remark     string
-	Items      []SalesOutIssueItem
+	// WarehouseID 是出货仓（T-56）：留空落默认仓。
+	WarehouseID *uint
+	DocDate     time.Time
+	Remark      string
+	Items       []SalesOutIssueItem
 }
 
 // SalesOutIssueItem 是出库单里的一行，照抄出货分配的物料快照。

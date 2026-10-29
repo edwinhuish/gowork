@@ -1,7 +1,9 @@
+import { useSelect } from '@refinedev/core'
 import { Form, Input, Select } from 'antd'
 
 import { CHARGE_ALLOC_BASIS_OPTIONS } from '@/constants/catalog'
 import { todayString } from '../orders/form-fields'
+import type { Warehouse } from '@/types'
 
 /**
  * 出货单表头。
@@ -10,6 +12,15 @@ import { todayString } from '../orders/form-fields'
  * 一票可以装多张订单的货（拼柜），把客户挂在票头上等于逼人拆柜。
  */
 export function ShipmentFormFields() {
+  // 出货仓（T-56）：只列启用中的仓；留空落默认仓。
+  const { options: warehouseOptions, query: warehouseQuery } = useSelect<Warehouse>({
+    resource: 'warehouses',
+    optionLabel: (item) => `${item.name}（${item.code}）`,
+    optionValue: 'id',
+    pagination: { mode: 'off' },
+    filters: [{ field: 'status', operator: 'eq', value: 1 }],
+  })
+
   return (
     <>
       <Form.Item
@@ -19,6 +30,25 @@ export function ShipmentFormFields() {
         extra="留空取今天；决定这票落在哪个统计月份"
       >
         <Input placeholder={todayString()} />
+      </Form.Item>
+
+      <Form.Item
+        name="warehouse_id"
+        label="出货仓"
+        tooltip="货从哪个仓出。留空落默认仓；直发业务（工厂直接发走）不必填"
+      >
+        <Select
+          placeholder="默认仓"
+          allowClear
+          showSearch
+          options={warehouseOptions}
+          loading={warehouseQuery.isLoading}
+          filterOption={(input, option) =>
+            String(option?.label ?? '')
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
+        />
       </Form.Item>
 
       {/* 运杂费按票发生、按行归集（T-59）：拼柜时高价值小体积的货会背走多数运费，

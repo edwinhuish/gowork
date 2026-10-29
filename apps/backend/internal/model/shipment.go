@@ -29,6 +29,11 @@ type Shipment struct {
 	// 而按行选会让「这票运费怎么摊的」要逐行看。
 	ChargeAllocBasis string `gorm:"size:8;not null;default:'amount'" json:"charge_alloc_basis"`
 
+	// WarehouseID 是这票货从哪个仓出（T-56）。可空：留空落默认仓。
+	// 直发业务（工厂直接发走）没有出货仓，所以不做必填。
+	WarehouseID *uint      `gorm:"index" json:"warehouse_id"`
+	Warehouse   *Warehouse `gorm:"foreignKey:WarehouseID" json:"warehouse,omitempty"`
+
 	// ForwarderID 是这票货的货代（T-55）。可空：直发业务有时自己订舱。
 	// 指向 md_partner 里带 forwarder 角色位的主体，角色由 service 写入时校验。
 	// 之前货代只作为费用行的收款方存在，票面上没有落点，四份外销单证就印不出它。

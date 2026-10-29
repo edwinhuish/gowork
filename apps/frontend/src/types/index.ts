@@ -782,6 +782,8 @@ export interface Shipment {
   ship_date: string
   /** 运杂费摊到行的依据（T-59）：amount / qty / volume / weight / cartons。 */
   charge_alloc_basis: string
+  /** 出货仓（T-56）：留空落默认仓。 */
+  warehouse_id: number | null
   /**
    * 物流节点。它们是订舱之后才知道的，所以不走编辑页：
    * 用 `shipmentApi.updateLogistics` 单独保存，任何状态都能改。

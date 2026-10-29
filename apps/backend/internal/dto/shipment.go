@@ -47,6 +47,8 @@ type ShipmentInput struct {
 	// ChargeAllocBasis 是运杂费摊到行的依据（T-59）：留空按金额。
 	// 可选 amount / qty / volume / weight / cartons。
 	ChargeAllocBasis string `json:"charge_alloc_basis" binding:"omitempty,oneof=amount qty volume weight cartons"`
+	// WarehouseID 是出货仓（T-56），留空落默认仓。
+	WarehouseID *uint `json:"warehouse_id"`
 	// ForwarderID 是这票货的货代（T-55）。四份外销单证都要印它：
 	// 订舱委托的抬头、装船通知的联系人、产地证的运输细节。
 	// 之前货代只作为费用行的收款方存在，票面上没有落点。
