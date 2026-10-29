@@ -273,6 +273,13 @@ export interface Product {
   supplier_id: number | null
   /** 后端 money.Decimal：字符串收发，前端只显示，不参与算术。 */
   cost_price: string
+  /**
+   * 成本价被**服务端**清过（T-36 字段级权限）。
+   *
+   * 没有这个标记，被清成 0 的成本价与"这件货不要钱"在界面上分不开——
+   * 两者含义正好相反，所以界面要显示「—」而不是 0。
+   */
+  cost_hidden?: boolean
   sale_price: string
   /** 报关要素的默认值。真实报关以出货批次上填的为准，这里是带出来的缺省。 */
   hs_code: string
@@ -806,6 +813,8 @@ export interface ProductProfitRow {
   charge: string
   profit: string
   cost_missing: boolean
+  /** 成本 / 运杂费 / 毛利被服务端清掉（T-36）：收入照给，赚多少看不到。 */
+  cost_hidden?: boolean
 }
 
 export interface ProductProfitReport {
@@ -820,6 +829,8 @@ export interface ProductProfitReport {
   /** 0.2254 = 22.54%。收入为 0 时给 0。 */
   margin: string
   cost_missing: boolean
+  /** 成本 / 运杂费 / 毛利 / 毛利率被服务端清掉（T-36）。 */
+  cost_hidden?: boolean
 }
 
 /** 一条该跟进的记录（T-34）。到期当天不算，所以 overdue_days 从 1 起。 */
@@ -1022,6 +1033,8 @@ export interface SalesDashboardRow {
   shipments: number
   /** 有出货行没有可用采购成本：此时成本与毛利都不完整。 */
   cost_missing: boolean
+  /** 成本 / 运杂费 / 毛利 / 毛利率被服务端清掉（T-36）：订单额与收入照给。 */
+  cost_hidden?: boolean
 }
 
 export interface SalesDashboard {
@@ -1098,6 +1111,8 @@ export interface ShipmentProfit {
   margin: string
   /** 有销售行没有可用成本（没挂采购单或采购单还是草稿），成本与毛利因此不完整。 */
   cost_missing: boolean
+  /** 成本 / 运杂费 / 毛利被服务端清掉（T-36）：收入照给。 */
+  cost_hidden?: boolean
 }
 
 export interface Payment {

@@ -42,7 +42,19 @@ export function ProfitCard({ shipmentId, status }: { shipmentId: number; status:
 
       {profit && (
         <>
-          {profit.cost_missing && (
+          {/* T-36：成本与毛利在服务端就被清成了 0。这里必须显式说明，
+              否则四个 0 会被读成"这票一分没赚"。 */}
+          {profit.cost_hidden && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message="成本与毛利对当前账号不可见"
+              description="收入可以看到；成本、运杂费与毛利仅管理员与主管可见。"
+            />
+          )}
+
+          {profit.cost_missing && !profit.cost_hidden && (
             <Alert
               type="warning"
               showIcon
@@ -57,20 +69,32 @@ export function ProfitCard({ shipmentId, status }: { shipmentId: number; status:
               <Statistic title="收入（本币）" value={Number(profit.revenue)} precision={2} />
             </Col>
             <Col xs={12} lg={6}>
-              <Statistic title="采购成本" value={Number(profit.cost)} precision={2} />
+              <Statistic
+                title="采购成本"
+                value={profit.cost_hidden ? '—' : Number(profit.cost)}
+                precision={profit.cost_hidden ? undefined : 2}
+              />
             </Col>
             <Col xs={12} lg={6}>
-              <Statistic title="运杂费" value={Number(profit.charge)} precision={2} />
+              <Statistic
+                title="运杂费"
+                value={profit.cost_hidden ? '—' : Number(profit.charge)}
+                precision={profit.cost_hidden ? undefined : 2}
+              />
             </Col>
             <Col xs={12} lg={6}>
               <Statistic
                 title="毛利"
-                value={Number(profit.profit)}
-                precision={2}
-                valueStyle={Number(profit.profit) < 0 ? { color: '#cf1322' } : undefined}
+                value={profit.cost_hidden ? '—' : Number(profit.profit)}
+                precision={profit.cost_hidden ? undefined : 2}
+                valueStyle={
+                  !profit.cost_hidden && Number(profit.profit) < 0
+                    ? { color: '#cf1322' }
+                    : undefined
+                }
               />
               <Typography.Text type="secondary" className="stat-hint">
-                毛利率 {formatPercent(Number(profit.margin))}
+                毛利率 {profit.cost_hidden ? '—' : formatPercent(Number(profit.margin))}
               </Typography.Text>
             </Col>
           </Row>

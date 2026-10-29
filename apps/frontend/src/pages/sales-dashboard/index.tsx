@@ -126,6 +126,17 @@ export function SalesDashboardPage() {
     <Space direction="vertical" size={16} style={{ display: 'flex' }}>
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
+      {/* T-36：成本与毛利在服务端就被清成了 0，这里必须说明，
+          否则一屏的 0 会被读成"这批生意一分没赚"。 */}
+      {data?.total.cost_hidden && (
+        <Alert
+          type="info"
+          showIcon
+          message="成本与毛利对当前账号不可见"
+          description="订单额与收入照常显示；采购成本、运杂费、毛利与毛利率仅管理员与主管可见。"
+        />
+      )}
+
       <Card variant="borderless">
         <Space wrap size={16} align="center">
           <Radio.Group
@@ -289,14 +300,24 @@ export function SalesDashboardPage() {
             width={140}
             align="right"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) => Number(a.cost) - Number(b.cost)}
-            render={(_, row: SalesDashboardRow) => <Money value={row.cost} />}
+            render={(_, row: SalesDashboardRow) =>
+              // T-36：成本被服务端清掉时显示「—」，不能显示 0——
+              // 0 会被读成"这批货没成本"。
+              row.cost_hidden ? <span className="cell-sub">—</span> : <Money value={row.cost} />
+            }
           />
           <Table.Column
             title="运杂费"
             width={120}
             align="right"
             render={(_, row: SalesDashboardRow) =>
-              Number(row.charge) === 0 ? <Empty /> : <Money value={row.charge} />
+              row.cost_hidden ? (
+                <span className="cell-sub">—</span>
+              ) : Number(row.charge) === 0 ? (
+                <Empty />
+              ) : (
+                <Money value={row.charge} />
+              )
             }
           />
           <Table.Column
@@ -306,7 +327,13 @@ export function SalesDashboardPage() {
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
               Number(a.profit) - Number(b.profit)
             }
-            render={(_, row: SalesDashboardRow) => <ProfitCell value={row.profit} strong />}
+            render={(_, row: SalesDashboardRow) =>
+              row.cost_hidden ? (
+                <span className="cell-sub">—</span>
+              ) : (
+                <ProfitCell value={row.profit} strong />
+              )
+            }
           />
           <Table.Column
             title="毛利率"
@@ -315,7 +342,9 @@ export function SalesDashboardPage() {
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
               Number(a.margin) - Number(b.margin)
             }
-            render={(_, row: SalesDashboardRow) => <MarginCell row={row} />}
+            render={(_, row: SalesDashboardRow) =>
+              row.cost_hidden ? <span className="cell-sub">—</span> : <MarginCell row={row} />
+            }
           />
           <Table.Column
             dataIndex="shipments"

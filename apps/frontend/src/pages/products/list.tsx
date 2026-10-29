@@ -150,7 +150,10 @@ export function ProductList() {
           title="成本价"
           width={110}
           align="right"
-          render={(value: number) => <Money value={value} />}
+          // T-36：被服务端清过的成本价显示「—」，0 会被读成"这件货不要钱"。
+          render={(value: string, row: Product) =>
+            row.cost_hidden ? <span className="cell-sub">—</span> : <Money value={value} />
+          }
         />
         <Table.Column
           dataIndex="sale_price"

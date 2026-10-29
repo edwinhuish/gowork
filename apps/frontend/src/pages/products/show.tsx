@@ -46,7 +46,13 @@ export function ProductShow() {
           {
             key: 'cost_price',
             label: '成本价',
-            children: <Money value={result?.cost_price} />,
+            // T-36：成本价被服务端清过时显示「—」而不是 0——
+            // 「看不见」与「这件货不要钱」是两件事。
+            children: result?.cost_hidden ? (
+              <span className="cell-sub">—（无权限）</span>
+            ) : (
+              <Money value={result?.cost_price} />
+            ),
           },
           {
             key: 'sale_price',
