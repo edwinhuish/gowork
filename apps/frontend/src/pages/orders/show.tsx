@@ -5,6 +5,7 @@ import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table
 
 import { download } from '@/api/client'
 import { salesOrderApi } from '@/api/sales-orders'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { SalesOrder, SalesOrderChange, SalesOrderChangeLine, SalesOrderItem } from '@/types'
@@ -462,6 +463,12 @@ export function OrderShow() {
           onChanged={afterChange}
         />
       )}
+      {/* T-63：后端早就能挂附件，前端入口不全，等于大部分能力用不上。
+          客户 PO 与订单确认件挂在这里，比挂在主体上更有用——每家客户一年有几十张单。 */}
+      {o?.id ? (
+        <AttachmentPanel entityType="sales_order" entityId={o.id} title="客户 PO 与订单确认件" />
+      ) : null}
+
     </Show>
   )
 }

@@ -16,6 +16,7 @@ import {
 
 import { download } from '@/api/client'
 import { contractApi } from '@/api/contracts'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
   contractSourceTypeLabel,
@@ -295,6 +296,12 @@ export function ContractShow() {
         合同不存货物明细：明细留在来源单据上，这里只有一份对外承诺的快照。
         单号 <Mono>{c?.doc_no ?? ''}</Mono> 本身能看出是 PI 还是销售合同。
       </div>
+      {/* T-63：后端早就能挂附件，前端入口不全，等于大部分能力用不上。
+          客户回签与合同附件挂在这里，比挂在主体上更有用——每家客户一年有几十张单。 */}
+      {c?.id ? (
+        <AttachmentPanel entityType="contract" entityId={c.id} title="客户回签与合同附件" />
+      ) : null}
+
     </Show>
   )
 }

@@ -5,6 +5,7 @@ import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } fr
 
 import { download } from '@/api/client'
 import { purchaseOrderApi } from '@/api/purchase-orders'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, Money } from '@/components/fields'
 import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/types'
@@ -263,6 +264,12 @@ export function PurchaseShow() {
       {o ? <InspectionPanel orderId={o.id} items={o.items ?? []} /> : null}
 
       {o ? <PurchaseMilestonePanel order={o} /> : null}
+      {/* T-63：后端早就能挂附件，前端入口不全，等于大部分能力用不上。
+          采购合同与供应商回签挂在这里，比挂在主体上更有用——每家客户一年有几十张单。 */}
+      {o?.id ? (
+        <AttachmentPanel entityType="purchase_order" entityId={o.id} title="采购合同与供应商回签" />
+      ) : null}
+
     </Show>
   )
 }

@@ -4,6 +4,7 @@ import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 
 import { stockDocApi } from '@/api/stock-documents'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono } from '@/components/fields'
 import {
   STOCK_DOC_COUNT,
@@ -207,6 +208,11 @@ export function StockDocumentShow() {
           />
         </Table>
       </Card>
+      {/* T-63：出入库单要挂签收单、过磅单、验货照片——这些是仓库与客户对账的凭据。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="stock_document" entityId={result.id} title="随单凭据" />
+      ) : null}
+
     </Show>
   )
 }

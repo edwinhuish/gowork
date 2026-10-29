@@ -18,6 +18,7 @@ import {
 
 import { download } from '@/api/client'
 import { quotationApi } from '@/api/quotations'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, Money } from '@/components/fields'
 import { quotationStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { QuotationDetail, QuotationItem } from '@/types'
@@ -417,6 +418,12 @@ export function QuotationShow() {
           addonBefore="交期"
         />
       </Modal>
+      {/* T-63：后端早就能挂附件，前端入口不全，等于大部分能力用不上。
+          客户询盘与报价确认件挂在这里，比挂在主体上更有用——每家客户一年有几十张单。 */}
+      {q?.id ? (
+        <AttachmentPanel entityType="quotation" entityId={q.id} title="客户询盘与报价确认件" />
+      ) : null}
+
     </Show>
   )
 }
