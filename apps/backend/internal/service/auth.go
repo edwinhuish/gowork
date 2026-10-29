@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"strconv"
 	"time"
 
@@ -23,6 +24,12 @@ import (
 const (
 	sessionKeyPrefix = "session:"
 	loginFailPrefix  = "login_fail:"
+	// revokedKeyPrefix 记「这个账号在某时刻之前的令牌全部作废」（T-57）。
+	//
+	// 用时间戳而不是遍历删除会话：缓存没有"按前缀列出 key"的能力，
+	// 而会话 key 里带的是令牌 ID、不含用户 ID，从用户反查不到令牌。
+	// 时间戳方案只写一个 key，校验时比一次大小。
+	revokedKeyPrefix = "revoked:"
 )
 
 // errLoginTooManyFails 是"猜错太多次"的统一出口。
@@ -57,6 +64,8 @@ func (p *Principal) IsAdmin() bool { return p.Role == model.RoleAdmin }
 type AuthService interface {
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error)
 	Logout(ctx context.Context, tokenID string) error
+	// RevokeUser 让该账号已签发的全部令牌失效：停用、改角色、重置密码后必须调它。
+	RevokeUser(ctx context.Context, userID uint) error
 	Verify(ctx context.Context, token string) (*Principal, error)
 	HashPassword(plain string) (string, error)
 }
@@ -165,8 +174,12 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Log
 		return nil, errs.Wrap(err, errs.CodeInternal, "签发令牌失败")
 	}
 
-	// 会话落缓存：登出即失效，也支持后续接入强制下线。
-	if err := s.sessions.Set(ctx, sessionKeyPrefix+tokenID, strconv.FormatUint(uint64(user.ID), 10), s.cfg.Expire); err != nil {
+	// 会话落缓存：登出即失效，也支持强制下线（T-57）。
+	//
+	// 值里带签发时间：改角色或停用账号时只需记下"此刻起旧令牌作废"，
+	// 校验时比较签发时间与作废时刻即可，不必遍历该用户的会话。
+	if err := s.sessions.Set(ctx, sessionKeyPrefix+tokenID,
+		fmt.Sprintf("%d:%d", user.ID, time.Now().Unix()), s.cfg.Expire); err != nil {
 		return nil, errs.Wrap(err, errs.CodeInternal, "写入会话失败")
 	}
 	_ = s.sessions.Del(ctx, failKey)
@@ -192,6 +205,47 @@ func (s *authService) Logout(ctx context.Context, tokenID string) error {
 	return s.sessions.Del(ctx, sessionKeyPrefix+tokenID)
 }
 
+// RevokeUser 让某个账号在此刻之前签发的令牌全部失效（T-57）。
+//
+// 停用账号、改角色、重置密码之后都要调它：角色写在 JWT claims 里，
+// 不吊销会话的话，降权与停用要等到令牌自然过期才生效——而"离职当天还能登进来"
+// 是这类系统最不该有的行为。
+func (s *authService) RevokeUser(ctx context.Context, userID uint) error {
+	key := revokedKeyPrefix + strconv.FormatUint(uint64(userID), 10)
+	if err := s.sessions.Set(ctx, key, strconv.FormatInt(time.Now().Unix(), 10), s.cfg.Expire); err != nil {
+		return errs.Wrap(err, errs.CodeInternal, "吊销会话失败")
+	}
+	return nil
+}
+
+// sessionRevoked 判断这条会话是否签发自"账号信息已变更"之前。
+//
+// 会话值是 `uid:签发时间`；老格式（只存 uid）认不出签发时间，一律放行——
+// 那种会话最多活到自然过期，而把所有存量会话一次性踢下线，
+// 换来的是一次全员重新登录，不值得。
+func (s *authService) sessionRevoked(ctx context.Context, userID uint, sessionValue string) (bool, error) {
+	idx := strings.LastIndex(sessionValue, ":")
+	if idx < 0 {
+		return false, nil
+	}
+	issuedAt, err := strconv.ParseInt(sessionValue[idx+1:], 10, 64)
+	if err != nil {
+		return false, nil
+	}
+	v, err := s.sessions.Get(ctx, revokedKeyPrefix+strconv.FormatUint(uint64(userID), 10))
+	if errors.Is(err, cache.ErrMiss) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errs.Wrap(err, errs.CodeInternal, "校验会话吊销状态失败")
+	}
+	revokedAt, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return false, nil
+	}
+	return issuedAt <= revokedAt, nil
+}
+
 func (s *authService) Verify(ctx context.Context, token string) (*Principal, error) {
 	var claims tokenClaims
 	parsed, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (any, error) {
@@ -211,11 +265,19 @@ func (s *authService) Verify(ctx context.Context, token string) (*Principal, err
 	}
 
 	// 令牌签名有效还不够：会话必须仍在缓存中，登出后立即失效。
-	if _, err := s.sessions.Get(ctx, sessionKeyPrefix+claims.ID); err != nil {
+	sessionValue, err := s.sessions.Get(ctx, sessionKeyPrefix+claims.ID)
+	if err != nil {
 		if errors.Is(err, cache.ErrMiss) {
 			return nil, errs.ErrUnauthorized
 		}
 		return nil, errs.Wrap(err, errs.CodeInternal, "校验会话失败")
+	}
+	// 账号被停用或改了角色之后，这一刻之前签发的令牌全部作废（T-57）。
+	// 角色写在 JWT 里，不作废的话降权要等到令牌自然过期才生效。
+	if revoked, err := s.sessionRevoked(ctx, claims.UserID, sessionValue); err != nil {
+		return nil, err
+	} else if revoked {
+		return nil, errs.ErrUnauthorized.WithMsg("账号信息已变更，请重新登录")
 	}
 
 	p := &Principal{

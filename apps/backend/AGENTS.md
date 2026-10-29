@@ -143,7 +143,9 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET/PUT | `/api/v1/purchase-orders/:id/milestones` | `Purchase.*Milestones` | 采购跟单五节点（T-38，`biz_purchase_milestone`）：**挂在采购订单行上**，一行一节点；`plan_date` / `done_date` 分开（完成日为空 = 未完成，非空才记 `operator`）；PUT 只处理提交上来的那几条（**部分补录**，不是整体替换）；日期早于下单日（优先取下单节点的实际完成日）返回 400；列表用 `overdue_node` 筛逾期并投影 `overdue_node` 文案 |
 | POST | `/api/v1/imports/partners?dry_run=true\|false` | `Partner.Import` | 主体导入（T-35）：multipart 字段 `file`，CSV 按**表头**映射（缺「编码」「名称」直接 400）；`dry_run` 默认 true，只出报告不落库；整份文件不开事务，失败行带行号与原因；查重只提示；单次上限 1000 行 |
 | GET | `/api/v1/exports/partners`、`/exports/products` | `Partner.Export` / `Product.Export` | 列表导出 CSV（T-35）：参数与各自列表一致，按 200 一页翻完全部结果（上限 10000 行）后写出。**一律走 `csvx.Write`**：它负责 UTF-8 BOM（否则 Excel 中文乱码）与公式注入防护（`=` `+` `-` `@` 开头加 `'`，负数除外）；不要自己拼 CSV，也不要绕过它直接 `csv.NewWriter`。成本价按 T-36 权限留空 |
-| GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403。只有列表——建号 / 改角色 / 重置密码属于用户维护模块，尚未做 |
+| GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403 |
+| GET / POST | `/api/v1/user-accounts` | `User.List` / `.Create` | 账号维护（T-57），仅管理员。**不挂在 `/users` 下**：gin 同一层不允许静态段与 `:id` 并存（会 panic），与 `/partner-duplicates` 同一处理；语义也不同——`/users` 是"能派给谁"，这里是"公司里有哪些账号"（含停用） |
+| PUT | `/api/v1/user-accounts/:id` | `User.Update` | 昵称 / 角色 / 启用状态 / 密码，三组都可选（nil = 不改）。改角色、停用或重置密码会吊销该账号已签发的令牌（`RevokedAt` 时间戳，校验时比较会话签发时间）；不能停用或降级最后一个可用管理员（409），不能改自己的角色与状态（400） |
 | PUT | `/api/v1/partners/:id/owner` | `Partner.TransferOwner` | 转移负责人（T-32）：仅 admin / manager，业务员 403；`owner_id=0` 退回未分配（公共池）；校验接手账号存在且启用；带 `updated_at` 走乐观锁 |
 | GET/POST/PUT/DELETE | `/api/v1/clauses`、`/clauses/:id[/restore]` | `Clause.*` | 条款模板库（T-27，主数据 `md_clause`）：编码唯一（重复 409）、软删可恢复。**与 `biz_contract_term`（付款分期）不是一回事**；合同生成时按 `clause_ids` 抄快照进 `biz_contract_clause`，改模板不影响已生成的合同 |
 | GET | `/api/v1/audit-logs` | `Audit.List` | 操作日志（T-33）：写操作由 `middleware.Audit` 统一记录，本接口只读、仅管理员（`RequireAdmin`）；筛选 `entity` / `entity_id` / `action` / `actor_id` / `from`+`to`（含当天）/ `keyword`（路径+请求体+操作人） |

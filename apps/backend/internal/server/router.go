@@ -115,6 +115,12 @@ func New(
 
 		// 账号目录：只服务"把客户转给谁"的选择器，业务员在 service 里被拒 403。
 		secured.GET("/users", h.User.ListActive)
+		// 账号维护（T-57）：只有管理员能改。用独立前缀而不是 /users/:id，
+		// 因为 gin 同一层不允许静态段与 :id 并存，而 /users 已被选择器占用。
+		userAccounts := secured.Group("/user-accounts", middleware.RequireAdmin())
+		userAccounts.GET("", h.User.List)
+		userAccounts.POST("", h.User.Create)
+		userAccounts.PUT("/:id", h.User.Update)
 
 		// 导出（T-35）：参数与各自列表完全一致，导出的就是列表上那一批。
 		// 放在 /exports 下而不是 /partners/export：gin 同一层不允许 :id 与静态段并存。

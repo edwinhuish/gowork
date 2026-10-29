@@ -18,6 +18,22 @@ export interface LoginResponse {
   user: UserInfo
 }
 
+/**
+ * 系统账号（用户维护页用，T-57）。
+ *
+ * 比 UserInfo 多一个 status：登录响应里只带启用账号，维护页要看到停用的。
+ * 密码永远不会出现在任何响应里，后端字段标了 json:"-"。
+ */
+export interface SystemUser {
+  id: number
+  username: string
+  nickname: string
+  role: string
+  status: number
+  created_at: string
+  updated_at: string
+}
+
 export interface DashboardSummary {
   product_total: number
   enabled_products: number

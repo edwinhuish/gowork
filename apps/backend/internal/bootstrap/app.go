@@ -282,7 +282,7 @@ func New(cfg *config.Config) (*App, error) {
 	// 所以它不挂在任何业务服务上。
 	auditSvc := service.NewAuditService(auditRepo, service.WithAuditLogger(log))
 	// 账号目录只有"把客户转给谁"这一个用途，所以只暴露一个只读列表。
-	userSvc := service.NewUserService(userRepo)
+	userSvc := service.NewUserService(userRepo, authSvc, service.WithUserLogger(log))
 
 	// ---- HTTP 层 ----
 	engine := server.New(cfg, log, authSvc, auditSvc, c, server.Handlers{

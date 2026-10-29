@@ -31,6 +31,10 @@ func (s stubAuth) Verify(context.Context, string) (*service.Principal, error) {
 
 func (s stubAuth) HashPassword(string) (string, error) { return "", nil }
 
+// RevokeUser 是 T-57 加进 AuthService 的方法：中间件用不到它，
+// 但接口要求实现，缺一个方法就编译不过。
+func (s stubAuth) RevokeUser(context.Context, uint) error { return nil }
+
 func serveAuth(t *testing.T, p *service.Principal) *httptest.ResponseRecorder {
 	t.Helper()
 

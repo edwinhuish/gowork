@@ -24,6 +24,7 @@ import {
   ShoppingCartOutlined,
   ShopOutlined,
   UserAddOutlined,
+  UserOutlined,
   SwapOutlined,
   TeamOutlined,
   TransactionOutlined,
@@ -46,6 +47,7 @@ import { AgingPage } from '@/pages/aging'
 import { ExchangeGainsPage } from '@/pages/exchange-gains'
 import { ContactCreate, ContactEdit, ContactList } from '@/pages/contacts'
 import { AuditLogList } from '@/pages/audit-logs'
+import { UserAccountList } from '@/pages/user-accounts/list'
 import { ClauseList } from '@/pages/clauses'
 import { CollectionPage } from '@/pages/collection'
 import { ContractCreate, ContractEdit, ContractList, ContractShow } from '@/pages/contracts'
@@ -327,6 +329,12 @@ export default function App() {
                 meta: { label: '汇率', icon: <SwapOutlined /> },
               },
               {
+                // 账号维护同样只有管理员能用；菜单对所有人可见，权限由接口兜底。
+                name: 'user-accounts',
+                list: '/user-accounts',
+                meta: { label: '账号', icon: <UserOutlined /> },
+              },
+              {
                 // 操作日志只读、且只有管理员能查：里面装着全公司单据的提交内容。
                 name: 'audit-logs',
                 list: '/audit-logs',
@@ -507,6 +515,10 @@ export default function App() {
                   <Route path="exchange-rates">
                     <Route index element={<ExchangeRateList />} />
                     <Route path="create" element={<ExchangeRateCreate />} />
+                  </Route>
+
+                  <Route path="user-accounts">
+                    <Route index element={<UserAccountList />} />
                   </Route>
 
                   <Route path="audit-logs">
