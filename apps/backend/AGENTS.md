@@ -140,6 +140,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/aging` | `Report.Aging` | `ReportService.Aging`：按「主体 + 币种」分桶，到期当天不算逾期，合计只给本币 |
 | GET | `/api/v1/reports/shipment-profits` | `Report.ShipmentProfits` | `ReportService.ShipmentProfits`：收入 − 采购 − 运杂费（本币）；`?shipment_id=` 取单票；缺采购标 `cost_missing` |
 | GET | `/api/v1/reports/exchange-gains` | `Report.ExchangeGains` | `ReportService.ExchangeGains`：逐笔核销的到账汇率 vs 单据汇率；应收记收益、应付记损失；`from`/`to` 按到账日闭区间 |
+| POST | `/api/v1/imports/partners?dry_run=true\|false` | `Partner.Import` | 主体导入（T-35）：multipart 字段 `file`，CSV 按**表头**映射（缺「编码」「名称」直接 400）；`dry_run` 默认 true，只出报告不落库；整份文件不开事务，失败行带行号与原因；查重只提示；单次上限 1000 行 |
 | GET | `/api/v1/exports/partners`、`/exports/products` | `Partner.Export` / `Product.Export` | 列表导出 CSV（T-35）：参数与各自列表一致，按 200 一页翻完全部结果（上限 10000 行）后写出；带 UTF-8 BOM（否则 Excel 中文乱码）；成本价按 T-36 权限留空。**导入尚未实现** |
 | GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403。只有列表——建号 / 改角色 / 重置密码属于用户维护模块，尚未做 |
 | PUT | `/api/v1/partners/:id/owner` | `Partner.TransferOwner` | 转移负责人（T-32）：仅 admin / manager，业务员 403；`owner_id=0` 退回未分配（公共池）；校验接手账号存在且启用；带 `updated_at` 走乐观锁 |
