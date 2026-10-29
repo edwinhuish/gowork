@@ -110,14 +110,18 @@ type StockMovement struct {
 	DocNo     string    `gorm:"size:32;not null;uniqueIndex:uni_stock_movement_doc_no,priority:1" json:"doc_no"`
 	// WarehouseID 是这笔流水落在哪个仓（T-56 第一步）。
 	// 现在一律为 0（未指定），读写行为与单仓等价；第二步填默认仓并改快照唯一键。
-	WarehouseID uint              `gorm:"index;not null;default:0" json:"warehouse_id"`
-	ProductID   uint              `gorm:"not null;index" json:"product_id"`
-	SKUCode     string            `gorm:"size:32;not null" json:"sku_code"`
-	NameCN      string            `gorm:"size:128" json:"name_cn"`
-	Spec        string            `gorm:"size:255" json:"spec"`
-	Unit        string            `gorm:"size:16" json:"unit"`
-	Type        StockMovementType `gorm:"not null;index" json:"type"`
-	Direction   StockDirection    `gorm:"not null" json:"direction"`
+	WarehouseID uint `gorm:"index;not null;default:0" json:"warehouse_id"`
+	// BatchNo 是批次号（T-58 第一步）。**不进快照、不进唯一键**：
+	// 批次余额由流水聚合，快照仍是"产品 × 仓库"。把批次塞进唯一键会让
+	// 快照行数按批次数膨胀，重算、盘点、列表都要跟着改一遍。
+	BatchNo   string            `gorm:"size:64;index" json:"batch_no"`
+	ProductID uint              `gorm:"not null;index" json:"product_id"`
+	SKUCode   string            `gorm:"size:32;not null" json:"sku_code"`
+	NameCN    string            `gorm:"size:128" json:"name_cn"`
+	Spec      string            `gorm:"size:255" json:"spec"`
+	Unit      string            `gorm:"size:16" json:"unit"`
+	Type      StockMovementType `gorm:"not null;index" json:"type"`
+	Direction StockDirection    `gorm:"not null" json:"direction"`
 	// Qty 始终为正数，方向看 Direction。允许存负数会让"两条 +5 与一条 -10"
 	// 变得同样合法，而对账时分不清是录错了还是故意的。
 	//

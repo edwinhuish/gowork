@@ -23,9 +23,11 @@ type PurchaseReceiptInput struct {
 // Qty 必填且为正：收 0 件的收货单没有意义，而"先建空单再补"会让在途量
 // 在一段时间里算错。
 type PurchaseReceiptItemInput struct {
-	PurchaseOrderItemID uint          `json:"purchase_order_item_id" binding:"required"`
-	Qty                 money.Decimal `json:"qty"`
-	Remark              string        `json:"remark" binding:"max=255"`
+	PurchaseOrderItemID uint `json:"purchase_order_item_id" binding:"required"`
+	// BatchNo 留空表示不按批次管理。填了就能从批次追到这张收货单。
+	BatchNo string        `json:"batch_no" binding:"max=64"`
+	Qty     money.Decimal `json:"qty"`
+	Remark  string        `json:"remark" binding:"max=255"`
 }
 
 // PurchaseInIssueInput 是收货确认时生成采购入库单的入参（窄接口，不对外）。
@@ -50,6 +52,7 @@ type PurchaseReceiptSummary struct {
 // PurchaseInIssueItem 是入库单的一行，照抄收货单的物料快照。
 type PurchaseInIssueItem struct {
 	ProductID uint
+	BatchNo   string
 	SKUCode   string
 	NameCN    string
 	Unit      string

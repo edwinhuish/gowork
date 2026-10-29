@@ -193,6 +193,7 @@ func (s *purchaseReceiptService) buildItems(
 			NameCN:              item.NameCN,
 			Unit:                item.Unit,
 			Qty:                 row.Qty,
+			BatchNo:             strings.TrimSpace(row.BatchNo),
 			Remark:              strings.TrimSpace(row.Remark),
 		})
 	}
@@ -218,6 +219,7 @@ func (s *purchaseReceiptService) Confirm(
 	for _, it := range m.Items {
 		issueItems = append(issueItems, dto.PurchaseInIssueItem{
 			ProductID: it.ProductID,
+			BatchNo:   it.BatchNo,
 			SKUCode:   it.SKUCode,
 			NameCN:    it.NameCN,
 			Unit:      it.Unit,

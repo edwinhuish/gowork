@@ -52,6 +52,9 @@ type PurchaseReceiptItem struct {
 	Qty                 money.Decimal `gorm:"type:decimal(14,3);not null" json:"qty"`
 	// ReturnedQty 是这一行已退货的数量（T-52b3）。累计不超 Qty：
 	// 退超过收到的，库存会变成凭空多出来的负数，而对账时谁也解释不清。
+	// BatchNo 是这次到货的批次号（T-58）。工厂的批号、封箱号、
+	// 客户投诉时说的"那一批"都是它；留空表示不按批次管理。
+	BatchNo     string        `gorm:"size:64;index" json:"batch_no"`
 	ReturnedQty money.Decimal `gorm:"type:decimal(14,3);not null;default:0" json:"returned_qty"`
 	Remark      string        `gorm:"size:255" json:"remark"`
 }
