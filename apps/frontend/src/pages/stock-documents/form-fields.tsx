@@ -3,7 +3,7 @@ import { Form, Input, Select } from 'antd'
 
 import { STOCK_DOC_COUNT, STOCK_DOC_TYPE_OPTIONS } from '@/constants/catalog'
 import { todayString } from '@/pages/orders/form-fields'
-import type { Partner } from '@/types'
+import type { Partner, Warehouse } from '@/types'
 
 /**
  * 出入库单表头。
@@ -18,6 +18,16 @@ export function StockDocFormFields({ typeReadOnly = false }: { typeReadOnly?: bo
   const isCount = type === STOCK_DOC_COUNT
   // 入库找供应商，出库找客户；盘点不显示但 hook 不能条件调用。
   const partnerResource = type === 20 ? 'customers' : 'suppliers'
+
+  // 仓库（T-56）：调拨要选两个，其余一个。
+  const isTransfer = type === 30
+  const { options: warehouseOptions, query: warehouseQuery } = useSelect<Warehouse>({
+    resource: 'warehouses',
+    optionLabel: (item) => `${item.name}（${item.code}）`,
+    optionValue: 'id',
+    pagination: { mode: 'off' },
+    filters: [{ field: 'status', operator: 'eq', value: 1 }],
+  })
 
   const { options: partnerOptions, query: partnerQuery } = useSelect<Partner>({
     resource: partnerResource,
@@ -62,6 +72,46 @@ export function StockDocFormFields({ typeReadOnly = false }: { typeReadOnly?: bo
             showSearch
             options={partnerOptions}
             loading={partnerQuery.isLoading}
+            filterOption={(input, option) =>
+              String(option?.label ?? '')
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
+          />
+        </Form.Item>
+      )}
+
+      {/* 仓库（T-56）：留空落默认仓。调拨必须选两个且不能相同，后端会拦。 */}
+      <Form.Item
+        name="warehouse_id"
+        label={isTransfer ? '转出仓' : '仓库'}
+        extra="留空落默认仓"
+      >
+        <Select
+          placeholder="默认仓"
+          allowClear
+          showSearch
+          options={warehouseOptions}
+          loading={warehouseQuery.isLoading}
+          filterOption={(input, option) =>
+            String(option?.label ?? '')
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
+        />
+      </Form.Item>
+
+      {isTransfer && (
+        <Form.Item
+          name="target_warehouse_id"
+          label="转入仓"
+          rules={[{ required: true, message: '调拨必须选转入仓' }]}
+        >
+          <Select
+            placeholder="转到哪"
+            showSearch
+            options={warehouseOptions}
+            loading={warehouseQuery.isLoading}
             filterOption={(input, option) =>
               String(option?.label ?? '')
                 .toLowerCase()
