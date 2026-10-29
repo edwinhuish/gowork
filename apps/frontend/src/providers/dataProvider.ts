@@ -53,6 +53,16 @@ const PASSTHROUGH_FILTERS = new Set([
   'due',
   // 产品列表的「含已删除」开关：只有这一步能让软删的行出现在列表里。
   'include_deleted',
+  // 下面四个是 T-63 补上的：后端 dto 里早就有，前端漏了，界面传过去被静默丢弃，
+  // 表现是「勾了/选了但列表没变」——比报错更难查。
+  //   owner_id  ：主体列表按负责人筛（主管要把某人的客户拉出来看）
+  //   direction ：收付款与汇兑损益报表按收/付方向筛
+  //   overdue   ：应收应付只看到期未结的
+  //   base_code ：汇率列表换一个基准币种看
+  'owner_id',
+  'direction',
+  'overdue',
+  'base_code',
   'stage',
   'open_only',
   'source',

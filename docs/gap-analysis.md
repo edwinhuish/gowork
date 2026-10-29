@@ -574,7 +574,7 @@ gorm 的 embed 与软删、索引、`TableName` 的交互有坑（`apps/backend/
 
 | 问题 | 证据 | 建议 |
 |---|---|---|
-| 查询参数白名单仍靠手维护 | `providers/dataProvider.ts:33-61` 有 24 项，但后端 dto 里的 `owner_id` / `direction` / `overdue` / `base_code` 仍未收录——走 `useTable` 的筛选项会被静默丢弃 | 补白名单；更彻底的做法是由 `openapi.json` 生成，与后端同源（T-63 顺手做） |
+| 查询参数白名单仍靠手维护 | **已补（T-63）**：`owner_id` / `direction` / `overdue` / `base_code` 四个此前被静默丢弃的参数已收录 | 仍是手维护的清单，新加筛选参数时容易再漏；彻底的做法是由 `openapi.json` 生成 |
 | 路由级授权只有 1 处 | `router.go:112` 的 `/audit-logs` 挂 `RequireAdmin`，其余 180 条靠 service 内部判断 | 先定「哪类角色能写哪类资源」，定完再改路由表（T-57 之后） |
 | 无批量接口 | 批量确认、批量改状态都要逐条打 | P2：等真的出现「一次几十条」的场景再做，先做一个批量确认即可 |
 | 无 API 破坏性变更的并行版本策略 | 路由统一 `/api/v1`，改字段即破坏老客户端 | 暂不需要：前端与后端同仓同时发布；出现外部集成方时再定 |
