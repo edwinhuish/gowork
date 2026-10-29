@@ -2,16 +2,21 @@ import { Create, useForm } from '@refinedev/antd'
 import { Divider, Form } from 'antd'
 
 import { LineItemsEditor } from '@/components/line-items-editor'
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { PurchaseOrder } from '@/types'
 
 import { PurchaseFormFields } from './form-fields'
 import { SalesOrderImport } from './sales-order-import'
 
 export function PurchaseCreate() {
+  // 采购单重复提交会多出一张单，还得手工作废——用幂等键挡住。
+  const { key: idempotencyKey, rotate: rotateIdempotencyKey } = useIdempotencyKey()
   const { formProps, saveButtonProps, form } = useForm<PurchaseOrder>({
     resource: 'purchase-orders',
     action: 'create',
     redirect: 'show',
+    mutationMeta: { idempotencyKey },
+    onMutationSuccess: () => rotateIdempotencyKey(),
   })
 
   return (

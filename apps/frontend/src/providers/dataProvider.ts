@@ -109,8 +109,15 @@ export const dataProvider = {
     return { data }
   },
 
-  create: async ({ resource, variables }: CreateParams) => {
-    const data = await http.post<BaseRecord>(`/${resource}`, variables)
+  create: async ({ resource, variables, meta }: CreateParams) => {
+    // 幂等键由页面提供（见 hooks/use-idempotency-key）：同一次提交的重试必须复用它，
+    // 否则"超时后又点一次保存"会真的建出两条单。没传就不带，退化成普通请求。
+    const key = (meta as { idempotencyKey?: string } | undefined)?.idempotencyKey
+    const data = await http.post<BaseRecord>(
+      `/${resource}`,
+      variables,
+      key ? { 'Idempotency-Key': key } : undefined,
+    )
     return { data }
   },
 

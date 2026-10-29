@@ -9,6 +9,7 @@ import {
   orderStatusLabel,
   quotationStatusLabel,
 } from '@/constants/catalog'
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { Contract, Quotation, SalesOrder } from '@/types'
 
 import { ContractTermsEditor } from './terms-editor'
@@ -30,10 +31,14 @@ function today(): string {
  * 真正的拦截在后端（草稿、已取消、过期报价一律 409）。
  */
 export function ContractCreate() {
+  // 合同是凭以收款的文件，重复出具会让客户收到两份不同单号的 PI。
+  const { key: idempotencyKey, rotate: rotateIdempotencyKey } = useIdempotencyKey()
   const { formProps, saveButtonProps, form } = useForm<Contract>({
     resource: 'contracts',
     action: 'create',
     redirect: 'show',
+    mutationMeta: { idempotencyKey },
+    onMutationSuccess: () => rotateIdempotencyKey(),
   })
 
   const sourceType = Form.useWatch<number | undefined>('source_type', form) ?? 10

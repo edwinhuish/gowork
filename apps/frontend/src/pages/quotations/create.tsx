@@ -2,16 +2,22 @@ import { Create, useForm } from '@refinedev/antd'
 import { Button, Divider, Form, Space } from 'antd'
 
 import { LineItemsEditor } from '@/components/line-items-editor'
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { Quotation } from '@/types'
 
 import { QuotationFormFields, defaultValidUntil } from './form-fields'
 import { QuotationPreviewAlert, useQuotationPreview } from './preview'
 
 export function QuotationCreate() {
+  // 同一次提交的重试复用同一个键：请求超时后再点一次，服务端回放上次结果，
+  // 不会真的再建一版报价。成功后换新键，下一次新建才算另一次操作。
+  const { key: idempotencyKey, rotate: rotateIdempotencyKey } = useIdempotencyKey()
   const { formProps, saveButtonProps, form } = useForm<Quotation>({
     resource: 'quotations',
     action: 'create',
     redirect: 'show',
+    mutationMeta: { idempotencyKey },
+    onMutationSuccess: () => rotateIdempotencyKey(),
   })
   const { preview, loading, run } = useQuotationPreview(form)
 

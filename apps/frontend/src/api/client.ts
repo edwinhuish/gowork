@@ -142,8 +142,12 @@ export async function download(path: string, fallbackName: string): Promise<void
 
 export const http = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
+  /**
+   * POST。headers 用来带 Idempotency-Key 这类"这次操作"的标记，
+   * 令牌与 Content-Type 由 request() 统一注入，调用方不用管。
+   */
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}), headers }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
