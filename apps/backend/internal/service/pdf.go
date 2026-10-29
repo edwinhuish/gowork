@@ -330,7 +330,7 @@ func (s *pdfService) shipmentDocBase(
 
 		items = append(items, map[string]string{
 			"no":          strconv.Itoa(i + 1),
-			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"description": itemDescription(a.SKUCode, a.BilingualName(), a.Spec),
 			"order_no":    orderNo,
 			"qty":         qtyText(a.Qty),
 			"unit":        a.Unit,
@@ -594,7 +594,7 @@ func (s *pdfService) Invoice(ctx context.Context, id uint) (*RenderedFile, error
 
 		items = append(items, map[string]string{
 			"no":          strconv.Itoa(i + 1),
-			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"description": itemDescription(a.SKUCode, a.BilingualName(), a.Spec),
 			"order_no":    orderNo,
 			"qty":         qtyText(a.Qty),
 			"unit":        a.Unit,
@@ -652,7 +652,7 @@ func (s *pdfService) PackingList(ctx context.Context, id uint) (*RenderedFile, e
 
 		items = append(items, map[string]string{
 			"no":          strconv.Itoa(i + 1),
-			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"description": itemDescription(a.SKUCode, a.BilingualName(), a.Spec),
 			"order_no":    orderNo,
 			"qty":         qtyText(a.Qty),
 			"unit":        a.Unit,

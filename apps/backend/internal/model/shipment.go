@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/edwinhuish/gowork/internal/pkg/money"
@@ -143,3 +144,23 @@ type ShipmentAllocation struct {
 }
 
 func (ShipmentAllocation) TableName() string { return "biz_shipment_allocation" }
+
+// BilingualName 返回"中文名 / English name"（T-64）。
+//
+// 单证上同时印中英文是外贸惯例：客户看英文、报关行与工厂看中文。
+// 相比"另出一份英文版"，双写的优势是**数字天然一致**——
+// 两份文件各自的金额、箱数靠人同步，迟早对不上，而客户拿两份对不上就会来问。
+//
+// 英文名取报关快照里的 declared_name_en（T-55 抄进分配行的那一份），
+// 没有就只印中文：正式单证上留一个占位符比缺一行更糟。
+func (a ShipmentAllocation) BilingualName() string {
+	cn := strings.TrimSpace(a.NameCN)
+	en := strings.TrimSpace(a.DeclaredNameEN)
+	if cn == "" {
+		return en
+	}
+	if en == "" || en == cn {
+		return cn
+	}
+	return cn + " / " + en
+}
