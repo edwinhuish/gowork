@@ -73,13 +73,14 @@ func (s *activityService) Create(ctx context.Context, in dto.ActivityInput) (*mo
 	}
 
 	m := &model.Activity{
-		PartnerID:    in.PartnerID,
-		ContactID:    in.ContactID,
-		Type:         model.ActivityType(strings.ToUpper(strings.TrimSpace(in.Type))),
-		Subject:      in.Subject,
-		Content:      in.Content,
-		OccurredAt:   occurredAt,
-		NextFollowAt: nextFollowAt,
+		PartnerID:     in.PartnerID,
+		ContactID:     in.ContactID,
+		OpportunityID: in.OpportunityID,
+		Type:          model.ActivityType(strings.ToUpper(strings.TrimSpace(in.Type))),
+		Subject:       in.Subject,
+		Content:       in.Content,
+		OccurredAt:    occurredAt,
+		NextFollowAt:  nextFollowAt,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -108,6 +109,7 @@ func (s *activityService) Update(ctx context.Context, id uint, in dto.ActivityIn
 		"subject":        in.Subject,
 		"content":        in.Content,
 		"contact_id":     in.ContactID,
+		"opportunity_id": in.OpportunityID,
 		"occurred_at":    occurredAt,
 		"next_follow_at": nextFollowAt,
 	}
@@ -134,8 +136,9 @@ func (s *activityService) List(
 	q.PageQuery.Normalize()
 
 	filter := repository.ActivityFilter{
-		Keyword:   q.Keyword,
-		PartnerID: q.PartnerID,
+		Keyword:       q.Keyword,
+		PartnerID:     q.PartnerID,
+		OpportunityID: q.OpportunityID,
 	}
 	if t := strings.ToUpper(strings.TrimSpace(q.Type)); t != "" {
 		at := model.ActivityType(t)

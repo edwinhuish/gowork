@@ -13,9 +13,11 @@ import (
 
 // ActivityFilter 是跟进记录的查询条件。
 type ActivityFilter struct {
-	Keyword   string
-	PartnerID *uint
-	Type      *model.ActivityType
+	// OpportunityID 按商机筛（T-62）。
+	OpportunityID *uint
+	Keyword       string
+	PartnerID     *uint
+	Type          *model.ActivityType
 	// NextFollowBefore 非空时只取 NextFollowAt 早于该日期的记录，用于「已到期未跟进」。
 	//
 	// 传 YYYY-MM-DD 字符串而不是 time.Time：三库对 date 列的存储形态不同
@@ -28,6 +30,12 @@ func (f ActivityFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 4)
 	if f.Keyword != "" {
 		scopes = append(scopes, likeAny(f.Keyword, "subject", "content"))
+	}
+	if f.OpportunityID != nil {
+		oid := *f.OpportunityID
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("opportunity_id = ?", oid)
+		})
 	}
 	if f.PartnerID != nil {
 		pid := *f.PartnerID
