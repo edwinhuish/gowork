@@ -81,6 +81,7 @@ func New(cfg *config.Config) (*App, error) {
 		&model.Contact{},
 		&model.Activity{},
 		&model.Opportunity{},
+		&model.OpportunityStageLog{},
 		&model.Lead{},
 		&model.Quotation{},
 		&model.QuotationItem{},
@@ -152,6 +153,8 @@ func New(cfg *config.Config) (*App, error) {
 	contactRepo := repository.NewContactRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	opptyRepo := repository.NewOpportunityRepository(db)
+	// 阶段留痕单独一个仓储（T-61）：它只有追加与查询，没有改与删。
+	opptyStageLogRepo := repository.NewOpportunityStageLogRepository(db)
 	leadRepo := repository.NewLeadRepository(db)
 	quotationRepo := repository.NewQuotationRepository(db)
 	contractRepo := repository.NewContractRepository(db)
@@ -203,7 +206,8 @@ func New(cfg *config.Config) (*App, error) {
 	activitySvc := service.NewActivityService(
 		activityRepo, partnerRepo, contactRepo, service.WithActivityLogger(log))
 	opptySvc := service.NewOpportunityService(
-		opptyRepo, partnerRepo, currencySvc, service.WithOpportunityLogger(log))
+		opptyRepo, partnerRepo, currencySvc, opptyStageLogRepo, txs,
+		service.WithOpportunityLogger(log))
 	leadSvc := service.NewLeadService(
 		leadRepo, partnerSvc, partnerRepo, txs, service.WithLeadLogger(log))
 	sourceSvc := service.NewProductSourceService(

@@ -111,6 +111,23 @@ func (h *OpportunityHandler) Revalue(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// StageLogs GET /api/v1/opportunities/:id/stage-logs
+//
+// 阶段变更历史（T-61）：什么时候从哪一步走到哪一步、谁改的。
+// 只读：历史改不了，要更正只能再写一条。
+func (h *OpportunityHandler) StageLogs(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	logs, err := h.opportunities.StageLogs(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, logs)
+}
+
 // Delete DELETE /api/v1/opportunities/:id
 func (h *OpportunityHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

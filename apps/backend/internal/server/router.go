@@ -271,6 +271,8 @@ func New(
 		opportunities.PUT("/:id", h.Oppty.Update)
 		// 重估是独立动作（T-61）：保存不重算本币金额，按今日汇率重算要点这里。
 		opportunities.POST("/:id/revalue", h.Oppty.Revalue)
+		// 阶段变更历史（T-61）：只读，改不了。
+		opportunities.GET("/:id/stage-logs", h.Oppty.StageLogs)
 		opportunities.DELETE("/:id", h.Oppty.Delete)
 
 		secured.GET("/opportunities-summary", h.Oppty.Summary)

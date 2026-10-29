@@ -1,5 +1,5 @@
 import { http, toQuery } from './client'
-import type { Opportunity, OpportunitySummary } from '@/types'
+import type { Opportunity, OpportunityStageLog, OpportunitySummary } from '@/types'
 
 /**
  * 商机汇总。
@@ -17,4 +17,9 @@ export const opportunityApi = {
    * 要按今天的汇率重新看一遍，点这个显式动作。终态商机返回 409。
    */
   revalue: (id: number) => http.post<Opportunity>(`/opportunities/${id}/revalue`),
+  /**
+   * 阶段变更历史（T-61）：什么时间从哪一步走到哪一步、谁改的。
+   * 只读——历史改不了，要更正只能再写一条。
+   */
+  stageLogs: (id: number) => http.get<OpportunityStageLog[]>(`/opportunities/${id}/stage-logs`),
 }

@@ -28,6 +28,8 @@ type OpportunityService interface {
 	// Revalue 按今日汇率重算本币金额（T-61）。折算平时是锁住的，
 	// 只有这里显式触发才会动——预测要能比，就不能每天被汇率悄悄改一遍。
 	Revalue(ctx context.Context, id uint) (*model.Opportunity, error)
+	// StageLogs 是阶段变更历史（T-61），按时间正序。只读、可追加，不可改。
+	StageLogs(ctx context.Context, id uint) ([]model.OpportunityStageLog, error)
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*model.Opportunity, error)
 	List(ctx context.Context, q dto.OpportunityQuery) (*dto.PageResult[model.Opportunity], error)
@@ -38,8 +40,12 @@ type opportunityService struct {
 	repo       repository.OpportunityRepository
 	partners   repository.PartnerRepository
 	currencies CurrencyService
-	clock      func() time.Time
-	log        *slog.Logger
+	// stageLogs 是阶段留痕（T-61）。它与商机本体同事务写入：
+	// 只写进去一半，就会出现"阶段变了但没人记得是谁改的"。
+	stageLogs repository.OpportunityStageLogRepository
+	txs       repository.TxManager
+	clock     func() time.Time
+	log       *slog.Logger
 }
 
 type OpportunityOption func(*opportunityService)
@@ -57,12 +63,16 @@ func NewOpportunityService(
 	repo repository.OpportunityRepository,
 	partners repository.PartnerRepository,
 	currencies CurrencyService,
+	stageLogs repository.OpportunityStageLogRepository,
+	txs repository.TxManager,
 	opts ...OpportunityOption,
 ) OpportunityService {
 	s := &opportunityService{
 		repo:       repo,
 		partners:   partners,
 		currencies: currencies,
+		stageLogs:  stageLogs,
+		txs:        txs,
 		clock:      time.Now,
 		log:        slog.Default(),
 	}
@@ -99,7 +109,16 @@ func (s *opportunityService) Create(
 		ExpectedCloseDate: terms.ExpectedCloseDate,
 		Remark:            terms.Remark,
 	}
-	if err := s.repo.Create(ctx, m); err != nil {
+	// 商机与它第一条阶段留痕一起写：新建失败却留下一条"从无到已报价"，
+	// 下次按商机查历史就会看到一个不存在的单号。
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		if err := s.repo.Create(ctx, m); err != nil {
+			return err
+		}
+		return s.stageLogs.Create(ctx,
+			s.buildStageLog(ctx, m, 0, m.Stage, ""))
+	})
+	if err != nil {
 		return nil, err
 	}
 	s.log.Info("新增商机", "id", m.ID, "partner_id", m.PartnerID,
@@ -122,10 +141,66 @@ func (s *opportunityService) Update(
 	if err != nil {
 		return nil, err
 	}
-	if err := s.repo.Update(ctx, id, terms.fields()); err != nil {
+
+	moved := terms.Stage != existing.Stage
+	err = s.txs.Transaction(ctx, func(ctx context.Context) error {
+		if err := s.repo.Update(ctx, id, terms.fields()); err != nil {
+			return err
+		}
+		if !moved {
+			return nil
+		}
+		// 只有阶段真的变了才留一条：把"改了备注"也记成一次阶段变更，
+		// 时间线会被噪声淹掉，而这东西的价值全在稀疏。
+		after := *existing
+		after.Stage = terms.Stage
+		after.Probability = terms.Probability
+		return s.stageLogs.Create(ctx,
+			s.buildStageLog(ctx, &after, existing.Stage, terms.Stage, ""))
+	})
+	if err != nil {
 		return nil, err
 	}
 	return s.repo.FindByID(ctx, id)
+}
+
+// StageLogs 返回某条商机的阶段变更历史（T-61）。
+//
+// 先确认商机存在：否则软删掉的商机会返回空数组，前端分不清
+// "没有变更过"和"这条根本不存在"。
+func (s *opportunityService) StageLogs(
+	ctx context.Context, id uint,
+) ([]model.OpportunityStageLog, error) {
+	if _, err := s.repo.FindByID(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.stageLogs.ListByOpportunity(ctx, id)
+}
+
+// buildStageLog 造一条阶段留痕。
+//
+// 操作人取 ctx 里的身份；内部调用（种子数据、迁移、定时任务）没有身份，
+// 记 0 与空姓名——好过编一个"系统"出来，还能看出这条不是人点的。
+func (s *opportunityService) buildStageLog(
+	ctx context.Context, m *model.Opportunity,
+	from, to model.OpportunityStage, remark string,
+) *model.OpportunityStageLog {
+	l := &model.OpportunityStageLog{
+		OpportunityID: m.ID,
+		FromStage:     from,
+		ToStage:       to,
+		Probability:   m.Probability,
+		Remark:        remark,
+		CreatedAt:     s.clock(),
+	}
+	if actor, ok := ActorFrom(ctx); ok {
+		l.ActorID = actor.UserID
+		l.ActorName = actor.Nickname
+		if l.ActorName == "" {
+			l.ActorName = actor.Username
+		}
+	}
+	return l
 }
 
 // Revalue 按今日汇率重算本币金额（T-61）。

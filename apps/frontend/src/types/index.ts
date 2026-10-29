@@ -276,6 +276,23 @@ export interface Opportunity {
   updated_at: string
 }
 
+/**
+ * 商机阶段变更留痕（T-61）。
+ *
+ * 只读：后端仓储没有改与删两个方法。`from_stage` 为 0 表示这条商机刚建出来。
+ */
+export interface OpportunityStageLog {
+  id: number
+  opportunity_id: number
+  from_stage: number
+  to_stage: number
+  probability: number
+  actor_id: number
+  actor_name: string
+  remark: string
+  created_at: string
+}
+
 export interface OpportunityStageSummary {
   stage: number
   count: number

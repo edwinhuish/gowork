@@ -1,12 +1,23 @@
+import { useQuery } from '@tanstack/react-query'
 import { useList, useShow } from '@refinedev/core'
 import { Show } from '@refinedev/antd'
-import { Button, Descriptions, message, Popconfirm, Space, Table, Tag, Typography } from 'antd'
+import {
+  Button,
+  Descriptions,
+  message,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Timeline,
+  Typography,
+} from 'antd'
 
 import { opportunityApi } from '@/api/opportunities'
 import { Empty, Money } from '@/components/fields'
 import { ACTIVITY_TYPE_OPTIONS, opportunityStageLabel } from '@/constants/catalog'
-import type { Activity, Opportunity } from '@/types'
-import { formatDate } from '@/utils/format'
+import type { Activity, Opportunity, OpportunityStageLog } from '@/types'
+import { formatDate, formatTime } from '@/utils/format'
 
 /**
  * 商机详情（T-62）。
@@ -29,6 +40,14 @@ export function OpportunityShow() {
   const activities: Activity[] = result?.data ?? []
   // 赢单 / 输单是已发生的事，本币金额不再重估（后端同样会 409）。
   const isFinal = o?.stage === 50 || o?.stage === 60
+
+  // 阶段变更历史（T-61）：这条接口不是 CRUD 资源，直接走 http 封装的 api。
+  const logsQuery = useQuery({
+    queryKey: ['opportunity-stage-logs', o?.id],
+    queryFn: () => opportunityApi.stageLogs(o!.id),
+    enabled: !!o?.id,
+  })
+  const logs: OpportunityStageLog[] = logsQuery.data ?? []
 
   // 按今日汇率重估（T-61）：保存商机不重算本币金额，
   // 否则汇率一漂，上一季的加权预测跟着漂，季度环比就没了。
@@ -127,6 +146,43 @@ export function OpportunityShow() {
           },
         ]}
       />
+
+      <Typography.Title level={5} style={{ marginTop: 24 }}>
+        阶段变更
+      </Typography.Title>
+
+      {/* 时间线按时间正序（后端已排好）：读起来是"怎么走到今天的"，
+          倒序只适合看"最近发生了什么"，而这条商机的重点在过程。 */}
+      <Timeline
+        pending={logsQuery.isLoading ? '载入中…' : undefined}
+        items={
+          logs.length > 0
+            ? logs.map((l) => ({
+                children: (
+                  <Space direction="vertical" size={0}>
+                    <Space size={6}>
+                      {l.from_stage === 0 ? (
+                        <Tag bordered={false}>新建</Tag>
+                      ) : (
+                        <Tag bordered={false}>{opportunityStageLabel(l.from_stage)}</Tag>
+                      )}
+                      <span>→</span>
+                      <Tag color="blue">{opportunityStageLabel(l.to_stage)}</Tag>
+                      <Typography.Text type="secondary">赢率 {l.probability}%</Typography.Text>
+                    </Space>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {formatTime(l.created_at)}
+                      {l.actor_name ? ` · ${l.actor_name}` : ' · 系统'}
+                    </Typography.Text>
+                  </Space>
+                ),
+              }))
+            : []
+        }
+      />
+      {!logsQuery.isLoading && logs.length === 0 && (
+        <Typography.Text type="secondary">这条商机还没有阶段变更记录。</Typography.Text>
+      )}
     </Show>
   )
 }

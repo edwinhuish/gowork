@@ -22,7 +22,8 @@ type opptyFixture struct {
 func newOpportunityFixture(t *testing.T, now time.Time) opptyFixture {
 	t.Helper()
 	db := openTestDB(t,
-		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Opportunity{})
+		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{},
+		&model.Opportunity{}, &model.OpportunityStageLog{})
 
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
@@ -55,6 +56,8 @@ func newOpportunityFixture(t *testing.T, now time.Time) opptyFixture {
 			repository.NewOpportunityRepository(db),
 			repository.NewPartnerRepository(db),
 			currencySvc,
+			repository.NewOpportunityStageLogRepository(db),
+			repository.NewTxManager(db),
 			WithOpportunityClock(clock),
 		),
 		partners:   repository.NewPartnerRepository(db),
@@ -237,7 +240,8 @@ func TestOpportunityRateLock(t *testing.T) {
 	now := day1
 
 	db := openTestDB(t,
-		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{}, &model.Opportunity{})
+		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{},
+		&model.Opportunity{}, &model.OpportunityStageLog{})
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
 	currencySvc := NewCurrencyService(currencyRepo, rateRepo)
@@ -268,6 +272,7 @@ func TestOpportunityRateLock(t *testing.T) {
 
 	svc := NewOpportunityService(
 		repository.NewOpportunityRepository(db), partnerRepo, currencySvc,
+		repository.NewOpportunityStageLogRepository(db), repository.NewTxManager(db),
 		WithOpportunityClock(func() time.Time { return now }),
 	)
 
@@ -354,4 +359,107 @@ func TestOpportunityRateLock(t *testing.T) {
 			t.Fatalf("期望 40901，实际 %v", err)
 		}
 	})
+}
+
+// TestOpportunityStageLog 钉住阶段变更留痕（T-61）。
+//
+// 验收是「阶段变更可按时间回看」：所以既要有从哪到哪，也要有谁、什么时候；
+// 而改备注这类不改变阶段的操作不该往时间线里塞噪声。
+func TestOpportunityStageLog(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+
+	db := openTestDB(t,
+		&model.Currency{}, &model.ExchangeRate{}, &model.Partner{},
+		&model.Opportunity{}, &model.OpportunityStageLog{})
+	currencySvc := NewCurrencyService(
+		repository.NewCurrencyRepository(db), repository.NewExchangeRateRepository(db))
+	partnerRepo := repository.NewPartnerRepository(db)
+	svc := NewOpportunityService(
+		repository.NewOpportunityRepository(db), partnerRepo, currencySvc,
+		repository.NewOpportunityStageLogRepository(db), repository.NewTxManager(db),
+		WithOpportunityClock(func() time.Time { return now }),
+	)
+
+	partner := &model.Partner{
+		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
+		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+	}
+	if err := partnerRepo.Create(ctx, partner); err != nil {
+		t.Fatalf("建主体失败: %v", err)
+	}
+
+	// 本币：本用例只用本币金额，折算比恒为 1，不必再登记汇率。
+	if _, err := currencySvc.Create(ctx, dto.CurrencyInput{
+		Code: "CNY", Name: "人民币", IsBase: boolPtr(true),
+	}); err != nil {
+		t.Fatalf("建本币失败: %v", err)
+	}
+
+	// 带身份的 ctx：留痕要能回答"谁改的"，匿名调用的记录没有意义。
+	ctx = WithActor(ctx, &Principal{UserID: 7, Username: "amy", Nickname: "Amy 陈"})
+
+	in := dto.OpportunityInput{
+		PartnerID:         partner.ID,
+		Subject:           "2026 秋季五金补货",
+		Stage:             int8(model.OpportunityStageQualify),
+		Amount:            money.MustParse("1000"),
+		CurrencyCode:      "CNY",
+		ExpectedCloseDate: "2026-11-30",
+	}
+	m, err := svc.Create(ctx, in)
+	if err != nil {
+		t.Fatalf("新建商机失败: %v", err)
+	}
+
+	logs, err := svc.StageLogs(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("查阶段留痕失败: %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("新建后应有 1 条留痕，实际 %d", len(logs))
+	}
+	if logs[0].FromStage != 0 || logs[0].ToStage != model.OpportunityStageQualify {
+		t.Errorf("首条留痕应为 0 → 10，实际 %d → %d", logs[0].FromStage, logs[0].ToStage)
+	}
+	if logs[0].ActorID != 7 || logs[0].ActorName != "Amy 陈" {
+		t.Errorf("操作人应为 7 / Amy 陈，实际 %d / %s", logs[0].ActorID, logs[0].ActorName)
+	}
+
+	// 改备注、改金额但不动阶段：不留痕。
+	edited := in
+	edited.Remark = "客户问了两次运费"
+	edited.Amount = money.MustParse("1200")
+	if _, err := svc.Update(ctx, m.ID, edited); err != nil {
+		t.Fatalf("保存失败: %v", err)
+	}
+	if logs, _ = svc.StageLogs(ctx, m.ID); len(logs) != 1 {
+		t.Fatalf("不动阶段的保存不该留痕，实际 %d 条", len(logs))
+	}
+
+	// 阶段前进一格：留一条，且能看出从哪来。
+	next := edited
+	next.Stage = int8(model.OpportunityStageQuoted)
+	if _, err := svc.Update(ctx, m.ID, next); err != nil {
+		t.Fatalf("改阶段失败: %v", err)
+	}
+	if logs, err = svc.StageLogs(ctx, m.ID); err != nil {
+		t.Fatalf("查阶段留痕失败: %v", err)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("改阶段后应有 2 条留痕，实际 %d", len(logs))
+	}
+	if logs[1].FromStage != model.OpportunityStageQualify ||
+		logs[1].ToStage != model.OpportunityStageQuoted {
+		t.Errorf("第二条留痕应为 10 → 30，实际 %d → %d",
+			logs[1].FromStage, logs[1].ToStage)
+	}
+	if logs[1].Probability != 50 {
+		t.Errorf("留痕里的赢率 = %d，期望 50（已报价默认值）", logs[1].Probability)
+	}
+
+	// 不存在的商机：404，而不是空数组——两者在界面上长得不一样。
+	if _, err := svc.StageLogs(ctx, 99999); err == nil {
+		t.Fatal("不存在的商机应返回 404")
+	}
 }
