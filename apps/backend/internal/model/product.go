@@ -14,11 +14,11 @@ type Product struct {
 	// 删掉一个产品后，同 SKU 可以立刻重建。
 	DeletedAt DeletedAt `gorm:"softDelete:milli;not null;default:0;uniqueIndex:uni_product_sku,priority:2" json:"deleted_at,omitempty"`
 	SKUCode   string    `gorm:"size:32;uniqueIndex:uni_product_sku,priority:1;not null" json:"sku_code"`
-	NameCN   string `gorm:"size:128;not null" json:"name_cn"`
-	NameEN   string `gorm:"size:128" json:"name_en"`
-	Category string `gorm:"size:32;index" json:"category"`
-	Spec     string `gorm:"size:128" json:"spec"`
-	Unit     string `gorm:"size:16;not null;default:PCS" json:"unit"`
+	NameCN    string    `gorm:"size:128;not null" json:"name_cn"`
+	NameEN    string    `gorm:"size:128" json:"name_en"`
+	Category  string    `gorm:"size:32;index" json:"category"`
+	Spec      string    `gorm:"size:128" json:"spec"`
+	Unit      string    `gorm:"size:16;not null;default:PCS" json:"unit"`
 	// SupplierID 指向 md_partner 里承担供应商角色的主体。
 	// 字段名与 JSON tag 保留 supplier 语义：产品关心的是"从谁进的货"，
 	// 而不是"这个主体还兼着什么角色"。角色约束由 service 在写入时校验。
@@ -26,7 +26,14 @@ type Product struct {
 	// 成本价与售价用 money.Decimal：它们是参考价，但会被复制进报价与订单的
 	// 成本快照，一旦带了 float 的尾差，两边永远对不上。
 	CostPrice money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"cost_price"`
-	SalePrice money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
+
+	// CostHidden 表示本次响应里的成本价被**服务端**清过（T-36 字段级权限）。
+	//
+	// 没有这个标记，被清成 0 的成本价与"真的 0"在界面上分不开，
+	// 而两者的含义完全相反：一个是"你看不到"，一个是"这件货不要钱"。
+	// 不落库：它描述的是"这次是谁在看"，不是产品本身。
+	CostHidden bool          `gorm:"-" json:"cost_hidden,omitempty"`
+	SalePrice  money.Decimal `gorm:"type:decimal(12,2);not null;default:0" json:"sale_price"`
 
 	// 以下六项是报关要素的**默认值**，全部可选。
 	//

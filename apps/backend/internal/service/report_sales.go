@@ -207,9 +207,27 @@ func (s *reportService) SalesDashboard(
 		Truncated: truncated,
 	}
 
+	// T-36：业务员看得到卖了多少，看不到赚了多少。清在服务端——
+	// 只让前端不渲染，数字仍然在那次响应里，打开开发者工具就能读到。
+	if !canSeeCost(ctx) {
+		for i := range report.Rows {
+			hideSalesCost(&report.Rows[i])
+		}
+		hideSalesCost(&report.Total)
+	}
+
 	s.log.Debug("销售看板", "dimension", dim, "rows", len(rows),
 		"revenue", report.Total.Revenue, "profit", report.Total.Profit, "truncated", truncated)
 	return report, nil
+}
+
+// hideSalesCost 清掉一行的成本类金额，并标记"被隐藏"。
+func hideSalesCost(row *dto.SalesDashboardRow) {
+	row.Cost = money.Zero()
+	row.Charge = money.Zero()
+	row.Profit = money.Zero()
+	row.Margin = money.Zero()
+	row.CostHidden = true
 }
 
 func buildSalesRow(key string, b *salesBucket) dto.SalesDashboardRow {

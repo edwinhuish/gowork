@@ -208,7 +208,13 @@ func (s *productService) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *productService) Get(ctx context.Context, id uint) (*model.Product, error) {
-	return s.repo.FindByID(ctx, id)
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// T-36：成本价对业务员不可见（列表与详情同一口径）。
+	redactProductCost(ctx, m)
+	return m, nil
 }
 
 // Restore 把一条已软删的产品恢复回来。
@@ -279,6 +285,10 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 		for i := range list {
 			list[i].MatchedCodes = mergeCodes(hits[list[i].ID], sourceHits[list[i].ID])
 		}
+	}
+	// T-36：成本价对业务员不可见，清在服务端而不是靠前端不渲染。
+	for i := range list {
+		redactProductCost(ctx, &list[i])
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
 }

@@ -111,6 +111,9 @@ type ShipmentProfit struct {
 	// CostMissing 表示这票里有销售行没有可用成本（没挂采购单，或采购单还是草稿）。
 	// 此时 Cost 与 Profit 都不完整——不标出来，就等于把"没录采购"报成"毛利极高"。
 	CostMissing bool `json:"cost_missing"`
+	// CostHidden 表示成本 / 运杂费 / 毛利被服务端清掉了（T-36：业务员看不到毛利）。
+	// 收入仍然给：业务员要知道自己卖了多少，只是不知道赚了多少。
+	CostHidden bool `json:"cost_hidden"`
 }
 
 // ExchangeGainQuery 是汇兑损益的查询条件。日期按**到账日**筛：
@@ -208,6 +211,8 @@ type ProductProfitReport struct {
 	Profit      money.Decimal `json:"profit"`
 	Margin      money.Decimal `json:"margin"`
 	CostMissing bool          `json:"cost_missing"`
+	// CostHidden 表示成本 / 运杂费 / 毛利 / 毛利率被服务端清掉了（T-36）。
+	CostHidden bool `json:"cost_hidden"`
 }
 
 // TodoQuery 是待办清单的查询条件。
@@ -453,6 +458,9 @@ type SalesDashboardRow struct {
 	// CostMissing 表示这一行里有出货行没有可用成本（没挂采购单，或采购单还是草稿）。
 	// 不标出来，等于把"没录采购"报成"毛利极高"。
 	CostMissing bool `json:"cost_missing"`
+	// CostHidden 表示成本 / 运杂费 / 毛利 / 毛利率被服务端清掉了（T-36）。
+	// 订单额与收入照给：业务员要先知道自己卖了多少。
+	CostHidden bool `json:"cost_hidden"`
 }
 
 // SalesDashboard 是销售看板的响应体。

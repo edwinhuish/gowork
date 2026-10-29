@@ -107,6 +107,20 @@ func (s *reportService) ProductProfit(
 		CostMissing: missing,
 	}
 
+	// T-36：业务员看得到这个产品卖了多少，看不到赚了多少。
+	if !canSeeCost(ctx) {
+		for i := range report.Rows {
+			report.Rows[i].Cost = money.Zero()
+			report.Rows[i].Charge = money.Zero()
+			report.Rows[i].Profit = money.Zero()
+		}
+		report.Cost = money.Zero()
+		report.Charge = money.Zero()
+		report.Profit = money.Zero()
+		report.Margin = money.Zero()
+		report.CostHidden = true
+	}
+
 	s.log.Debug("产品毛利下钻", "product", q.ProductID, "shipments", len(rows),
 		"revenue", report.Revenue, "profit", report.Profit)
 	return report, nil

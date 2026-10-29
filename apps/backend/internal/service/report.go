@@ -161,6 +161,17 @@ func (s *reportService) ShipmentProfits(
 	for _, h := range heads {
 		list = append(list, buildShipmentProfit(h, byShipment[h.ID], costs, charges[h.ID]))
 	}
+	// T-36：业务员看得到收入，看不到成本 / 运杂费 / 毛利。清在服务端，
+	// 前端不渲染只是界面效果——数字照样在那次响应里。
+	if !canSeeCost(ctx) {
+		for i := range list {
+			list[i].Cost = money.Zero()
+			list[i].Charge = money.Zero()
+			list[i].Profit = money.Zero()
+			list[i].Margin = money.Zero()
+			list[i].CostHidden = true
+		}
+	}
 
 	s.log.Debug("单票毛利", "shipments", len(list), "total", total)
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
