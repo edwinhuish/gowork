@@ -25,33 +25,34 @@ type Handlers struct {
 	ProductCode *handler.ProductCodeHandler
 	Partner     *handler.PartnerHandler
 	// PartnerAddress 是主体的多地址（发票 / 收货 / 提单收货人 / 通知方）。
-	PartnerAddress *handler.PartnerAddressHandler
-	Currency       *handler.CurrencyHandler
-	Rate           *handler.ExchangeRateHandler
-	Contact        *handler.ContactHandler
-	Activity       *handler.ActivityHandler
-	Oppty          *handler.OpportunityHandler
-	Lead           *handler.LeadHandler
-	Source         *handler.ProductSourceHandler
-	Quotation      *handler.QuotationHandler
-	Contract       *handler.ContractHandler
-	PDF            *handler.PDFHandler
-	SalesOrder     *handler.SalesOrderHandler
-	Purchase       *handler.PurchaseOrderHandler
-	Shipment       *handler.ShipmentHandler
-	Charge         *handler.ShipmentChargeHandler
-	Customs        *handler.CustomsDeclarationHandler
-	Receivable     *handler.ReceivableHandler
-	Payable        *handler.PayableHandler
-	Payment        *handler.PaymentHandler
-	Report         *handler.ReportHandler
-	Stock          *handler.StockHandler
-	StockDoc       *handler.StockDocumentHandler
-	Dashboard      *handler.DashboardHandler
-	Attachment     *handler.AttachmentHandler
-	Audit          *handler.AuditHandler
-	User           *handler.UserHandler
-	Clause         *handler.ClauseHandler
+	PartnerAddress  *handler.PartnerAddressHandler
+	Currency        *handler.CurrencyHandler
+	Rate            *handler.ExchangeRateHandler
+	Contact         *handler.ContactHandler
+	Activity        *handler.ActivityHandler
+	Oppty           *handler.OpportunityHandler
+	Lead            *handler.LeadHandler
+	Source          *handler.ProductSourceHandler
+	Quotation       *handler.QuotationHandler
+	Contract        *handler.ContractHandler
+	PDF             *handler.PDFHandler
+	SalesOrder      *handler.SalesOrderHandler
+	Purchase        *handler.PurchaseOrderHandler
+	PurchaseReceipt *handler.PurchaseReceiptHandler
+	Shipment        *handler.ShipmentHandler
+	Charge          *handler.ShipmentChargeHandler
+	Customs         *handler.CustomsDeclarationHandler
+	Receivable      *handler.ReceivableHandler
+	Payable         *handler.PayableHandler
+	Payment         *handler.PaymentHandler
+	Report          *handler.ReportHandler
+	Stock           *handler.StockHandler
+	StockDoc        *handler.StockDocumentHandler
+	Dashboard       *handler.DashboardHandler
+	Attachment      *handler.AttachmentHandler
+	Audit           *handler.AuditHandler
+	User            *handler.UserHandler
+	Clause          *handler.ClauseHandler
 }
 
 // bodyLimitBytes 是单个请求体的兜底上限，32MB。
@@ -335,6 +336,15 @@ func New(
 		purchases.PUT("/:id", h.Purchase.Update)
 		purchases.DELETE("/:id", h.Purchase.Delete)
 		purchases.PUT("/:id/status", h.Purchase.UpdateStatus)
+		// 收货单（T-51a）：挂在采购单下——收货永远属于某张采购单。
+		purchases.GET("/:id/receipts", h.PurchaseReceipt.Summary)
+		purchases.POST("/:id/receipts", h.PurchaseReceipt.Create)
+
+		// 收货单自身：确认才动库存，所以单独一个入口。
+		receipts := secured.Group("/purchase-receipts")
+		receipts.GET("/:id", h.PurchaseReceipt.Get)
+		receipts.PUT("/:id/confirm", h.PurchaseReceipt.Confirm)
+		receipts.DELETE("/:id", h.PurchaseReceipt.Delete)
 		// 采购单打印件（T-54）：供应商要拿到它才能排产。
 		purchases.GET("/:id/pdf", h.PDF.PurchaseOrder)
 

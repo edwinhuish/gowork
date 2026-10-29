@@ -147,6 +147,9 @@ const (
 	DocTypeStockIn    DocType = "IN"
 	DocTypeStockOut   DocType = "OUT"
 	DocTypeStockCount DocType = "CT"
+	// DocTypePurchaseReceipt 是采购收货单（T-51a）。单独一段号：
+	// 收货单不是采购单的一部分，它有自己的发生日与自己的对账口径。
+	DocTypePurchaseReceipt DocType = "RCV"
 	// 形式发票与销售合同共用一张表、各自一条序列：单号一眼能看出是哪种，
 	// 而"同一份东西两个名字"的问题只存在于类型命名，不存在于号段。
 	DocTypeProformaInvoice DocType = "PI"
@@ -162,6 +165,7 @@ func (t DocType) IsValid() bool {
 	case DocTypeQuotation, DocTypeSalesOrder, DocTypePurchaseOrder, DocTypeShipment,
 		DocTypeReceivable, DocTypePayable, DocTypePayment, DocTypeCustoms,
 		DocTypeStockMovement, DocTypeStockIn, DocTypeStockOut, DocTypeStockCount,
+		DocTypePurchaseReceipt,
 		DocTypeProformaInvoice, DocTypeSalesContract:
 		return true
 	}

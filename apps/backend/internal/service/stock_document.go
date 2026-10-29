@@ -29,6 +29,9 @@ type StockDocumentService interface {
 	// IssueSalesOut 由出货确认调用：建一张销售出库单并立刻确认（T-40）。
 	// 调用方负责把它包进自己的事务。
 	IssueSalesOut(ctx context.Context, in dto.SalesOutIssueInput) (*model.StockDocument, error)
+	// IssuePurchaseIn 由收货确认调用：建一张采购入库单并立刻确认（T-51a）。
+	// 调用方负责把它包进自己的事务，与 IssueSalesOut 同一约束。
+	IssuePurchaseIn(ctx context.Context, in dto.PurchaseInIssueInput) (*model.StockDocument, error)
 }
 
 type stockDocumentService struct {
@@ -336,6 +339,60 @@ func (s *stockDocumentService) IssueSalesOut(
 	}
 	// 立刻确认：复用 Confirm 那一条路径（含写流水与更新快照），
 	// 不另写一份"建单并直接置为已确认"的逻辑，否则两处的流水字段迟早不一致。
+	return s.Confirm(ctx, doc.ID)
+}
+
+// IssuePurchaseIn 由收货确认调用：生成一张采购入库单并**立刻确认**（T-51a）。
+//
+// 与 IssueSalesOut 完全同构：收货确认已经是仓库点过的结果，中间再插一次
+// 人工确认，等于给「货已到、账没动」留一个窗口。调用方负责把它包进自己的事务。
+func (s *stockDocumentService) IssuePurchaseIn(
+	ctx context.Context, in dto.PurchaseInIssueInput,
+) (*model.StockDocument, error) {
+	if len(in.Items) == 0 {
+		return nil, errs.BadRequest("这次收货没有明细，不能生成采购入库单")
+	}
+	if strings.TrimSpace(in.ReceiptNo) == "" {
+		return nil, errs.BadRequest("缺少来源收货单号")
+	}
+
+	dup, err := s.docs.ExistsBySource(ctx, model.StockDocPurchaseIn, in.ReceiptNo)
+	if err != nil {
+		return nil, err
+	}
+	if dup {
+		return nil, errs.ErrConflict.WithMsg(
+			fmt.Sprintf("收货单 %s 已经生成过采购入库单，不能重复入库", in.ReceiptNo))
+	}
+
+	docNo, err := s.docNos.Next(ctx, model.StockDocPurchaseIn.DocType())
+	if err != nil {
+		return nil, err
+	}
+
+	doc := &model.StockDocument{
+		DocNo:       docNo,
+		Type:        model.StockDocPurchaseIn,
+		Status:      model.DocumentStatusDraft,
+		DocDate:     model.DateOnly(in.DocDate),
+		PartnerID:   in.PartnerID,
+		SourceDocNo: in.ReceiptNo,
+		Remark:      strings.TrimSpace(in.Remark),
+	}
+	items := make([]model.StockDocumentItem, 0, len(in.Items))
+	for _, it := range in.Items {
+		items = append(items, model.StockDocumentItem{
+			ProductID: it.ProductID,
+			SKUCode:   it.SKUCode,
+			NameCN:    it.NameCN,
+			Unit:      it.Unit,
+			Qty:       it.Qty,
+			Remark:    it.Remark,
+		})
+	}
+	if err := s.docs.CreateWithItems(ctx, doc, items); err != nil {
+		return nil, err
+	}
 	return s.Confirm(ctx, doc.ID)
 }
 
