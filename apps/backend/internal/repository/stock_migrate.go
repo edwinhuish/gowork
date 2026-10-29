@@ -17,7 +17,8 @@ import (
 //     **不能用 AutoMigrate**：它只建不存在的索引，不改已存在索引的列；
 //     而写入侧的 ON CONFLICT 必须匹配到一个真实存在的唯一约束。
 //
-// 幂等：回填只动 warehouse_id = 0 的行；索引先判存在再删，重复启动不会失败。
+// 幂等：回填只动 warehouse_id = 0 的行；索引先看列，已经带 warehouse_id 就跳过，
+// 重复启动既不会失败，也不会在存量表上反复重建唯一索引。
 func MigrateStockWarehouse(db *gorm.DB) error {
 	ids := make([]uint, 0, 1)
 	if err := db.Model(&model.Warehouse{}).
@@ -40,13 +41,31 @@ func MigrateStockWarehouse(db *gorm.DB) error {
 		}
 	}
 
+	// 索引已经带上 warehouse_id 就到此为止。
+	// 否则每次启动都会 DROP + CREATE 一次唯一索引——在存量表上那是一次全表扫描
+	// 加一把锁，而这个函数是随服务启动跑的，等于每次重启都判一次大表。
+	const idxName = "uni_stock_snapshot_product"
 	m := db.Migrator()
-	if m.HasIndex(&model.StockSnapshot{}, "uni_stock_snapshot_product") {
-		if err := m.DropIndex(&model.StockSnapshot{}, "uni_stock_snapshot_product"); err != nil {
+	if m.HasIndex(&model.StockSnapshot{}, idxName) {
+		indexes, err := m.GetIndexes(&model.StockSnapshot{})
+		if err != nil {
+			return fmt.Errorf("读取快照索引: %w", err)
+		}
+		for _, ix := range indexes {
+			if ix.Name() != idxName {
+				continue
+			}
+			for _, col := range ix.Columns() {
+				if col == "warehouse_id" {
+					return nil
+				}
+			}
+		}
+		if err := m.DropIndex(&model.StockSnapshot{}, idxName); err != nil {
 			return fmt.Errorf("删除旧快照唯一索引: %w", err)
 		}
 	}
-	if err := m.CreateIndex(&model.StockSnapshot{}, "uni_stock_snapshot_product"); err != nil {
+	if err := m.CreateIndex(&model.StockSnapshot{}, idxName); err != nil {
 		return fmt.Errorf("建立新快照唯一索引: %w", err)
 	}
 	return nil
