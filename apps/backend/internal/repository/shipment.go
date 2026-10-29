@@ -248,6 +248,7 @@ func (r *shipmentRepo) FindByID(ctx context.Context, id uint) (*model.Shipment, 
 	var m model.Shipment
 	err := r.conn(ctx).
 		Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
+		Preload("Forwarder").
 		Preload("Allocations.SalesOrderItem").
 		Preload("Allocations.SalesOrderItem.SalesOrder").
 		First(&m, id).Error

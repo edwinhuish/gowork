@@ -1,0 +1,86 @@
+{
+  "title": "INSURANCE POLICY",
+  "subtitle": "保险单",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    {
+      "label": "Policy No.",
+      "value": "{doc_no}"
+    },
+    {
+      "label": "Invoice No.",
+      "value": "{doc_no}"
+    },
+    {
+      "label": "Date",
+      "value": "{ship_date}"
+    },
+    {
+      "label": "Terms",
+      "value": "{trade_term}"
+    }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "CONVEYANCE",
+      "lines": [
+        "Vessel: {vessel}",
+        "B/L No.: {bl_no}",
+        "ETD: {etd}",
+        "From: {origin_country}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      {
+        "title": "No.",
+        "key": "no",
+        "width": 12,
+        "align": "left"
+      },
+      {
+        "title": "Description of Goods",
+        "key": "description",
+        "width": 96,
+        "align": "left"
+      },
+      {
+        "title": "Qty",
+        "key": "qty",
+        "width": 26,
+        "align": "right"
+      },
+      {
+        "title": "Ctns",
+        "key": "cartons",
+        "width": 20,
+        "align": "right"
+      }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    {
+      "label": "Amount Insured ({currency_code})",
+      "value": "{insured_amount}"
+    }
+  ],
+  "notes": [
+    "Covering All Risks as per Ocean Marine Cargo Clauses. Insured amount is 110% of the invoice value.",
+    "Claims payable at destination upon presentation of the original policy and shipping documents."
+  ]
+}

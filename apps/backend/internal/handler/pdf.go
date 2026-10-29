@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -34,6 +35,42 @@ func (h *PDFHandler) ready(c *gin.Context) bool {
 	}
 	return true
 }
+
+// shipmentDoc 是四份外销单证共用的入口骨架：能力检查、解析 id、调服务、写文件。
+//
+// 四个方法各写一遍这五行的代价不是啰嗦，而是「新加一份单证时漏掉 ready 检查」——
+// 那种漏法在没配字体的环境里会变成 panic 而不是一句能看懂的提示。
+func (h *PDFHandler) shipmentDoc(
+	c *gin.Context, fn func(context.Context, uint) (*service.RenderedFile, error),
+) {
+	if !h.ready(c) {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	f, err := fn(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	writeFile(c, f)
+}
+
+// ShippingAdvice GET /api/v1/shipments/:id/shipping-advice
+func (h *PDFHandler) ShippingAdvice(c *gin.Context) { h.shipmentDoc(c, h.pdf.ShippingAdvice) }
+
+// CertificateOfOrigin GET /api/v1/shipments/:id/certificate-of-origin
+func (h *PDFHandler) CertificateOfOrigin(c *gin.Context) {
+	h.shipmentDoc(c, h.pdf.CertificateOfOrigin)
+}
+
+// InsurancePolicy GET /api/v1/shipments/:id/insurance-policy
+func (h *PDFHandler) InsurancePolicy(c *gin.Context) { h.shipmentDoc(c, h.pdf.InsurancePolicy) }
+
+// BookingRequest GET /api/v1/shipments/:id/booking-request
+func (h *PDFHandler) BookingRequest(c *gin.Context) { h.shipmentDoc(c, h.pdf.BookingRequest) }
 
 // SalesOrder GET /api/v1/sales-orders/:id/pdf
 func (h *PDFHandler) SalesOrder(c *gin.Context) {

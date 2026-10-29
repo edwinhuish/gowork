@@ -58,6 +58,9 @@ type shipmentService struct {
 	// products 用来按产品箱规补全装箱数据（T-50）。为 nil 时分配行完全按人工填的走，
 	// 所以测试与老调用方不必为它准备仓储。
 	products repository.ProductRepository
+	// partners 用来校验票头上的货代是不是真的货代（T-55）。
+	// 为 nil 时跳过校验（测试与老调用方），与 products 同一处理。
+	partners repository.PartnerRepository
 	clock    func() time.Time
 	log      *slog.Logger
 }
@@ -87,6 +90,29 @@ func WithShipmentClock(now func() time.Time) ShipmentOption {
 // bootstrap 与四处测试调用点，而箱规只是"产品维护了才带出来"的增强。
 func WithShipmentProducts(repo repository.ProductRepository) ShipmentOption {
 	return func(s *shipmentService) { s.products = repo }
+}
+
+// WithShipmentPartners 注入主体仓储，用于校验票头上的货代（T-55）。
+func WithShipmentPartners(repo repository.PartnerRepository) ShipmentOption {
+	return func(s *shipmentService) { s.partners = repo }
+}
+
+// checkForwarder 校验票头上的货代确实是货代。
+//
+// 不校验的后果不是数据错，而是单证错：订舱委托的抬头写了一家供应商，
+// 货代拿到文件才发现与自己无关，而那时船期已经很紧了。
+func (s *shipmentService) checkForwarder(ctx context.Context, id *uint) error {
+	if id == nil || *id == 0 || s.partners == nil {
+		return nil
+	}
+	m, err := s.partners.FindByID(ctx, *id)
+	if err != nil {
+		return errs.BadRequest("货代不存在，请先在往来单位里建档")
+	}
+	if !m.Role.Has(model.PartnerRoleForwarder) {
+		return errs.BadRequest(m.Name + " 不是货代，请先在主体上勾选货代角色")
+	}
+	return nil
 }
 
 func NewShipmentService(
@@ -133,11 +159,15 @@ func (s *shipmentService) Create(
 		return nil, err
 	}
 
+	if err := s.checkForwarder(ctx, in.ForwarderID); err != nil {
+		return nil, err
+	}
 	m := &model.Shipment{
-		DocNo:    docNo,
-		Status:   model.DocumentStatusDraft,
-		ShipDate: shipDate,
-		Remark:   in.Remark,
+		DocNo:       docNo,
+		Status:      model.DocumentStatusDraft,
+		ShipDate:    shipDate,
+		ForwarderID: in.ForwarderID,
+		Remark:      in.Remark,
 	}
 	if err := s.shipments.CreateWithAllocations(ctx, m, rows); err != nil {
 		return nil, err
@@ -166,9 +196,13 @@ func (s *shipmentService) Update(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.checkForwarder(ctx, in.ForwarderID); err != nil {
+		return nil, err
+	}
 	fields := map[string]any{
-		"ship_date": shipDate,
-		"remark":    in.Remark,
+		"ship_date":    shipDate,
+		"forwarder_id": in.ForwarderID,
+		"remark":       in.Remark,
 	}
 	if in.UpdatedAt != nil {
 		fields[repository.FieldUpdatedAt] = *in.UpdatedAt

@@ -355,6 +355,11 @@ func New(
 		shipments.GET("/:id/packing-list", h.PDF.PackingList)
 		// 箱唛也是一箱一贴的打印件，不发号：主标识印销售订单号，发票号只是贴纸位。
 		shipments.GET("/:id/carton-labels", h.PDF.CartonLabels)
+		// 四份外销单证（T-55）：与 CI / PL 共用套号，只在文件名后缀上区分。
+		shipments.GET("/:id/shipping-advice", h.PDF.ShippingAdvice)
+		shipments.GET("/:id/certificate-of-origin", h.PDF.CertificateOfOrigin)
+		shipments.GET("/:id/insurance-policy", h.PDF.InsurancePolicy)
+		shipments.GET("/:id/booking-request", h.PDF.BookingRequest)
 		// 改证重开：号码不变、版本加一。它是"重新签发"，不是"另开一票"。
 		shipments.POST("/:id/reissue", h.Shipment.Reissue)
 

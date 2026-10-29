@@ -1,0 +1,137 @@
+{
+  "title": "SHIPPING ADVICE",
+  "subtitle": "装船通知",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    {
+      "label": "No.",
+      "value": "{doc_no}"
+    },
+    {
+      "label": "Date",
+      "value": "{ship_date}"
+    },
+    {
+      "label": "Vessel",
+      "value": "{vessel}"
+    },
+    {
+      "label": "B/L No.",
+      "value": "{bl_no}"
+    }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": [
+        "{partner_name}",
+        "{partner_address}",
+        "{partner_country}",
+        "Attn: {partner_contact}"
+      ]
+    },
+    {
+      "label": "{consignee_label}",
+      "lines": [
+        "{consignee_name}",
+        "{consignee_address}",
+        "Attn: {consignee_contact}"
+      ]
+    },
+    {
+      "label": "{notify_label}",
+      "lines": [
+        "{notify_name}",
+        "{notify_address}",
+        "Attn: {notify_contact}"
+      ]
+    },
+    {
+      "label": "{forwarder_label}",
+      "lines": [
+        "{forwarder_name}",
+        "{forwarder_address}",
+        "Attn: {forwarder_contact}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      {
+        "title": "No.",
+        "key": "no",
+        "width": 10,
+        "align": "left"
+      },
+      {
+        "title": "Description",
+        "key": "description",
+        "width": 66,
+        "align": "left"
+      },
+      {
+        "title": "Qty",
+        "key": "qty",
+        "width": 18,
+        "align": "right"
+      },
+      {
+        "title": "UOM",
+        "key": "unit",
+        "width": 14,
+        "align": "left"
+      },
+      {
+        "title": "Ctns",
+        "key": "cartons",
+        "width": 12,
+        "align": "right"
+      },
+      {
+        "title": "G.W. kg",
+        "key": "gross",
+        "width": 14,
+        "align": "right"
+      },
+      {
+        "title": "N.W. kg",
+        "key": "net",
+        "width": 14,
+        "align": "right"
+      },
+      {
+        "title": "CBM",
+        "key": "cbm",
+        "width": 12,
+        "align": "right"
+      }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    {
+      "label": "Total Cartons",
+      "value": "{cartons_total}"
+    },
+    {
+      "label": "Total G.W. (kg)",
+      "value": "{gross_total}"
+    },
+    {
+      "label": "Total N.W. (kg)",
+      "value": "{net_total}"
+    },
+    {
+      "label": "Total CBM",
+      "value": "{volume_total}"
+    }
+  ],
+  "notes": [
+    "ETD: {etd} · ETA: {eta} · Terms: {trade_term}",
+    "The goods have been shipped as described above. Please arrange insurance and customs clearance accordingly."
+  ]
+}

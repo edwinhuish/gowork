@@ -1,0 +1,87 @@
+{
+  "title": "CERTIFICATE OF ORIGIN",
+  "subtitle": "产地证",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    {
+      "label": "No.",
+      "value": "{doc_no}"
+    },
+    {
+      "label": "Date",
+      "value": "{ship_date}"
+    },
+    {
+      "label": "Invoice No.",
+      "value": "{doc_no}"
+    }
+  ],
+  "parties": [
+    {
+      "label": "{consignee_label}",
+      "lines": [
+        "{consignee_name}",
+        "{consignee_address}",
+        "Attn: {consignee_contact}"
+      ]
+    },
+    {
+      "label": "TRANSPORT",
+      "lines": [
+        "Vessel: {vessel}",
+        "B/L No.: {bl_no}",
+        "ETD: {etd}",
+        "From: {origin_country}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      {
+        "title": "No.",
+        "key": "no",
+        "width": 12,
+        "align": "left"
+      },
+      {
+        "title": "Description",
+        "key": "description",
+        "width": 90,
+        "align": "left"
+      },
+      {
+        "title": "Qty",
+        "key": "qty",
+        "width": 26,
+        "align": "right"
+      },
+      {
+        "title": "UOM",
+        "key": "unit",
+        "width": 20,
+        "align": "left"
+      },
+      {
+        "title": "Ctns",
+        "key": "cartons",
+        "width": 20,
+        "align": "right"
+      }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    {
+      "label": "Total Cartons",
+      "value": "{cartons_total}"
+    }
+  ],
+  "notes": [
+    "We hereby certify that the goods described above are wholly obtained / produced in {origin_country}.",
+    "This certificate does not show values: the customs valuation is declared separately."
+  ]
+}

@@ -270,7 +270,9 @@ func New(cfg *config.Config) (*App, error) {
 		shipmentRepo, orderRepo, chargeRepo, customsRepo, docNoSvc, txs, stockDocSvc,
 		service.WithShipmentLogger(log),
 		// 装箱数据按产品箱规补全（T-50）：订舱要的 CBM 从此不用人工算。
-		service.WithShipmentProducts(productRepo))
+		service.WithShipmentProducts(productRepo),
+		// 票头上的货代要校验角色（T-55）。
+		service.WithShipmentPartners(partnerRepo))
 	// 附件不依赖任何业务服务：它能挂在哪由仓储里的那张清单判定，
 	// 加一个可挂载的实体不用改这里的装配。
 	attachmentSvc := service.NewAttachmentService(

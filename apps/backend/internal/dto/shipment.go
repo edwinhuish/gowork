@@ -41,7 +41,11 @@ type ShipmentAllocationInput struct {
 // 没有金额字段：出货本身不收钱也不付钱，费用归集在 T-18 的出货杂费上。
 type ShipmentInput struct {
 	// ShipDate 出货日，YYYY-MM-DD，留空取今天。
-	ShipDate    string                    `json:"ship_date"`
+	ShipDate string `json:"ship_date"`
+	// ForwarderID 是这票货的货代（T-55）。四份外销单证都要印它：
+	// 订舱委托的抬头、装船通知的联系人、产地证的运输细节。
+	// 之前货代只作为费用行的收款方存在，票面上没有落点。
+	ForwarderID *uint `json:"forwarder_id"`
 	Remark      string                    `json:"remark" binding:"max=255"`
 	Allocations []ShipmentAllocationInput `json:"allocations" binding:"required,min=1,dive"`
 	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。

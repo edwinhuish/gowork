@@ -21,6 +21,12 @@ type Shipment struct {
 	ShipDate time.Time `gorm:"type:date;not null;index" json:"ship_date"`
 	Remark   string    `gorm:"size:255" json:"remark"`
 
+	// ForwarderID 是这票货的货代（T-55）。可空：直发业务有时自己订舱。
+	// 指向 md_partner 里带 forwarder 角色位的主体，角色由 service 写入时校验。
+	// 之前货代只作为费用行的收款方存在，票面上没有落点，四份外销单证就印不出它。
+	ForwarderID *uint    `gorm:"index" json:"forwarder_id"`
+	Forwarder   *Partner `gorm:"foreignKey:ForwarderID" json:"forwarder,omitempty"`
+
 	// InvoiceRevision 是这一票商票的改证次数：0 是首版，改一次加一。
 	//
 	// 改证**不换套号**：报关、提单与客户账上都认这个号，换号等于换了一票货。

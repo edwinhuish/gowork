@@ -81,6 +81,11 @@ const PRINT_DOCS = {
   ci: { path: 'invoice', suffix: 'CI', label: '商业发票' },
   pl: { path: 'packing-list', suffix: 'PL', label: '装箱单' },
   mark: { path: 'carton-labels', suffix: 'MARK', label: '箱唛' },
+  // 四份外销单证（T-55）：与 CI / PL 共用套号，后缀按报关与货代认件习惯取。
+  sa: { path: 'shipping-advice', suffix: 'SA', label: '装船通知' },
+  co: { path: 'certificate-of-origin', suffix: 'CO', label: '产地证' },
+  ip: { path: 'insurance-policy', suffix: 'IP', label: '保险单' },
+  br: { path: 'booking-request', suffix: 'BR', label: '订舱委托' },
 } as const
 
 type PrintKind = keyof typeof PRINT_DOCS

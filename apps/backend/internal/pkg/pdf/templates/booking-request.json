@@ -1,0 +1,133 @@
+{
+  "title": "BOOKING REQUEST",
+  "subtitle": "订舱委托书",
+  "company": [
+    "{company_name}",
+    "{company_address}",
+    "{company_contact}"
+  ],
+  "meta": [
+    {
+      "label": "No.",
+      "value": "{doc_no}"
+    },
+    {
+      "label": "Date",
+      "value": "{ship_date}"
+    },
+    {
+      "label": "Loading",
+      "value": "{origin_country}"
+    },
+    {
+      "label": "Terms",
+      "value": "{trade_term}"
+    }
+  ],
+  "parties": [
+    {
+      "label": "{forwarder_label}",
+      "lines": [
+        "{forwarder_name}",
+        "{forwarder_address}",
+        "Attn: {forwarder_contact}"
+      ]
+    },
+    {
+      "label": "{consignee_label}",
+      "lines": [
+        "{consignee_name}",
+        "{consignee_address}",
+        "Attn: {consignee_contact}"
+      ]
+    },
+    {
+      "label": "{notify_label}",
+      "lines": [
+        "{notify_name}",
+        "{notify_address}",
+        "Attn: {notify_contact}"
+      ]
+    },
+    {
+      "label": "CARGO SUMMARY",
+      "lines": [
+        "Total Cartons: {cartons_total}",
+        "Total G.W.: {gross_total} kg",
+        "Total CBM: {volume_total}",
+        "ETD: {etd}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      {
+        "title": "No.",
+        "key": "no",
+        "width": 10,
+        "align": "left"
+      },
+      {
+        "title": "Description",
+        "key": "description",
+        "width": 66,
+        "align": "left"
+      },
+      {
+        "title": "Qty",
+        "key": "qty",
+        "width": 18,
+        "align": "right"
+      },
+      {
+        "title": "UOM",
+        "key": "unit",
+        "width": 14,
+        "align": "left"
+      },
+      {
+        "title": "Ctns",
+        "key": "cartons",
+        "width": 12,
+        "align": "right"
+      },
+      {
+        "title": "G.W. kg",
+        "key": "gross",
+        "width": 14,
+        "align": "right"
+      },
+      {
+        "title": "N.W. kg",
+        "key": "net",
+        "width": 14,
+        "align": "right"
+      },
+      {
+        "title": "CBM",
+        "key": "cbm",
+        "width": 12,
+        "align": "right"
+      }
+    ],
+    "empty": "—"
+  },
+  "summary": [
+    {
+      "label": "Total Cartons",
+      "value": "{cartons_total}"
+    },
+    {
+      "label": "Total G.W. (kg)",
+      "value": "{gross_total}"
+    },
+    {
+      "label": "Total CBM",
+      "value": "{volume_total}"
+    }
+  ],
+  "notes": [
+    "Please arrange booking as per the details above and confirm space and sailing schedule.",
+    "Cargo is ready at the shipper's premises; documents follow once B/L instruction is confirmed."
+  ]
+}

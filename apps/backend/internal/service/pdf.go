@@ -45,6 +45,15 @@ type PDFService interface {
 	// 销售订单没有它，客户要一份书面确认时只能截图。
 	SalesOrder(ctx context.Context, id uint) (*RenderedFile, error)
 	PurchaseOrder(ctx context.Context, id uint) (*RenderedFile, error)
+	// 四份外销单证（T-55）。它们与 CI / PL 共用同一个套号：报关、提单与客户账上
+	// 认的是同一个号，一套资料多个文件只在后缀上区分。
+	//
+	// 都需要票头上的货代与收货人 / 通知方地址；没有配的时候对应区块不印，
+	// 而不是印一个空标题让货代以为漏打了。
+	ShippingAdvice(ctx context.Context, id uint) (*RenderedFile, error)
+	CertificateOfOrigin(ctx context.Context, id uint) (*RenderedFile, error)
+	InsurancePolicy(ctx context.Context, id uint) (*RenderedFile, error)
+	BookingRequest(ctx context.Context, id uint) (*RenderedFile, error)
 }
 
 // CompanyInfo 是打印抬头，来自配置。
@@ -238,6 +247,164 @@ func (s *pdfService) Contract(ctx context.Context, id uint) (*RenderedFile, erro
 //
 // 金额一律按**出货数量**算，不抄订单行的 Amount：分批出货时订单行是一整批的量，
 // 抄过来就等于把没发走的货也开在发票上。单价沿用订单，发票与订单必须对得上。
+// ShippingAdvice / CertificateOfOrigin / InsurancePolicy / BookingRequest 出四份外销单证（T-55）。
+//
+// 四份文件的数据源完全相同（一票货 + 它的分配行），差别只在版式与印不印金额：
+// 产地证与订舱委托不印价格，保险单印的是「发票额 × 110%」。所以共用 shipmentDocBase，
+// 各自只挑自己要的字段。
+func (s *pdfService) ShippingAdvice(ctx context.Context, id uint) (*RenderedFile, error) {
+	return s.renderShipmentDoc(ctx, id, shipmentDoc{
+		template: "shipping-advice", suffix: "-SA", name: "装船通知",
+	})
+}
+
+func (s *pdfService) CertificateOfOrigin(ctx context.Context, id uint) (*RenderedFile, error) {
+	return s.renderShipmentDoc(ctx, id, shipmentDoc{
+		template: "certificate-of-origin", suffix: "-CO", name: "产地证",
+	})
+}
+
+func (s *pdfService) InsurancePolicy(ctx context.Context, id uint) (*RenderedFile, error) {
+	return s.renderShipmentDoc(ctx, id, shipmentDoc{
+		template: "insurance-policy", suffix: "-IP", name: "保险单",
+	})
+}
+
+func (s *pdfService) BookingRequest(ctx context.Context, id uint) (*RenderedFile, error) {
+	return s.renderShipmentDoc(ctx, id, shipmentDoc{
+		template: "booking-request", suffix: "-BR", name: "订舱委托",
+	})
+}
+
+// shipmentDoc 是一份外销单证的版式参数：模板名、文件名后缀、日志里用的中文名。
+type shipmentDoc struct {
+	template string
+	suffix   string
+	name     string
+}
+
+func (s *pdfService) renderShipmentDoc(
+	ctx context.Context, id uint, doc shipmentDoc,
+) (*RenderedFile, error) {
+	sd, order, err := s.shipmentSource(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	values, items := s.shipmentDocBase(ctx, sd, order)
+
+	data, err := s.render(doc.template, pdf.Data{Values: values, Items: items})
+	if err != nil {
+		return nil, err
+	}
+	setNo := setNoText(sd)
+	s.log.Info("生成"+doc.name+" PDF", "id", sd.ID, "doc_no", setNo, "bytes", len(data))
+	return &RenderedFile{Filename: setNo + doc.suffix + ".pdf", Data: data}, nil
+}
+
+// shipmentDocBase 组装四份单证共用的抬头、对方区块、明细与合计。
+//
+// 抽出来不是为了省几行：四份文件印的是同一票货，分开拼 values 必然出现
+// 「装船通知上的毛重与装箱单对不上」这种事，而那种错要到客户来问才发现。
+func (s *pdfService) shipmentDocBase(
+	ctx context.Context, sd *model.Shipment, order *model.SalesOrder,
+) (map[string]string, []map[string]string) {
+	curDP, baseDP, baseCode, err := s.decimals(ctx, order.CurrencyCode)
+	if err != nil {
+		// 缺汇率时不让单证整个失败：金额栏印「—」，其余照常。
+		curDP, baseDP, baseCode = 2, 2, ""
+	}
+
+	items := make([]map[string]string, 0, len(sd.Allocations))
+	orderNos := make([]string, 0, len(sd.Allocations))
+	totalVolume := money.Zero()
+	totalAmount := money.Zero()
+	for i, a := range sd.Allocations {
+		orderNo := allocationOrderNo(a)
+		orderNos = appendUnique(orderNos, orderNo)
+		totalVolume = totalVolume.Add(a.Volume)
+		price := money.Zero()
+		if a.SalesOrderItem != nil {
+			price = a.SalesOrderItem.UnitPrice
+		}
+		totalAmount = totalAmount.Add(price.Mul(a.Qty))
+
+		items = append(items, map[string]string{
+			"no":          strconv.Itoa(i + 1),
+			"description": itemDescription(a.SKUCode, a.NameCN, a.Spec),
+			"order_no":    orderNo,
+			"qty":         qtyText(a.Qty),
+			"unit":        a.Unit,
+			"cartons":     packedInt(a.Cartons),
+			"gross":       packedWeight(a.GrossWeight),
+			"net":         packedWeight(a.NetWeight),
+			"cbm":         volumeText(a.Volume),
+		})
+	}
+
+	cartons, gross, net := sd.PackingTotals()
+	setNo := setNoText(sd)
+	values := s.baseValues(baseCode)
+	values["doc_no"] = setNo
+	values["set_no"] = setNo
+	values["ship_date"] = sd.ShipDate.Format("2006-01-02")
+	values["order_nos"] = orDash(strings.Join(orderNos, ", "))
+	values["vessel"] = orDash(sd.Vessel)
+	values["bl_no"] = orDash(sd.BLNo)
+	values["etd"] = dateText(sd.ETD)
+	values["eta"] = dateText(sd.ETA)
+	values["trade_term"] = orDash(string(order.TradeTerm))
+	values["currency_code"] = order.CurrencyCode
+	values["exchange_rate"] = rateTextD(order.ExchangeRate)
+	values["amount_total"] = moneyTextD(totalAmount.Round(curDP), curDP)
+	values["amount_base_total"] = moneyTextD(totalAmount.Mul(order.ExchangeRate).Round(baseDP), baseDP)
+	// 投保金额按发票额的 110%：CIF 下的通行做法，写死在这里而不是让人每次算。
+	values["insured_amount"] = moneyTextD(totalAmount.Mul(money.MustParse("1.1")).Round(curDP), curDP)
+	values["cartons_total"] = packedInt(cartons)
+	values["gross_total"] = packedWeight(gross)
+	values["net_total"] = packedWeight(net)
+	values["volume_total"] = volumeText(totalVolume)
+	values["origin_country"] = originCountry(s.company.Address)
+
+	s.partnerValues(ctx, values, order.Partner, model.PartnerAddressInvoice)
+	s.partyBlock(ctx, values, order.Partner, model.PartnerAddressConsignee, "consignee", "CONSIGNEE")
+	s.partyBlock(ctx, values, order.Partner, model.PartnerAddressNotify, "notify", "NOTIFY PARTY")
+	// 货代取票头上的那一行：它是"这票货交给谁"的唯一记录。
+	s.forwarderBlock(values, sd.Forwarder)
+	return values, items
+}
+
+// forwarderBlock 填货代区块。没挂货代时整块留空（模板里标签也走 values）。
+func (s *pdfService) forwarderBlock(values map[string]string, f *model.Partner) {
+	if f == nil {
+		return
+	}
+	values["forwarder_label"] = "FORWARDER"
+	values["forwarder_name"] = f.Name
+	values["forwarder_address"] = strings.TrimSpace(strings.Join(
+		nonEmpty(f.Address, f.Country), ", "))
+	values["forwarder_contact"] = strings.TrimSpace(f.ContactName + " " + f.Phone)
+}
+
+// originCountry 从公司地址里取国家段（"Ningbo, Zhejiang, China" → "China"）。
+//
+// 出口国默认就是本方所在地。按产品申报的原产地要等报关要素快照那一轮
+// （T-55 的剩余部分），现在先不假装精确。
+func originCountry(companyAddress string) string {
+	parts := strings.Split(companyAddress, ",")
+	return strings.TrimSpace(parts[len(parts)-1])
+}
+
+// nonEmpty 过滤空串，供拼接地址用。
+func nonEmpty(parts ...string) []string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			out = append(out, strings.TrimSpace(p))
+		}
+	}
+	return out
+}
+
 // SalesOrder 出销售订单打印件（T-54）。
 //
 // 与报价单的区别只有抬头与几行参考信息，明细结构完全一样——
