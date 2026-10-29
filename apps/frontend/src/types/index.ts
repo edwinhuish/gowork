@@ -994,12 +994,30 @@ export interface TodoCurrency {
  * 每类都给「全量条数 + 前 N 条」：条数回答"还剩多少事没做完"，
  * 清单回答"先做哪几件"。
  */
+/**
+ * 一条已过计划日、还没做完成的验货节点（T-62）。
+ *
+ * 只看采购跟单节点里的「验货」：逾期没验意味着交期要出问题，
+ * 比催款更早该被看到。
+ */
+export interface TodoInspection {
+  id: number
+  purchase_order_id: number
+  doc_no: string
+  partner_name: string
+  sku_code: string
+  plan_date: string
+  overdue_days: number
+}
+
 export interface TodoReport {
   as_of: string
   followups: TodoFollowup[]
   followup_count: number
   receivables: TodoReceivable[]
   receivable_count: number
+  inspections: TodoInspection[]
+  inspection_count: number
   missing_rates: TodoCurrency[]
 }
 

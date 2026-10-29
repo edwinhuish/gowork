@@ -4,7 +4,7 @@ import { Alert, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import type { TodoCurrency, TodoFollowup, TodoReceivable } from '@/types'
+import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection } from '@/types'
 import { formatTime } from '@/utils/format'
 
 /**
@@ -140,6 +140,50 @@ export function TodoPage() {
                 <Money value={row.outstanding_base} />
               </span>
             )}
+          />
+        </Table>
+      </Card>
+
+      {/* 验货到期（T-62）：代理采购唯一能对客户承诺的事，逾期没验意味着交期要出问题。
+          点单号跳到采购详情——那里能直接补录验货完成日。 */}
+      <Card
+        variant="borderless"
+        title="验货到期"
+        extra={<span className="cell-sub">{'计划日 <= 今天且未完成'}</span>}
+      >
+        <Table<TodoInspection>
+          size="small"
+          rowKey="id"
+          loading={isLoading}
+          dataSource={data?.inspections ?? []}
+          pagination={false}
+          locale={{ emptyText: '没有逾期未验的采购行' }}
+        >
+          <Table.Column
+            dataIndex="doc_no"
+            title="采购单"
+            width={160}
+            render={(value: string, row: TodoInspection) => (
+              <Typography.Link onClick={() => show('purchase-orders', row.purchase_order_id)}>
+                <Mono>{value}</Mono>
+              </Typography.Link>
+            )}
+          />
+          <Table.Column dataIndex="sku_code" title="SKU" width={140} />
+          <Table.Column
+            title="供应商"
+            width={200}
+            render={(_, row: TodoInspection) => row.partner_name || <Empty />}
+          />
+          <Table.Column dataIndex="plan_date" title="计划验货日" width={120} />
+          <Table.Column
+            dataIndex="overdue_days"
+            title="逾期"
+            width={100}
+            align="right"
+            render={(value: number) =>
+              value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天</Tag>
+            }
           />
         </Table>
       </Card>
