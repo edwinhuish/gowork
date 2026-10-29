@@ -143,6 +143,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/users` | `User.ListActive` | 账号目录（T-32）：只列**启用中**的账号，供"把客户转给谁"的选择器用；业务员 403。只有列表——建号 / 改角色 / 重置密码属于用户维护模块，尚未做 |
 | PUT | `/api/v1/partners/:id/owner` | `Partner.TransferOwner` | 转移负责人（T-32）：仅 admin / manager，业务员 403；`owner_id=0` 退回未分配（公共池）；校验接手账号存在且启用；带 `updated_at` 走乐观锁 |
 | GET | `/api/v1/audit-logs` | `Audit.List` | 操作日志（T-33）：写操作由 `middleware.Audit` 统一记录，本接口只读、仅管理员（`RequireAdmin`）；筛选 `entity` / `entity_id` / `action` / `actor_id` / `from`+`to`（含当天）/ `keyword`（路径+请求体+操作人） |
+| GET | `/api/v1/reports/product-profit` | `Report.ProductProfit` | 产品毛利下钻（T-31）：`product_id` 必填，返回该产品**逐票**的收入 / 成本 / 摊到的运杂费 / 毛利，按出货日倒序；与看板共用 `computeSalesLines`，两处合计必须相等 |
 | GET | `/api/v1/reports/todos` | `Report.Todos` | 待办清单（T-34）：待跟进（`next_follow_at` **早于**今天，当天不算）、应收待催（`due_date <= 今天` 且未结清，当天就算）、缺当日汇率（外币今天没有汇率记录）；每类给全量条数 + 前 N 条；范围与列表一致，汇率只对有全局视野的角色提示 |
 | GET | `/api/v1/reports/partner-360` | `Report.Partner360` | `ReportService.Partner360`：主体抬头数字 + 订单 / 出货 / 应收 / 跟进 / 商机五块明细（各带 id 与单号，默认 10 条）；出货按**订单行归属**去重计数（拼柜时一票含多家的货）；商机只算未终结的；应收合计按全部未结清单据算，不受明细截断影响；主体不存在 404 |
 | GET | `/api/v1/reports/collection` | `Report.Collection` | `ReportService.Collection`：回款率 = 期间**到账并核销**（按到账日）÷ 期间**到期**（按到期日），两批单据可以不同批，比率可超 100%；超期明细逐笔到单据号，按逾期天数倒序，未到期不计入明细；分桶复用账龄规则；`limit` 截断时合计与分桶仍是全量 |
