@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useInvalidate, type CrudFilters } from '@refinedev/core'
+import { PartnerImportModal } from './import-modal'
 import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
 import {
   Button,
@@ -67,6 +69,7 @@ export function CustomerList() {
   })
 
   const invalidate = useInvalidate()
+  const [importOpen, setImportOpen] = useState(false)
 
   const restore = async (record: Partner) => {
     try {
@@ -93,6 +96,8 @@ export function CustomerList() {
           <Tooltip title="导出全部客户（CSV，忽略当前筛选，上限 10000 行）">
             <Button onClick={() => void exportPartners()}>导出 CSV</Button>
           </Tooltip>
+          {/* 导入先出报告再落库：一份几百行的文件里错两三行是常态。 */}
+          <Button onClick={() => setImportOpen(true)}>导入 CSV</Button>
         </Space>
       }
     >
@@ -208,6 +213,12 @@ export function CustomerList() {
           }
         />
       </Table>
+
+      <PartnerImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => invalidate({ resource: 'customers', invalidates: ['list'] })}
+      />
     </List>
   )
 }

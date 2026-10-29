@@ -88,6 +88,36 @@ export interface PartnerDuplicateCandidate {
   reasons: string[]
 }
 
+/** 导入失败的一行：行号让人能回到文件里那一行去改。 */
+export interface PartnerImportFailure {
+  line: number
+  code: string
+  name: string
+  reason: string
+}
+
+/** 导入时的可疑重复：只提示不阻断（外贸同名公司跨国家确实存在）。 */
+export interface PartnerImportDuplicate {
+  line: number
+  code: string
+  name: string
+  reasons: string[]
+}
+
+/**
+ * 主体导入报告（T-35）。
+ *
+ * `dry_run=true` 时只校验不落库，`created` 一定是 0——先看报告再决定导不导。
+ */
+export interface PartnerImportReport {
+  dry_run: boolean
+  total: number
+  created: number
+  skipped: number
+  failures: PartnerImportFailure[]
+  duplicates: PartnerImportDuplicate[]
+}
+
 /**
  * 合并主体的结果。
  *
