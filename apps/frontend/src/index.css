@@ -262,6 +262,13 @@ body {
   .app-header-search {
     display: none;
   }
+
+  /* refine 的 ThemedSider 在窄屏会自己渲染一个 fixed 的抽屉开关，正好压在
+     页面标题上（「工作台」只剩半个字）。顶栏左侧的折叠按钮在窄屏就是同一个
+     抽屉的开关（见 AppHeader），这个浮动按钮是重复入口，藏掉。 */
+  .ant-layout-has-sider > .ant-btn {
+    display: none;
+  }
 }
 
 .app-user {

@@ -12,7 +12,7 @@ import {
 import { ThemedLayout, ThemedSider, useThemedLayoutContext } from '@refinedev/antd'
 import { useGetIdentity, useLogout } from '@refinedev/core'
 import { useQuery } from '@tanstack/react-query'
-import { Avatar, Badge, Button, Dropdown, Layout, Space, Tooltip } from 'antd'
+import { Avatar, Badge, Button, Dropdown, Grid, Layout, Space, Tooltip } from 'antd'
 import type { MenuProps } from 'antd'
 import type { FC } from 'react'
 import { useEffect } from 'react'
@@ -59,15 +59,21 @@ function AppSider({ Title }: { Title?: SiderTitle }) {
 /**
  * 顶栏。
  *
- * 折叠按钮用 useThemedLayoutContext 控制侧栏 —— 窄屏下 ThemedLayout 会自动把
- * 侧栏变成抽屉，这个按钮就是抽屉的开关，所以必须自己渲染而不是依赖默认头部。
+ * 折叠按钮用 useThemedLayoutContext 控制侧栏：宽屏是收起 / 展开侧栏，
+ * 窄屏下侧栏是抽屉（refine 按 lg 断点切换），这里改成打开抽屉 ——
+ * setSiderCollapsed 管不到抽屉，原先注释里"这个按钮就是抽屉的开关"是错的，
+ * 实机上点它没有任何反应。refine 自带的那个 fixed 抽屉开关与这里是重复入口、
+ * 还会压在页面标题上，已在样式里藏掉（见 index.css 的窄屏段）。
  *
  * 四类信息放在这一条上：先找（模块搜索），再看（待办条目数），
  * 然后是观感（明暗）与自己（密度、退出）。全部用 antd 的 text 按钮，
  * 不再手写 `<button>` + 自定义 hover 样式。
  */
 function AppHeader() {
-  const { siderCollapsed, setSiderCollapsed } = useThemedLayoutContext()
+  const { siderCollapsed, setSiderCollapsed, setMobileSiderOpen } = useThemedLayoutContext()
+  // 与 refine 的 ThemedSider 同一条判定（lg 之下是抽屉）。首帧拿不到断点时
+  // 当宽屏处理，和 refine 的 isMobile 一致。
+  const narrow = Grid.useBreakpoint().lg === false
   const { data: identity } = useGetIdentity<UserInfo>()
   const { mutate: logout } = useLogout()
   const { mode, toggleMode, compact, toggleCompact } = useUiPrefs()
@@ -109,9 +115,9 @@ function AppHeader() {
     <Layout.Header className="app-header">
       <Button
         type="text"
-        aria-label={siderCollapsed ? '展开导航' : '收起导航'}
-        icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-        onClick={() => setSiderCollapsed(!siderCollapsed)}
+        aria-label={narrow ? '打开导航' : siderCollapsed ? '展开导航' : '收起导航'}
+        icon={!narrow && !siderCollapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+        onClick={() => (narrow ? setMobileSiderOpen(true) : setSiderCollapsed(!siderCollapsed))}
       />
 
       <ModuleSearch />
