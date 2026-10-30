@@ -155,6 +155,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET | `/api/v1/reports/todos` | `Report.Todos` | 待办清单（T-34）：待跟进（`next_follow_at` **早于**今天，当天不算）、应收待催（`due_date <= 今天` 且未结清，当天就算）、缺当日汇率（外币今天没有汇率记录）；每类给全量条数 + 前 N 条；范围与列表一致，汇率只对有全局视野的角色提示 |
 | GET | `/api/v1/reports/partner-360` | `Report.Partner360` | `ReportService.Partner360`：主体抬头数字 + 订单 / 出货 / 应收 / 跟进 / 商机五块明细（各带 id 与单号，默认 10 条）；出货按**订单行归属**去重计数（拼柜时一票含多家的货）；商机只算未终结的；应收合计按全部未结清单据算，不受明细截断影响；主体不存在 404 |
 | GET | `/api/v1/reports/collection` | `Report.Collection` | `ReportService.Collection`：回款率 = 期间**到账并核销**（按到账日）÷ 期间**到期**（按到期日），两批单据可以不同批，比率可超 100%；超期明细逐笔到单据号，按逾期天数倒序，未到期不计入明细；分桶复用账龄规则；`limit` 截断时合计与分桶仍是全量 |
+| GET | `/api/v1/reports/receivable-statement` | `Statement.Receivable` | 客户对账单（T-53）：期初 / 本期发生 / 本期收款 / 期末逐笔可追到单据；`partner_id` 必填，`currency_code` 缺省取该客户第一个币种，`from`/`to` 左闭右闭；同一天按「开票 → 贷项 → 收款」定序，否则余额列会中途变负 |
+| GET | `/api/v1/reports/receivable-statement/pdf` | `Statement.ReceivablePDF` | 同一份入参的 PDF：算账仍走 `StatementService`，这里只排版，金额按币种小数位印；缺中文字体时 500 并说明缺什么，不给空白纸 |
 | GET | `/api/v1/reports/sales-dashboard` | `Report.SalesDashboard` | `ReportService.SalesDashboard`：`dimension=customer\|product\|country\|month`，收入 / 成本 / 运杂费先摊到**出货行**再分组，四个维度合计必然相等且等于单票毛利之和；订单额按下单日、毛利按出货日；`salesperson` 回 400（等 T-32 的 `owner_id`）；合计不受 `limit` 截断 |
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409）；删除产品在同一事务里清掉它的编号，旧号可立即复用 |

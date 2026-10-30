@@ -25,6 +25,7 @@ type StatementEntry struct {
 //
 // 用一次 UNION 而不是三次查询再合并：三类单据的日期字段不同，
 // 在 SQL 里排好序比在 Go 里排更省事，也不会因为漏排而让期初算错。
+// 同一天内谁在前由服务层定（service/statement.go），那里才看得到"开票还是收款"。
 type StatementRepository interface {
 	ListPartnerEntries(
 		ctx context.Context, partnerID uint, from, to *time.Time,

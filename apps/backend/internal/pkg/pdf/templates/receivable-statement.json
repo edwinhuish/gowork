@@ -1,0 +1,97 @@
+{
+  "title": "STATEMENT OF ACCOUNT",
+  "subtitle": "{period_text}",
+  "company": ["{company_name}", "{company_address}", "{company_contact}"],
+  "meta": [
+    {
+      "label": "Customer",
+      "value": "{partner_name}"
+    },
+    {
+      "label": "Currency",
+      "value": "{currency_code}"
+    },
+    {
+      "label": "Issued",
+      "value": "{issued_at}"
+    }
+  ],
+  "parties": [
+    {
+      "label": "TO",
+      "lines": ["{partner_name}", "{partner_address}", "Attn: {partner_contact}"]
+    },
+    {
+      "label": "AT A GLANCE",
+      "lines": [
+        "Opening balance: {opening}",
+        "Invoiced in period: {debit}",
+        "Settled in period: {credit}",
+        "Closing balance: {closing}"
+      ]
+    }
+  ],
+  "items": {
+    "columns": [
+      {
+        "title": "Date",
+        "key": "date",
+        "width": 24,
+        "align": "left"
+      },
+      {
+        "title": "Type",
+        "key": "kind",
+        "width": 26,
+        "align": "left"
+      },
+      {
+        "title": "Document No.",
+        "key": "doc_no",
+        "width": 44,
+        "align": "left"
+      },
+      {
+        "title": "Debit",
+        "key": "debit",
+        "width": 28,
+        "align": "right"
+      },
+      {
+        "title": "Credit",
+        "key": "credit",
+        "width": 28,
+        "align": "right"
+      },
+      {
+        "title": "Balance",
+        "key": "balance",
+        "width": 30,
+        "align": "right"
+      }
+    ],
+    "empty": "No transactions in this period."
+  },
+  "summary": [
+    {
+      "label": "Opening Balance",
+      "value": "{opening}"
+    },
+    {
+      "label": "Total Invoiced",
+      "value": "{debit}"
+    },
+    {
+      "label": "Total Settled",
+      "value": "{credit}"
+    },
+    {
+      "label": "Closing Balance ({currency_code})",
+      "value": "{closing}"
+    }
+  ],
+  "notes": [
+    "Closing balance = Opening + Total Invoiced - Total Settled. The Balance column is the running total after each line.",
+    "Please report any discrepancy within 7 days of receiving this statement; the balance is quoted in {currency_code} only."
+  ]
+}

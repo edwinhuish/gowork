@@ -35,7 +35,7 @@ func TestBuiltinTemplates(t *testing.T) {
 		t.Fatalf("加载内置模板失败: %v", err)
 	}
 
-	for _, name := range []string{"quotation", "contract"} {
+	for _, name := range []string{"quotation", "contract", "receivable-statement"} {
 		tmpl, err := set.Get(name)
 		if err != nil {
 			t.Fatalf("取模板 %s 失败: %v", name, err)

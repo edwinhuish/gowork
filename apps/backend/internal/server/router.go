@@ -464,6 +464,9 @@ func New(
 		reports := secured.Group("/reports")
 		// 客户对账单（T-53）：期初 / 本期发生 / 本期收款 / 期末，逐笔可追到单据。
 		reports.GET("/receivable-statement", h.Statement.Receivable)
+		// 对账单 PDF（T-53）：入参与上面那条完全一致，客户收到的那张纸
+		// 就必须是他在屏幕上核过的那份数。
+		reports.GET("/receivable-statement/pdf", h.Statement.ReceivablePDF)
 		// 期末重估（T-60）：未核销外币余额按指定日汇率重算，差额单列。
 		reports.GET("/revaluation", h.Report.Revaluation)
 		reports.GET("/aging", h.Report.Aging)

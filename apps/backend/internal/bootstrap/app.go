@@ -240,10 +240,15 @@ func New(cfg *config.Config) (*App, error) {
 	// 条款模板库（T-27）：主数据，只被合同生成时读取，不被任何业务流转依赖。
 	clauseSvc := service.NewClauseService(clauseRepo, service.WithClauseLogger(log))
 
+	// 客户对账单（T-53）：纯聚合，不落表、不发号。排在打印之前——
+	// 对账单 PDF 要把算账这一步借过去用，账目口径只有这一份。
+	statementSvc := service.NewStatementService(
+		repository.NewStatementRepository(db), partnerRepo, service.WithStatementLogger(log))
+
 	// 打印是附加能力：缺中文字体或模板写坏只降级，不让服务起不来。
 	pdfSvc := buildPDFService(
 		cfg, log, quotationRepo, orderRepo, contractRepo, shipmentRepo, currencySvc,
-		repository.NewPartnerAddressRepository(db), purchaseRepo)
+		repository.NewPartnerAddressRepository(db), purchaseRepo, statementSvc)
 	purchaseSvc := service.NewPurchaseOrderService(
 		purchaseRepo, partnerRepo, productRepo, sourceRepo, orderRepo, purchaseMilestoneRepo,
 		currencySvc, docNoSvc,
@@ -320,9 +325,6 @@ func New(cfg *config.Config) (*App, error) {
 	if err := repository.MigrateStockWarehouse(context.Background(), db, log); err != nil {
 		log.Error("库存仓库维度迁移失败；快照写入可能受影响", "err", err)
 	}
-	// 客户对账单（T-53）：纯聚合，不落表、不发号。
-	statementSvc := service.NewStatementService(
-		repository.NewStatementRepository(db), partnerRepo, service.WithStatementLogger(log))
 	// 借项通知单（T-52b3）：冲减应付，与贷项对称。
 	debitNoteSvc := service.NewDebitNoteService(
 		repository.NewDebitNoteRepository(db), payableRepo, docNoSvc,
@@ -366,7 +368,7 @@ func New(cfg *config.Config) (*App, error) {
 		Customs:         handler.NewCustomsDeclarationHandler(customsSvc),
 		Receivable:      handler.NewReceivableHandler(receivableSvc),
 		CreditNote:      handler.NewCreditNoteHandler(creditNoteSvc),
-		Statement:       handler.NewStatementHandler(statementSvc),
+		Statement:       handler.NewStatementHandler(statementSvc, pdfSvc),
 		DebitNote:       handler.NewDebitNoteHandler(debitNoteSvc),
 		Payable:         handler.NewPayableHandler(payableSvc),
 		Payment:         handler.NewPaymentHandler(paymentSvc),
@@ -421,6 +423,7 @@ func buildPDFService(
 	currencies service.CurrencyService,
 	addresses repository.PartnerAddressRepository,
 	purchases repository.PurchaseOrderRepository,
+	statements service.StatementService,
 ) service.PDFService {
 	fontPath := cfg.PDF.FontPath
 	if fontPath == "" {
@@ -456,5 +459,7 @@ func buildPDFService(
 		// 取不到时 PDF 服务自己回退主体上的那一列，所以这里不必判空。
 		service.WithPDFAddresses(addresses),
 		// 采购订单打印件（T-54）。
-		service.WithPDFPurchases(purchases))
+		service.WithPDFPurchases(purchases),
+		// 客户对账单（T-53）：算账借 StatementService，打印只排版。
+		service.WithPDFStatements(statements))
 }

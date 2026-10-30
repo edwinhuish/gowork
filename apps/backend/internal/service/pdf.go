@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edwinhuish/gowork/internal/dto"
 	"github.com/edwinhuish/gowork/internal/model"
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 	"github.com/edwinhuish/gowork/internal/pkg/money"
@@ -45,6 +46,9 @@ type PDFService interface {
 	// 销售订单没有它，客户要一份书面确认时只能截图。
 	SalesOrder(ctx context.Context, id uint) (*RenderedFile, error)
 	PurchaseOrder(ctx context.Context, id uint) (*RenderedFile, error)
+	// ReceivableStatement 出客户对账单（T-53）。账期、币种与界面上那份对账单同一口径：
+	// 算账走 StatementService，这里只排版，免得两处各算一遍差出一分钱。
+	ReceivableStatement(ctx context.Context, q dto.StatementQuery) (*RenderedFile, error)
 	// 四份外销单证（T-55）。它们与 CI / PL 共用同一个套号：报关、提单与客户账上
 	// 认的是同一个号，一套资料多个文件只在后缀上区分。
 	//
@@ -77,9 +81,12 @@ type pdfService struct {
 	// purchases 供采购订单打印件用（T-54）。为 nil 时那个入口返回"未接"错误，
 	// 而不是 panic——打印是附加能力。
 	purchases repository.PurchaseOrderRepository
-	renderer  *pdf.Renderer
-	company   CompanyInfo
-	log       *slog.Logger
+	// statements 供客户对账单用（T-53）。为 nil 时那个入口返回"未接"错误，
+	// 与 purchases 同一处理：打印是附加能力，不能拖住启动。
+	statements StatementService
+	renderer   *pdf.Renderer
+	company    CompanyInfo
+	log        *slog.Logger
 }
 
 type PDFOption func(*pdfService)

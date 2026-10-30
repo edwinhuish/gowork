@@ -1118,3 +1118,153 @@ func countByKeyword(t *testing.T, srv *httptest.Server, token, keyword string) i
 	}
 	return len(page.List)
 }
+
+// TestE2EStatementPDF 走完整链路：一张已确认订单 → 应收 → 客户对账单 JSON 与 PDF。
+//
+// 重点不是 PDF 长什么样，而是三件事对得上：
+// 1. 路由真的挂上了（`/reports/receivable-statement/pdf` 与 JSON 版同一入参）；
+// 2. 纸面上的期末余额与 JSON 里的 `closing` 是同一个数——两处各算一遍迟早差一分；
+// 3. 没有中文字体时说明原因，而不是给一张空白纸。
+func TestE2EStatementPDF(t *testing.T) {
+	_, srv := newE2EApp(t)
+	token := login(t, srv)
+
+	customerID := firstID(t, srv, token, "/api/v1/partners?role=1&page_size=1")
+	productID := firstID(t, srv, token, "/api/v1/products?page_size=1")
+	supplierID := firstID(t, srv, token, "/api/v1/partners?role=2&page_size=1")
+
+	res := call(t, srv, http.MethodPost, "/api/v1/product-sources", token,
+		[]byte(fmt.Sprintf(`{"product_id":%d,"partner_id":%d,"purchase_price":"60","moq":1,"delivery_days":7}`,
+			productID, supplierID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建货源失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost, "/api/v1/quotations", token,
+		[]byte(fmt.Sprintf(`{"partner_id":%d,"trade_term":"FOB","currency_code":"USD",
+			"valid_until":"2026-12-31","items":[{"product_id":%d,"qty":"10","unit_price":"100"}]}`,
+			customerID, productID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("建报价失败: %d %s", res.StatusCode, msg)
+	}
+	quotationID := idOf(t, res)
+
+	res = call(t, srv, http.MethodPut,
+		fmt.Sprintf("/api/v1/quotations/%d/status", quotationID), token, []byte(`{"status":20}`))
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("确认报价失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost,
+		fmt.Sprintf("/api/v1/quotations/%d/convert", quotationID), token,
+		[]byte(`{"order_date":"2026-10-01"}`))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("转订单失败: %d %s", res.StatusCode, msg)
+	}
+	orderID := idOf(t, res)
+
+	res = call(t, srv, http.MethodPut,
+		fmt.Sprintf("/api/v1/sales-orders/%d/status", orderID), token, []byte(`{"status":20}`))
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("确认订单失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	res = call(t, srv, http.MethodPost, "/api/v1/receivables", token,
+		[]byte(fmt.Sprintf(`{"source_type":10,"source_id":%d,"due_date":"2026-10-20"}`, orderID)))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("开应收失败: %d %s", res.StatusCode, msg)
+	}
+	receivableID := idOf(t, res)
+
+	// 再收 400：对账单要能看出「开票 1000、收 400、还剩 600」。
+	// 有收有付才验得到余额列的累加——只有一张应收的话，那列等于原样抄一遍。
+	body := fmt.Sprintf(`{
+		"direction": 10, "partner_id": %d, "pay_date": "%s",
+		"currency_code": "USD", "amount": "400", "method": "TT",
+		"allocations": [{"target_type": 10, "target_id": %d, "amount": "400"}]
+	}`, customerID, time.Now().Format("2006-01-02"), receivableID)
+	res = call(t, srv, http.MethodPost, "/api/v1/payments", token, []byte(body))
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("收款失败: %d %s", res.StatusCode, msg)
+	}
+	decodeEnvelope(t, res)
+
+	// 先取 JSON：PDF 的期末必须与它逐字一致。
+	args := fmt.Sprintf("partner_id=%d&currency_code=USD", customerID)
+	res = call(t, srv, http.MethodGet, "/api/v1/reports/receivable-statement?"+args, token, nil)
+	if res.StatusCode != http.StatusOK {
+		_, msg, _ := decodeEnvelope(t, res)
+		t.Fatalf("查对账单失败: %d %s", res.StatusCode, msg)
+	}
+	_, _, data := decodeEnvelope(t, res)
+	var st struct {
+		Currency string `json:"currency_code"`
+		Opening  string `json:"opening"`
+		Debit    string `json:"period_debit"`
+		Closing  string `json:"closing"`
+		Lines    []struct {
+			Kind  string `json:"kind"`
+			DocNo string `json:"doc_no"`
+		} `json:"lines"`
+	}
+	if err := json.Unmarshal(data, &st); err != nil {
+		t.Fatalf("对账单不是预期格式: %s", data)
+	}
+	if st.Currency != "USD" {
+		t.Fatalf("币种 = %q，期望 USD", st.Currency)
+	}
+	// 两笔：一张应收、一笔收款。少一笔说明有一条来源没被算进来。
+	if len(st.Lines) != 2 {
+		t.Fatalf("对账单应有 2 笔发生额（开票 + 收款），实际 %d 笔：%+v", len(st.Lines), st.Lines)
+	}
+	// 同一天先开票后收款：否则余额列会先跳到 −400 再回到 600。
+	if st.Lines[0].Kind != "receivable" || st.Lines[1].Kind != "payment" {
+		t.Errorf("同日发生额顺序应为「应收 → 收款」，实际 %v", []string{st.Lines[0].Kind, st.Lines[1].Kind})
+	}
+	// 金额序列化成字符串时不会补零（600 而不是 600.00），按数值比。
+	if got, err := strconv.ParseFloat(st.Closing, 64); err != nil || got != 600 {
+		t.Errorf("期末应为 600（1000 开票 − 400 收款），实际 %s（期初 %s + 本期 %s）",
+			st.Closing, st.Opening, st.Debit)
+	}
+
+	res = call(t, srv, http.MethodGet, "/api/v1/reports/receivable-statement/pdf?"+args, token, nil)
+	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusOK {
+		t.Log("本机有可用中文字体：走的是渲染分支")
+		if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "application/pdf") {
+			t.Errorf("Content-Type = %q，期望 application/pdf", ct)
+		}
+		if cd := res.Header.Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+			t.Errorf("Content-Disposition = %q，期望附件下载", cd)
+		}
+		raw, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("读 PDF 失败: %v", err)
+		}
+		if !bytes.HasPrefix(raw, []byte("%PDF")) {
+			t.Errorf("返回的不是 PDF（前 8 字节 %q）", raw[:min(8, len(raw))])
+		}
+		// 带表头、明细与合计的一页对账单不可能只有几百字节。
+		if len(raw) < 1024 {
+			t.Errorf("PDF 只有 %d 字节，像是渲染失败", len(raw))
+		}
+		return
+	}
+
+	t.Log("本机没有候选中文字体：走的是降级分支（渲染分支在有字体的机器上才会被执行）")
+	_, msg, _ := decodeEnvelope(t, res)
+	if !strings.Contains(msg, "字体") {
+		t.Errorf("打印不可用时应提示字体未配置，实际：%d %q", res.StatusCode, msg)
+	}
+}
