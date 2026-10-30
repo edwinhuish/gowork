@@ -208,7 +208,7 @@ api/client.ts
 | `utils/color.ts` | `mixHex`：两个颜色之间插值 | 只有有序量（逾期分桶那种梯度）用得到；不要拿它给新模块造色号，色号归 `theme.ts` |
 | `components/page/page-list.tsx` | 列表页外壳：筛选条 + 表格 + 分页 + 空态，**窄屏自动降级成卡片** | 页面只给「哪些筛选项、哪些列」；`scrollX` 不传按内容自适应，别各页手写宽度 |
 | `components/page/record-cards.tsx` | 窄屏的通用卡片视图 + 从 `<Table.Column>` 读列定义（`collectCardColumns`） | 卡片内容由列定义推导，不要为某个模块再写一套卡片；推导不出来会退回表格，不会白屏 |
-| `components/page/responsive-table.tsx` | 「宽屏表格 / 窄屏卡片」的同一个开关 | 列表页走 `PageList`；**报表页**（账龄 / 汇兑损益 / 销售看板 / 回款）不走 PageList，直接用它。合计要给两份：`summary`（`Table.Summary`）与 `cardSummary`（合计卡），形状不同、数是同一份 |
+| `components/page/responsive-table.tsx` | 「宽屏表格 / 窄屏卡片」的同一个开关 | 列表页走 `PageList`；**报表页与详情页**（它们不走 PageList）直接用它。列定义两种写法都能推导：`<Table.Column>` children 与 `columns={[...]}`。合计要给两份：`summary`（`Table.Summary`）与 `cardSummary`（合计卡），形状不同、数是同一份。操作列是猜的（最后一列 + 无 dataIndex + 只有 render），猜错了用 `cardActionKeys` 覆盖，`[]` 表示没有操作列 |
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |

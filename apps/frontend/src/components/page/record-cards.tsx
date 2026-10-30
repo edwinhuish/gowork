@@ -63,7 +63,54 @@ interface ColumnLikeProps {
  * 万一哪天读不到（条件渲染、包了一层不认识的节点），
  * 结果是空数组，PageList 会退回表格 —— 最坏情况是没有降级，不会白屏。
  */
-export function collectCardColumns(children: ReactNode): CardColumn<never>[] {
+export function collectCardColumns(
+  children: ReactNode,
+  actionKeys?: string[],
+): CardColumn<never>[] {
+  return markActionColumns(readColumnsFromChildren(children), actionKeys)
+}
+
+/**
+ * 从 `columns={[...]}` 数组里读出列定义（`<Table.Column>` 之外的另一种写法）。
+ *
+ * 详情页里两种写法都有：收付款的核销明细、商机的跟进记录用的是数组。
+ * 不认这种写法的结果是推导为空、页面静默不降级 —— 所以这里与上面那条路
+ * 共用同一套判定，不至于"换个写法就少一个功能"。
+ */
+export function collectCardColumnsFromDefs<T>(
+  defs: readonly unknown[],
+  actionKeys?: string[],
+): CardColumn<T>[] {
+  const columns: CardColumn<T>[] = []
+
+  defs.forEach((def, index) => {
+    if (!def || typeof def !== 'object') return
+    const props = def as ColumnLikeProps & { children?: readonly unknown[] }
+
+    // 分组表头：真正的列在 children 里。
+    if (Array.isArray(props.children)) {
+      columns.push(...collectCardColumnsFromDefs<T>(props.children))
+      return
+    }
+
+    if (props.title === undefined && props.dataIndex === undefined && props.render === undefined) {
+      return
+    }
+
+    columns.push({
+      key: String(props.dataIndex ?? props.key ?? index),
+      title: props.title,
+      dataIndex: props.dataIndex,
+      render: props.render as CardColumn<T>['render'],
+      actions: false,
+      buttonish: props.dataIndex === undefined && typeof props.render === 'function',
+    })
+  })
+
+  return markActionColumns(columns, actionKeys)
+}
+
+function readColumnsFromChildren(children: ReactNode): CardColumn<never>[] {
   const columns: CardColumn<never>[] = []
 
   Children.forEach(children, (child, index) => {
@@ -71,7 +118,7 @@ export function collectCardColumns(children: ReactNode): CardColumn<never>[] {
 
     // 片段（页面里用 <> 包一组列）继续往下找，不要把片段当成一列。
     if (child.type === Fragment) {
-      columns.push(...collectCardColumns((child.props as { children?: ReactNode }).children))
+      columns.push(...readColumnsFromChildren((child.props as { children?: ReactNode }).children))
       return
     }
 
@@ -94,9 +141,24 @@ export function collectCardColumns(children: ReactNode): CardColumn<never>[] {
     })
   })
 
+  return columns
+}
+
+/**
+ * 定哪些列是操作列（落到卡片底部、不带标签）。
+ *
+ * 判定本身是猜的：只能看"是不是最后一列 + 有没有 dataIndex + 是不是只有 render"。
+ * 报价单明细的「毛利」正好也是这个长相 —— 它是算出来的、排在最后，
+ * 于是会被当成按钮挪到底部、把标签弄丢。所以猜错了要能改：
+ * `actionKeys` 一给就按它来，`[]` 表示"这张表没有操作列"。
+ */
+function markActionColumns<T>(columns: CardColumn<T>[], actionKeys?: string[]): CardColumn<T>[] {
   return columns.map((column, index) => ({
     ...column,
-    actions: column.title === '操作' || (!!column.buttonish && index === columns.length - 1),
+    actions:
+      actionKeys !== undefined
+        ? actionKeys.includes(column.key)
+        : column.title === '操作' || (!!column.buttonish && index === columns.length - 1),
   }))
 }
 

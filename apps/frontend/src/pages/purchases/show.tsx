@@ -7,6 +7,7 @@ import { download } from '@/api/client'
 import { purchaseOrderApi } from '@/api/purchase-orders'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { AccentTag, Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { orderStatusLabel, ORDER_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
@@ -178,13 +179,13 @@ export function PurchaseShow() {
       />
 
       <Card title="明细" size="small" style={{ marginTop: 16 }}>
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={o?.items ?? []}
+          rows={o?.items ?? []}
           pagination={false}
-          scroll={{ x: 1000 }}
-          locale={{ emptyText: '没有明细' }}
+          scrollX={1000}
+          empty="没有明细"
         >
           <Table.Column
             dataIndex="sku_code"
@@ -244,7 +245,7 @@ export function PurchaseShow() {
               value ? <AccentTag>以销定采</AccentTag> : <Empty />
             }
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 跟单节点（T-38）：货在工厂还是已经进仓、验货过没过，就看这张表。 */}

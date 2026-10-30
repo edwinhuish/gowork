@@ -1,11 +1,12 @@
 import { useShow } from '@refinedev/core'
 import { Show } from '@refinedev/antd'
-import { Button, Descriptions, Popconfirm, Table, Tag, Typography, message } from 'antd'
+import { Button, Descriptions, Popconfirm, Tag, Typography, message } from 'antd'
 
 import { paymentApi } from '@/api/payments'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   PAYMENT_DIRECTION_OPTIONS,
   paymentTargetLabel,
@@ -148,12 +149,12 @@ export function PaymentShow() {
         核销明细
       </Typography.Title>
 
-      <Table<PaymentAllocation>
-        dataSource={allocations}
+      <ResponsiveTable<PaymentAllocation>
+        rows={allocations}
         rowKey="id"
         size="small"
         pagination={false}
-        locale={{ emptyText: '这笔钱还没有核销到任何单据（预收 / 预付）' }}
+        empty="这笔钱还没有核销到任何单据（预收 / 预付）"
         columns={[
           {
             dataIndex: 'target_doc_no',

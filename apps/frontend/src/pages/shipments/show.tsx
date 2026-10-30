@@ -8,6 +8,7 @@ import { shipmentApi } from '@/api/shipments'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { ORDER_STATUS_OPTIONS, orderStatusLabel } from '@/constants/catalog'
 import type { Settlement, Shipment, ShipmentAllocation } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
@@ -302,13 +303,16 @@ export function ShipmentShow() {
       />
 
       <Card title="出货明细" size="small" style={{ marginTop: 16 }}>
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={s?.allocations ?? []}
+          rows={s?.allocations ?? []}
           pagination={false}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: '没有明细' }}
+          scrollX={1200}
+          empty="没有明细"
+          // 第一列是来源订单，但一票里多行常常来自同一张订单 —— 拿它当标题
+          // 会出现几张同名的卡。行与行的区别是货品，所以标题用 SKU。
+          cardTitleKey="sku_code"
         >
           <Table.Column
             dataIndex="sales_order_doc_no"
@@ -377,7 +381,7 @@ export function ShipmentShow() {
             title="备注"
             render={(value: string) => value || <Empty />}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 物流节点就地编辑：提单号与船期订舱后才有，那时单子早已确认。 */}

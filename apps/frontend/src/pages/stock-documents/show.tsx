@@ -6,6 +6,7 @@ import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag, Typ
 import { stockDocApi } from '@/api/stock-documents'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Mono, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   ORDER_STATUS_OPTIONS,
   STOCK_DOC_COUNT,
@@ -170,13 +171,13 @@ export function StockDocumentShow() {
       />
 
       <Card title="明细" size="small" style={{ marginTop: 16 }}>
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={d?.items ?? []}
+          rows={d?.items ?? []}
           pagination={false}
-          scroll={{ x: 900 }}
-          locale={{ emptyText: '没有明细' }}
+          scrollX={900}
+          empty="没有明细"
         >
           <Table.Column
             dataIndex="sku_code"
@@ -246,7 +247,7 @@ export function StockDocumentShow() {
             title="备注"
             render={(value: string) => value || <Empty />}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
       {/* T-63：出入库单要挂签收单、过磅单、验货照片——这些是仓库与客户对账的凭据。 */}
       {result?.id ? (

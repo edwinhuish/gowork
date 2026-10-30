@@ -21,6 +21,7 @@ import { quotationApi } from '@/api/quotations'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { QUOTATION_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
 import type { QuotationDetail, QuotationItem } from '@/types'
 import { formatDate, formatPercent, formatTime } from '@/utils/format'
@@ -296,13 +297,16 @@ export function QuotationShow() {
       />
 
       <Card title="明细" size="small" style={{ marginTop: 16 }}>
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={q?.items ?? []}
+          rows={q?.items ?? []}
           pagination={false}
-          scroll={{ x: 1100 }}
-          locale={{ emptyText: '没有明细' }}
+          scrollX={1100}
+          empty="没有明细"
+          // 「毛利」是算出来的、又排在最后一列，会被自动判定当成按钮列挪到卡片
+          // 底部、把标签弄丢。这张表没有操作列，所以显式给空名单。
+          cardActionKeys={[]}
         >
           <Table.Column
             dataIndex="sku_code"
@@ -378,7 +382,7 @@ export function QuotationShow() {
               )
             }}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       <Modal

@@ -21,6 +21,7 @@ import { salesOrderApi } from '@/api/sales-orders'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   ORDER_STATUS_OPTIONS,
   SETTLEMENT_STATUS_OPTIONS,
@@ -369,13 +370,13 @@ export function OrderShow() {
       />
 
       <Card title="明细" size="small" style={{ marginTop: 16 }}>
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={o?.items ?? []}
+          rows={o?.items ?? []}
           pagination={false}
-          scroll={{ x: 900 }}
-          locale={{ emptyText: '没有明细' }}
+          scrollX={900}
+          empty="没有明细"
         >
           <Table.Column
             dataIndex="sku_code"
@@ -446,7 +447,7 @@ export function OrderShow() {
             title="备注"
             render={(value: string) => value || <Empty />}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       <Card
@@ -455,12 +456,15 @@ export function OrderShow() {
         style={{ marginTop: 16 }}
         extra={<span className="cell-sub">出货与应收都由这张订单产生，点单号进详情</span>}
       >
-        <Table
+        <ResponsiveTable
           rowKey="key"
           size="small"
           pagination={false}
-          scroll={{ x: 720 }}
-          dataSource={[
+          scrollX={720}
+          // 第一列是「出货 / 应收」这种类型，卡上该写单号：点进去靠的是单号，
+          // 而同一张单关联的两条记录很可能都是同一个类型。
+          cardTitleKey="docNo"
+          rows={[
             ...linkedShipments.map((row) => ({
               key: `s-${row.id}`,
               kind: '出货',
@@ -482,7 +486,7 @@ export function OrderShow() {
               href: `/receivables/show/${row.id}`,
             })),
           ]}
-          locale={{ emptyText: '这张订单还没有出货、也没有开票' }}
+          empty="这张订单还没有出货、也没有开票"
         >
           <Table.Column
             dataIndex="kind"
@@ -517,7 +521,7 @@ export function OrderShow() {
               <OptionTag value={row.status} options={row.statusOptions} />
             )}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 没改过就不占版面：这张卡片的意义全在"改过什么"，空表只是多一块空白。 */}
@@ -528,13 +532,15 @@ export function OrderShow() {
           style={{ marginTop: 16 }}
           extra={<span className="cell-sub">共 {changes.length} 次，最近一次在最上面</span>}
         >
-          <Table
+          <ResponsiveTable
             rowKey="id"
             size="small"
             loading={changesLoading}
-            dataSource={changes}
+            rows={changes}
             pagination={false}
-            scroll={{ x: 1100 }}
+            scrollX={1100}
+            // 第一列是第几次（#1），卡上该写变更单号：那才是"哪一次改动"。
+            cardTitleKey="doc_no"
           >
             <Table.Column
               dataIndex="seq"
@@ -595,7 +601,7 @@ export function OrderShow() {
               title="明细改动"
               render={(_, record: SalesOrderChange) => <ChangeLines lines={record.lines} />}
             />
-          </Table>
+          </ResponsiveTable>
         </Card>
       )}
 

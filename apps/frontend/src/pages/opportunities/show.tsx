@@ -7,7 +7,6 @@ import {
   message,
   Popconfirm,
   Space,
-  Table,
   Tag,
   Timeline,
   Typography,
@@ -15,6 +14,7 @@ import {
 
 import { opportunityApi } from '@/api/opportunities'
 import { Empty, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   ACTIVITY_TYPE_OPTIONS,
   OPPORTUNITY_STAGE_OPTIONS,
@@ -118,13 +118,15 @@ export function OpportunityShow() {
         跟进记录
       </Typography.Title>
 
-      <Table<Activity>
+      <ResponsiveTable<Activity>
         rowKey="id"
         size="small"
         loading={activityQuery.isLoading}
-        dataSource={activities}
+        rows={activities}
         pagination={false}
-        locale={{ emptyText: '这个商机还没有跟进记录。谈单细节写在这里，客户详情里的时间线才完整。' }}
+        // 第一列是日期，卡上该写主题：认一条跟进靠的是"谈了什么"。
+        cardTitleKey="subject"
+        empty="这个商机还没有跟进记录。谈单细节写在这里，客户详情里的时间线才完整。"
         columns={[
           {
             title: '日期',

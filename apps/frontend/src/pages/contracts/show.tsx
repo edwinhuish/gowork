@@ -19,6 +19,7 @@ import { contractApi } from '@/api/contracts'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   CONTRACT_STATUS_OPTIONS,
   CONTRACT_TYPE_OPTIONS,
@@ -221,11 +222,31 @@ export function ContractShow() {
         付款分期
       </Divider>
 
-      <Table<ContractTerm>
+      <ResponsiveTable<ContractTerm>
         rowKey="id"
         size="small"
-        dataSource={terms}
+        rows={terms}
         pagination={false}
+        // 第一列是序号，卡上该写期次（定金 / 尾款…）—— 那才是"哪一期"。
+        cardTitleKey="name"
+        // 分期合计必须等于合同总额（服务端在保存时校验），窄屏也照给：
+        // 分几期看不出"一共要付多少"。
+        cardSummary={{
+          title: '合计',
+          facts: [
+            {
+              key: 'amount',
+              label: '金额',
+              value: (
+                <Space size={4}>
+                  <Money value={termsTotal} />
+                  <Tag>{c?.currency_code}</Tag>
+                </Space>
+              ),
+            },
+            { key: 'base', label: '折本币', value: <Money value={termsBaseTotal} /> },
+          ],
+        }}
         summary={() =>
           terms.length === 0 ? null : (
             <Table.Summary.Row>
@@ -319,7 +340,7 @@ export function ContractShow() {
             )
           }}
         />
-      </Table>
+      </ResponsiveTable>
 
       {/* 条款是**快照**：这里显示的是生成时抄下来的那几句话，
           改条款库的模板不会改动已经生成的合同。没选条款就不占版面。 */}
@@ -328,11 +349,13 @@ export function ContractShow() {
           <Divider orientation="left" style={{ margin: '24px 0 12px' }}>
             合同条款
           </Divider>
-          <Table<ContractClause>
+          <ResponsiveTable<ContractClause>
             rowKey="id"
             size="small"
-            dataSource={clauses}
+            rows={clauses}
             pagination={false}
+            // 第一列是序号，卡上该写条款标题；正文长，竖着读比横着滑好。
+            cardTitleKey="title"
           >
             <Table.Column dataIndex="seq" title="#" width={56} />
             <Table.Column
@@ -350,7 +373,7 @@ export function ContractShow() {
                 </Typography.Paragraph>
               )}
             />
-          </Table>
+          </ResponsiveTable>
         </>
       )}
 
