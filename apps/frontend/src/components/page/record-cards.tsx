@@ -128,7 +128,10 @@ function readColumnsFromChildren(children: ReactNode): CardColumn<never>[] {
     }
 
     columns.push({
-      key: String(props.dataIndex ?? props.key ?? index),
+      // 取元素自己的 key（child.key），不要读 props.key：React 19 把 key 从
+      // props 里移出去了，读它会告警（"%s: `key` is not a prop"）。
+      // JSX 上写的 key 落在 element.key 上，正是这里要的那一列标识。
+      key: String(props.dataIndex ?? child.key ?? index),
       title: props.title,
       dataIndex: props.dataIndex,
       render: props.render as CardColumn<never>['render'],
