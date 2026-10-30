@@ -55,7 +55,15 @@ export const palette = {
     border: '#2a3444',
     text: '#e7ecf4',
     textMuted: '#9aa7b8',
-    textFaint: '#6d7b8d',
+    /**
+     * 第三级文字：占位、单位、口径说明。比 textMuted 更淡，但仍要能读。
+     *
+     * 暗色这一档是按对比度反推出来的，不是凭手感挑的：口径说明（页头副标题、
+     * 「这页的数怎么算的」、卡片里的未填占位）都是 12.5px 的正文，
+     * WCAG 对正文要求 4.5:1。原来的 #6d7b8d 在最亮的填充底（fillSecondary）
+     * 上只有 3.44，浅一档的 #8493a5 是 4.74 —— 再淡就属于"看不清"而不是"次要"。
+     */
+    textFaint: '#8493a5',
     success: '#2ecc71',
     warning: '#f0a020',
     danger: '#f6705f',

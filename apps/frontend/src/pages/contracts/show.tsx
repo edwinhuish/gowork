@@ -362,7 +362,7 @@ export function ContractShow() {
         </>
       )}
 
-      <div style={{ marginTop: 12, color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+      <div style={{ marginTop: 12, color: 'var(--ant-color-text-tertiary)', fontSize: 12 }}>
         合同不存货物明细：明细留在来源单据上，这里只有一份对外承诺的快照。
         单号 <Mono>{c?.doc_no ?? ''}</Mono> 本身能看出是 PI 还是销售合同。
       </div>

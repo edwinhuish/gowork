@@ -123,7 +123,16 @@ body {
   flex: 0 0 28px;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--ant-color-primary), var(--ant-color-primary-hover));
-  color: #fff;
+  /*
+   * 字色取容器底色而不是写死白色。
+   *
+   * 暗色下主色被提亮成 #4d8df7（它要当链接与文字用，必须亮），
+   * 白字压在这个渐变上只有 2.57~3.25，等于"看得见方块、看不清字母"。
+   * 容器底色恰好是这个问题的另一半：亮色下它是白（白字 5.9+），
+   * 暗色下它是 #161c25（深底上的深字 5.5+），两套主题各自达标，
+   * 不必为这块小方块再引入一个只有它用的色号。
+   */
+  color: var(--ant-color-bg-container, #fff);
   font-weight: 700;
   font-size: 15px;
   line-height: 1;
