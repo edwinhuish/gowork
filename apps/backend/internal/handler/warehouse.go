@@ -28,7 +28,12 @@ func (h *WarehouseHandler) List(c *gin.Context) {
 		response.Fail(c, err)
 		return
 	}
-	response.OK(c, rows)
+	// 全站列表接口都返回 {list,total}，仓库不能例外：下拉选仓库（出货单、
+	// 出入库单）走的是 refine 的 useSelect，前端 dataProvider 取不到 .list
+	// 就是 undefined，refine 内部 data.data.map 直接抛错 —— React 19 会卸载
+	// 整棵树，表现是**整页白屏**；仓库列表页也永远显示「还没有数据」。
+	// 这里不分页，整份给回，total 就是条数。
+	response.OK(c, dto.NewPageResult(rows, int64(len(rows)), 1, len(rows)))
 }
 
 // Create POST /api/v1/warehouses

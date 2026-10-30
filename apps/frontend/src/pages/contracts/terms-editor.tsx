@@ -1,4 +1,5 @@
-import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
+import { DeleteOutlined } from '@ant-design/icons'
+import { Button, Col, Form, Input, InputNumber, Row, Tooltip, Typography } from 'antd'
 
 export interface ContractTermRow {
   name?: string
@@ -52,10 +53,10 @@ export function ContractTermsEditor({
         <Col span={4}>
           <Typography.Text type="secondary">付款日</Typography.Text>
         </Col>
-        <Col span={8}>
+        <Col span={7}>
           <Typography.Text type="secondary">付款条件</Typography.Text>
         </Col>
-        <Col span={2} />
+        <Col span={3} />
       </Row>
 
       <Form.List name="terms">
@@ -94,20 +95,28 @@ export function ContractTermsEditor({
                     <Input placeholder="可留空" />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
+                <Col span={7}>
                   <Form.Item name={[field.name, 'trigger']}>
                     <Input placeholder="见提单副本后 7 天内" maxLength={128} />
                   </Form.Item>
                 </Col>
-                <Col span={2}>
-                  <Button
-                    type="link"
-                    danger
-                    disabled={fields.length <= 1}
-                    onClick={() => remove(field.name)}
-                  >
-                    删除
-                  </Button>
+                {/*
+                 * 删除只放图标：这一行五列在窄屏是要挤的（375 下 2 格只有 29px，
+                 * 而「删除」两个字的按钮 60px，实测把整页撑出 9px 横向滚动）。
+                 * 格数从 2 加到 3、付款条件让出 1 格，图标按钮（32px）在任何
+                 * 宽度下都放得下。字去掉了提示不能去掉：aria-label + Tooltip。
+                 */}
+                <Col span={3}>
+                  <Tooltip title="删除这一期">
+                    <Button
+                      type="link"
+                      danger
+                      icon={<DeleteOutlined />}
+                      aria-label="删除这一期"
+                      disabled={fields.length <= 1}
+                      onClick={() => remove(field.name)}
+                    />
+                  </Tooltip>
                 </Col>
               </Row>
             ))}

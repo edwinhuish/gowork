@@ -59,6 +59,13 @@ export function PageForm({
         {...formProps}
         layout="vertical"
         className={wide ? 'entity-form entity-form--wide' : 'entity-form'}
+        /*
+         * 校验失败要滚到第一条错误：窄屏表单是竖排的，一屏放不下，
+         * 提交按钮最靠下 —— 不滚的话错误留在屏幕上方，用户点了「保存」
+         * 什么都看不到，只当是没反应（客户 / 合同新建页实测：错误提示
+         * 确实生成了，但一条都不在视口里）。
+         */
+        scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
       >
         {children}
       </Form>

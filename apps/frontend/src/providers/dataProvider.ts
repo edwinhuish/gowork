@@ -133,7 +133,13 @@ export const dataProvider = {
         buildListQuery({ resource, pagination, filters, sorters } as GetListParams),
       )}`,
     )
-    return { data: res.list, total: res.total }
+    // 列表接口统一返回 {list,total}；个别接口只给数组（/warehouses 曾经就是这样）。
+    // 直接取 .list 会拿到 undefined —— refine 的 useSelect 内部 data.data.map
+    // 抛错，React 19 把整棵树卸载，表现是整页白屏（出货单 / 出入库单新建页实测）。
+    // 两种形状都认：最坏是空列表，不是白屏。
+    const list = Array.isArray(res) ? res : (res?.list ?? [])
+    const total = Array.isArray(res) ? list.length : (res?.total ?? list.length)
+    return { data: list, total }
   },
 
   getOne: async ({ resource, id }: GetOneParams) => {
