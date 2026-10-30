@@ -89,7 +89,7 @@ export function ProfitCard({ shipmentId, status }: { shipmentId: number; status:
                 precision={profit.cost_hidden ? undefined : 2}
                 valueStyle={
                   !profit.cost_hidden && Number(profit.profit) < 0
-                    ? { color: '#cf1322' }
+                    ? { color: 'var(--ant-color-error)' }
                     : undefined
                 }
               />

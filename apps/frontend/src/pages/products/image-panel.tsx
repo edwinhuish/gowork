@@ -263,13 +263,19 @@ export function ProductImagesPanel({ productId }: { productId: number }) {
               key={image.id}
               style={{
                 width: 188,
-                border: '1px solid #f0f0f0',
+                border: '1px solid var(--ant-color-border-secondary)',
                 borderRadius: 8,
                 overflow: 'hidden',
-                background: '#fff',
+                background: 'var(--ant-color-bg-container)',
               }}
             >
-              <div style={{ position: 'relative', height: 142, background: '#fafafa' }}>
+              <div
+                style={{
+                  position: 'relative',
+                  height: 142,
+                  background: 'var(--ant-color-fill-quaternary)',
+                }}
+              >
                 <AuthedImage
                   path={image.thumb_url}
                   alt={image.file_name}

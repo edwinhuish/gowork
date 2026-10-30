@@ -61,7 +61,7 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
             title="其中已超期"
             value={overdue}
             precision={2}
-            valueStyle={{ color: overdue > 0 ? '#cf1322' : undefined }}
+            valueStyle={{ color: overdue > 0 ? 'var(--ant-color-error)' : undefined }}
           />
         </Col>
         <Col xs={12} md={8} xl={4}>

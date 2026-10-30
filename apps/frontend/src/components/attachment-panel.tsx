@@ -126,9 +126,9 @@ export function AttachmentPanel({ entityType, entityId, title = '附件' }: Atta
           render={(value: string, record: Attachment) => (
             <Space size={8}>
               {record.mime_type === 'application/pdf' ? (
-                <FilePdfOutlined style={{ color: '#c0392b' }} />
+                <FilePdfOutlined style={{ color: 'var(--ant-color-error)' }} />
               ) : (
-                <FileImageOutlined style={{ color: '#2c7be5' }} />
+                <FileImageOutlined style={{ color: 'var(--ant-color-primary)' }} />
               )}
               <span className="cell-strong">{value}</span>
             </Space>

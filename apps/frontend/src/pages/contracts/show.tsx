@@ -214,7 +214,7 @@ export function ContractShow() {
           {terms.length === 0 ? (
             <Empty />
           ) : (
-            <span style={{ color: matched ? undefined : '#cf1322' }}>
+            <span style={{ color: matched ? undefined : 'var(--ant-color-error)' }}>
               <Money value={termsTotal} />
               {matched ? '' : '（与总额不一致）'}
             </span>

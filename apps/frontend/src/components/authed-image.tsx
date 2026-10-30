@@ -86,8 +86,8 @@ export function AuthedImage({ path, alt, style, ...rest }: AuthedImageProps) {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#fafafa',
-          color: '#bfbfbf',
+          background: 'var(--ant-color-fill-quaternary)',
+          color: 'var(--ant-color-text-quaternary)',
           ...style,
         }}
         aria-label={alt}
