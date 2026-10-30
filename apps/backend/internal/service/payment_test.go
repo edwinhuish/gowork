@@ -70,11 +70,11 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn, CreditDays: 30,
+		EntityType: model.PartnerEntityCompany, CreditDays: 30,
 	}
 	supplier := &model.Partner{
 		Code: "S001", Name: "宁波五金", Role: model.PartnerRoleSupplier,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn, CreditDays: 0,
+		EntityType: model.PartnerEntityCompany, CreditDays: 0,
 	}
 	for _, p := range []*model.Partner{customer, supplier} {
 		if err := partnerRepo.Create(ctx, p); err != nil {

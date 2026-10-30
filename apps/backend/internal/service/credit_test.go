@@ -44,7 +44,7 @@ func newCreditFixture(t *testing.T, now time.Time, limit float64) creditFixture 
 	partnerRepo := repository.NewPartnerRepository(db)
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType:  model.PartnerEntityCompany,
 		CreditLimit: money.FromFloat(limit), CreditDays: 30,
 	}
 	if err := partnerRepo.Create(ctx, customer); err != nil {

@@ -118,8 +118,6 @@ func (s *partnerService) ImportPartners(
 			EntityType: model.PartnerEntityCompany,
 			Country:    row.Country, ContactName: row.ContactName,
 			Phone: row.Phone, Email: row.Email, Address: row.Address,
-			// 导入是按表格批量建，默认启用：停用的主体要先能出现在列表里才好改。
-			Status:      model.EnableStatusOn,
 			CreditDays:  creditDays,
 			CreditLimit: creditLimit,
 		}

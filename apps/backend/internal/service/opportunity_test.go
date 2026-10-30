@@ -76,7 +76,7 @@ func TestOpportunityRules(t *testing.T) {
 
 	partner := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := fx.partners.Create(ctx, partner); err != nil {
 		t.Fatalf("建主体失败: %v", err)
@@ -278,7 +278,7 @@ func TestOpportunityRateLock(t *testing.T) {
 
 	partner := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(ctx, partner); err != nil {
 		t.Fatalf("建主体失败: %v", err)
@@ -383,7 +383,7 @@ func TestOpportunityStageLog(t *testing.T) {
 
 	partner := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(ctx, partner); err != nil {
 		t.Fatalf("建主体失败: %v", err)

@@ -62,7 +62,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 	partnerRepo := repository.NewPartnerRepository(db)
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(ctx, customer); err != nil {
 		t.Fatalf("建主体失败: %v", err)
@@ -124,7 +124,7 @@ func newShipmentFixture(t *testing.T, now *time.Time) shipmentFixture {
 	// 第二个客户：验证"一票只能装同一个客户的货"。
 	customer2 := &model.Partner{
 		Code: "C002", Name: "Comercial Andina", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(ctx, customer2); err != nil {
 		t.Fatalf("建第二个客户失败: %v", err)

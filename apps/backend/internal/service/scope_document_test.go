@@ -23,7 +23,7 @@ func TestShipmentScopeFollowsGoodsNotHeader(t *testing.T) {
 	addPartner := func(code string, ownerID uint) uint {
 		p := &model.Partner{
 			Code: code, Name: code, Role: model.PartnerRoleCustomer,
-			EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn, OwnerID: ownerID,
+			EntityType: model.PartnerEntityCompany, OwnerID: ownerID,
 		}
 		if err := db.Create(p).Error; err != nil {
 			t.Fatalf("建主体失败: %v", err)
@@ -119,8 +119,8 @@ func TestOwnerScopeFiltersDocuments(t *testing.T) {
 	addPartner := func(code string, ownerID uint) uint {
 		p := &model.Partner{
 			Code: code, Name: code, Role: model.PartnerRoleCustomer,
-			EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
-			OwnerID: ownerID,
+			EntityType: model.PartnerEntityCompany,
+			OwnerID:    ownerID,
 		}
 		if err := db.Create(p).Error; err != nil {
 			t.Fatalf("建主体失败: %v", err)

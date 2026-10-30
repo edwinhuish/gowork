@@ -24,7 +24,7 @@ func TestReceivableStatement(t *testing.T) {
 
 	partner := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := db.Create(partner).Error; err != nil {
 		t.Fatalf("建主体失败: %v", err)

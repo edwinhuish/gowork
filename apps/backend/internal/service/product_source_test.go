@@ -56,11 +56,11 @@ func newSourceFixture(t *testing.T, now time.Time) sourceFixture {
 	partnerRepo := repository.NewPartnerRepository(db)
 	supplier := &model.Partner{
 		Code: "S001", Name: "永康五金厂", Role: model.PartnerRoleSupplier,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	for _, p := range []*model.Partner{supplier, customer} {
 		if err := partnerRepo.Create(ctx, p); err != nil {

@@ -35,11 +35,11 @@ func newReportFixture(t *testing.T, now time.Time) reportFixture {
 
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	supplier := &model.Partner{
 		Code: "S001", Name: "宁波五金", Role: model.PartnerRoleSupplier,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	for _, p := range []*model.Partner{customer, supplier} {
 		if err := partnerRepo.Create(ctx, p); err != nil {

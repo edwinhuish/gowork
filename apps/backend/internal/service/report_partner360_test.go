@@ -45,7 +45,6 @@ func (f *partner360Fixture) addPartner(t *testing.T, code, name, country string)
 	p := &model.Partner{
 		Code: code, Name: name, Country: country,
 		Role: model.PartnerRoleCustomer, EntityType: model.PartnerEntityCompany,
-		Status: model.EnableStatusOn,
 	}
 	if err := f.db.Create(p).Error; err != nil {
 		t.Fatalf("建主体失败: %v", err)

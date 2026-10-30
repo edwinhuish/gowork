@@ -55,11 +55,11 @@ func newChargeFixture(t *testing.T, now time.Time) chargeFixture {
 	partnerRepo := repository.NewPartnerRepository(db)
 	forwarder := &model.Partner{
 		Code: "F001", Name: "中远货代", Role: model.PartnerRoleForwarder,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	for _, p := range []*model.Partner{forwarder, customer} {
 		if err := partnerRepo.Create(ctx, p); err != nil {

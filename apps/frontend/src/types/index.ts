@@ -118,7 +118,6 @@ export interface Partner {
   region: string
   /** ABC 分级。空串表示未分级；**只做标签与筛选，不接权限也不接折扣**。 */
   grade: 'A' | 'B' | 'C' | ''
-  status: number
   remark: string
   /** 商务条件：主要对客户角色有意义，供应商留空。 */
   trade_term: string

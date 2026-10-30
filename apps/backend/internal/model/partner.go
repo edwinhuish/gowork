@@ -199,13 +199,7 @@ type Partner struct {
 	Phone       string `gorm:"size:32" json:"phone"`
 	Email       string `gorm:"size:128" json:"email"`
 	Address     string `gorm:"size:255" json:"address"`
-	// Status 刻意不写 gorm 的 default tag。
-	//
-	// gorm 对带 default 的字段会在值为零值时省略该列、让数据库填默认值，
-	// 而 EnableStatusOff 恰好就是零值 —— 结果是"显式提交停用"被静默存成启用。
-	// 不写 default，插入时总是带上实际值，由 service 负责 nil 的归一化。
-	Status EnableStatus `gorm:"not null;index" json:"status"`
-	Remark string       `gorm:"size:255" json:"remark"`
+	Remark      string `gorm:"size:255" json:"remark"`
 
 	// 以下五项是商务条件，主要对客户角色有意义（供应商通常另有采购协议）。
 	//

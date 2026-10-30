@@ -1,19 +1,17 @@
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useNavigation, type CrudFilters } from '@refinedev/core'
 import { CreateButton, useTable } from '@refinedev/antd'
-import { Button, Form, Input, Segmented, Select, Space, Table, Typography } from 'antd'
+import { Button, Form, Input, Segmented, Space, Table, Typography } from 'antd'
 
-import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, Mono, RoleTag } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
 import { PartnerAvatar } from '@/components/partner-avatar'
 import { PartnerCards, PARTNER_CARD_PAGE_SIZES, toCardPager } from '@/components/partner-cards'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
 interface ForwarderSearch {
   keyword?: string
-  status?: number
 }
 
 /**
@@ -34,9 +32,6 @@ export function ForwarderList() {
       const filters: CrudFilters = []
       if (v.keyword?.trim()) {
         filters.push({ field: 'keyword', operator: 'contains', value: v.keyword.trim() })
-      }
-      if (v.status !== undefined && v.status !== null) {
-        filters.push({ field: 'status', operator: 'eq', value: v.status })
       }
       return filters
     },
@@ -96,9 +91,6 @@ export function ForwarderList() {
           <Form.Item name="keyword">
             <Input placeholder="搜索编码 / 名称 / 联系人" allowClear />
           </Form.Item>
-          <Form.Item name="status">
-            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
-          </Form.Item>
         </>
       }
     >
@@ -142,12 +134,6 @@ export function ForwarderList() {
       <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
       <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
       <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
-      <Table.Column
-        dataIndex="status"
-        title="状态"
-        width={90}
-        render={(value: number) => <StatusTag value={value} />}
-      />
     </PageList>
   )
 }

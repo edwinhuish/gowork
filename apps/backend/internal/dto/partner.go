@@ -24,7 +24,6 @@ type PartnerQuery struct {
 	Role       PartnerRoleInput       `form:"role"`
 	EntityType PartnerEntityTypeInput `form:"entity_type"`
 	Country    string                 `form:"country"`
-	Status     EnableStatusInput      `form:"status"`
 	// 下面三个是报表与列表的分组维度，空表示不筛。
 	CustomerGroup string `form:"customer_group"`
 	Region        string `form:"region"`
@@ -93,7 +92,6 @@ type PartnerInput struct {
 	Phone       string                 `json:"phone" binding:"max=32"`
 	Email       string                 `json:"email" binding:"omitempty,email,max=128"`
 	Address     string                 `json:"address" binding:"max=255"`
-	Status      EnableStatusInput      `json:"status"`
 
 	// 档案要素同样用指针：供应商表单不显示客户分组与分级，
 	// 若按零值覆盖，在供应商页面保存一次就会把它们清空——

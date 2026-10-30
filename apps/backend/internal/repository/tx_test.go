@@ -40,7 +40,7 @@ func newTxFixture(t *testing.T) txFixture {
 	partners := NewPartnerRepository(db)
 	supplier := &model.Partner{
 		Code: "TX-SUP", Name: "事务测试供应商",
-		Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
+		Role: model.PartnerRoleSupplier,
 	}
 	if err := partners.Create(ctx, supplier); err != nil {
 		t.Fatalf("建供应商: %v", err)

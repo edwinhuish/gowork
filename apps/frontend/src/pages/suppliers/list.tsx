@@ -8,7 +8,6 @@ import {
   Input,
   message,
   Segmented,
-  Select,
   Space,
   Table,
   Tag,
@@ -16,7 +15,7 @@ import {
 } from 'antd'
 
 import { partnerApi } from '@/api/partners'
-import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, Mono, RoleTag } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
 import { PartnerAvatar } from '@/components/partner-avatar'
 import {
@@ -25,13 +24,11 @@ import {
   PARTNER_CARD_PAGE_SIZES,
   toCardPager,
 } from '@/components/partner-cards'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
 interface SupplierSearch {
   keyword?: string
-  status?: number
   /** 含已删除：打开后已软删的主体也列出来，只能做一件事——恢复。 */
   include_deleted?: boolean
 }
@@ -54,9 +51,6 @@ export function SupplierList() {
       const filters: CrudFilters = []
       if (v.keyword?.trim()) {
         filters.push({ field: 'keyword', operator: 'contains', value: v.keyword.trim() })
-      }
-      if (v.status !== undefined && v.status !== null) {
-        filters.push({ field: 'status', operator: 'eq', value: v.status })
       }
       if (v.include_deleted) {
         filters.push({ field: 'include_deleted', operator: 'eq', value: true })
@@ -138,9 +132,6 @@ export function SupplierList() {
           <Form.Item name="keyword">
             <Input placeholder="搜索编码 / 名称 / 联系人" allowClear />
           </Form.Item>
-          <Form.Item name="status">
-            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
-          </Form.Item>
           <Form.Item name="include_deleted" valuePropName="checked">
             <Checkbox>含已删除</Checkbox>
           </Form.Item>
@@ -196,12 +187,6 @@ export function SupplierList() {
       <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
       <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
       <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
-      <Table.Column
-        dataIndex="status"
-        title="状态"
-        width={90}
-        render={(value: number) => <StatusTag value={value} />}
-      />
       <Table.Column
         title="操作"
         width={90}

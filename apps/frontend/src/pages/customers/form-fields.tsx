@@ -3,7 +3,6 @@ import { Form, Input, InputNumber, Radio, Select } from 'antd'
 
 import { PartnerDuplicateHint } from '@/components/partner-duplicate-hint'
 import {
-  ENABLE_STATUS_OPTIONS,
   PARTNER_ENTITY_TYPE_OPTIONS,
   PARTNER_GRADE_OPTIONS,
   SETTLEMENT_METHOD_OPTIONS,
@@ -164,10 +163,6 @@ export function CustomerFormFields() {
               .includes(input.toLowerCase())
           }
         />
-      </Form.Item>
-
-      <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
       <Form.Item name="address" label="地址" className="form-item-full" rules={[{ max: 255, message: '最多 255 个字符' }]}>

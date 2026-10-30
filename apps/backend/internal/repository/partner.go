@@ -26,7 +26,6 @@ type PartnerFilter struct {
 	Role       *model.PartnerRole
 	EntityType *model.PartnerEntityType
 	Country    string
-	Status     *model.EnableStatus
 	// 分组维度：空 = 不筛。
 	CustomerGroup string
 	Region        string
@@ -70,12 +69,6 @@ func (f PartnerFilter) scopes() []Scope {
 		c := f.Country
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("md_partner.country = ?", c)
-		})
-	}
-	if f.Status != nil {
-		st := *f.Status
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("md_partner.status = ?", st)
 		})
 	}
 	if f.CustomerGroup != "" {

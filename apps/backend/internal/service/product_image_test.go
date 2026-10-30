@@ -52,12 +52,12 @@ func newProductImageFixture(t *testing.T) productImageFixture {
 	}
 
 	return productImageFixture{
-		images:     NewProductImageService(imageRepo, productRepo, txs),
-		imageRepo:  imageRepo,
+		images:    NewProductImageService(imageRepo, productRepo, txs),
+		imageRepo: imageRepo,
 		productSvc: NewProductService(productRepo, partnerRepo, sourceRepo, codeRepo, txs,
 			WithProductImages(imageRepo)),
-		productA:   a.ID,
-		productB:   b.ID,
+		productA: a.ID,
+		productB: b.ID,
 	}
 }
 

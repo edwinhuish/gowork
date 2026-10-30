@@ -63,7 +63,7 @@ func TestMergeLegacyCustomersAndSuppliers(t *testing.T) {
 	// 重映射即使写错了（比如根本没执行）测试也照样通过。推高之后新 id 全程偏移，
 	// 产品的 supplier_id 必须真的被改写才能对上。
 	placeholder := &model.Partner{
-		Code: "__seq__", Name: "占位", Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
+		Code: "__seq__", Name: "占位", Role: model.PartnerRoleSupplier,
 	}
 	if err := db.Create(placeholder).Error; err != nil {
 		t.Fatalf("写入占位记录: %v", err)
@@ -268,7 +268,7 @@ func TestMergeLegacyCustomersAndSuppliersRefusesOnExistingData(t *testing.T) {
 		}
 	}
 	if err := db.Create(&model.Partner{
-		Code: "EXIST", Name: "已存在", Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
+		Code: "EXIST", Name: "已存在", Role: model.PartnerRoleSupplier,
 	}).Error; err != nil {
 		t.Fatalf("写入已有主体: %v", err)
 	}

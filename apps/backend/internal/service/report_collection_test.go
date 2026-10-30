@@ -28,14 +28,14 @@ func newCollectionFixture(t *testing.T, now time.Time) collectionFixture {
 
 	customer := &model.Partner{
 		Code: "C001", Name: "Ferreteria El Sol", Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(context.Background(), customer); err != nil {
 		t.Fatalf("建主体失败: %v", err)
 	}
 	supplier := &model.Partner{
 		Code: "S001", Name: "宁波五金", Role: model.PartnerRoleSupplier,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(context.Background(), supplier); err != nil {
 		t.Fatalf("建主体失败: %v", err)

@@ -3,7 +3,7 @@ import { DeleteButton } from '@refinedev/antd'
 import { Button, Pagination, Popconfirm, Skeleton, Tag, Typography } from 'antd'
 import type { PaginationProps, TablePaginationConfig, TableProps } from 'antd'
 
-import { EntityTypeTag, Mono, RoleTag, StatusTag } from './fields'
+import { EntityTypeTag, Mono, RoleTag } from './fields'
 import { PartnerAvatar } from './partner-avatar'
 import type { Partner } from '@/types'
 
@@ -115,14 +115,13 @@ export function PartnerCards({
                 <Typography.Text className="partner-card-name" title={record.name} strong>
                   {record.name}
                 </Typography.Text>
+                {/* 软删标记顶的就是原来"停用"那个位置：它是这条记录唯一的状态，
+                    已删除的行在列表里只能做恢复这一件事。 */}
                 <span className="partner-card-code">
                   <Mono>{record.code}</Mono>
                   {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
                 </span>
               </div>
-              <span className="partner-card-status">
-                <StatusTag value={record.status} />
-              </span>
             </div>
 
             <div className="partner-card-tags">

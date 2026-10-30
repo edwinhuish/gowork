@@ -31,7 +31,7 @@ func (f contactFixture) addPartner(t *testing.T, code string) uint {
 	t.Helper()
 	p := &model.Partner{
 		Code: code, Name: code, Role: model.PartnerRoleCustomer,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := f.db.Create(p).Error; err != nil {
 		t.Fatalf("建主体失败: %v", err)

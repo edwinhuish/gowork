@@ -63,7 +63,7 @@ func writeCSV(c *gin.Context, filename string, header []string, rows [][]string)
 
 // ExportPartners GET /api/v1/exports/partners
 //
-// 参数与客户 / 供应商 / 货代列表完全一致（role / keyword / status / country …），
+// 参数与客户 / 供应商 / 货代列表完全一致（role / keyword / country …），
 // 导出的就是列表上那一批：数据范围与筛选条件都复用列表服务。
 func (h *PartnerHandler) Export(c *gin.Context) {
 	var q dto.PartnerQuery

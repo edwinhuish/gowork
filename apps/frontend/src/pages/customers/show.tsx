@@ -4,7 +4,7 @@ import { useShow } from '@refinedev/core'
 import { Button, Descriptions, Space, Tag } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { Empty, EntityTypeTag, Money, RoleTag, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, Money, RoleTag } from '@/components/fields'
 import { Partner360Panel } from '@/components/partner-360-panel'
 import { PartnerAddressPanel } from '@/components/partner-address-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
@@ -54,7 +54,6 @@ export function CustomerShow() {
             // 未分级是常态（存量数据全在这一档），写"未分级"而不是空白。
             children: result?.grade ? <Tag bordered={false}>{result.grade}</Tag> : <span className="cell-sub">未分级</span>,
           },
-          { key: 'status', label: '状态', children: <StatusTag value={result?.status} /> },
           { key: 'contact', label: '联系人', children: result?.contact || <Empty /> },
           { key: 'phone', label: '电话', children: result?.phone || <Empty /> },
           { key: 'email', label: '邮箱', children: result?.email || <Empty /> },

@@ -75,7 +75,6 @@ func (a *App) seedMasterData(
 		ownerName = admin.Nickname
 	}
 
-	on := model.EnableStatusOn
 	demoPartners := []model.Partner{
 		// ---- 供应商 ----
 		{
@@ -84,7 +83,7 @@ func (a *App) seedMasterData(
 			Country: "China", Region: "华东", ContactName: "陈先生", Phone: "13800000001",
 			Email: "chen@huaxin-hardware.cn", Address: "浙江省金华市永康市芝英镇",
 			TradeTerm: model.TradeTermFOB, SettlementMethod: model.SettlementTT,
-			CreditDays: 30, OwnerID: ownerID, Status: on,
+			CreditDays: 30, OwnerID: ownerID,
 		},
 		{
 			Code: "SUP002", Name: "揭阳铭泰不锈钢制品",
@@ -92,28 +91,28 @@ func (a *App) seedMasterData(
 			Country: "China", Region: "华南", ContactName: "林小姐", Phone: "13800000002",
 			Email: "lin@mingtai-ss.com", Address: "广东省揭阳市榕城区",
 			TradeTerm: model.TradeTermEXW, SettlementMethod: model.SettlementTT,
-			CreditDays: 15, OwnerID: ownerID, Status: on,
+			CreditDays: 15, OwnerID: ownerID,
 		},
 		{
 			Code: "SUP003", Name: "宁波北仑精密压铸有限公司",
 			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
 			Country: "China", Region: "华东", ContactName: "吴工", Phone: "13800000004",
 			Address: "浙江省宁波市北仑区", TradeTerm: model.TradeTermFOB,
-			SettlementMethod: model.SettlementTT, CreditDays: 30, OwnerID: ownerID, Status: on,
+			SettlementMethod: model.SettlementTT, CreditDays: 30, OwnerID: ownerID,
 		},
 		{
 			Code: "SUP004", Name: "佛山南海包装材料厂",
 			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
 			Country: "China", Region: "华南", ContactName: "梁经理", Phone: "13800000005",
 			Address: "广东省佛山市南海区", TradeTerm: model.TradeTermEXW,
-			SettlementMethod: model.SettlementTT, CreditDays: 7, OwnerID: ownerID, Status: on,
+			SettlementMethod: model.SettlementTT, CreditDays: 7, OwnerID: ownerID,
 		},
 		{
 			Code: "SUP005", Name: "青岛恒达索具制造",
 			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
 			Country: "China", Region: "华北", ContactName: "孙经理", Phone: "13800000006",
 			Address: "山东省青岛市黄岛区", TradeTerm: model.TradeTermFOB,
-			SettlementMethod: model.SettlementTT, CreditDays: 30, Status: on,
+			SettlementMethod: model.SettlementTT, CreditDays: 30,
 		},
 
 		// ---- 货代 ----
@@ -122,7 +121,7 @@ func (a *App) seedMasterData(
 			Role: model.PartnerRoleForwarder, EntityType: model.PartnerEntityCompany,
 			Country: "China", Region: "华东", ContactName: "赵小姐", Phone: "021-60000001",
 			Email: "ops@lianhang-logistics.cn", Address: "上海市虹口区东大名路",
-			SettlementMethod: model.SettlementTT, CreditDays: 15, OwnerID: ownerID, Status: on,
+			SettlementMethod: model.SettlementTT, CreditDays: 15, OwnerID: ownerID,
 			Remark: "美线与南美线，惯走上海港",
 		},
 		{
@@ -130,7 +129,7 @@ func (a *App) seedMasterData(
 			Role: model.PartnerRoleForwarder, EntityType: model.PartnerEntityCompany,
 			Country: "China", Region: "华东", ContactName: "周先生", Phone: "0574-80000002",
 			Address: "浙江省宁波市北仑区", SettlementMethod: model.SettlementTT,
-			CreditDays: 30, Status: on, Remark: "欧线为主，宁波港出货",
+			CreditDays: 30, Remark: "欧线为主，宁波港出货",
 		},
 
 		// ---- 客户 ----
@@ -142,7 +141,7 @@ func (a *App) seedMasterData(
 			Phone: "+593 9 0000 0001", Email: "carlos@elsol.com.ec",
 			Address: "Av. 9 de Octubre, Guayaquil", TradeTerm: model.TradeTermCIF,
 			SettlementMethod: model.SettlementTT, CreditDays: 30,
-			CurrencyCode: "USD", OwnerID: ownerID, Status: on,
+			CurrencyCode: "USD", OwnerID: ownerID,
 			Remark: "年采购约 40 万美元，价格敏感但复购稳定",
 		},
 		{
@@ -153,7 +152,7 @@ func (a *App) seedMasterData(
 			Grade: model.PartnerGradeB, ContactName: "周经理", Phone: "13800000003",
 			Address: "浙江省宁波市鄞州区", TradeTerm: model.TradeTermFOB,
 			SettlementMethod: model.SettlementTT, CreditDays: 45,
-			CurrencyCode: "USD", OwnerID: ownerID, Status: on,
+			CurrencyCode: "USD", OwnerID: ownerID,
 			Remark: "既买成品，又把包装物料卖回给我们 —— 客供两用",
 		},
 		{
@@ -163,7 +162,7 @@ func (a *App) seedMasterData(
 			Grade: model.PartnerGradeC, ContactName: "王海", Phone: "+593 9 0000 0002",
 			Address: "Guayaquil", TradeTerm: model.TradeTermFOB,
 			SettlementMethod: model.SettlementTT, CreditDays: 0,
-			CurrencyCode: "USD", OwnerID: ownerID, Status: on,
+			CurrencyCode: "USD", OwnerID: ownerID,
 			Remark: "个人收款的买手，报关资料用个人身份",
 		},
 		{
@@ -174,7 +173,7 @@ func (a *App) seedMasterData(
 			Phone: "+507 6000 0001", Email: "ana@central.com.pa",
 			Address: "Ciudad de Panamá", TradeTerm: model.TradeTermFOB,
 			SettlementMethod: model.SettlementDP, CreditDays: 45,
-			CurrencyCode: "USD", OwnerID: ownerID, Status: on,
+			CurrencyCode: "USD", OwnerID: ownerID,
 		},
 		{
 			Code: "CUS005", Name: "Home Depot Mexico S.A. de C.V.",
@@ -185,8 +184,8 @@ func (a *App) seedMasterData(
 			Address: "Av. Insurgentes Sur, CDMX", TradeTerm: model.TradeTermFOB,
 			SettlementMethod: model.SettlementLC, CreditDays: 60,
 			CreditLimit: money.MustParse("500000"), CurrencyCode: "USD",
-			OwnerID: ownerID, Status: on,
-			Remark: "有信用额度，订单确认时会校验；超额需管理员放行",
+			OwnerID: ownerID,
+			Remark:  "有信用额度，订单确认时会校验；超额需管理员放行",
 		},
 		{
 			Code: "CUS006", Name: "Construcciones Andinas S.A.C.",
@@ -195,8 +194,8 @@ func (a *App) seedMasterData(
 			Grade: model.PartnerGradeC, ContactName: "Rosa Quispe",
 			Phone: "+51 1 000 0001", Address: "Lima", TradeTerm: model.TradeTermCFR,
 			SettlementMethod: model.SettlementOA, CreditDays: 60,
-			CurrencyCode: "USD", Status: model.EnableStatusOff,
-			Remark: "账期太长，暂时停用",
+			CurrencyCode: "USD",
+			Remark:       "账期太长，接单前先复核额度",
 		},
 	}
 	for i := range demoPartners {

@@ -115,10 +115,6 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 	if !hasEntityType {
 		entityType = model.PartnerEntityCompany
 	}
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
 	dup, err := s.repo.ExistsByCode(ctx, in.Code, 0)
 	if err != nil {
 		return nil, err
@@ -149,7 +145,6 @@ func (s *partnerService) Create(ctx context.Context, in dto.PartnerInput) (*mode
 		Phone:            in.Phone,
 		Email:            in.Email,
 		Address:          in.Address,
-		Status:           status,
 		Remark:           in.Remark,
 		TradeTerm:        terms.TradeTerm,
 		SettlementMethod: terms.SettlementMethod,
@@ -177,10 +172,6 @@ func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInpu
 		return nil, err
 	}
 
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
 	dup, err := s.repo.ExistsByCode(ctx, in.Code, id)
 	if err != nil {
 		return nil, err
@@ -197,7 +188,6 @@ func (s *partnerService) Update(ctx context.Context, id uint, in dto.PartnerInpu
 		"phone":   in.Phone,
 		"email":   in.Email,
 		"address": in.Address,
-		"status":  status,
 		"remark":  in.Remark,
 	}
 
@@ -593,7 +583,6 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 	filter := repository.PartnerFilter{
 		Keyword:        q.Keyword,
 		Role:           partnerRolePtr(q.Role),
-		Status:         enableStatusPtr(q.Status),
 		Country:        q.Country,
 		CustomerGroup:  strings.TrimSpace(q.CustomerGroup),
 		Region:         strings.TrimSpace(q.Region),

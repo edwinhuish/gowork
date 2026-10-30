@@ -38,7 +38,6 @@ type legacyPartner struct {
 	Phone     string
 	Email     string
 	Address   string
-	Status    model.EnableStatus
 	Remark    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -179,8 +178,9 @@ func importLegacy(
 			Phone:       row.Phone,
 			Email:       row.Email,
 			Address:     row.Address,
-			Status:      row.Status,
-			Remark:      row.Remark,
+			// 旧表的 status（启用 / 停用）不搬：新模型没有这个字段了，
+			// 退场一律走软删除，而删除标记在下面单独换算。
+			Remark: row.Remark,
 		}
 		// 保留原始时间戳与软删除状态：搬运不是业务操作，
 		// 不应该让所有记录看起来都是"今天刚建的"，也不该让已删除的主体复活。

@@ -54,7 +54,7 @@ func (f *salesFixture) addPartner(t *testing.T, code, name, country string) uint
 	t.Helper()
 	p := &model.Partner{
 		Code: code, Name: name, Country: country,
-		Role: model.PartnerRoleCustomer, Status: model.EnableStatusOn,
+		Role: model.PartnerRoleCustomer,
 	}
 	if err := f.db.Create(p).Error; err != nil {
 		t.Fatalf("建主体失败: %v", err)

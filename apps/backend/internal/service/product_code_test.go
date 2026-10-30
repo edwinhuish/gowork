@@ -36,7 +36,7 @@ func newProductCodeFixture(t *testing.T) productCodeFixture {
 
 	supplier := &model.Partner{
 		Code: "SUP001", Name: "永康五金厂", Role: model.PartnerRoleSupplier,
-		EntityType: model.PartnerEntityCompany, Status: model.EnableStatusOn,
+		EntityType: model.PartnerEntityCompany,
 	}
 	if err := partnerRepo.Create(ctx, supplier); err != nil {
 		t.Fatalf("建供应商失败: %v", err)

@@ -1,7 +1,7 @@
-import { Form, Input, Radio, Select } from 'antd'
+import { Form, Input, Radio } from 'antd'
 
 import { PartnerDuplicateHint } from '@/components/partner-duplicate-hint'
-import { ENABLE_STATUS_OPTIONS, PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
+import { PARTNER_ENTITY_TYPE_OPTIONS } from '@/constants/catalog'
 
 /**
  * 货代表单字段。新建与编辑共用，校验规则只此一份。
@@ -62,10 +62,6 @@ export function ForwarderFormFields() {
 
       {/* 货代同样是 md_partner 的一行：同一家报关行录两遍，费用与报关单会分挂两边。 */}
       <PartnerDuplicateHint />
-
-      <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={ENABLE_STATUS_OPTIONS} />
-      </Form.Item>
 
       <Form.Item
         name="address"

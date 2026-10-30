@@ -88,7 +88,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 	partnerRepo := NewPartnerRepository(db)
 	supplier := &model.Partner{
 		Code: "SUP-" + mark, Name: "测试供应商",
-		Role: model.PartnerRoleSupplier, Status: model.EnableStatusOn,
+		Role: model.PartnerRoleSupplier,
 	}
 	if err := partnerRepo.Create(ctx, supplier); err != nil {
 		t.Fatalf("创建供应商: %v", err)
@@ -148,8 +148,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		// 又能在销售侧被选到，而且是同一条记录、同一套联系方式。
 		both := &model.Partner{
 			Code: "BOTH-" + mark, Name: "客供两用主体",
-			Role:   model.PartnerRoleCustomer | model.PartnerRoleSupplier,
-			Status: model.EnableStatusOn,
+			Role: model.PartnerRoleCustomer | model.PartnerRoleSupplier,
 		}
 		if err := partnerRepo.Create(ctx, both); err != nil {
 			t.Fatalf("创建客供两用主体: %v", err)
@@ -317,7 +316,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		receivables := NewReceivableRepository(db)
 		customer := &model.Partner{
 			Code: "CUS-" + mark, Name: "测试客户",
-			Role: model.PartnerRoleCustomer, Status: model.EnableStatusOn,
+			Role: model.PartnerRoleCustomer,
 		}
 		if err := partnerRepo.Create(ctx, customer); err != nil {
 			t.Fatalf("创建客户: %v", err)

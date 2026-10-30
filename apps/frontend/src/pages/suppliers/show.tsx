@@ -5,7 +5,7 @@ import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { PartnerAddressPanel } from '@/components/partner-address-panel'
-import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
+import { Empty, EntityTypeTag, RoleTag } from '@/components/fields'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
 import type { Partner } from '@/types'
@@ -42,7 +42,6 @@ export function SupplierShow() {
           { key: 'name', label: '名称', children: result?.name || <Empty /> },
           { key: 'role', label: '角色', children: <RoleTag value={result?.role} /> },
           { key: 'entity_type', label: '主体类型', children: <EntityTypeTag value={result?.entity_type} /> },
-          { key: 'status', label: '状态', children: <StatusTag value={result?.status} /> },
           { key: 'contact', label: '联系人', children: result?.contact || <Empty /> },
           { key: 'phone', label: '电话', children: result?.phone || <Empty /> },
           { key: 'email', label: '邮箱', children: result?.email || <Empty /> },
