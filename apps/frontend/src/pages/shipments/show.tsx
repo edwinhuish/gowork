@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useInvalidate, useList, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
-import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
+import { Button, Card, Descriptions, message, Popconfirm, Space, Table } from 'antd'
 
 import { download } from '@/api/client'
 import { shipmentApi } from '@/api/shipments'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono } from '@/components/fields'
-import { orderStatusLabel } from '@/constants/catalog'
+import { Empty, Mono, OptionTag } from '@/components/fields'
+import { ORDER_STATUS_OPTIONS, orderStatusLabel } from '@/constants/catalog'
 import type { Settlement, Shipment, ShipmentAllocation } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
@@ -52,15 +52,6 @@ function nextActions(status: number): StatusAction[] {
     default:
       return []
   }
-}
-
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 30) return 'processing'
-  if (value === 40) return 'warning'
-  if (value === 50) return 'default'
-  if (value === 90) return 'error'
-  return 'default'
 }
 
 /**
@@ -274,7 +265,7 @@ export function ShipmentShow() {
             key: 'status',
             label: '状态',
             children: s ? (
-              <Tag color={statusColor(s.status)}>{orderStatusLabel(s.status)}</Tag>
+              <OptionTag value={s.status} options={ORDER_STATUS_OPTIONS} />
             ) : (
               <Empty />
             ),

@@ -26,10 +26,11 @@ import { Empty } from '@/components/fields'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate } from '@/utils/format'
 
+/** 验货结论：合格 / 有条件接受 / 不合格，正好落在三档语义色上。 */
 const RESULT_META: Record<string, { label: string; color?: string }> = {
-  passed: { label: '合格', color: 'green' },
-  failed: { label: '不合格', color: 'red' },
-  partial: { label: '有条件接受', color: 'orange' },
+  passed: { label: '合格', color: 'success' },
+  failed: { label: '不合格', color: 'error' },
+  partial: { label: '有条件接受', color: 'warning' },
 }
 
 interface FormValues {

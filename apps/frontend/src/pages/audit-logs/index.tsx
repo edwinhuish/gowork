@@ -8,14 +8,20 @@ import { PageList } from '@/components/page'
 import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
 
-/** 动作的展示色：删除与合并是"不可逆"的那一类，必须显眼。 */
+/**
+ * 动作的展示色：删除与合并是"不可逆"的那一类，必须显眼。
+ *
+ * 只用语义色名：antd 的固定调色板（green / blue / volcano / purple / orange）
+ * 不跟 theme.ts 走，暗色下是另一套。update 是最常见的那一个，给中性色，
+ * 不然整屏都是彩的，"不可逆的那两个"反而显不出来。
+ */
 const ACTION_COLOR: Record<string, string> = {
-  create: 'green',
-  update: 'blue',
-  delete: 'red',
-  merge: 'volcano',
-  status: 'purple',
-  restore: 'orange',
+  create: 'success',
+  update: 'default',
+  delete: 'error',
+  merge: 'warning',
+  status: 'processing',
+  restore: 'success',
 }
 
 function actionColor(action: string) {

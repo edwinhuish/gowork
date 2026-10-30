@@ -3,7 +3,7 @@ import { Button, Form, Input, Modal, Select, Switch, Table, Tag, message } from 
 
 import { userAccountApi, type UserUpdateInput } from '@/api/user-accounts'
 import { PageList } from '@/components/page'
-import { StatusTag } from '@/components/fields'
+import { AccentTag, StatusTag } from '@/components/fields'
 import type { SystemUser } from '@/types'
 
 /** 与后端 model.RoleAdmin / RoleManager / RoleStaff 一致。 */
@@ -214,12 +214,15 @@ export function UserAccountList() {
         title="角色"
         dataIndex="role"
         width={110}
-        // 管理员用主色标出来：改角色是最容易点错的一列。
-        render={(v: string) => (
-          <Tag bordered={false} color={v === 'admin' ? 'blue' : 'default'}>
-            {ROLE_LABEL.get(v) ?? v}
-          </Tag>
-        )}
+        // 管理员用强调标记标出来：改角色是最容易点错的一列。
+        // 其余角色是常态，中性 —— 角色是身份不是状态。
+        render={(v: string) =>
+          v === 'admin' ? (
+            <AccentTag>{ROLE_LABEL.get(v) ?? v}</AccentTag>
+          ) : (
+            <Tag bordered={false}>{ROLE_LABEL.get(v) ?? v}</Tag>
+          )
+        }
       />
       <Table.Column
         title="状态"

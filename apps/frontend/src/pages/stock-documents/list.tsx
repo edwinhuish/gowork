@@ -5,7 +5,7 @@ import {
   ShowButton,
   useTable,
 } from '@refinedev/antd'
-import { Form, Input, Select, Space, Table, Tag } from 'antd'
+import { Form, Input, Select, Space, Table } from 'antd'
 
 import { Empty, Mono, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
@@ -13,7 +13,6 @@ import {
   ORDER_STATUS_OPTIONS,
   STOCK_DOC_COUNT,
   STOCK_DOC_TYPE_OPTIONS,
-  stockDocTypeLabel,
 } from '@/constants/catalog'
 import type { StockDocument } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
@@ -22,13 +21,6 @@ interface DocSearch {
   keyword?: string
   type?: number
   status?: number
-}
-
-/** 入库偏蓝、出库偏橙、盘点偏紫：扫一眼就能分清方向。 */
-function typeColor(value: number): string {
-  if (value === 10) return 'blue'
-  if (value === 20) return 'orange'
-  return 'purple'
 }
 
 export function StockDocumentList() {
@@ -87,11 +79,9 @@ export function StockDocumentList() {
         dataIndex="type"
         title="类型"
         width={110}
-        render={(value: number) => (
-          <Tag bordered={false} color={typeColor(value)}>
-            {stockDocTypeLabel(value)}
-          </Tag>
-        )}
+        // 出入库类型是身份（方向不同），不是状态，所以字典里没有 tone：
+        // 与详情页同一个 OptionTag，两处不会再各挑一套色。
+        render={(value: number) => <OptionTag value={value} options={STOCK_DOC_TYPE_OPTIONS} />}
       />
       <Table.Column
         dataIndex="status"

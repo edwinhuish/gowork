@@ -66,11 +66,16 @@ function percent(rate?: string) {
   return `${(n * 100).toFixed(1)}%`
 }
 
-/** 待办清单的一条：类型 + 描述 + 逾期 + 金额。 */
+/**
+ * 待办清单的一条：类型 + 描述 + 逾期 + 金额。
+ *
+ * 类型标签是中性色，不再各给一种色：跟进 / 催款 / 验货 / 收款是**类别**，
+ * 而这一屏真正要抢注意力的是逾期本身（天数标红、进度条转橙）。
+ * 四个色相会把"哪条更急"和"这是哪类"混成一件事。
+ */
 type TodoEntry = {
   key: string
   kind: string
-  color: string
   title: string
   sub: string
   overdue: number
@@ -117,7 +122,6 @@ export function DashboardPage() {
     ...(todos.data?.followups ?? []).map((row) => ({
       key: `f-${row.id}`,
       kind: '跟进',
-      color: 'blue',
       title: row.partner_name || '未命名客户',
       sub: row.subject || '跟进记录',
       overdue: row.overdue_days,
@@ -126,7 +130,6 @@ export function DashboardPage() {
     ...(todos.data?.receivables ?? []).map((row) => ({
       key: `r-${row.id}`,
       kind: '催款',
-      color: 'red',
       title: row.partner_name || '未命名客户',
       sub: row.doc_no,
       overdue: row.overdue_days,
@@ -136,7 +139,6 @@ export function DashboardPage() {
     ...(todos.data?.inspections ?? []).map((row) => ({
       key: `i-${row.id}`,
       kind: '验货',
-      color: 'gold',
       title: row.partner_name || '未命名供应商',
       sub: `${row.doc_no} · ${row.sku_code}`,
       overdue: row.overdue_days,
@@ -145,7 +147,6 @@ export function DashboardPage() {
     ...(todos.data?.contract_terms ?? []).map((row) => ({
       key: `t-${row.id}`,
       kind: '收款',
-      color: 'purple',
       title: row.partner_name || '未命名客户',
       sub: `${row.doc_no} · ${row.name}`,
       overdue: row.overdue_days,
@@ -282,7 +283,7 @@ export function DashboardPage() {
                 >
                   <List.Item.Meta
                     avatar={
-                      <Tag bordered={false} color={entry.color}>
+                      <Tag bordered={false}>
                         {entry.kind}
                       </Tag>
                     }

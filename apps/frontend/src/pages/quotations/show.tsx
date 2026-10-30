@@ -20,18 +20,12 @@ import { download } from '@/api/client'
 import { quotationApi } from '@/api/quotations'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono, Money } from '@/components/fields'
-import { quotationStatusLabel, tradeTermLabel } from '@/constants/catalog'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { QUOTATION_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
 import type { QuotationDetail, QuotationItem } from '@/types'
 import { formatDate, formatPercent, formatTime } from '@/utils/format'
 
 import { defaultValidUntil } from './form-fields'
-
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 90) return 'default'
-  return 'processing'
-}
 
 /**
  * 报价单详情。
@@ -223,7 +217,7 @@ export function QuotationShow() {
             key: 'status',
             label: '状态',
             children: q ? (
-              <Tag color={statusColor(q.status)}>{quotationStatusLabel(q.status)}</Tag>
+              <OptionTag value={q.status} options={QUOTATION_STATUS_OPTIONS} />
             ) : (
               <Empty />
             ),
