@@ -26,6 +26,8 @@ export interface PageListProps<T> {
   createLabel?: ReactNode
   /** 表头额外动作（导出、重算、视图切换等），自动排在新建按钮左侧。 */
   extra?: ReactNode
+  /** 筛选条上方的汇总块（指标卡等），与筛选条同一列排布。 */
+  summary?: ReactNode
   /** 筛选项：一组 Form.Item。查询/重置由外壳统一渲染，页面不用再写。 */
   filters?: ReactNode
   searchFormProps?: FormProps
@@ -34,10 +36,14 @@ export interface PageListProps<T> {
   rowKey: string
   /** 表格最小宽度。不传按内容自适应（max-content），不再让各页手写数值。 */
   scrollX?: number | string
+  /** 每页条数候选。产品卡片按 12 的倍数翻，默认是 10/20/50/100。 */
+  pageSizeOptions?: string[]
   /** 自定义空态文案：默认按「还没数据」与「筛选后没有结果」区分。 */
   emptyText?: ReactNode
   /** 完全自定义表格区域（如产品卡片视图）。给了就不渲染内置 Table。 */
   table?: ReactNode
+  /** 表格之后的内容：导入弹窗、汇总行等。不放这里会被当成表格列。 */
+  footer?: ReactNode
   children?: ReactNode
 }
 
@@ -46,14 +52,17 @@ export function PageList<T extends object>({
   description,
   createLabel,
   extra,
+  summary,
   filters,
   searchFormProps,
   onReset,
   tableProps,
   rowKey,
   scrollX,
+  pageSizeOptions = ['10', '20', '50', '100'],
   emptyText,
   table,
+  footer,
   children,
 }: PageListProps<T>) {
   const { compact } = useUiPrefs()
@@ -75,7 +84,7 @@ export function PageList<T extends object>({
       ? (false as const)
       : {
           showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50', '100'],
+          pageSizeOptions,
           showTotal: (total: number, range: [number, number]) =>
             total > 0 ? `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条` : '',
           ...(typeof tableProps.pagination === 'object' ? tableProps.pagination : {}),
@@ -91,6 +100,8 @@ export function PageList<T extends object>({
   return (
     <List title={title} headerButtons={headerButtons}>
       {description ? <div className="list-caption">{description}</div> : null}
+
+      {summary ? <div className="list-summary">{summary}</div> : null}
 
       {filters ? (
         <Form
@@ -126,6 +137,8 @@ export function PageList<T extends object>({
           {children}
         </Table>
       )}
+
+      {footer}
     </List>
   )
 }

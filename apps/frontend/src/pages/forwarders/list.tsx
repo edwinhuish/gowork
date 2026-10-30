@@ -1,8 +1,9 @@
 import { useNavigation, type CrudFilters } from '@refinedev/core'
-import { CreateButton, List, useTable } from '@refinedev/antd'
-import { Button, Form, Input, Select, Space, Table, Typography } from 'antd'
+import { useTable } from '@refinedev/antd'
+import { Form, Input, Select, Table, Typography } from 'antd'
 
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
+import { PageList } from '@/components/page'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Partner } from '@/types'
 
@@ -41,68 +42,65 @@ export function ForwarderList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>新建货代</CreateButton>}>
-      <Form {...searchFormProps} layout="inline" className="list-filters">
-        <Form.Item name="keyword">
-          <Input placeholder="搜索编码 / 名称 / 联系人" allowClear style={{ width: 260 }} />
-        </Form.Item>
-        <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit">
-              查询
-            </Button>
-            <Button onClick={resetFilters}>重置</Button>
-          </Space>
-        </Form.Item>
-      </Form>
-
-      <Table {...tableProps} rowKey="id" scroll={{ x: 900 }}>
-        <Table.Column
-          dataIndex="code"
-          title="编码"
-          width={120}
-          render={(value: string) => <Mono>{value}</Mono>}
-        />
-        <Table.Column
-          dataIndex="name"
-          title="名称"
-          render={(value: string, record: Partner) => (
-            <Typography.Link onClick={() => show('forwarders', record.id)}>
-              <span className="cell-strong">{value}</span>
-            </Typography.Link>
-          )}
-        />
-        <Table.Column
-          dataIndex="role"
-          title="角色"
-          width={140}
-          render={(value: number) => <RoleTag value={value} />}
-        />
-        <Table.Column
-          dataIndex="entity_type"
-          title="类型"
-          width={80}
-          render={(value: number) => <EntityTypeTag value={value} />}
-        />
-        <Table.Column
-          dataIndex="owner_name"
-          title="负责人"
-          width={110}
-          render={(v: string) => v || <span className="cell-sub">未分配</span>}
-        />
-        <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
-        <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
-        <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
-        <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={90}
-          render={(value: number) => <StatusTag value={value} />}
-        />
-      </Table>
-    </List>
+    <PageList
+      createLabel="新建货代"
+      searchFormProps={searchFormProps}
+      onReset={resetFilters}
+      tableProps={tableProps}
+      rowKey="id"
+      filters={
+        <>
+          <Form.Item name="keyword">
+            <Input placeholder="搜索编码 / 名称 / 联系人" allowClear />
+          </Form.Item>
+          <Form.Item name="status">
+            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
+          </Form.Item>
+        </>
+      }
+    >
+      <Table.Column
+        dataIndex="code"
+        title="编码"
+        width={120}
+        render={(value: string) => <Mono>{value}</Mono>}
+      />
+      <Table.Column
+        dataIndex="name"
+        title="名称"
+        render={(value: string, record: Partner) => (
+          <Typography.Link onClick={() => show('forwarders', record.id)}>
+            <span className="cell-strong">{value}</span>
+          </Typography.Link>
+        )}
+      />
+      <Table.Column
+        dataIndex="role"
+        title="角色"
+        width={140}
+        render={(value: number) => <RoleTag value={value} />}
+      />
+      <Table.Column
+        dataIndex="entity_type"
+        title="类型"
+        width={80}
+        render={(value: number) => <EntityTypeTag value={value} />}
+      />
+      <Table.Column
+        dataIndex="owner_name"
+        title="负责人"
+        width={110}
+        render={(v: string) => v || <span className="cell-sub">未分配</span>}
+      />
+      <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
+      <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
+      <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
+      <Table.Column
+        dataIndex="status"
+        title="状态"
+        width={90}
+        render={(value: number) => <StatusTag value={value} />}
+      />
+    </PageList>
   )
 }

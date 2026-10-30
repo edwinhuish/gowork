@@ -1,11 +1,12 @@
 import { useInvalidate } from '@refinedev/core'
-import { CreateButton, EditButton, List, useTable } from '@refinedev/antd'
-import { Button, message, Popconfirm, Space, Table, Tag } from 'antd'
+import { EditButton, useTable } from '@refinedev/antd'
+import { Button, message, Popconfirm, Space, Table, Tag, theme } from 'antd'
 
 import { receivableApi } from '@/api/receivables'
 import { payableApi } from '@/api/payables'
-import { Empty, Mono, Money } from '@/components/fields'
-import { settlementStatusColor, settlementStatusLabel } from '@/constants/catalog'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { PageList } from '@/components/page'
+import { SETTLEMENT_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Settlement } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -26,6 +27,7 @@ export function SettlementList({
 }) {
   const isReceivable = direction === 'receivable'
   const invalidate = useInvalidate()
+  const { token } = theme.useToken()
   const { tableProps } = useTable<Settlement>({ resource, syncWithLocation: true })
 
   const api = isReceivable ? receivableApi : payableApi
@@ -59,124 +61,124 @@ export function SettlementList({
   const today = new Date().toISOString().slice(0, 10)
 
   return (
-    <List
-      headerButtons={
-        <CreateButton>{isReceivable ? '新建应收' : '新建应付'}</CreateButton>
-      }
+    <PageList
+      createLabel={isReceivable ? '新建应收' : '新建应付'}
+      tableProps={tableProps}
+      rowKey="id"
     >
-      <Table {...tableProps} rowKey="id" scroll={{ x: 1100 }}>
-        <Table.Column
-          dataIndex="doc_no"
-          title="单号"
-          width={160}
-          render={(value: string) => <Mono>{value}</Mono>}
-        />
-        <Table.Column
-          dataIndex="partner"
-          title={isReceivable ? '客户' : '供应商'}
-          width={180}
-          render={(value: Settlement['partner']) =>
-            value ? <span className="cell-strong">{value.name}</span> : <Empty />
-          }
-        />
-        <Table.Column
-          dataIndex="source_doc_no"
-          title="来源单据"
-          width={150}
-          render={(value: string) => (value ? <Mono>{value}</Mono> : <Empty />)}
-        />
-        <Table.Column
-          dataIndex="amount"
-          title="金额"
-          width={160}
-          align="right"
-          render={(value: string, record: Settlement) => (
-            <Space size={6}>
-              <Money value={value} />
-              <Tag>{record.currency_code}</Tag>
-            </Space>
-          )}
-        />
-        <Table.Column
-          dataIndex="settled_amount"
-          title="已结清"
-          width={120}
-          align="right"
-          render={(value: string) =>
-            Number(value) > 0 ? <Money value={value} /> : <Empty />
-          }
-        />
-        <Table.Column
-          title="未结清"
-          width={120}
-          align="right"
-          // 金额是定点字符串：未结清只是显示用的差，真正的余额在服务端按末位算。
-          render={(_, record: Settlement) =>
-            record.status === 90 ? (
-              <Empty />
-            ) : (
-              <Money value={Number(record.amount) - Number(record.settled_amount)} />
-            )
-          }
-        />
-        <Table.Column
-          dataIndex="due_date"
-          title="到期日"
-          width={120}
-          render={(value: string, record: Settlement) => {
-            const overdue = record.status !== 30 && record.status !== 90 && value.slice(0, 10) < today
-            return (
-              <span style={overdue ? { color: '#cf1322' } : undefined}>
-                {formatDate(value)}
-                {overdue && <Tag color="red" style={{ marginLeft: 6 }}>逾期</Tag>}
-              </span>
-            )
-          }}
-        />
-        <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={110}
-          render={(value: number) => (
-            <Tag color={settlementStatusColor(value)}>{settlementStatusLabel(value)}</Tag>
-          )}
-        />
-        <Table.Column
-          title="操作"
-          width={200}
-          render={(_, record: Settlement) => (
-            <Space size={4}>
-              <EditButton size="small" type="link" recordItemId={record.id}>
-                编辑
-              </EditButton>
-              {record.status !== 90 && (
-                <Popconfirm
-                  title="作废这张单？"
-                  description="作废后不再占用来源单据的开票额度，单据本身保留"
-                  okText="作废"
-                  cancelText="取消"
-                  onConfirm={() => voidOne(record)}
-                >
-                  <Button size="small" type="link">
-                    作废
-                  </Button>
-                </Popconfirm>
+      <Table.Column
+        dataIndex="doc_no"
+        title="单号"
+        width={160}
+        render={(value: string) => <Mono>{value}</Mono>}
+      />
+      <Table.Column
+        dataIndex="partner"
+        title={isReceivable ? '客户' : '供应商'}
+        width={180}
+        render={(value: Settlement['partner']) =>
+          value ? <span className="cell-strong">{value.name}</span> : <Empty />
+        }
+      />
+      <Table.Column
+        dataIndex="source_doc_no"
+        title="来源单据"
+        width={150}
+        render={(value: string) => (value ? <Mono>{value}</Mono> : <Empty />)}
+      />
+      <Table.Column
+        dataIndex="amount"
+        title="金额"
+        width={160}
+        align="right"
+        render={(value: string, record: Settlement) => (
+          <Space size={6}>
+            <Money value={value} />
+            <Tag bordered={false}>{record.currency_code}</Tag>
+          </Space>
+        )}
+      />
+      <Table.Column
+        dataIndex="settled_amount"
+        title="已结清"
+        width={120}
+        align="right"
+        render={(value: string) =>
+          Number(value) > 0 ? <Money value={value} /> : <Empty />
+        }
+      />
+      <Table.Column
+        title="未结清"
+        width={120}
+        align="right"
+        // 金额是定点字符串：未结清只是显示用的差，真正的余额在服务端按末位算。
+        render={(_, record: Settlement) =>
+          record.status === 90 ? (
+            <Empty />
+          ) : (
+            <Money value={Number(record.amount) - Number(record.settled_amount)} />
+          )
+        }
+      />
+      <Table.Column
+        dataIndex="due_date"
+        title="到期日"
+        width={120}
+        render={(value: string, record: Settlement) => {
+          const overdue = record.status !== 30 && record.status !== 90 && value.slice(0, 10) < today
+          return (
+            <span style={overdue ? { color: token.colorError } : undefined}>
+              {formatDate(value)}
+              {overdue && (
+                <Tag bordered={false} color="error" style={{ marginLeft: 6 }}>
+                  逾期
+                </Tag>
               )}
+            </span>
+          )
+        }}
+      />
+      <Table.Column
+        dataIndex="status"
+        title="状态"
+        width={110}
+        render={(value: number) => <OptionTag value={value} options={SETTLEMENT_STATUS_OPTIONS} />}
+      />
+      <Table.Column
+        title="操作"
+        width={200}
+        render={(_, record: Settlement) => (
+          <Space size={4}>
+            <EditButton size="small" type="link" recordItemId={record.id}>
+              编辑
+            </EditButton>
+            {record.status !== 90 && (
               <Popconfirm
-                title="删除这张单？"
-                description="收过款的单不能删，请改用「作废」"
-                okText="删除"
+                title="作废这张单？"
+                description="作废后不再占用来源单据的开票额度，单据本身保留"
+                okText="作废"
                 cancelText="取消"
-                onConfirm={() => remove(record)}
+                onConfirm={() => voidOne(record)}
               >
-                <Button size="small" type="link" danger>
-                  删除
+                <Button size="small" type="link">
+                  作废
                 </Button>
               </Popconfirm>
-            </Space>
-          )}
-        />
-      </Table>
-    </List>
+            )}
+            <Popconfirm
+              title="删除这张单？"
+              description="收过款的单不能删，请改用「作废」"
+              okText="删除"
+              cancelText="取消"
+              onConfirm={() => remove(record)}
+            >
+              <Button size="small" type="link" danger>
+                删除
+              </Button>
+            </Popconfirm>
+          </Space>
+        )}
+      />
+    </PageList>
   )
 }

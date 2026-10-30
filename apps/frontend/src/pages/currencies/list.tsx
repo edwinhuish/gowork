@@ -1,8 +1,9 @@
 import type { CrudFilters } from '@refinedev/core'
-import { CreateButton, List, useTable } from '@refinedev/antd'
-import { Button, Form, Input, Select, Space, Table, Tag } from 'antd'
+import { useTable } from '@refinedev/antd'
+import { Form, Input, Select, Table, Tag } from 'antd'
 
 import { Empty, Mono, StatusTag } from '@/components/fields'
+import { PageList } from '@/components/page'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Currency } from '@/types'
 
@@ -40,57 +41,54 @@ export function CurrencyList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>新建币种</CreateButton>}>
-      <Form {...searchFormProps} layout="inline" className="list-filters">
-        <Form.Item name="keyword">
-          <Input placeholder="搜索代码 / 名称" allowClear style={{ width: 220 }} />
-        </Form.Item>
-        <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit">
-              查询
-            </Button>
-            <Button onClick={resetFilters}>重置</Button>
-          </Space>
-        </Form.Item>
-      </Form>
-
-      <Table {...tableProps} rowKey="id" scroll={{ x: 760 }}>
-        <Table.Column
-          dataIndex="code"
-          title="代码"
-          width={100}
-          render={(value: string) => <Mono>{value}</Mono>}
-        />
-        <Table.Column dataIndex="name" title="名称" width={160} />
-        <Table.Column
-          dataIndex="symbol"
-          title="符号"
-          width={80}
-          render={(value: string) => value || <Empty />}
-        />
-        <Table.Column dataIndex="decimal_places" title="小数位" width={90} align="right" />
-        <Table.Column
-          dataIndex="is_base"
-          title="本币"
-          width={90}
-          render={(value: boolean) => (value ? <Tag color="gold">本币</Tag> : <Empty />)}
-        />
-        <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={90}
-          render={(value: number) => <StatusTag value={value} />}
-        />
-        <Table.Column
-          dataIndex="remark"
-          title="备注"
-          render={(value: string) => value || <Empty />}
-        />
-      </Table>
-    </List>
+    <PageList
+      createLabel="新建币种"
+      searchFormProps={searchFormProps}
+      onReset={resetFilters}
+      tableProps={tableProps}
+      rowKey="id"
+      filters={
+        <>
+          <Form.Item name="keyword">
+            <Input placeholder="搜索代码 / 名称" allowClear />
+          </Form.Item>
+          <Form.Item name="status">
+            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
+          </Form.Item>
+        </>
+      }
+    >
+      <Table.Column
+        dataIndex="code"
+        title="代码"
+        width={100}
+        render={(value: string) => <Mono>{value}</Mono>}
+      />
+      <Table.Column dataIndex="name" title="名称" width={160} />
+      <Table.Column
+        dataIndex="symbol"
+        title="符号"
+        width={80}
+        render={(value: string) => value || <Empty />}
+      />
+      <Table.Column dataIndex="decimal_places" title="小数位" width={90} align="right" />
+      <Table.Column
+        dataIndex="is_base"
+        title="本币"
+        width={90}
+        render={(value: boolean) => (value ? <Tag color="gold">本币</Tag> : <Empty />)}
+      />
+      <Table.Column
+        dataIndex="status"
+        title="状态"
+        width={90}
+        render={(value: number) => <StatusTag value={value} />}
+      />
+      <Table.Column
+        dataIndex="remark"
+        title="备注"
+        render={(value: string) => value || <Empty />}
+      />
+    </PageList>
   )
 }

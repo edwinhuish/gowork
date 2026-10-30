@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { PartnerImportModal } from './import-modal'
-import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
+import { DeleteButton, useTable } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
@@ -20,6 +20,7 @@ import {
 import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
+import { PageList } from '@/components/page'
 import { ENABLE_STATUS_OPTIONS, PARTNER_GRADE_FILTER_OPTIONS } from '@/constants/catalog'
 import type { Partner } from '@/types'
 
@@ -103,10 +104,14 @@ export function CustomerList() {
   }
 
   return (
-    <List
-      headerButtons={
-        <Space>
-          <CreateButton>新建客户</CreateButton>
+    <PageList
+      createLabel="新建客户"
+      searchFormProps={searchFormProps}
+      onReset={resetFilters}
+      tableProps={tableProps}
+      rowKey="id"
+      extra={
+        <>
           {/* 导出的是"这一角色下的全部"，不走页面筛选——筛选条件在表格内部，
               拿不到就不假装能拿到。行数上限 10000（后端另有拦截）。 */}
           <Tooltip title="导出全部客户（CSV，忽略当前筛选，上限 10000 行）">
@@ -114,157 +119,144 @@ export function CustomerList() {
           </Tooltip>
           {/* 导入先出报告再落库：一份几百行的文件里错两三行是常态。 */}
           <Button onClick={() => setImportOpen(true)}>导入 CSV</Button>
-        </Space>
+        </>
+      }
+      filters={
+        <>
+          <Form.Item name="keyword">
+            <Input placeholder="搜索编码 / 名称 / 联系人" allowClear />
+          </Form.Item>
+          <Form.Item name="country">
+            <Input placeholder="国家 / 地区" allowClear />
+          </Form.Item>
+          <Form.Item name="customer_group">
+            <Input placeholder="客户分组" allowClear />
+          </Form.Item>
+          <Form.Item name="region">
+            <Input placeholder="销售区域" allowClear />
+          </Form.Item>
+          <Form.Item name="grade">
+            <Select placeholder="全部分级" allowClear options={PARTNER_GRADE_FILTER_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="status">
+            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="include_deleted" valuePropName="checked">
+            <Checkbox>含已删除</Checkbox>
+          </Form.Item>
+        </>
+      }
+      footer={
+        <PartnerImportModal
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImported={() => invalidate({ resource: 'customers', invalidates: ['list'] })}
+        />
       }
     >
-      <Form {...searchFormProps} layout="inline" className="list-filters">
-        <Form.Item name="keyword">
-          <Input placeholder="搜索编码 / 名称 / 联系人" allowClear style={{ width: 240 }} />
-        </Form.Item>
-        <Form.Item name="country">
-          <Input placeholder="国家 / 地区" allowClear style={{ width: 150 }} />
-        </Form.Item>
-        <Form.Item name="customer_group">
-          <Input placeholder="客户分组" allowClear style={{ width: 130 }} />
-        </Form.Item>
-        <Form.Item name="region">
-          <Input placeholder="销售区域" allowClear style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item name="grade">
-          <Select
-            placeholder="全部分级"
-            allowClear
-            options={PARTNER_GRADE_FILTER_OPTIONS}
-            style={{ width: 130 }}
-          />
-        </Form.Item>
-        <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item name="include_deleted" valuePropName="checked">
-          <Checkbox>含已删除</Checkbox>
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit">
-              查询
-            </Button>
-            <Button onClick={resetFilters}>重置</Button>
+      <Table.Column
+        dataIndex="code"
+        title="编码"
+        width={120}
+        render={(value: string, record: Partner) => (
+          <Space size={4}>
+            <Mono>{value}</Mono>
+            {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
           </Space>
-        </Form.Item>
-      </Form>
-
-      <Table {...tableProps} rowKey="id" scroll={{ x: 1400 }}>
-        <Table.Column
-          dataIndex="code"
-          title="编码"
-          width={120}
-          render={(value: string, record: Partner) => (
-            <Space size={4}>
-              <Mono>{value}</Mono>
-              {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
-            </Space>
-          )}
-        />
-        {/* 名称是进详情页的入口：客户 360、附件、合并、转移负责人都在详情里，
-            列表上不给这个链接，等于这些能力只能靠手敲 URL。 */}
-        <Table.Column
-          dataIndex="name"
-          title="名称"
-          render={(value: string, record: Partner) => (
-            <Typography.Link onClick={() => show('customers', record.id)}>
-              <span className="cell-strong">{value}</span>
-            </Typography.Link>
-          )}
-        />
-        {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
-        <Table.Column
-          dataIndex="role"
-          title="角色"
-          width={140}
-          render={(value: number) => <RoleTag value={value} />}
-        />
-        <Table.Column
-          dataIndex="entity_type"
-          title="类型"
-          width={80}
-          render={(value: number) => <EntityTypeTag value={value} />}
-        />
-        <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
-        {/* 分级只做标签：不接权限也不接折扣，所以这里不给颜色等级额外的业务含义。 */}
-        <Table.Column
-          dataIndex="grade"
-          title="分级"
-          width={80}
-          render={(v: string) =>
-            v ? <Tag bordered={false}>{v}</Tag> : <span className="cell-sub">未分级</span>
-          }
-        />
-        <Table.Column dataIndex="region" title="区域" width={110} render={(v: string) => v || <Empty />} />
-        {/* 负责人是业务员看列表时最先找的一列：不是自己的客户，跟进前先想清楚该不该动。 */}
-        <Table.Column
-          dataIndex="owner_name"
-          title="负责人"
-          width={110}
-          render={(v: string) => v || <span className="cell-sub">未分配</span>}
-        />
-        <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
-        <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
-        {/* 结算方式与账期直接影响"这单能不能赊"，放在列表里便于接单前先看一眼。 */}
-        <Table.Column
-          dataIndex="settlement_method"
-          title="结算方式"
-          width={110}
-          render={(v: string) => v || <Empty />}
-        />
-        <Table.Column
-          dataIndex="credit_days"
-          title="账期"
-          width={90}
-          align="right"
-          render={(v: number) => (v ? `${v} 天` : '款到发货')}
-        />
-        <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={90}
-          render={(value: number) => <StatusTag value={value} />}
-        />
-        <Table.Column
-          title="操作"
-          width={90}
-          render={(_, record: Partner) =>
-            record.deleted_at ? (
-              <Popconfirm
-                title="恢复这个主体？"
-                description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
-                okText="恢复"
-                cancelText="返回"
-                onConfirm={() => restore(record)}
-              >
-                <Button size="small" type="link">
-                  恢复
-                </Button>
-              </Popconfirm>
-            ) : (
-              <DeleteButton
-                size="small"
-                resource="customers"
-                recordItemId={record.id}
-                confirmTitle="删除这个客户？"
-                confirmOkText="删除"
-                confirmCancelText="返回"
-              />
-            )
-          }
-        />
-      </Table>
-
-      <PartnerImportModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImported={() => invalidate({ resource: 'customers', invalidates: ['list'] })}
+        )}
       />
-    </List>
+      {/* 名称是进详情页的入口：客户 360、附件、合并、转移负责人都在详情里，
+          列表上不给这个链接，等于这些能力只能靠手敲 URL。 */}
+      <Table.Column
+        dataIndex="name"
+        title="名称"
+        render={(value: string, record: Partner) => (
+          <Typography.Link onClick={() => show('customers', record.id)}>
+            <span className="cell-strong">{value}</span>
+          </Typography.Link>
+        )}
+      />
+      {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
+      <Table.Column
+        dataIndex="role"
+        title="角色"
+        width={140}
+        render={(value: number) => <RoleTag value={value} />}
+      />
+      <Table.Column
+        dataIndex="entity_type"
+        title="类型"
+        width={80}
+        render={(value: number) => <EntityTypeTag value={value} />}
+      />
+      <Table.Column dataIndex="country" title="国家/地区" width={130} render={(v: string) => v || <Empty />} />
+      {/* 分级只做标签：不接权限也不接折扣，所以这里不给颜色等级额外的业务含义。 */}
+      <Table.Column
+        dataIndex="grade"
+        title="分级"
+        width={80}
+        render={(v: string) =>
+          v ? <Tag bordered={false}>{v}</Tag> : <span className="cell-sub">未分级</span>
+        }
+      />
+      <Table.Column dataIndex="region" title="区域" width={110} render={(v: string) => v || <Empty />} />
+      {/* 负责人是业务员看列表时最先找的一列：不是自己的客户，跟进前先想清楚该不该动。 */}
+      <Table.Column
+        dataIndex="owner_name"
+        title="负责人"
+        width={110}
+        render={(v: string) => v || <span className="cell-sub">未分配</span>}
+      />
+      <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
+      <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
+      {/* 结算方式与账期直接影响"这单能不能赊"，放在列表里便于接单前先看一眼。 */}
+      <Table.Column
+        dataIndex="settlement_method"
+        title="结算方式"
+        width={110}
+        render={(v: string) => v || <Empty />}
+      />
+      <Table.Column
+        dataIndex="credit_days"
+        title="账期"
+        width={90}
+        align="right"
+        render={(v: number) => (v ? `${v} 天` : '款到发货')}
+      />
+      <Table.Column
+        dataIndex="status"
+        title="状态"
+        width={90}
+        render={(value: number) => <StatusTag value={value} />}
+      />
+      <Table.Column
+        title="操作"
+        width={90}
+        render={(_, record: Partner) =>
+          record.deleted_at ? (
+            <Popconfirm
+              title="恢复这个主体？"
+              description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
+              okText="恢复"
+              cancelText="返回"
+              onConfirm={() => restore(record)}
+            >
+              <Button size="small" type="link">
+                恢复
+              </Button>
+            </Popconfirm>
+          ) : (
+            <DeleteButton
+              size="small"
+              resource="customers"
+              recordItemId={record.id}
+              confirmTitle="删除这个客户？"
+              confirmOkText="删除"
+              confirmCancelText="返回"
+            />
+          )
+        }
+      />
+    </PageList>
   )
 }

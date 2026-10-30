@@ -1,9 +1,10 @@
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
-import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
-import { Button, Form, Select, Space, Table } from 'antd'
+import { DeleteButton, useTable } from '@refinedev/antd'
+import { Form, Select, Table } from 'antd'
 
 import { Empty, Mono } from '@/components/fields'
+import { PageList } from '@/components/page'
 import type { Currency, ExchangeRate } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -45,72 +46,66 @@ export function ExchangeRateList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>登记汇率</CreateButton>}>
-      <Form {...searchFormProps} layout="inline" className="list-filters">
+    <PageList
+      createLabel="登记汇率"
+      searchFormProps={searchFormProps}
+      onReset={resetFilters}
+      tableProps={tableProps}
+      rowKey="id"
+      filters={
         <Form.Item name="currency_code">
           <Select
             placeholder="全部币种"
             allowClear
-            style={{ width: 200 }}
             options={currencyOptions}
             loading={currencyQuery.isLoading}
           />
         </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit">
-              查询
-            </Button>
-            <Button onClick={resetFilters}>重置</Button>
-          </Space>
-        </Form.Item>
-      </Form>
-
-      <Table {...tableProps} rowKey="id" scroll={{ x: 720 }}>
-        <Table.Column
-          dataIndex="effective_date"
-          title="生效日期"
-          width={130}
-          render={(value: string) => <Mono>{formatDate(value)}</Mono>}
-        />
-        <Table.Column
-          dataIndex="currency_code"
-          title="折算"
-          width={240}
-          render={(value: string, record: ExchangeRate) => (
-            <span className="cell-mono">
-              1 {value} = {record.rate} {record.base_code}
-            </span>
-          )}
-        />
-        <Table.Column
-          dataIndex="rate"
-          title="汇率"
-          width={140}
-          align="right"
-          render={(value: string) => (
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-          )}
-        />
-        <Table.Column
-          dataIndex="source"
-          title="来源"
-          width={140}
-          render={(value: string) => value || <Empty />}
-        />
-        <Table.Column
-          dataIndex="remark"
-          title="备注"
-          render={(value: string) => value || <Empty />}
-        />
-        <Table.Column
-          title="操作"
-          width={110}
-          render={(_, record: ExchangeRate) => (
-            <DeleteButton size="small" recordItemId={record.id} resource="exchange-rates" />
-          )}
-        />
-      </Table>
-    </List>
+      }
+    >
+      <Table.Column
+        dataIndex="effective_date"
+        title="生效日期"
+        width={130}
+        render={(value: string) => <Mono>{formatDate(value)}</Mono>}
+      />
+      <Table.Column
+        dataIndex="currency_code"
+        title="折算"
+        width={240}
+        render={(value: string, record: ExchangeRate) => (
+          <span className="cell-mono">
+            1 {value} = {record.rate} {record.base_code}
+          </span>
+        )}
+      />
+      <Table.Column
+        dataIndex="rate"
+        title="汇率"
+        width={140}
+        align="right"
+        render={(value: string) => (
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+        )}
+      />
+      <Table.Column
+        dataIndex="source"
+        title="来源"
+        width={140}
+        render={(value: string) => value || <Empty />}
+      />
+      <Table.Column
+        dataIndex="remark"
+        title="备注"
+        render={(value: string) => value || <Empty />}
+      />
+      <Table.Column
+        title="操作"
+        width={110}
+        render={(_, record: ExchangeRate) => (
+          <DeleteButton size="small" recordItemId={record.id} resource="exchange-rates" />
+        )}
+      />
+    </PageList>
   )
 }

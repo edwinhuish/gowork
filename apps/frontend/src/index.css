@@ -218,6 +218,15 @@ body {
   line-height: 1.7;
 }
 
+/* 汇总指标卡：与筛选条之间留一口气，不要贴在一起。 */
+.list-summary {
+  margin-bottom: 16px;
+}
+
+[data-density='compact'] .list-summary {
+  margin-bottom: 12px;
+}
+
 /*
  * 筛选条。
  *

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { List } from '@refinedev/antd'
-import { Button, Form, Input, Modal, Select, Space, Switch, Table, Tag, message } from 'antd'
+import { Button, Form, Input, Modal, Select, Switch, Table, Tag, message } from 'antd'
 
 import { userAccountApi, type UserUpdateInput } from '@/api/user-accounts'
+import { PageList } from '@/components/page'
+import { StatusTag } from '@/components/fields'
 import type { SystemUser } from '@/types'
 
 /** 与后端 model.RoleAdmin / RoleManager / RoleStaff 一致。 */
@@ -112,133 +113,129 @@ export function UserAccountList() {
   }
 
   return (
-    <List title="账号" createButtonProps={undefined}>
-      <div style={{ marginBottom: 12 }}>
-        <Space>
-          <Button type="primary" onClick={openCreate}>
-            新建账号
-          </Button>
-          <span className="cell-sub">
-            改角色、停用、重置密码都会让该账号已登录的会话立即失效
-          </span>
-        </Space>
-      </div>
+    <PageList
+      title="账号"
+      description="改角色、停用、重置密码都会让该账号已登录的会话立即失效"
+      extra={
+        <Button type="primary" onClick={openCreate}>
+          新建账号
+        </Button>
+      }
+      tableProps={{ dataSource: rows, loading, pagination: false }}
+      rowKey="id"
+      footer={
+        <Modal
+          open={open}
+          title={editing ? `编辑账号 ${editing.username}` : '新建账号'}
+          onCancel={() => setOpen(false)}
+          onOk={() => void submit()}
+          confirmLoading={saving}
+          okText="保存"
+          cancelText="取消"
+          forceRender
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="username"
+              label="用户名"
+              rules={[
+                { required: true, message: '请填写用户名' },
+                { max: 64, message: '最多 64 个字符' },
+              ]}
+              tooltip="登录凭据，建号之后不能改——改了等于换了个人，历史操作记录会对不上"
+            >
+              <Input disabled={!!editing} placeholder="alice" />
+            </Form.Item>
 
-      <Table<SystemUser>
-        rowKey="id"
-        size="small"
-        loading={loading}
-        dataSource={rows}
-        pagination={false}
-        columns={[
-          { title: '用户名', dataIndex: 'username', width: 180 },
-          {
-            title: '昵称',
-            dataIndex: 'nickname',
-            render: (v: string) => v || <span className="cell-sub">—</span>,
-          },
-          {
-            title: '角色',
-            dataIndex: 'role',
-            width: 110,
-            // 管理员用主色标出来：改角色是最容易点错的一列。
-            render: (v: string) => (
-              <Tag bordered={false} color={v === 'admin' ? 'blue' : undefined}>
-                {ROLE_LABEL.get(v) ?? v}
-              </Tag>
-            ),
-          },
-          {
-            title: '状态',
-            dataIndex: 'status',
-            width: 90,
-            render: (v: number) =>
-              v === 1 ? <Tag color="green">启用</Tag> : <Tag color="default">停用</Tag>,
-          },
-          {
-            title: '操作',
-            width: 100,
-            render: (_: unknown, record) => (
-              <Button size="small" type="link" onClick={() => openEdit(record)}>
-                编辑
-              </Button>
-            ),
-          },
-        ]}
-      />
+            <Form.Item
+              name="nickname"
+              label="昵称"
+              rules={[{ max: 64, message: '最多 64 个字符' }]}
+            >
+              <Input placeholder="爱丽丝" />
+            </Form.Item>
 
-      <Modal
-        open={open}
-        title={editing ? `编辑账号 ${editing.username}` : '新建账号'}
-        onCancel={() => setOpen(false)}
-        onOk={() => void submit()}
-        confirmLoading={saving}
-        okText="保存"
-        cancelText="取消"
-        forceRender
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="username"
-            label="用户名"
-            rules={[{ required: true, message: '请填写用户名' }, { max: 64, message: '最多 64 个字符' }]}
-            tooltip="登录凭据，建号之后不能改——改了等于换了个人，历史操作记录会对不上"
-          >
-            <Input disabled={!!editing} placeholder="alice" />
-          </Form.Item>
+            <Form.Item
+              name="role"
+              label="角色"
+              rules={[{ required: true, message: '请选择角色' }]}
+              tooltip="管理员能改系统设置，主管能看全部数据，业务员只看自己负责的客户"
+            >
+              <Select options={ROLE_OPTIONS} />
+            </Form.Item>
 
-          <Form.Item
-            name="nickname"
-            label="昵称"
-            rules={[{ max: 64, message: '最多 64 个字符' }]}
-          >
-            <Input placeholder="爱丽丝" />
-          </Form.Item>
-
-          <Form.Item
-            name="role"
-            label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
-            tooltip="管理员能改系统设置，主管能看全部数据，业务员只看自己负责的客户"
-          >
-            <Select options={ROLE_OPTIONS} />
-          </Form.Item>
-
-          {editing ? (
-            <>
-              <Form.Item
-                name="enabled"
-                label="启用"
-                valuePropName="checked"
-                tooltip="停用后该账号立即无法登录，已登录的会话也会失效"
-              >
-                <Switch />
-              </Form.Item>
+            {editing ? (
+              <>
+                <Form.Item
+                  name="enabled"
+                  label="启用"
+                  valuePropName="checked"
+                  tooltip="停用后该账号立即无法登录，已登录的会话也会失效"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  name="password"
+                  label="重置密码"
+                  rules={[
+                    { min: 6, message: '至少 6 位' },
+                    { max: 72, message: '最多 72 个字符' },
+                  ]}
+                  tooltip="留空表示不改。改了之后该成员需要重新登录"
+                >
+                  <Input.Password placeholder="留空不修改" autoComplete="new-password" />
+                </Form.Item>
+              </>
+            ) : (
               <Form.Item
                 name="password"
-                label="重置密码"
-                rules={[{ min: 6, message: '至少 6 位' }, { max: 72, message: '最多 72 个字符' }]}
-                tooltip="留空表示不改。改了之后该成员需要重新登录"
+                label="初始密码"
+                rules={[
+                  { required: true, message: '请设置初始密码' },
+                  { min: 6, message: '至少 6 位' },
+                  { max: 72, message: '最多 72 个字符' },
+                ]}
+                tooltip="至少 6 位。建好之后请让对方自行修改"
               >
-                <Input.Password placeholder="留空不修改" autoComplete="new-password" />
+                <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
               </Form.Item>
-            </>
-          ) : (
-            <Form.Item
-              name="password"
-              label="初始密码"
-              rules={[
-                { required: true, message: '请设置初始密码' },
-                { min: 6, message: '至少 6 位' },
-                { max: 72, message: '最多 72 个字符' },
-              ]}
-              tooltip="至少 6 位。建好之后请让对方自行修改"
-            >
-              <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
-            </Form.Item>
-          )}
-        </Form>
-      </Modal>
-    </List>
+            )}
+          </Form>
+        </Modal>
+      }
+    >
+      <Table.Column title="用户名" dataIndex="username" width={180} />
+      <Table.Column
+        title="昵称"
+        dataIndex="nickname"
+        render={(v: string) => v || <span className="cell-sub">—</span>}
+      />
+      <Table.Column
+        title="角色"
+        dataIndex="role"
+        width={110}
+        // 管理员用主色标出来：改角色是最容易点错的一列。
+        render={(v: string) => (
+          <Tag bordered={false} color={v === 'admin' ? 'blue' : 'default'}>
+            {ROLE_LABEL.get(v) ?? v}
+          </Tag>
+        )}
+      />
+      <Table.Column
+        title="状态"
+        dataIndex="status"
+        width={90}
+        render={(v: number) => <StatusTag value={v} />}
+      />
+      <Table.Column
+        title="操作"
+        width={100}
+        render={(_: unknown, record: SystemUser) => (
+          <Button size="small" type="link" onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+        )}
+      />
+    </PageList>
   )
 }

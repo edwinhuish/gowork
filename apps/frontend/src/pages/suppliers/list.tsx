@@ -1,5 +1,5 @@
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
-import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
+import { DeleteButton, useTable } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
@@ -16,6 +16,7 @@ import {
 
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
+import { PageList } from '@/components/page'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Partner } from '@/types'
 
@@ -66,108 +67,105 @@ export function SupplierList() {
   }
 
   return (
-    <List headerButtons={<CreateButton>新建供应商</CreateButton>}>
-      <Form {...searchFormProps} layout="inline" className="list-filters">
-        <Form.Item name="keyword">
-          <Input placeholder="搜索编码 / 名称 / 联系人" allowClear style={{ width: 260 }} />
-        </Form.Item>
-        <Form.Item name="status">
-          <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item name="include_deleted" valuePropName="checked">
-          <Checkbox>含已删除</Checkbox>
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit">
-              查询
-            </Button>
-            <Button onClick={resetFilters}>重置</Button>
+    <PageList
+      createLabel="新建供应商"
+      searchFormProps={searchFormProps}
+      onReset={resetFilters}
+      tableProps={tableProps}
+      rowKey="id"
+      filters={
+        <>
+          <Form.Item name="keyword">
+            <Input placeholder="搜索编码 / 名称 / 联系人" allowClear />
+          </Form.Item>
+          <Form.Item name="status">
+            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="include_deleted" valuePropName="checked">
+            <Checkbox>含已删除</Checkbox>
+          </Form.Item>
+        </>
+      }
+    >
+      <Table.Column
+        dataIndex="code"
+        title="编码"
+        width={120}
+        render={(value: string, record: Partner) => (
+          <Space size={4}>
+            <Mono>{value}</Mono>
+            {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
           </Space>
-        </Form.Item>
-      </Form>
-
-      <Table {...tableProps} rowKey="id" scroll={{ x: 990 }}>
-        <Table.Column
-          dataIndex="code"
-          title="编码"
-          width={120}
-          render={(value: string, record: Partner) => (
-            <Space size={4}>
-              <Mono>{value}</Mono>
-              {record.deleted_at ? <Tag bordered={false}>已删除</Tag> : null}
-            </Space>
-          )}
-        />
-        {/* 名称即入口：货源、附件与合并都在详情页，列表不给链接就只能手敲 URL。 */}
-        <Table.Column
-          dataIndex="name"
-          title="名称"
-          render={(value: string, record: Partner) => (
-            <Typography.Link onClick={() => show('suppliers', record.id)}>
-              <span className="cell-strong">{value}</span>
-            </Typography.Link>
-          )}
-        />
-        {/* 供应商与客户已合并为同一张表，这里会混进「客供两用」的主体。
-            角色列把它标出来，免得运营以为是分录错了。 */}
-        <Table.Column
-          dataIndex="role"
-          title="角色"
-          width={140}
-          render={(value: number) => <RoleTag value={value} />}
-        />
-        <Table.Column
-          dataIndex="entity_type"
-          title="类型"
-          width={80}
-          render={(value: number) => <EntityTypeTag value={value} />}
-        />
-        {/* 负责人是业务员看列表时最先找的一列：不是自己的供应商，询价前先想清楚该不该动。 */}
-        <Table.Column
-          dataIndex="owner_name"
-          title="负责人"
-          width={110}
-          render={(v: string) => v || <span className="cell-sub">未分配</span>}
-        />
-        <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
-        <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
-        <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
-        <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={90}
-          render={(value: number) => <StatusTag value={value} />}
-        />
-        <Table.Column
-          title="操作"
-          width={90}
-          render={(_, record: Partner) =>
-            record.deleted_at ? (
-              <Popconfirm
-                title="恢复这个主体？"
-                description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
-                okText="恢复"
-                cancelText="返回"
-                onConfirm={() => restore(record)}
-              >
-                <Button size="small" type="link">
-                  恢复
-                </Button>
-              </Popconfirm>
-            ) : (
-              <DeleteButton
-                size="small"
-                resource="suppliers"
-                recordItemId={record.id}
-                confirmTitle="删除这个供应商？"
-                confirmOkText="删除"
-                confirmCancelText="返回"
-              />
-            )
-          }
-        />
-      </Table>
-    </List>
+        )}
+      />
+      {/* 名称即入口：货源、附件与合并都在详情页，列表不给链接就只能手敲 URL。 */}
+      <Table.Column
+        dataIndex="name"
+        title="名称"
+        render={(value: string, record: Partner) => (
+          <Typography.Link onClick={() => show('suppliers', record.id)}>
+            <span className="cell-strong">{value}</span>
+          </Typography.Link>
+        )}
+      />
+      {/* 供应商与客户已合并为同一张表，这里会混进「客供两用」的主体。
+          角色列把它标出来，免得运营以为是分录错了。 */}
+      <Table.Column
+        dataIndex="role"
+        title="角色"
+        width={140}
+        render={(value: number) => <RoleTag value={value} />}
+      />
+      <Table.Column
+        dataIndex="entity_type"
+        title="类型"
+        width={80}
+        render={(value: number) => <EntityTypeTag value={value} />}
+      />
+      {/* 负责人是业务员看列表时最先找的一列：不是自己的供应商，询价前先想清楚该不该动。 */}
+      <Table.Column
+        dataIndex="owner_name"
+        title="负责人"
+        width={110}
+        render={(v: string) => v || <span className="cell-sub">未分配</span>}
+      />
+      <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
+      <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
+      <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
+      <Table.Column
+        dataIndex="status"
+        title="状态"
+        width={90}
+        render={(value: number) => <StatusTag value={value} />}
+      />
+      <Table.Column
+        title="操作"
+        width={90}
+        render={(_, record: Partner) =>
+          record.deleted_at ? (
+            <Popconfirm
+              title="恢复这个主体？"
+              description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
+              okText="恢复"
+              cancelText="返回"
+              onConfirm={() => restore(record)}
+            >
+              <Button size="small" type="link">
+                恢复
+              </Button>
+            </Popconfirm>
+          ) : (
+            <DeleteButton
+              size="small"
+              resource="suppliers"
+              recordItemId={record.id}
+              confirmTitle="删除这个供应商？"
+              confirmOkText="删除"
+              confirmCancelText="返回"
+            />
+          )
+        }
+      />
+    </PageList>
   )
 }
