@@ -1,14 +1,35 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useGetIdentity, useInvalidate, useNavigation, useShow } from '@refinedev/core'
+import { useNavigate } from 'react-router'
+import { useGetIdentity, useInvalidate, useList, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
-import { Button, Card, Checkbox, Descriptions, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd'
+import {
+  Button,
+  Card,
+  Checkbox,
+  Descriptions,
+  message,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd'
 
 import { download } from '@/api/client'
 import { salesOrderApi } from '@/api/sales-orders'
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money } from '@/components/fields'
-import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
-import type { SalesOrder, SalesOrderChange, SalesOrderChangeLine, SalesOrderItem } from '@/types'
+import { orderStatusLabel, settlementStatusLabel, tradeTermLabel } from '@/constants/catalog'
+import type {
+  SalesOrder,
+  SalesOrderChange,
+  SalesOrderChangeLine,
+  SalesOrderItem,
+  Settlement,
+  Shipment,
+} from '@/types'
 
 import { ChangeModal } from './change-modal'
 import { CreditHint } from './credit-hint'
@@ -112,6 +133,30 @@ export function OrderShow() {
   const o = result
   const actions = o ? nextActions(o.status) : []
   const orderId = o?.id
+  const navigate = useNavigate()
+
+  /*
+   * 这张订单的上下游各查一次：后端早就支持按 sales_order_id 查出货、
+   * 按 source_type + source_id 查应收（10 = 销售订单），所以不新增接口。
+   * 有了它，"这张单出了几次货、开了几张票"不用再回列表筛。
+   */
+  const { result: shipmentResult } = useList<Shipment>({
+    resource: 'shipments',
+    filters: [{ field: 'sales_order_id', operator: 'eq', value: orderId }],
+    pagination: { mode: 'off' },
+    queryOptions: { enabled: !!orderId },
+  })
+  const { result: receivableResult } = useList<Settlement>({
+    resource: 'receivables',
+    filters: [
+      { field: 'source_type', operator: 'eq', value: 10 },
+      { field: 'source_id', operator: 'eq', value: orderId },
+    ],
+    pagination: { mode: 'off' },
+    queryOptions: { enabled: !!orderId },
+  })
+  const linkedShipments = shipmentResult?.data ?? []
+  const linkedReceivables = receivableResult?.data ?? []
 
   const loadChanges = useCallback(async (id: number) => {
     setChangesLoading(true)
@@ -227,6 +272,31 @@ export function OrderShow() {
         </Space>
       }
     >
+      <DocChain
+        current="order"
+        docs={{
+          order: { docNo: o?.doc_no },
+          shipment: linkedShipments.length
+            ? {
+                docNo:
+                  linkedShipments.length > 1
+                    ? `${linkedShipments[0].doc_no} 等 ${linkedShipments.length} 票`
+                    : linkedShipments[0].doc_no,
+                href: `/shipments/show/${linkedShipments[0].id}`,
+              }
+            : undefined,
+          receivable: linkedReceivables.length
+            ? {
+                docNo:
+                  linkedReceivables.length > 1
+                    ? `${linkedReceivables[0].doc_no} 等 ${linkedReceivables.length} 张`
+                    : linkedReceivables[0].doc_no,
+                href: `/receivables/show/${linkedReceivables[0].id}`,
+              }
+            : undefined,
+        }}
+      />
+
       {/* 还没结清的单据才谈额度：已完成的对账已闭环，已取消的不占额度。 */}
       {o && o.status >= 10 && o.status <= 40 && <CreditHint partnerId={o.partner_id} />}
 
@@ -372,6 +442,80 @@ export function OrderShow() {
             dataIndex="remark"
             title="备注"
             render={(value: string) => value || <Empty />}
+          />
+        </Table>
+      </Card>
+
+      <Card
+        title="关联单据"
+        size="small"
+        style={{ marginTop: 16 }}
+        extra={<span className="cell-sub">出货与应收都由这张订单产生，点单号进详情</span>}
+      >
+        <Table
+          rowKey="key"
+          size="small"
+          pagination={false}
+          scroll={{ x: 720 }}
+          dataSource={[
+            ...linkedShipments.map((row) => ({
+              key: `s-${row.id}`,
+              kind: '出货',
+              color: 'blue',
+              docNo: row.doc_no,
+              date: row.ship_date,
+              amount: '',
+              statusLabel: orderStatusLabel(row.status),
+              statusColor: row.status === 10 ? 'processing' : 'success',
+              href: `/shipments/show/${row.id}`,
+            })),
+            ...linkedReceivables.map((row) => ({
+              key: `r-${row.id}`,
+              kind: '应收',
+              color: 'gold',
+              docNo: row.doc_no,
+              date: row.due_date,
+              amount: row.amount_base,
+              statusLabel: settlementStatusLabel(row.status),
+              statusColor: row.status === 30 ? 'success' : row.status === 90 ? 'default' : 'warning',
+              href: `/receivables/show/${row.id}`,
+            })),
+          ]}
+          locale={{ emptyText: '这张订单还没有出货、也没有开票' }}
+        >
+          <Table.Column
+            dataIndex="kind"
+            title="类型"
+            width={80}
+            render={(value: string, row: { color: string }) => (
+              <Tag color={row.color} bordered={false}>
+                {value}
+              </Tag>
+            )}
+          />
+          <Table.Column
+            dataIndex="docNo"
+            title="单号"
+            width={180}
+            render={(value: string, row: { href: string }) => (
+              <Typography.Link onClick={() => navigate(row.href)}>
+                <Mono>{value}</Mono>
+              </Typography.Link>
+            )}
+          />
+          <Table.Column dataIndex="date" title="日期" width={120} />
+          <Table.Column
+            dataIndex="amount"
+            title="金额（本币）"
+            align="right"
+            width={140}
+            render={(value: string) => (value ? <Money value={value} /> : <Empty />)}
+          />
+          <Table.Column
+            dataIndex="statusLabel"
+            title="状态"
+            width={100}
+            render={(value: string, row: { statusColor: string }) => <Tag color={row.statusColor}>{value}</Tag>}
           />
         </Table>
       </Card>

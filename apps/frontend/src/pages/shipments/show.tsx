@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { useInvalidate, useShow } from '@refinedev/core'
+import { useInvalidate, useList, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } from 'antd'
 
 import { download } from '@/api/client'
 import { shipmentApi } from '@/api/shipments'
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono } from '@/components/fields'
 import { orderStatusLabel } from '@/constants/catalog'
-import type { Shipment, ShipmentAllocation } from '@/types'
+import type { Settlement, Shipment, ShipmentAllocation } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
 import { ChargesPanel } from './charge-panel'
@@ -104,6 +105,22 @@ export function ShipmentShow() {
   const packCartons = (s?.allocations ?? []).reduce((sum, a) => sum + (a.cartons ?? 0), 0)
   const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.gross_weight ?? 0), 0)
   const packNet = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.net_weight ?? 0), 0)
+
+  // 这一票开出的应收（source_type = 20）。一票可能分两次开票，所以是一条列表。
+  const { result: receivableResult } = useList<Settlement>({
+    resource: 'receivables',
+    filters: [
+      { field: 'source_type', operator: 'eq', value: 20 },
+      { field: 'source_id', operator: 'eq', value: s?.id },
+    ],
+    pagination: { mode: 'off' },
+    queryOptions: { enabled: !!s?.id },
+  })
+  const linkedReceivables = receivableResult?.data ?? []
+  // 一张出货票可以装几张订单的货（拼柜），订单号去重后一次列全。
+  const orderDocNos = Array.from(
+    new Set((s?.allocations ?? []).map((a) => a.sales_order_doc_no).filter(Boolean)),
+  )
 
   /**
    * 打印这一票的单证。
@@ -212,6 +229,26 @@ export function ShipmentShow() {
         </Space>
       }
     >
+      <DocChain
+        current="shipment"
+        docs={{
+          // 订单只带单号不跳转：分配行上摊平的是订单号，没有订单 id。
+          order: orderDocNos.length
+            ? { docNo: orderDocNos.length > 1 ? `${orderDocNos.join(' / ')}` : orderDocNos[0] }
+            : undefined,
+          shipment: { docNo: s?.doc_no },
+          receivable: linkedReceivables.length
+            ? {
+                docNo:
+                  linkedReceivables.length > 1
+                    ? `${linkedReceivables[0].doc_no} 等 ${linkedReceivables.length} 张`
+                    : linkedReceivables[0].doc_no,
+                href: `/receivables/show/${linkedReceivables[0].id}`,
+              }
+            : undefined,
+        }}
+      />
+
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered

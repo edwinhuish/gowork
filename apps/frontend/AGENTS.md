@@ -208,6 +208,7 @@ api/client.ts
 | `hooks/use-idempotency-key.ts` | 任何会**重复建单**的新建页（报价 / 订单 / 采购 / 出货 / 合同 / 应收应付 / 出入库单），以及**不在表单里、但每次调用都会新建记录**的接口（订单变更 `POST /sales-orders/:id/changes`） | 表单页挂到 `useForm` 的 `mutationMeta` 上、成功后 `onMutationSuccess` 里轮换；非表单的调用把 `key` 作为 `http.post` 的第三个参数传（`{ 'Idempotency-Key': key }`），成功后手动 `rotate()`。键必须在「用户意图」这层生成：让 http 层每次自动生成等于每次都是新操作，幂等无从谈起 |
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量 + 装箱数据） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId`；装箱数据（箱数 / 毛净重 / 尺寸）可留空，净重大于毛重由后端拒 |
 | `pages/products/code-panel.tsx` | 产品详情页的「其他编号」面板 | 行内表单录入（一次要补三五个号，弹窗比敲键盘还慢）；没有编辑，改写法就删掉重录；归一化与唯一性由服务端判 |
+| `components/doc-chain.tsx` | 单据链（报价 → 合同 → 订单 → 出货 → 应收 → 收款），挂在 5 个详情页顶部 | 每一环三态：可跳转 / 已关联但无页面 / 还没这一环（虚线）。订单页的上下游靠 `useList` 查（`sales_order_id`、`source_type=10`），**不要**为此加接口；应付那侧与采购链不要套这条销售链 |
 | `components/attachment-panel.tsx` | 通用附件面板（上传 / 下载 / 删除） | 挂在任何详情页，传 `entityType` + `entityId`（取值见 `AttachmentEntity`）；上传走 `http.postForm`——multipart 的 `Content-Type` 必须由浏览器生成，手写会让服务端解析不出字段；已挂在出货详情与客户 / 供应商详情 |
 | `components/authed-image.tsx` + `pages/products/image-panel.tsx` | 产品图片（多图上传 / 排序换主图 / 替换 / 删除） | 取图接口要 `Authorization`，`<img src>` 用不了：一律经 `AuthedImage`（fetch → blob → object URL，按路径缓存）。**主图 = 第一张**，前端不另存标记，「设为主图」就是移到第一位；排序提交完整 ids，409 时提示刷新而不是猜着合并；写操作后同时失效 `products` 的 `list` 与 `detail`，否则列表页会继续显示旧主图。替换要用 `http.putForm`，`http.put` 会把 FormData 序列化成 `{}` |
 | `pages/stock/list.tsx` | 当前库存（只读）+ `stockApi.recalc` | 库存没有 create / edit：要调数就补一条流水，不要给这个页面加编辑框 |

@@ -4,6 +4,7 @@ import { Button, Descriptions, Popconfirm, Table, Tag, Typography, message } fro
 
 import { paymentApi } from '@/api/payments'
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
   paymentDirectionColor,
@@ -46,6 +47,26 @@ export function PaymentShow() {
       isLoading={query.isLoading}
       title={result?.doc_no ?? '收付款详情'}
     >
+      {/* 只有收款才画销售的单据链：付款那侧的上下游是采购单与应付单，
+          用「报价 / 合同 / 出货」去描述会自相矛盾。 */}
+      {result?.direction === 10 ? (
+        <DocChain
+          current="payment"
+          docs={{
+            receivable: allocations.length
+              ? {
+                  docNo:
+                    allocations.length > 1
+                      ? `${allocations[0].target_doc_no} 等 ${allocations.length} 张`
+                      : allocations[0].target_doc_no,
+                  href: `/receivables/show/${allocations[0].target_id}`,
+                }
+              : undefined,
+            payment: { docNo: result.doc_no },
+          }}
+        />
+      ) : null}
+
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered

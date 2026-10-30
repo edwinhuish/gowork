@@ -1,9 +1,11 @@
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions, Tag } from 'antd'
+import { Descriptions, Tag, Typography } from 'antd'
+import { useNavigate } from 'react-router'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { Empty, Money } from '@/components/fields'
+import { DocChain } from '@/components/doc-chain'
+import { Empty, Mono, Money } from '@/components/fields'
 import {
   settlementSourceLabel,
   settlementStatusColor,
@@ -13,6 +15,27 @@ import type { Settlement } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
 import type { SettlementDirection } from './form-fields'
+
+/**
+ * 来源单据的详情页路径。
+ *
+ * source_type 的取值见后端 model.SettlementSource：10 销售订单 / 20 出货批次 /
+ * 30 采购订单 / 40 合同分期。这里只是把类型翻译成路由，不含业务判断。
+ */
+function sourceHref(type: number, id: number): string | undefined {
+  switch (type) {
+    case 10:
+      return `/sales-orders/show/${id}`
+    case 20:
+      return `/shipments/show/${id}`
+    case 30:
+      return `/purchase-orders/show/${id}`
+    case 40:
+      return `/contracts/show/${id}`
+    default:
+      return undefined
+  }
+}
 
 /**
  * 应收 / 应付详情。两个模块共用。
@@ -29,12 +52,25 @@ export function SettlementShow({
 }) {
   const isReceivable = direction === 'receivable'
   const { result, query } = useShow<Settlement>({ resource })
+  const navigate = useNavigate()
 
   // 金额是定点字符串，这里的差额只用于显示；服务端按末位精确算。
   const outstanding = result ? Number(result.amount) - Number(result.settled_amount) : 0
 
+  const href = result ? sourceHref(result.source_type, result.source_id) : undefined
+  // 应付那侧的标签是采购词（报价/合同/出货），拿销售的单据链去套会自相矛盾，
+  // 所以只在应收上画链；应付的来源链接放在 Descriptions 那一行里。
+  const chainDocs = {
+    receivable: { docNo: result?.doc_no },
+    ...(result?.source_type === 10 ? { order: { docNo: result.source_doc_no, href } } : {}),
+    ...(result?.source_type === 20 ? { shipment: { docNo: result.source_doc_no, href } } : {}),
+    ...(result?.source_type === 40 ? { contract: { docNo: result.source_doc_no, href } } : {}),
+  }
+
   return (
     <Show isLoading={query.isLoading} title={result?.doc_no ?? (isReceivable ? '应收详情' : '应付详情')}>
+      {isReceivable ? <DocChain current="receivable" docs={chainDocs} /> : null}
+
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered
@@ -62,9 +98,18 @@ export function SettlementShow({
           {
             key: 'source',
             label: '来源单据',
-            children: result
-              ? `${settlementSourceLabel(result.source_type) ?? ''} ${result.source_doc_no}`.trim()
-              : <Empty />,
+            children: result ? (
+              href ? (
+                <Typography.Link onClick={() => navigate(href)}>
+                  {settlementSourceLabel(result.source_type)}{' '}
+                  <Mono>{result.source_doc_no}</Mono>
+                </Typography.Link>
+              ) : (
+                `${settlementSourceLabel(result.source_type) ?? ''} ${result.source_doc_no}`.trim()
+              )
+            ) : (
+              <Empty />
+            ),
           },
           { key: 'currency', label: '币种', children: result?.currency_code || <Empty /> },
           {

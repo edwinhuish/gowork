@@ -19,6 +19,7 @@ import {
 import { download } from '@/api/client'
 import { quotationApi } from '@/api/quotations'
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money } from '@/components/fields'
 import { quotationStatusLabel, tradeTermLabel } from '@/constants/catalog'
 import type { QuotationDetail, QuotationItem } from '@/types'
@@ -173,6 +174,16 @@ export function QuotationShow() {
         </Space>
       }
     >
+      <DocChain
+        current="quotation"
+        docs={{
+          quotation: { docNo: q?.doc_no },
+          order: q?.sales_order_id
+            ? { docNo: q?.sales_order_doc_no, href: `/sales-orders/show/${q.sales_order_id}` }
+            : undefined,
+        }}
+      />
+
       {converted ? (
         <Alert
           type="success"

@@ -456,6 +456,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  margin-bottom: 16px;
 }
 
 .doc-chain-node {

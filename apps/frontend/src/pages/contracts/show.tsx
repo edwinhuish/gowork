@@ -17,6 +17,7 @@ import {
 import { download } from '@/api/client'
 import { contractApi } from '@/api/contracts'
 import { AttachmentPanel } from '@/components/attachment-panel'
+import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money } from '@/components/fields'
 import {
   contractSourceTypeLabel,
@@ -149,6 +150,19 @@ export function ContractShow() {
         </Space>
       }
     >
+      <DocChain
+        current="contract"
+        docs={{
+          contract: { docNo: c?.doc_no },
+          ...(c?.source_type === 10
+            ? { quotation: { docNo: c.source_doc_no, href: `/quotations/show/${c.source_id}` } }
+            : {}),
+          ...(c?.source_type === 20
+            ? { order: { docNo: c.source_doc_no, href: `/sales-orders/show/${c.source_id}` } }
+            : {}),
+        }}
+      />
+
       <Descriptions column={2} bordered size="small">
         <Descriptions.Item label="合同类型">
           <Tag color={c ? typeColor(c.type) : undefined}>{contractTypeLabel(c?.type)}</Tag>
