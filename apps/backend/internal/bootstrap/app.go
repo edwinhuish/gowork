@@ -73,6 +73,8 @@ func New(cfg *config.Config) (*App, error) {
 		&model.Partner{},
 		&model.PartnerAddress{},
 		&model.Product{},
+		&model.ProductImage{},
+		&model.ProductImageContent{},
 		&model.ProductCode{},
 		&model.Currency{},
 		&model.ExchangeRate{},
