@@ -22,6 +22,39 @@ type ProductFilter struct {
 	// IncludeDeleted 把已软删的行也查出来，供「含已删除」的列表与恢复入口使用。
 	// 默认 false：其余所有查询都不该看见已删数据。
 	IncludeDeleted bool
+
+	// SortField / SortOrder 由列表页传入。合规性在这里判，不靠调用方：
+	// 白名单映射成列名，不在表里的一律退回默认顺序。
+	SortField string
+	SortOrder string
+}
+
+// sortableProductFields 是列表允许排序的字段 → 列名。
+//
+// 用映射而不是直接拼列名：字段名来自 HTTP 查询串，直接拼就是注入面；
+// 也只有映射能让"前端多传一个字段"退化成"按默认顺序排"，而不是 500。
+var sortableProductFields = map[string]string{
+	"sku_code":   "sku_code",
+	"name_cn":    "name_cn",
+	"category":   "category",
+	"cost_price": "cost_price",
+	"sale_price": "sale_price",
+	"created_at": "id",
+}
+
+// order 返回 ORDER BY 子句。
+//
+// 一律带 id DESC 作为次级排序：价格相同的行（同类标准件很常见）若没有稳定的
+// 第二排序键，翻页时同一行可能重复出现、另一行永远看不到。
+func (f ProductFilter) order() string {
+	col, ok := sortableProductFields[f.SortField]
+	if !ok {
+		return "id DESC"
+	}
+	if strings.EqualFold(f.SortOrder, "desc") {
+		return col + " DESC, id DESC"
+	}
+	return col + " ASC, id DESC"
 }
 
 func (f ProductFilter) scopes() []Scope {
@@ -187,10 +220,9 @@ func (r *productRepo) ExistsBySKUCode(ctx context.Context, skuCode string, exclu
 // List 列表带上供应商，便于前端直接展示名称。
 // Preload 只在 Find 时生效，Count 阶段会被 gorm 忽略，不影响统计。
 func (r *productRepo) List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error) {
-	scopes := append(f.scopes(), func(db *gorm.DB) *gorm.DB {
-		return db.Preload("Supplier")
-	})
-	return r.Paginate(ctx, p, scopes...)
+	// 排序走 PaginateOrderedWithPreload 而不是 Paginate：后者写死 id DESC，
+	// 而列表页要能按编码、品名、价格排。
+	return r.PaginateOrderedWithPreload(ctx, p, f.order(), []string{"Supplier"}, f.scopes()...)
 }
 
 func (r *productRepo) Count(ctx context.Context) (int64, error) {

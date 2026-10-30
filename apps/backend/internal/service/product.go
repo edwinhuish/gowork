@@ -307,6 +307,8 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 		SupplierID:     q.SupplierID,
 		Status:         enableStatusPtr(q.Status),
 		IncludeDeleted: q.IncludeDeleted,
+		SortField:      q.SortField,
+		SortOrder:      q.SortOrder,
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 

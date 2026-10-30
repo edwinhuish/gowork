@@ -15,6 +15,13 @@ type ProductQuery struct {
 	// IncludeDeleted 把已软删的产品也列出来（列表页的「含已删除」开关）。
 	// 这些行只该做一件事：恢复——其余编辑入口对它们一律 404。
 	IncludeDeleted bool `form:"include_deleted"`
+
+	// SortField / SortOrder 是列表排序。
+	//
+	// 只认白名单字段（见 repository.sortableProductFields），传别的值一律退回
+	// 默认顺序，不报错：排序是个展示偏好，为它挡住整页数据不值得。
+	SortField string `form:"sort_field"`
+	SortOrder string `form:"sort_order"`
 }
 
 // ProductInput 产品新增与编辑共用的入参。

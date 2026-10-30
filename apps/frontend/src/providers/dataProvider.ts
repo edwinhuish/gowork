@@ -15,6 +15,7 @@ import type { PageResult } from '@/types'
 /**
  * 后端分页与筛选契约（见 apps/backend/internal/dto/common.go 与各资源 Query）：
  *   page / page_size / keyword 全资源通用
+ *   sort_field + sort_order 目前只有产品列表消费（白名单在 repository/product.go）
  *   category+supplier_id+status 仅产品
  *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
  *   currency_code 仅汇率；币种本身只用 status + keyword
@@ -72,7 +73,7 @@ const PASSTHROUGH_FILTERS = new Set([
   'type',
 ])
 
-function buildListQuery({ pagination, filters }: GetListParams): Record<string, unknown> {
+function buildListQuery({ pagination, filters, sorters }: GetListParams): Record<string, unknown> {
   const query: Record<string, unknown> = { page: 1, page_size: 15 }
 
   if (pagination?.mode === 'off') {
@@ -99,6 +100,16 @@ function buildListQuery({ pagination, filters }: GetListParams): Record<string, 
     }
   }
 
+  // 排序只取第一个：后端各资源的排序接口都只有一个 ORDER BY 字段，
+  // 多字段排序传过去会被后者覆盖，结果与界面上显示的两个箭头不一致。
+  // 目前只有产品列表实现了 sort_field / sort_order，其余资源不认识这两个参数
+  // （Go 的 form binding 会直接忽略），不会报错，也不会改变它们原本的顺序。
+  const first = sorters?.[0]
+  if (first?.field) {
+    query.sort_field = String(first.field)
+    query.sort_order = first.order ?? 'asc'
+  }
+
   return query
 }
 
@@ -114,9 +125,11 @@ function buildListQuery({ pagination, filters }: GetListParams): Record<string, 
  * 对每个 TData 都成立。逐个方法断言反而更难读。
  */
 export const dataProvider = {
-  getList: async ({ resource, pagination, filters }: GetListParams) => {
+  getList: async ({ resource, pagination, filters, sorters }: GetListParams) => {
     const res = await http.get<PageResult<BaseRecord>>(
-      `/${resource}${toQuery(buildListQuery({ resource, pagination, filters } as GetListParams))}`,
+      `/${resource}${toQuery(
+        buildListQuery({ resource, pagination, filters, sorters } as GetListParams),
+      )}`,
     )
     return { data: res.list, total: res.total }
   },
