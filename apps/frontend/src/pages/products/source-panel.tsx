@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
 import { useTable } from '@refinedev/antd'
 import {
@@ -62,12 +62,19 @@ export function SourcesPanel({ productId }: { productId: number }) {
 
   // 永久筛选之外只有这一个条件，变化时整份写回而不是逐个合并：
   // 关掉开关时才能确保 include_deleted 真的不再出现在查询里。
-  useEffect(() => {
+  //
+  // 在**事件里**发，不要放进 useEffect：refine 的 setFilters 依赖
+  // filters.permanent 这个数组，而这里传的是内联字面量 —— 每次渲染都是新数组，
+  // setFilters 跟着每次都是新引用。放进 effect 依赖里就会自激：effect →
+  // setFilters → 重渲染 → effect …… 产品详情页实测每进一次报 8 次
+  // "Maximum update depth exceeded"。开关本来就是事件，事件里发最省事。
+  const toggleDeleted = (checked: boolean) => {
+    setShowDeleted(checked)
     setFilters(
-      showDeleted ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
+      checked ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
       'replace',
     )
-  }, [showDeleted, setFilters])
+  }
 
   // 供应商下拉取 /suppliers 而不是 /partners：货源指向的主体必须是供应商角色，
   // 后端也会校验，这里只是不让用户先选一个客户再撞一次 400。
@@ -170,7 +177,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
               平时列表里看不到它们。 */}
           <Checkbox
             checked={showDeleted}
-            onChange={(e) => setShowDeleted(e.target.checked)}
+            onChange={(e) => toggleDeleted(e.target.checked)}
           >
             含已删除
           </Checkbox>

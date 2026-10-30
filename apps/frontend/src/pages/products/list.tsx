@@ -1,5 +1,6 @@
 import { AppstoreOutlined, BarsOutlined, PictureOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters, type CrudSort } from '@refinedev/core'
+import { toCardPager } from '@/components/partner-cards'
 import { CreateButton, DeleteButton, useTable } from '@refinedev/antd'
 import {
   Button,
@@ -135,18 +136,11 @@ export function ProductList() {
   }
 
   // 卡片视图没有表格自带的分页条，要自己渲染；数据仍来自同一个 useTable。
-  const pager = tableProps.pagination === false ? undefined : tableProps.pagination
-  const cardPager = pager
-    ? {
-        current: pager.current ?? 1,
-        pageSize: pager.pageSize ?? 12,
-        total: pager.total ?? 0,
-        showSizeChanger: true,
-        pageSizeOptions: PAGE_SIZE_OPTIONS,
-        showTotal: (total: number) => `共 ${total} 个产品`,
-        onChange: pager.onChange as (page: number, pageSize: number) => void,
-      }
-    : undefined
+  //
+  // 走 toCardPager 而不是自己拼：refine 的 pagination 里**没有 onChange**
+  // （翻页挂在 tableProps.onChange 上），直接转发会拿到 undefined ——
+  // 页码点了没反应，antd 还会告警。toCardPager 内部按 antd 的签名转一手。
+  const cardPager = toCardPager(tableProps, (total) => `共 ${total} 个产品`, PAGE_SIZE_OPTIONS)
 
   const cardView = (
     <>

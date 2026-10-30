@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
@@ -41,12 +41,18 @@ export function CurrencyList() {
   })
 
   // 归档不等于删除：归档的币种平时就列着，只有删掉的才藏在这个开关后面。
-  useEffect(() => {
+  //
+  // 在**事件里**发而不是 useEffect 里：refine 的 setFilters 依赖
+  // filters.permanent 这个数组，哪天这页加上 permanent（内联字面量，每次渲染
+  // 都是新数组），setFilters 就每次都是新引用 —— 放进 effect 依赖里会自激成
+  // "Maximum update depth exceeded"（产品货源面板实测踩过）。开关是事件。
+  const toggleDeleted = (checked: boolean) => {
+    setShowDeleted(checked)
     setFilters(
-      showDeleted ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
+      checked ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
       'replace',
     )
-  }, [showDeleted, setFilters])
+  }
 
   const invalidate = useInvalidate()
   const restore = async (id: number) => {
@@ -82,7 +88,7 @@ export function CurrencyList() {
         </>
       }
       extra={
-        <Checkbox checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)}>
+        <Checkbox checked={showDeleted} onChange={(e) => toggleDeleted(e.target.checked)}>
           含已删除
         </Checkbox>
       }
