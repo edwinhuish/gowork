@@ -4,19 +4,21 @@ import {
   Alert,
   Card,
   Col,
+  Flex,
   Input,
   Radio,
   Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Typography,
+  theme,
 } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { FilterBar, PageHeader, StatCard } from '@/components/page'
 import type { CollectionRow } from '@/types'
 
 function pad(n: number) {
@@ -33,10 +35,10 @@ function defaultPeriod() {
 }
 
 /** 逾期天数按严重程度上色：90 天以上在这行生意里基本等于坏账信号。 */
-function overdueColor(days: number) {
-  if (days > 90) return '#cf1322'
-  if (days > 60) return '#d46b08'
-  if (days > 30) return '#d48806'
+function overdueColor(days: number, colorError: string, colorWarning: string) {
+  if (days > 90) return colorError
+  if (days > 60) return colorError
+  if (days > 30) return colorWarning
   return undefined
 }
 
@@ -72,139 +74,148 @@ export function CollectionPage() {
       }),
   })
 
+  const { token } = theme.useToken()
   const rows = data?.overdue_rows ?? []
   const rate = Number(data?.collection_rate ?? 0)
   const isPayable = direction === 20
 
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="回款与超期"
+        description="回款率是期间流量（分子按到账日、分母按到期日），超期明细是截至今天的存量，两者不互相校验"
+      />
+
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
-      <Card variant="borderless">
-        <Space wrap size={16} align="center">
-          <Radio.Group
-            optionType="button"
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as number)}
-            options={[
-              { value: 10, label: '应收' },
-              { value: 20, label: '应付' },
-            ]}
-          />
-          <Space size={4}>
-            <Input
-              value={fromInput}
-              onChange={(e) => setFromInput(e.target.value)}
-              onPressEnter={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
-              onBlur={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
-              placeholder="起 YYYY-MM-DD"
-              style={{ width: 150 }}
-              allowClear
-              onClear={() => {
-                setFromInput('')
-                setPeriod((prev) => ({ ...prev, from: '' }))
-              }}
-            />
-            <Typography.Text type="secondary">至</Typography.Text>
-            <Input
-              value={toInput}
-              onChange={(e) => setToInput(e.target.value)}
-              onPressEnter={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
-              onBlur={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
-              placeholder="止 YYYY-MM-DD"
-              style={{ width: 150 }}
-              allowClear
-              onClear={() => {
-                setToInput('')
-                setPeriod((prev) => ({ ...prev, to: '' }))
-              }}
-            />
-          </Space>
+      <FilterBar
+        extra={<Typography.Text type="secondary">截止 {data?.as_of || '今天'}（本币）</Typography.Text>}
+      >
+        <Radio.Group
+          optionType="button"
+          value={direction}
+          onChange={(e) => setDirection(e.target.value as number)}
+          options={[
+            { value: 10, label: '应收' },
+            { value: 20, label: '应付' },
+          ]}
+        />
+        <Space size={4}>
           <Input
-            value={asOfInput}
-            onChange={(e) => setAsOfInput(e.target.value)}
-            onPressEnter={() => setAsOf(asOfInput.trim())}
-            onBlur={() => setAsOf(asOfInput.trim())}
-            placeholder="超期截至日 YYYY-MM-DD（留空取今天）"
-            style={{ width: 280 }}
-            allowClear
-            onClear={() => setAsOf('')}
-          />
-          <Select
-            value={limit}
-            onChange={setLimit}
+            value={fromInput}
+            onChange={(e) => setFromInput(e.target.value)}
+            onPressEnter={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
+            onBlur={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
+            placeholder="起 YYYY-MM-DD"
             style={{ width: 150 }}
-            options={[
-              { value: 50, label: '前 50 张单' },
-              { value: 100, label: '前 100 张单' },
-              { value: 500, label: '前 500 张单' },
-            ]}
+            allowClear
+            onClear={() => {
+              setFromInput('')
+              setPeriod((prev) => ({ ...prev, from: '' }))
+            }}
+          />
+          <Typography.Text type="secondary">至</Typography.Text>
+          <Input
+            value={toInput}
+            onChange={(e) => setToInput(e.target.value)}
+            onPressEnter={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
+            onBlur={() => setPeriod({ from: fromInput.trim(), to: toInput.trim() })}
+            placeholder="止 YYYY-MM-DD"
+            style={{ width: 150 }}
+            allowClear
+            onClear={() => {
+              setToInput('')
+              setPeriod((prev) => ({ ...prev, to: '' }))
+            }}
           />
         </Space>
-      </Card>
+        <Input
+          value={asOfInput}
+          onChange={(e) => setAsOfInput(e.target.value)}
+          onPressEnter={() => setAsOf(asOfInput.trim())}
+          onBlur={() => setAsOf(asOfInput.trim())}
+          placeholder="超期截至日 YYYY-MM-DD（留空取今天）"
+          style={{ width: 280 }}
+          allowClear
+          onClear={() => setAsOf('')}
+        />
+        <Select
+          value={limit}
+          onChange={setLimit}
+          style={{ width: 150 }}
+          options={[
+            { value: 50, label: '前 50 张单' },
+            { value: 100, label: '前 100 张单' },
+            { value: 500, label: '前 500 张单' },
+          ]}
+        />
+      </FilterBar>
 
-      <Card variant="borderless">
-        <Row gutter={[24, 16]}>
-          <Col xs={12} md={8} xl={4}>
-            <Statistic
-              title={`期间到期（${data?.from || '不限'} 起）`}
-              value={Number(data?.due_amount_base ?? 0)}
-              precision={2}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={4}>
-            <Statistic
-              title="期间回款"
-              value={Number(data?.received_base ?? 0)}
-              precision={2}
-              valueStyle={{ color: '#389e0d' }}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={4}>
-            <Statistic
-              title="回款率"
-              value={rate * 100}
-              precision={2}
-              suffix="%"
-              valueStyle={{ color: rate < 0.8 ? '#d46b08' : '#389e0d' }}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={4}>
-            <Statistic
-              title="当前未结清"
-              value={Number(data?.outstanding_base ?? 0)}
-              precision={2}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={4}>
-            <Statistic
-              title="其中已超期"
-              value={Number(data?.overdue_base ?? 0)}
-              precision={2}
-              valueStyle={{ color: Number(data?.overdue_base ?? 0) > 0 ? '#cf1322' : undefined }}
-            />
-          </Col>
-          <Col xs={24} md={8} xl={4}>
-            <Typography.Text type="secondary">截止 {data?.as_of || '今天'}（本币）</Typography.Text>
-          </Col>
-        </Row>
+      <Row gutter={[16, 16]}>
+        <Col xs={12} sm={8} xl={4}>
+          <StatCard
+            title={`期间到期（${data?.from || '不限'} 起）`}
+            value={Number(data?.due_amount_base ?? 0)}
+            precision={2}
+          />
+        </Col>
+        <Col xs={12} sm={8} xl={4}>
+          <StatCard
+            title="期间回款"
+            value={Number(data?.received_base ?? 0)}
+            precision={2}
+            tone="success"
+          />
+        </Col>
+        <Col xs={12} sm={8} xl={4}>
+          <StatCard
+            title="回款率"
+            value={Number((rate * 100).toFixed(2))}
+            precision={2}
+            suffix="%"
+            tone={rate < 0.8 ? 'warning' : 'success'}
+          />
+        </Col>
+        <Col xs={12} sm={8} xl={4}>
+          <StatCard
+            title="当前未结清"
+            value={Number(data?.outstanding_base ?? 0)}
+            precision={2}
+          />
+        </Col>
+        <Col xs={12} sm={8} xl={4}>
+          <StatCard
+            title="其中已超期"
+            value={Number(data?.overdue_base ?? 0)}
+            precision={2}
+            tone={Number(data?.overdue_base ?? 0) > 0 ? 'danger' : 'primary'}
+          />
+        </Col>
+      </Row>
 
-        <Typography.Paragraph type="secondary" style={{ marginTop: 16, marginBottom: 0 }}>
-          回款率 = 期间<b>到账并核销</b>的金额 ÷ 期间<b>到期</b>的单据金额。
-          分子按到账日、分母按到期日，收的钱可能是在还上个月的账，所以比率超过 100% 是正常的。
-          分母为 0 的那一期没有比率可言，显示 0。
-        </Typography.Paragraph>
-      </Card>
+      <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+        回款率 = 期间<b>到账并核销</b>的金额 ÷ 期间<b>到期</b>的单据金额。
+        分子按到账日、分母按到期日，收的钱可能是在还上个月的账，所以比率超过 100% 是正常的。
+        分母为 0 的那一期没有比率可言，显示 0。
+      </Typography.Paragraph>
 
       <Card
         variant="borderless"
         title={isPayable ? '超期未付明细' : '超期未收明细'}
         extra={
           <Space size={12}>
-            <Tag color="orange">1-30 天 <Money value={data?.overdue_buckets.days_1_30} /></Tag>
-            <Tag color="gold">31-60 天 <Money value={data?.overdue_buckets.days_31_60} /></Tag>
-            <Tag color="volcano">61-90 天 <Money value={data?.overdue_buckets.days_61_90} /></Tag>
-            <Tag color="red">90 天以上 <Money value={data?.overdue_buckets.days_over_90} /></Tag>
+            <Tag bordered={false} color="gold">
+              1-30 天 <Money value={data?.overdue_buckets.days_1_30} />
+            </Tag>
+            <Tag bordered={false} color="orange">
+              31-60 天 <Money value={data?.overdue_buckets.days_31_60} />
+            </Tag>
+            <Tag bordered={false} color="volcano">
+              61-90 天 <Money value={data?.overdue_buckets.days_61_90} />
+            </Tag>
+            <Tag bordered={false} color="red">
+              90 天以上 <Money value={data?.overdue_buckets.days_over_90} />
+            </Tag>
           </Space>
         }
       >
@@ -256,7 +267,12 @@ export function CollectionPage() {
             defaultSortOrder="descend"
             sorter={(a: CollectionRow, b: CollectionRow) => a.overdue_days - b.overdue_days}
             render={(value: number) => (
-              <span style={{ color: overdueColor(value), fontVariantNumeric: 'tabular-nums' }}>
+              <span
+                style={{
+                  color: overdueColor(value, token.colorError, token.colorWarning),
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
                 {value} 天
               </span>
             )}
@@ -291,6 +307,6 @@ export function CollectionPage() {
           本币金额按单据上锁定的汇率折算，与账龄报表同一口径。
         </Typography.Paragraph>
       </Card>
-    </Space>
+    </Flex>
   )
 }

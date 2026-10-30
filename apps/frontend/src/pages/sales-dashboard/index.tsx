@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Alert,
   Card,
+  Flex,
   Input,
   Modal,
   Radio,
@@ -12,10 +13,12 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { FilterBar, PageHeader } from '@/components/page'
 import type { ProductProfitRow, SalesDashboardRow } from '@/types'
 
 type Dimension = 'customer' | 'product' | 'category' | 'country' | 'month'
@@ -56,13 +59,14 @@ function defaultRange() {
  * 写成 0% 会被读成"这票没赚钱"。
  */
 function MarginCell({ row }: { row: SalesDashboardRow }) {
+  const { token } = theme.useToken()
   if (Number(row.revenue) === 0) return <Empty />
   const margin = Number(row.margin)
   return (
     <span
       style={{
         fontVariantNumeric: 'tabular-nums',
-        color: margin < 0 ? '#cf1322' : margin > 0 ? '#389e0d' : undefined,
+        color: margin < 0 ? token.colorError : margin > 0 ? token.colorSuccess : undefined,
       }}
     >
       {(margin * 100).toFixed(2)}%
@@ -72,11 +76,15 @@ function MarginCell({ row }: { row: SalesDashboardRow }) {
 
 /** 毛利：负数标红，正负在一列里必须一眼分得出。 */
 function ProfitCell({ value, strong }: { value: string; strong?: boolean }) {
+  const { token } = theme.useToken()
   const num = Number(value)
   return (
     <span
       className={strong ? 'cell-strong' : undefined}
-      style={{ color: num < -0.0001 ? '#cf1322' : undefined, fontVariantNumeric: 'tabular-nums' }}
+      style={{
+        color: num < -0.0001 ? token.colorError : undefined,
+        fontVariantNumeric: 'tabular-nums',
+      }}
     >
       <Money value={value} />
     </span>
@@ -123,7 +131,12 @@ export function SalesDashboardPage() {
   }
 
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="销售看板"
+        description="换维度不换数：收入、成本、运杂费先摊到出货行再分组，所以各维度合计一致；前端不做二次聚合"
+      />
+
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
       {/* T-36：成本与毛利在服务端就被清成了 0，这里必须说明，
@@ -137,61 +150,62 @@ export function SalesDashboardPage() {
         />
       )}
 
-      <Card variant="borderless">
-        <Space wrap size={16} align="center">
-          <Radio.Group
-            optionType="button"
-            value={dimension}
-            onChange={(e) => setDimension(e.target.value as Dimension)}
-            options={DIMENSION_OPTIONS}
-          />
-          <Space size={4}>
-            <Input
-              value={fromInput}
-              onChange={(e) => setFromInput(e.target.value)}
-              onPressEnter={applyRange}
-              onBlur={applyRange}
-              placeholder="起 YYYY-MM-DD"
-              style={{ width: 150 }}
-              allowClear
-              onClear={() => {
-                setFromInput('')
-                setRange((prev) => ({ ...prev, from: '' }))
-              }}
-            />
-            <Typography.Text type="secondary">至</Typography.Text>
-            <Input
-              value={toInput}
-              onChange={(e) => setToInput(e.target.value)}
-              onPressEnter={applyRange}
-              onBlur={applyRange}
-              placeholder="止 YYYY-MM-DD"
-              style={{ width: 150 }}
-              allowClear
-              onClear={() => {
-                setToInput('')
-                setRange((prev) => ({ ...prev, to: '' }))
-              }}
-            />
-          </Space>
-          <Select
-            value={limit}
-            onChange={setLimit}
-            style={{ width: 140 }}
-            options={[
-              { value: 20, label: '前 20 行' },
-              { value: 50, label: '前 50 行' },
-              { value: 100, label: '前 100 行' },
-              { value: 500, label: '前 500 行' },
-            ]}
-          />
+      <FilterBar
+        extra={
           <Typography.Text type="secondary">
             {rows.length > 0
               ? `共 ${rows.length} 行 · ${data?.from || '不限'} ~ ${data?.to || '不限'}`
               : `${data?.from || '不限'} ~ ${data?.to || '不限'}`}
           </Typography.Text>
+        }
+      >
+        <Radio.Group
+          optionType="button"
+          value={dimension}
+          onChange={(e) => setDimension(e.target.value as Dimension)}
+          options={DIMENSION_OPTIONS}
+        />
+        <Space size={4}>
+          <Input
+            value={fromInput}
+            onChange={(e) => setFromInput(e.target.value)}
+            onPressEnter={applyRange}
+            onBlur={applyRange}
+            placeholder="起 YYYY-MM-DD"
+            style={{ width: 150 }}
+            allowClear
+            onClear={() => {
+              setFromInput('')
+              setRange((prev) => ({ ...prev, from: '' }))
+            }}
+          />
+          <Typography.Text type="secondary">至</Typography.Text>
+          <Input
+            value={toInput}
+            onChange={(e) => setToInput(e.target.value)}
+            onPressEnter={applyRange}
+            onBlur={applyRange}
+            placeholder="止 YYYY-MM-DD"
+            style={{ width: 150 }}
+            allowClear
+            onClear={() => {
+              setToInput('')
+              setRange((prev) => ({ ...prev, to: '' }))
+            }}
+          />
         </Space>
-      </Card>
+        <Select
+          value={limit}
+          onChange={setLimit}
+          style={{ width: 140 }}
+          options={[
+            { value: 20, label: '前 20 行' },
+            { value: 50, label: '前 50 行' },
+            { value: 100, label: '前 100 行' },
+            { value: 500, label: '前 500 行' },
+          ]}
+        />
+      </FilterBar>
 
       {data?.truncated && (
         <Alert
@@ -372,7 +386,7 @@ export function SalesDashboardPage() {
           onClose={() => setDrill(null)}
         />
       )}
-    </Space>
+    </Flex>
   )
 }
 

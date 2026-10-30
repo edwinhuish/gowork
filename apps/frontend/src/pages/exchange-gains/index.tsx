@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSelect } from '@refinedev/core'
-import { Alert, Card, Input, Select, Space, Table, Tag, Typography } from 'antd'
+import { Alert, Card, Flex, Input, Select, Space, Table, Tag, Typography, theme } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { FilterBar, PageHeader } from '@/components/page'
 import { PAYMENT_TARGET_OPTIONS, paymentDirectionLabel } from '@/constants/catalog'
 import type { Currency, ExchangeGainLine, Partner } from '@/types'
 
@@ -15,11 +16,13 @@ import type { Currency, ExchangeGainLine, Partner } from '@/types'
  * 而"−200"和"200"在数字列里长得几乎一样。
  */
 function GainValue({ value, strong }: { value?: string | null; strong?: boolean }) {
+  const { token } = theme.useToken()
   // 金额是定点字符串：这里的正负判断与色条只用于显示，取值本身原样交给 Money。
   if (value === null || value === undefined) return <Empty />
   const num = Number(value)
   if (Number.isNaN(num)) return <Empty />
-  const color = num > 0.0001 ? '#389e0d' : num < -0.0001 ? '#cf1322' : undefined
+  const color =
+    num > 0.0001 ? token.colorSuccess : num < -0.0001 ? token.colorError : undefined
   return (
     <span
       className={strong ? 'cell-strong' : undefined}
@@ -75,56 +78,62 @@ export function ExchangeGainsPage() {
   const applyRange = () => setRange({ from: fromInput.trim(), to: toInput.trim() })
 
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="汇兑损益"
+        description="损益 = 核销原币 ×（到账汇率 − 单据锁定汇率）；应收到账汇率高记收益，应付付款汇率高记损失"
+      />
+
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
-      <Card variant="borderless">
-        <Space wrap size={12} align="center">
-          <Input
-            value={fromInput}
-            onChange={(e) => setFromInput(e.target.value)}
-            onPressEnter={applyRange}
-            onBlur={applyRange}
-            placeholder="起始日 YYYY-MM-DD"
-            style={{ width: 200 }}
-            allowClear
-          />
-          <Input
-            value={toInput}
-            onChange={(e) => setToInput(e.target.value)}
-            onPressEnter={applyRange}
-            onBlur={applyRange}
-            placeholder="截止日 YYYY-MM-DD"
-            style={{ width: 200 }}
-            allowClear
-          />
-          <Select
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            style={{ width: 220 }}
-            placeholder="全部往来单位"
-            options={partnerOptions}
-            value={partnerId}
-            onChange={(v: number | undefined) => setPartnerId(v)}
-          />
-          <Select
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            style={{ width: 180 }}
-            placeholder="全部币种"
-            options={currencyOptions}
-            value={currency}
-            onChange={(v: string | undefined) => setCurrency(v)}
-          />
+      <FilterBar
+        extra={
           <Typography.Text type="secondary">
             {range.from || range.to
               ? `按到账日 ${range.from || '不限'} ~ ${range.to || '不限'}`
               : '按到账日，默认全部'}
           </Typography.Text>
-        </Space>
-      </Card>
+        }
+      >
+        <Input
+          value={fromInput}
+          onChange={(e) => setFromInput(e.target.value)}
+          onPressEnter={applyRange}
+          onBlur={applyRange}
+          placeholder="起始日 YYYY-MM-DD"
+          style={{ width: 200 }}
+          allowClear
+        />
+        <Input
+          value={toInput}
+          onChange={(e) => setToInput(e.target.value)}
+          onPressEnter={applyRange}
+          onBlur={applyRange}
+          placeholder="截止日 YYYY-MM-DD"
+          style={{ width: 200 }}
+          allowClear
+        />
+        <Select
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          style={{ width: 220 }}
+          placeholder="全部往来单位"
+          options={partnerOptions}
+          value={partnerId}
+          onChange={(v: number | undefined) => setPartnerId(v)}
+        />
+        <Select
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          style={{ width: 180 }}
+          placeholder="全部币种"
+          options={currencyOptions}
+          value={currency}
+          onChange={(v: string | undefined) => setCurrency(v)}
+        />
+      </FilterBar>
 
       <Card variant="borderless" title="汇兑损益明细">
         <Table<ExchangeGainLine>
@@ -166,7 +175,9 @@ export function ExchangeGainsPage() {
             title="方向"
             width={80}
             render={(value: number) => (
-              <Tag color={value === 20 ? 'orange' : 'green'}>{paymentDirectionLabel(value)}</Tag>
+              <Tag bordered={false} color={value === 20 ? 'warning' : 'success'}>
+                {paymentDirectionLabel(value)}
+              </Tag>
             )}
           />
           <Table.Column
@@ -244,6 +255,6 @@ export function ExchangeGainsPage() {
           预收 / 预付款还没核销，不产生损益。原币只按币种小计，跨币种只能加本币。
         </Typography.Paragraph>
       </Card>
-    </Space>
+    </Flex>
   )
 }

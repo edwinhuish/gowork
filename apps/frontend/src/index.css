@@ -390,13 +390,6 @@ body {
   gap: 8px;
 }
 
-.stat-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .stat-icon {
   display: grid;
   place-items: center;
@@ -409,77 +402,32 @@ body {
   font-size: 16px;
 }
 
-/* 工作台是 12 栅格的手工版：宽屏两块主体并排，窄屏逐块堆叠。 */
-.workbench {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+/* 报表筛选条：条件在左、口径在右，窄屏自动换行（Flex wrap 已处理，这里只收内距）。 */
+.filter-bar .ant-card-body {
+  padding: 12px 16px;
 }
 
-.workbench > .span-4 {
-  grid-column: span 4;
+[data-density='compact'] .filter-bar .ant-card-body {
+  padding: 10px 12px;
 }
 
-.workbench > .span-5 {
-  grid-column: span 5;
-}
-
-.workbench > .span-6 {
-  grid-column: span 6;
-}
-
-.workbench > .span-7 {
-  grid-column: span 7;
-}
-
-.workbench > .span-8 {
-  grid-column: span 8;
-}
-
-.workbench > .span-12 {
-  grid-column: span 12;
-}
-
-@media (max-width: 1200px) {
-  .workbench > .span-4,
-  .workbench > .span-5,
-  .workbench > .span-6,
-  .workbench > .span-7,
-  .workbench > .span-8 {
-    grid-column: span 12;
-  }
-}
-
-/* 快捷入口：一行四到六个，图标 + 一句话，比侧栏里翻分组快。 */
-.quick-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
-}
-
-.quick-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
-  border-radius: 10px;
-  background: var(--ant-color-bg-container, #fff);
-  color: var(--ant-color-text, #1c2532);
+/* 待办清单的一行：整行可点，hover 才给底色，不额外画边框。 */
+.todo-row.ant-list-item {
+  padding-inline: 4px;
   cursor: pointer;
-  transition:
-    border-color 0.18s,
-    box-shadow 0.18s,
-    transform 0.18s;
+  transition: background-color 0.15s;
 }
 
-.quick-card:hover {
-  border-color: var(--ant-color-primary, #2563eb);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--ant-color-primary) 18%, transparent);
-  transform: translateY(-1px);
+.todo-row.ant-list-item:hover {
+  background: var(--ant-color-fill-quaternary);
 }
 
-.quick-card-icon {
+/* 快捷入口：图标块 + 两行文字，卡片本身交给 antd 的 hoverable。 */
+.quick-entry .ant-card-body {
+  padding: 10px 12px;
+}
+
+.quick-entry-icon {
   display: grid;
   place-items: center;
   width: 30px;
@@ -490,22 +438,6 @@ body {
   color: var(--ant-color-primary, #2563eb);
   font-size: 15px;
 }
-
-.quick-card-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
-
-.quick-card-title {
-  font-weight: 500;
-  font-size: 13.5px;
-}
-
-.quick-card-sub {
-  color: var(--ant-color-text-tertiary, #98a3b3);
-  font-size: 12px;
 }
 
 /* ---------- 单据链 ---------- */
@@ -806,6 +738,13 @@ body {
 }
 
 /* ---------- 登录页 ---------- */
+
+/* 登录页在工作台外壳之外，没有顶栏那个明暗开关，右上角补一个。 */
+.login-theme {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+}
 
 /* 两团极浅的主色光晕：只为了让人一眼看出这是入口页，不承载信息。
    用 color-mix 而不是写死淡蓝，暗色下会自己变成深底上的微光。 */

@@ -1,4 +1,5 @@
 export { EmptyGuide } from './empty-guide'
+export { FilterBar } from './filter-bar'
 export { PageForm } from './page-form'
 export type { PageFormProps } from './page-form'
 export { PageHeader } from './page-header'

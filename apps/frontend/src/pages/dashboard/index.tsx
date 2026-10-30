@@ -5,6 +5,8 @@ import {
   Button,
   Card,
   Col,
+  Flex,
+  List,
   Progress,
   Row,
   Space,
@@ -12,8 +14,8 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from 'antd'
-import type { ReactNode } from 'react'
 
 import {
   BellOutlined,
@@ -33,6 +35,7 @@ import {
 import { dashboardApi } from '@/api/dashboard'
 import { reportApi } from '@/api/reports'
 import { Money } from '@/components/fields'
+import { EmptyGuide, PageHeader, StatCard } from '@/components/page'
 import type { SalesDashboardRow } from '@/types'
 
 /**
@@ -43,6 +46,8 @@ import type { SalesDashboardRow } from '@/types'
  * 所以在概览上看到的数字点进去必然对得上。
  *
  * 每个数字都必须能点进源页面 —— 点不进去的汇总只会让人再搜一遍单号。
+ * 布局只用 Row/Col 与 antd 的 Card/List：改造前是一套只有这一页在用的
+ * 手写 grid（.workbench / .span-7 / .quick-card），窄屏下只能叠成一条。
  */
 
 /** 当月第一天与今天，YYYY-MM-DD。用本地时间而不是 UTC：跨时区时 UTC 会退回上月。 */
@@ -61,42 +66,7 @@ function percent(rate?: string) {
   return `${(n * 100).toFixed(1)}%`
 }
 
-type KpiCardProps = {
-  title: string
-  value: ReactNode
-  hint: ReactNode
-  icon: ReactNode
-  tone?: 'default' | 'warning' | 'danger'
-  onClick?: () => void
-}
-
-/** 抬头数字卡：图标点出所属业务，底部一行口径说明。整卡可点。 */
-function KpiCard({ title, value, hint, icon, tone = 'default', onClick }: KpiCardProps) {
-  const color =
-    tone === 'danger' ? '#dc2626' : tone === 'warning' ? '#d97706' : 'var(--ant-color-text, #1c2532)'
-  return (
-    <Card
-      variant="borderless"
-      className="stat-card"
-      hoverable={!!onClick}
-      onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-    >
-      <div className="stat-row">
-        <Statistic
-          title={title}
-          valueRender={() => <span style={{ color, fontVariantNumeric: 'tabular-nums' }}>{value}</span>}
-        />
-        <span className="stat-icon">{icon}</span>
-      </div>
-      <Typography.Text type="secondary" className="stat-hint">
-        {hint}
-      </Typography.Text>
-    </Card>
-  )
-}
-
-/** 待办清单的一条：类型 + 描述 + 逾期 + 金额，四个字段对齐成一行。 */
+/** 待办清单的一条：类型 + 描述 + 逾期 + 金额。 */
 type TodoEntry = {
   key: string
   kind: string
@@ -108,8 +78,19 @@ type TodoEntry = {
   onClick: () => void
 }
 
+/** 常用入口：图标 + 一句"这一步做什么"。 */
+const QUICK_ENTRIES = [
+  { key: 'quotations', title: '报价单', sub: '成本快照与转单', icon: <FileTextOutlined /> },
+  { key: 'sales-orders', title: '销售订单', sub: '确认即校验额度', icon: <InboxOutlined /> },
+  { key: 'purchase-orders', title: '采购订单', sub: '可挂销售单行', icon: <ShoppingCartOutlined /> },
+  { key: 'shipments', title: '出货单', sub: '选订单行装箱', icon: <SendOutlined /> },
+  { key: 'payments', title: '收款登记', sub: '核销应收', icon: <TransactionOutlined /> },
+  { key: 'customers', title: '客户 360', sub: '订单 / 应收 / 跟进', icon: <GlobalOutlined /> },
+] as const
+
 export function DashboardPage() {
   const { list, create, show, edit } = useNavigation()
+  const { token } = theme.useToken()
   const range = currentRange()
 
   const summary = useQuery({ queryKey: ['dashboard-summary'], queryFn: dashboardApi.summary })
@@ -179,31 +160,34 @@ export function DashboardPage() {
   const overdueBase = Number(collection.data?.overdue_base ?? 0)
 
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
-      <div className="page-head">
-        <div className="page-head-text">
-          <h1 className="page-head-title">工作台</h1>
-          <p className="page-head-desc">
-            产品 {summary.data?.product_total ?? '—'} 个（启用 {summary.data?.enabled_products ?? '—'}）·
-            供应商 {summary.data?.supplier_total ?? '—'} 家 · 客户 {summary.data?.customer_total ?? '—'} 家 ·
-            数据截至 {todos.data?.as_of ?? '今天'}
-          </p>
-        </div>
-        <div className="page-head-extra">
-          <Button icon={<BellOutlined />} onClick={() => list('todos')}>
-            全部待办
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => create('quotations')}>
-            新建报价单
-          </Button>
-        </div>
-      </div>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="工作台"
+        description={
+          <>
+            产品 {summary.data?.product_total ?? '—'} 个（启用{' '}
+            {summary.data?.enabled_products ?? '—'}）· 供应商 {summary.data?.supplier_total ?? '—'}{' '}
+            家 · 客户 {summary.data?.customer_total ?? '—'} 家 · 数据截至{' '}
+            {todos.data?.as_of ?? '今天'}
+          </>
+        }
+        extra={
+          <>
+            <Button icon={<BellOutlined />} onClick={() => list('todos')}>
+              全部待办
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => create('quotations')}>
+              新建报价单
+            </Button>
+          </>
+        }
+      />
 
       {error && <Alert type="error" showIcon message={error.message} />}
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} xl={6}>
-          <KpiCard
+          <StatCard
             title="待跟进客户"
             value={todos.data?.followup_count ?? 0}
             hint={
@@ -213,22 +197,22 @@ export function DashboardPage() {
               </>
             }
             icon={<CommentOutlined />}
-            tone={(todos.data?.followup_count ?? 0) > 0 ? 'warning' : 'default'}
+            tone={(todos.data?.followup_count ?? 0) > 0 ? 'warning' : 'primary'}
             onClick={() => list('activities')}
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
-          <KpiCard
+          <StatCard
             title="应收待催"
             value={todos.data?.receivable_count ?? 0}
             hint="到期日 <= 今天且未结清（当天就算）"
             icon={<WarningOutlined />}
-            tone={(todos.data?.receivable_count ?? 0) > 0 ? 'danger' : 'default'}
+            tone={(todos.data?.receivable_count ?? 0) > 0 ? 'danger' : 'primary'}
             onClick={() => list('collection')}
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
-          <KpiCard
+          <StatCard
             title="本月出货收入"
             value={<Money value={sales.data?.total.revenue} />}
             hint={`${range.from} 至 ${range.to}，按出货日；毛利率 ${percent(sales.data?.total.margin)}`}
@@ -237,7 +221,7 @@ export function DashboardPage() {
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
-          <KpiCard
+          <StatCard
             title="本月毛利"
             value={
               sales.data?.total.cost_hidden ? (
@@ -254,146 +238,138 @@ export function DashboardPage() {
                   : '收入 − 采购成本 − 运杂费'
             }
             icon={<CheckCircleOutlined />}
+            tone={sales.data?.total.cost_missing ? 'warning' : 'primary'}
             onClick={() => list('sales-dashboard')}
           />
         </Col>
       </Row>
 
-      <div className="workbench">
-        <div className="span-7">
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={14}>
           <Card
             variant="borderless"
             title="今天该做的事"
             extra={<span className="cell-sub">按逾期天数排序，取最急的 8 条</span>}
-            loading={todos.isLoading}
           >
-            {todoEntries.length === 0 ? (
-              <div className="empty-guide">
-                <span className="empty-guide-title">没有到期的事</span>
-                <span className="empty-guide-desc">
-                  待跟进、应收待催、验货到期、合同分期这四类都清空了。有新的跟进或收款计划后，这里会自动出现。
-                </span>
-                <Button onClick={() => list('todos')}>看待办口径</Button>
-              </div>
-            ) : (
-              <Space direction="vertical" size={0} style={{ display: 'flex' }}>
-                {todoEntries.map((entry) => (
-                  <div
-                    key={entry.key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={entry.onClick}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') entry.onClick()
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '10px 4px',
-                      borderBottom: '1px solid var(--ant-color-border-secondary, #e3e8f0)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Tag color={entry.color} bordered={false} style={{ marginInlineEnd: 0 }}>
-                      {entry.kind}
-                    </Tag>
-                    <div className="cell-stack" style={{ flex: 1, minWidth: 0 }}>
-                      <span className="cell-strong">{entry.title}</span>
-                      <span className="cell-sub">{entry.sub}</span>
-                    </div>
-                    {entry.amount ? (
-                      <span className="cell-strong" style={{ whiteSpace: 'nowrap' }}>
-                        <Money value={entry.amount} />
-                      </span>
-                    ) : null}
-                    <Tag color={entry.overdue > 0 ? 'red' : 'gold'} bordered={false}>
-                      {entry.overdue > 0 ? `逾期 ${entry.overdue} 天` : '今天'}
-                    </Tag>
-                  </div>
-                ))}
-              </Space>
-            )}
-          </Card>
-        </div>
-
-        <div className="span-5">
-          <Card
-            variant="borderless"
-            title="应收账款"
-            extra={
-              <Button type="link" size="small" onClick={() => list('collection')}>
-                回款与超期
-              </Button>
-            }
-            loading={collection.isLoading}
-          >
-            <Space direction="vertical" size={12} style={{ display: 'flex' }}>
-              <div>
-                <div className="cell-sub">期间回款率（到期 / 回款，按到期日）</div>
-                <Progress
-                  percent={Math.min(100, Math.round(collectionRate))}
-                  status={collectionRate >= 100 ? 'success' : 'active'}
-                  format={() => percent(collection.data?.collection_rate)}
-                  strokeColor={overdueBase > 0 ? '#d97706' : undefined}
-                />
-              </div>
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Statistic
-                    title="未结清（含未到期）"
-                    valueRender={() => <Money value={collection.data?.outstanding_base} />}
+            <List<TodoEntry>
+              dataSource={todoEntries}
+              loading={todos.isLoading}
+              split
+              locale={{
+                emptyText: (
+                  <EmptyGuide
+                    title="没有到期的事"
+                    description="待跟进、应收待催、验货到期、合同分期这四类都清空了。有新的跟进或收款计划后，这里会自动出现。"
+                    action={<Button onClick={() => list('todos')}>看待办口径</Button>}
                   />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="其中已逾期"
-                    valueRender={() => (
-                      <span style={{ color: overdueBase > 0 ? '#dc2626' : undefined }}>
-                        <Money value={collection.data?.overdue_base} />
-                      </span>
-                    )}
-                  />
-                </Col>
-              </Row>
-              <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
-                回款率可能超过 100%：那是本月在还上个月的账，不是算错。
-              </Typography.Text>
-            </Space>
-          </Card>
-
-          <Card variant="borderless" title="常用入口" style={{ marginTop: 16 }}>
-            <div className="quick-grid">
-              {[
-                { title: '报价单', sub: '成本快照与转单', icon: <FileTextOutlined />, go: () => create('quotations') },
-                { title: '销售订单', sub: '确认即校验额度', icon: <InboxOutlined />, go: () => create('sales-orders') },
-                { title: '采购订单', sub: '可挂销售单行', icon: <ShoppingCartOutlined />, go: () => create('purchase-orders') },
-                { title: '出货单', sub: '选订单行装箱', icon: <SendOutlined />, go: () => create('shipments') },
-                { title: '收款登记', sub: '核销应收', icon: <TransactionOutlined />, go: () => create('payments') },
-                { title: '客户 360', sub: '订单 / 应收 / 跟进', icon: <GlobalOutlined />, go: () => list('customers') },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="quick-card"
-                  role="button"
-                  tabIndex={0}
-                  onClick={item.go}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') item.go()
-                  }}
+                ),
+              }}
+              renderItem={(entry) => (
+                <List.Item
+                  className="todo-row"
+                  onClick={entry.onClick}
+                  extra={
+                    <Space size={8}>
+                      {entry.amount ? (
+                        <span className="cell-strong" style={{ whiteSpace: 'nowrap' }}>
+                          <Money value={entry.amount} />
+                        </span>
+                      ) : null}
+                      <Tag bordered={false} color={entry.overdue > 0 ? 'error' : 'warning'}>
+                        {entry.overdue > 0 ? `逾期 ${entry.overdue} 天` : '今天'}
+                      </Tag>
+                    </Space>
+                  }
                 >
-                  <span className="quick-card-icon">{item.icon}</span>
-                  <span className="quick-card-text">
-                    <span className="quick-card-title">{item.title}</span>
-                    <span className="quick-card-sub">{item.sub}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
+                  <List.Item.Meta
+                    avatar={
+                      <Tag bordered={false} color={entry.color}>
+                        {entry.kind}
+                      </Tag>
+                    }
+                    title={<span className="cell-strong">{entry.title}</span>}
+                    description={<span className="cell-sub">{entry.sub}</span>}
+                  />
+                </List.Item>
+              )}
+            />
           </Card>
-        </div>
+        </Col>
 
-        <div className="span-12">
+        <Col xs={24} xl={10}>
+          <Flex vertical gap={16}>
+            <Card
+              variant="borderless"
+              title="应收账款"
+              loading={collection.isLoading}
+              extra={
+                <Button type="link" size="small" onClick={() => list('collection')}>
+                  回款与超期
+                </Button>
+              }
+            >
+              <Flex vertical gap={12}>
+                <div>
+                  <Typography.Text type="secondary" className="cell-sub">
+                    期间回款率（到期 / 回款，按到期日）
+                  </Typography.Text>
+                  <Progress
+                    percent={Math.min(100, Math.round(collectionRate))}
+                    status={collectionRate >= 100 ? 'success' : 'active'}
+                    format={() => percent(collection.data?.collection_rate)}
+                    strokeColor={overdueBase > 0 ? token.colorWarning : undefined}
+                  />
+                </div>
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Statistic
+                      title="未结清（含未到期）"
+                      valueRender={() => <Money value={collection.data?.outstanding_base} />}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="其中已逾期"
+                      valueRender={() => (
+                        <span style={{ color: overdueBase > 0 ? token.colorError : undefined }}>
+                          <Money value={collection.data?.overdue_base} />
+                        </span>
+                      )}
+                    />
+                  </Col>
+                </Row>
+                <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+                  回款率可能超过 100%：那是本月在还上个月的账，不是算错。
+                </Typography.Text>
+              </Flex>
+            </Card>
+
+            <Card variant="borderless" title="常用入口">
+              <Row gutter={[8, 8]}>
+                {QUICK_ENTRIES.map((item) => (
+                  <Col xs={12} key={item.key}>
+                    <Card
+                      size="small"
+                      hoverable
+                      className="quick-entry"
+                      onClick={() => create(item.key)}
+                    >
+                      <Flex align="center" gap={10}>
+                        <span className="quick-entry-icon">{item.icon}</span>
+                        <span className="cell-stack">
+                          <span className="cell-strong">{item.title}</span>
+                          <span className="cell-sub">{item.sub}</span>
+                        </span>
+                      </Flex>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </Card>
+          </Flex>
+        </Col>
+
+        <Col span={24}>
           <Card
             variant="borderless"
             title="本月经营（按客户）"
@@ -424,7 +400,9 @@ export function DashboardPage() {
                   row.key === 'unknown' ? (
                     <span className="cell-sub">未指定客户</span>
                   ) : (
-                    <Typography.Link onClick={() => show('customers', Number(row.key))}>{value}</Typography.Link>
+                    <Typography.Link onClick={() => show('customers', Number(row.key))}>
+                      {value}
+                    </Typography.Link>
                   )
                 }
               />
@@ -467,8 +445,8 @@ export function DashboardPage() {
               </Typography.Text>
             ) : null}
           </Card>
-        </div>
-      </div>
-    </Space>
+        </Col>
+      </Row>
+    </Flex>
   )
 }

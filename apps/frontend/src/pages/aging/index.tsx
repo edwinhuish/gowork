@@ -1,15 +1,33 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Card, Input, Modal, Radio, Space, Table, Tag, Typography, message } from 'antd'
+import {
+  Alert,
+  Button,
+  Card,
+  Flex,
+  Input,
+  Modal,
+  Radio,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+  theme,
+} from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { FilterBar, PageHeader } from '@/components/page'
 import type { AgingRow } from '@/types'
 
 /** 桶里的金额：有值才显示，0 一律给短横，避免整列看起来像满的。 */
-function Bucket({ value, color }: { value: string; color?: string }) {
+function Bucket({ value, tone }: { value: string; tone?: 'warning' | 'error' }) {
+  const { token } = theme.useToken()
   // 金额是定点字符串，这里的"有没有值"只决定显示短横还是数字。
   if (Number(value) <= 0.0001) return <Empty />
+  const color =
+    tone === 'error' ? token.colorError : tone === 'warning' ? token.colorWarning : undefined
   return (
     <span style={color ? { color } : undefined}>
       <Money value={value} />
@@ -72,36 +90,42 @@ export function AgingPage() {
   }
 
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="账龄"
+        description="逾期天数 = 截止日 − 到期日，到期当天不算逾期；原币按主体 + 币种拆行，合计只给本币"
+      />
+
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
-      <Card variant="borderless">
-        <Space wrap size={16} align="center">
-          <Radio.Group
-            optionType="button"
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as number)}
-            options={[
-              { value: 10, label: '应收' },
-              { value: 20, label: '应付' },
-            ]}
-          />
-          <Input
-            value={asOfInput}
-            onChange={(e) => setAsOfInput(e.target.value)}
-            onPressEnter={() => setAsOf(asOfInput.trim())}
-            onBlur={() => setAsOf(asOfInput.trim())}
-            placeholder="截止日 YYYY-MM-DD（留空取今天）"
-            style={{ width: 260 }}
-            allowClear
-            // 清空输入框后按回车即回到"今天"，否则会一直停在旧截止日。
-            onClear={() => setAsOf('')}
-          />
+      <FilterBar
+        extra={
           <Typography.Text type="secondary">
             截止 {data?.as_of ?? '—'} · {isPayable ? '我们欠供应商' : '客户欠我们'}
           </Typography.Text>
-        </Space>
-      </Card>
+        }
+      >
+        <Radio.Group
+          optionType="button"
+          value={direction}
+          onChange={(e) => setDirection(e.target.value as number)}
+          options={[
+            { value: 10, label: '应收' },
+            { value: 20, label: '应付' },
+          ]}
+        />
+        <Input
+          value={asOfInput}
+          onChange={(e) => setAsOfInput(e.target.value)}
+          onPressEnter={() => setAsOf(asOfInput.trim())}
+          onBlur={() => setAsOf(asOfInput.trim())}
+          placeholder="截止日 YYYY-MM-DD（留空取今天）"
+          style={{ width: 260 }}
+          allowClear
+          // 清空输入框后按回车即回到"今天"，否则会一直停在旧截止日。
+          onClear={() => setAsOf('')}
+        />
+      </FilterBar>
 
       <Card variant="borderless" title={isPayable ? '按供应商的账龄' : '按客户的账龄'}>
         <Table<AgingRow>
@@ -180,19 +204,19 @@ export function AgingPage() {
             title="31-60"
             width={120}
             align="right"
-            render={(_, row: AgingRow) => <Bucket value={row.amount.days_31_60} color="#d48806" />}
+            render={(_, row: AgingRow) => <Bucket value={row.amount.days_31_60} tone="warning" />}
           />
           <Table.Column
             title="61-90"
             width={120}
             align="right"
-            render={(_, row: AgingRow) => <Bucket value={row.amount.days_61_90} color="#d46b08" />}
+            render={(_, row: AgingRow) => <Bucket value={row.amount.days_61_90} tone="warning" />}
           />
           <Table.Column
             title="90 天以上"
             width={130}
             align="right"
-            render={(_, row: AgingRow) => <Bucket value={row.amount.days_over_90} color="#cf1322" />}
+            render={(_, row: AgingRow) => <Bucket value={row.amount.days_over_90} tone="error" />}
           />
           <Table.Column
             title="合计（原币）"
@@ -282,6 +306,6 @@ export function AgingPage() {
           </Space>
         </Space>
       </Modal>
-    </Space>
+    </Flex>
   )
 }

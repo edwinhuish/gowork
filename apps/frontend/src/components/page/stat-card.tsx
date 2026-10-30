@@ -51,13 +51,13 @@ export function StatCard({
       onClick={onClick}
     >
       <Flex align="flex-start" justify="space-between" gap={12}>
-        <Statistic
-          title={title}
-          value={value as number}
-          precision={precision}
-          prefix={prefix}
-          suffix={suffix}
-        />
+        {/* 金额是 <Money> 这类节点而不是数字：Statistic 只在拿到 number 时才
+            做千分位与精度格式化，节点直接交给 valueRender，别转成字符串再丢格式。 */}
+        {typeof value === 'number' ? (
+          <Statistic title={title} value={value} precision={precision} prefix={prefix} suffix={suffix} />
+        ) : (
+          <Statistic title={title} valueRender={() => value} />
+        )}
         {icon ? (
           <span className="stat-icon" style={{ color, background: token.colorFillTertiary }}>
             {icon}

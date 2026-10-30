@@ -1,19 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigation } from '@refinedev/core'
-import { Alert, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
+import {
+  Alert,
+  Card,
+  Col,
+  Flex,
+  Row,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { PageHeader, StatCard } from '@/components/page'
 import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection, TodoContractTerm } from '@/types'
 import { formatTime } from '@/utils/format'
 
 /**
  * 待办清单（T-34）。
  *
- * 三类各有一个明确口径，页面上都写出来：
+ * 四类各有一个明确口径，页面上都写出来：
  *   - 待跟进：下次跟进日**早于今天**（当天不算——早上就先标红只会让人学会无视）；
  *   - 应收待催：到期日 <= 今天且未结清（当天就算——催款是当天的事）；
- *   - 缺当日汇率：外币今天还没有汇率（报价与开单都要锁当天汇率）。
+ *   - 验货到期：计划验货日 <= 今天且未完成；
+ *   - 合同分期待收：约定付款日 <= 今天且未收到。
  *
  * 每块都显示全量条数：清单是"先做哪几件"，条数是"还剩多少"。
  * 每行都能点进源单据——提醒点不进去，就还得再搜一遍单号。
@@ -25,34 +37,45 @@ export function TodoPage() {
     queryFn: () => reportApi.todos({ limit: 20 }),
   })
 
+  const followup = data?.followup_count ?? 0
+  const receivable = data?.receivable_count ?? 0
+  const inspection = data?.inspection_count ?? 0
+  const contractTerm = data?.contract_term_count ?? 0
+
   return (
-    <Space direction="vertical" size={16} style={{ display: 'flex' }}>
+    <Flex vertical gap={16}>
+      <PageHeader
+        title="待办"
+        description="四类各有明确口径，每行都能点进源单据；条数是全量，清单只列最急的 20 条"
+        tags={<Tag bordered={false}>截至 {data?.as_of ?? '今天'}</Tag>}
+      />
+
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
-      <Card variant="borderless">
-        <Row gutter={[24, 16]}>
-          <Col xs={12} md={8} xl={6}>
-            <Statistic
-              title="待跟进"
-              value={data?.followup_count ?? 0}
-              valueStyle={{ color: (data?.followup_count ?? 0) > 0 ? '#d46b08' : undefined }}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={6}>
-            <Statistic
-              title="应收待催"
-              value={data?.receivable_count ?? 0}
-              valueStyle={{ color: (data?.receivable_count ?? 0) > 0 ? '#cf1322' : undefined }}
-            />
-          </Col>
-          <Col xs={12} md={8} xl={6}>
-            <Statistic title="缺当日汇率" value={data?.missing_rates.length ?? 0} />
-          </Col>
-          <Col xs={24} md={8} xl={6}>
-            <Typography.Text type="secondary">截至 {data?.as_of ?? '今天'}</Typography.Text>
-          </Col>
-        </Row>
-      </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={12} md={6}>
+          <StatCard
+            title="待跟进"
+            value={followup}
+            hint="下次跟进日早于今天"
+            tone={followup > 0 ? 'warning' : 'primary'}
+          />
+        </Col>
+        <Col xs={12} md={6}>
+          <StatCard
+            title="应收待催"
+            value={receivable}
+            hint="到期日 <= 今天且未结清"
+            tone={receivable > 0 ? 'danger' : 'primary'}
+          />
+        </Col>
+        <Col xs={12} md={6}>
+          <StatCard title="验货到期" value={inspection} hint="计划日 <= 今天且未完成" />
+        </Col>
+        <Col xs={12} md={6}>
+          <StatCard title="合同待收" value={contractTerm} hint="约定付款日 <= 今天且未收到" />
+        </Col>
+      </Row>
 
       <Card
         variant="borderless"
@@ -87,7 +110,11 @@ export function TodoPage() {
             title="逾期"
             width={90}
             align="right"
-            render={(value: number) => <Tag color="orange">{value} 天</Tag>}
+            render={(value: number) => (
+              <Tag bordered={false} color="warning">
+                {value} 天
+              </Tag>
+            )}
           />
         </Table>
       </Card>
@@ -128,7 +155,15 @@ export function TodoPage() {
             width={100}
             align="right"
             render={(value: number) =>
-              value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天到期</Tag>
+              value > 0 ? (
+                <Tag bordered={false} color="error">
+                  {value} 天
+                </Tag>
+              ) : (
+                <Tag bordered={false} color="warning">
+                  今天到期
+                </Tag>
+              )
             }
           />
           <Table.Column
@@ -182,7 +217,15 @@ export function TodoPage() {
             width={100}
             align="right"
             render={(value: number) =>
-              value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天</Tag>
+              value > 0 ? (
+                <Tag bordered={false} color="error">
+                  {value} 天
+                </Tag>
+              ) : (
+                <Tag bordered={false} color="warning">
+                  今天
+                </Tag>
+              )
             }
           />
         </Table>
@@ -229,7 +272,15 @@ export function TodoPage() {
             width={100}
             align="right"
             render={(value: number) =>
-              value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag color="gold">今天</Tag>
+              value > 0 ? (
+                <Tag bordered={false} color="error">
+                  {value} 天
+                </Tag>
+              ) : (
+                <Tag bordered={false} color="warning">
+                  今天
+                </Tag>
+              )
             }
           />
           <Table.Column
@@ -272,6 +323,6 @@ export function TodoPage() {
         生成于 {formatTime(data?.as_of ?? '')}；「待确认单据」暂不做——
         什么算"停太久"还没有口径，随手定一个天数只会天天报警然后被无视。
       </Typography.Text>
-    </Space>
+    </Flex>
   )
 }
