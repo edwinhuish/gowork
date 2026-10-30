@@ -32,7 +32,6 @@ export function SupplierFormFields() {
       <Form.Item
         name="entity_type"
         label="主体类型"
-        initialValue={0}
         tooltip="1688 上的个人店铺、个体户按个人登记，报关与开票资料与公司不同"
       >
         <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />

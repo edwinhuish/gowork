@@ -24,6 +24,12 @@ import { ResponsiveTable } from './responsive-table'
  * 页面不需要为手机再写一套视图。降级判断在 ResponsiveTable 里，
  * 报表页（不走 PageList）用的是同一份。给了 `table` 的页面
  * （产品与三张往来单位表）自己有双视图，由 useListView 在窄屏把默认视图改成卡片。
+ *
+ * 「查询」走的是 refine 的 `searchFormProps.onFinish` → `setFilters`，
+ * 而它默认是 **merge**：新条件并进旧条件，没提到的字段原样留着。于是
+ * 「清空关键字再查询」等于什么都没提交 —— 请求都不发，列表纹丝不动。
+ * 所以各列表的 useTable 都配了 `filters: { defaultBehavior: 'replace' }`：
+ * 筛选表单给的是这一次的完整条件，不是补丁。永久筛选 replace 也会保留。
  */
 
 export interface PageListProps<T> {

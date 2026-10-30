@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
@@ -27,6 +28,10 @@ export function CurrencyList() {
   const { tableProps, searchFormProps, setFilters } = useTable<Currency>({
     resource: 'currencies',
     syncWithLocation: true,
+    // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
+    // 会把上一次的条件留着 —— 清空关键字再点查询，keyword 仍旧跟着请求走，
+    // 表现是「条件清不掉、列表也不动」。永久筛选仍会保留（见 PageList 的说明）。
+    filters: { defaultBehavior: 'replace' },
     onSearch: (values): CrudFilters => {
       const v = values as CurrencySearch
       const filters: CrudFilters = []
@@ -130,12 +135,16 @@ export function CurrencyList() {
         title="操作"
         width={90}
         render={(_, record: Currency) =>
-          // 归档的人看得见也想得到，删掉的人才需要这一列。
+          // 归档不等于删除，它是编辑页里的一个字段 —— 所以「归档这个币种」
+          // 唯一的操作路径就是进编辑页。这一列原本只给删掉的人放「恢复」，
+          // 等于归档功能没有任何入口。
           record.deleted_at ? (
             <Button size="small" type="link" onClick={() => restore(record.id)}>
               恢复
             </Button>
-          ) : null
+          ) : (
+            <Link to={`/currencies/edit/${record.id}`}>编辑</Link>
+          )
         }
       />
     </PageList>

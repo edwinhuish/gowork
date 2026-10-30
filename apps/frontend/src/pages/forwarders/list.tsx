@@ -50,6 +50,10 @@ export function ForwarderList() {
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'forwarders',
     syncWithLocation: true,
+    // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
+    // 会把上一次的条件留着 —— 清空关键字再点查询，keyword 仍旧跟着请求走，
+    // 表现是「条件清不掉、列表也不动」。永久筛选仍会保留（见 PageList 的说明）。
+    filters: { defaultBehavior: 'replace' },
     pagination: { pageSize: Number(PARTNER_CARD_PAGE_SIZES[0]) },
     onSearch: (values): CrudFilters => {
       const v = values as ForwarderSearch

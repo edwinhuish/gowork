@@ -47,7 +47,6 @@ export function CustomerFormFields() {
       <Form.Item
         name="entity_type"
         label="主体类型"
-        initialValue={0}
         tooltip="个人主体的报关资料与发票抬头和公司不同，需要单独标记"
       >
         <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />
@@ -128,7 +127,6 @@ export function CustomerFormFields() {
       <Form.Item
         name="credit_days"
         label="账期（天）"
-        initialValue={0}
         tooltip="从出货或开票起算。0 表示款到发货"
       >
         <InputNumber style={{ width: '100%' }} min={0} max={365} precision={0} />
@@ -137,7 +135,6 @@ export function CustomerFormFields() {
       <Form.Item
         name="credit_limit"
         label="信用额度（本币）"
-        initialValue={0}
         tooltip="0 表示不限，而不是一分不给"
       >
         <InputNumber

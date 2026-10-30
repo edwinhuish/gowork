@@ -80,7 +80,7 @@ export function ProductFormFields() {
       </Form.Item>
 
       {/* stringMode：金额按字符串收发表单，走一遍 JS number 等于把后端的定点精度丢了。 */}
-      <Form.Item name="cost_price" label="成本价" initialValue="0">
+      <Form.Item name="cost_price" label="成本价">
         <InputNumber
           style={{ width: '100%' }}
           min={0}
@@ -91,7 +91,7 @@ export function ProductFormFields() {
         />
       </Form.Item>
 
-      <Form.Item name="sale_price" label="售价" initialValue="0">
+      <Form.Item name="sale_price" label="售价">
         <InputNumber
           style={{ width: '100%' }}
           min={0}

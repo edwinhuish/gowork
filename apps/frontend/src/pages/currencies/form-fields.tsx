@@ -38,10 +38,12 @@ export function CurrencyFormFields({ codeReadOnly = false }: { codeReadOnly?: bo
         <Input placeholder="$" />
       </Form.Item>
 
+      {/* 默认值不写在这里：这个组件编辑页也用，编辑时表单级 initialValues
+          里已经有记录的值，Form.Item 再给 initialValue 会撞车（antd 每页刷
+          「Form already set 'initialValues'」）。新建页给，见 create.tsx。 */}
       <Form.Item
         name="decimal_places"
         label="小数位"
-        initialValue={2}
         extra="展示与舍入精度。人民币 2 位，日元 0 位"
       >
         <InputNumber style={{ width: '100%' }} min={0} max={6} precision={0} />
@@ -59,7 +61,6 @@ export function CurrencyFormFields({ codeReadOnly = false }: { codeReadOnly?: bo
       <Form.Item
         name="status"
         label="归档"
-        initialValue={1}
         extra="归档后不再出现在下拉与缺汇率待办里；已有汇率的历史单据仍按它折算"
       >
         <Select options={CURRENCY_STATUS_OPTIONS} />

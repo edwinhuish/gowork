@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate, useSelect } from '@refinedev/core'
@@ -33,6 +34,10 @@ export function ContactList() {
   const { tableProps, searchFormProps, setFilters } = useTable<Contact>({
     resource: 'contacts',
     syncWithLocation: true,
+    // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
+    // 会把上一次的条件留着 —— 清空关键字再点查询，keyword 仍旧跟着请求走，
+    // 表现是「条件清不掉、列表也不动」。永久筛选仍会保留（见 PageList 的说明）。
+    filters: { defaultBehavior: 'replace' },
     onSearch: (values): CrudFilters => {
       const v = values as ContactSearch
       const filters: CrudFilters = []
@@ -148,13 +153,15 @@ export function ContactList() {
         title="操作"
         width={90}
         render={(_, record: Contact) =>
-          // 软删是唯一的状态：没删的人在这里没有额外动作，
-          // 删掉的只能恢复，所以这一列平时是空的。
+          // 联系人会换工作、换号码，改不了就只能删了重建 —— 而重建会丢掉
+          // 它在单据上的关联。编辑页和路由早就有了，这里就是它的入口。
           record.deleted_at ? (
             <Button size="small" type="link" onClick={() => restore(record.id)}>
               恢复
             </Button>
-          ) : null
+          ) : (
+            <Link to={`/contacts/edit/${record.id}`}>编辑</Link>
+          )
         }
       />
     </PageList>

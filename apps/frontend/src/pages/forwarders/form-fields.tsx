@@ -38,7 +38,6 @@ export function ForwarderFormFields() {
       <Form.Item
         name="entity_type"
         label="主体类型"
-        initialValue={0}
         tooltip="报关行多以公司名义接单；个人代理按个人登记，报关资料与发票抬头不同"
       >
         <Radio.Group options={PARTNER_ENTITY_TYPE_OPTIONS} optionType="button" buttonStyle="solid" />

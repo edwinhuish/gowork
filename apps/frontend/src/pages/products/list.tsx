@@ -1,4 +1,5 @@
 import { AppstoreOutlined, BarsOutlined, PictureOutlined } from '@ant-design/icons'
+import { Link } from 'react-router'
 import { useInvalidate, useNavigation, type CrudFilters, type CrudSort } from '@refinedev/core'
 import { toCardPager } from '@/components/partner-cards'
 import { CreateButton, DeleteButton, useTable } from '@refinedev/antd'
@@ -83,6 +84,10 @@ export function ProductList() {
   const { tableProps, searchFormProps, sorters, setSorters } = useTable<Product>({
     resource: 'products',
     syncWithLocation: true,
+    // 用 replace：筛选表单表达的是「这一次的完整条件」，而 refine 默认 merge
+    // 会把上一次的条件留着 —— 清空关键字再点查询，keyword=A 仍旧跟着请求走，
+    // 表现是「条件清不掉，列表也不动」（连请求都不会发）。永久筛选仍会保留。
+    filters: { defaultBehavior: 'replace' },
     pagination: { pageSize: 12 },
     onSearch: (values): CrudFilters => {
       const v = values as ProductSearch
@@ -362,7 +367,12 @@ export function ProductList() {
         sortOrder={sortOrderOf('name_cn')}
         render={(value: string, record: Product) => (
           <div className="cell-stack">
-            <span className="cell-strong">{value}</span>
+            {/* 卡片视图点整张卡进详情，表格视图就得有个能点的地方 ——
+                否则「列表视图」下这一行除了删除什么也做不了。
+                用 Link 而不是 onClick：中键 / 右键「新标签打开」要能用。 */}
+            <Link to={`/products/show/${record.id}`}>
+              <span className="cell-strong">{value}</span>
+            </Link>
             {record.name_en && <span className="cell-sub">{record.name_en}</span>}
           </div>
         )}
