@@ -9,7 +9,10 @@ import (
 // CurrencyQuery 是币种列表的查询条件。
 type CurrencyQuery struct {
 	PageQuery
+	// Status 按归档标记筛：留空不筛。归档不是删除，归档的币种仍要能查得到。
 	Status *int8 `form:"status"`
+	// IncludeDeleted 把已软删的币种一并列出，这些行只能做一件事：恢复。
+	IncludeDeleted bool `form:"include_deleted"`
 }
 
 // CurrencyInput 新建与编辑共用。

@@ -1,10 +1,14 @@
-import type { CrudFilters } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
-import { Form, Input, Select, Table, Tag } from 'antd'
+import { useEffect, useState } from 'react'
 
-import { Empty, Mono, StatusTag } from '@/components/fields'
+import type { CrudFilters, BaseRecord } from '@refinedev/core'
+import { useInvalidate } from '@refinedev/core'
+import { useTable } from '@refinedev/antd'
+import { Button, Checkbox, Form, Input, message, Select, Table, Tag } from 'antd'
+
+import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { CURRENCY_STATUS_OPTIONS } from '@/constants/catalog'
+import { http } from '@/api/client'
 import type { Currency } from '@/types'
 
 interface CurrencySearch {
@@ -19,7 +23,8 @@ interface CurrencySearch {
  * 它是折算的基准，改了它所有新单据的本币金额口径都跟着变。
  */
 export function CurrencyList() {
-  const { tableProps, searchFormProps } = useTable<Currency>({
+  const [showDeleted, setShowDeleted] = useState(false)
+  const { tableProps, searchFormProps, setFilters } = useTable<Currency>({
     resource: 'currencies',
     syncWithLocation: true,
     onSearch: (values): CrudFilters => {
@@ -34,6 +39,25 @@ export function CurrencyList() {
       return filters
     },
   })
+
+  // 归档不等于删除：归档的币种平时就列着，只有删掉的才藏在这个开关后面。
+  useEffect(() => {
+    setFilters(
+      showDeleted ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
+      'replace',
+    )
+  }, [showDeleted, setFilters])
+
+  const invalidate = useInvalidate()
+  const restore = async (id: number) => {
+    try {
+      await http.put<BaseRecord>(`/currencies/${id}/restore`)
+      await invalidate({ resource: 'currencies', invalidates: ['list'] })
+    } catch (err) {
+      // 代码被别的币种占了是 409，后端文案写明了是哪个代码。
+      message.error(err instanceof Error ? err.message : '恢复失败')
+    }
+  }
 
   const resetFilters = () => {
     searchFormProps.form?.resetFields()
@@ -53,9 +77,14 @@ export function CurrencyList() {
             <Input placeholder="搜索代码 / 名称" allowClear />
           </Form.Item>
           <Form.Item name="status">
-            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
+            <Select placeholder="全部归档状态" allowClear options={CURRENCY_STATUS_OPTIONS} />
           </Form.Item>
         </>
+      }
+      extra={
+        <Checkbox checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)}>
+          含已删除
+        </Checkbox>
       }
     >
       <Table.Column
@@ -80,14 +109,28 @@ export function CurrencyList() {
       />
       <Table.Column
         dataIndex="status"
-        title="状态"
+        title="归档"
         width={90}
-        render={(value: number) => <StatusTag value={value} />}
+        render={(value: number) =>
+          value === 1 ? <Tag color="success">在用</Tag> : <Tag>已归档</Tag>
+        }
       />
       <Table.Column
         dataIndex="remark"
         title="备注"
         render={(value: string) => value || <Empty />}
+      />
+      <Table.Column
+        title="操作"
+        width={90}
+        render={(_, record: Currency) =>
+          // 归档的人看得见也想得到，删掉的人才需要这一列。
+          record.deleted_at ? (
+            <Button size="small" type="link" onClick={() => restore(record.id)}>
+              恢复
+            </Button>
+          ) : null
+        }
       />
     </PageList>
   )

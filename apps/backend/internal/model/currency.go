@@ -34,7 +34,11 @@ type Currency struct {
 	// 不用"配置项"表达本币：本币出现在每张单据的 amount_base 列里，
 	// 换了本币之后老单据的本币金额仍是旧本币口径，必须能查到它当时是哪个币种。
 	IsBase bool `gorm:"not null;default:false;index" json:"is_base"`
-	// Status 同 md_partner：刻意不写 default tag，避免"显式停用"被静默存成启用。
+	// Status 是归档标记，不是删除。
+	//
+	// 币种一旦有了汇率记录就删不掉（见 service.Delete），那时唯一能做的
+	// 就是把它归档：不再出现在下拉与待办里，但历史单据仍能按代码折算。
+	// 刻意不写 default tag，避免"显式归档"被静默存成启用。
 	Status EnableStatus `gorm:"not null;index" json:"status"`
 	Remark string       `gorm:"size:255" json:"remark"`
 }

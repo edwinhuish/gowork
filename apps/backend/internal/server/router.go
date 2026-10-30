@@ -254,6 +254,7 @@ func New(
 		currencies.GET("/:id", h.Currency.Get)
 		currencies.PUT("/:id", h.Currency.Update)
 		currencies.DELETE("/:id", h.Currency.Delete)
+		currencies.PUT("/:id/restore", h.Currency.Restore)
 
 		// 汇率没有 PUT：历史汇率不可改，录错就删掉重录。
 		rates := secured.Group("/exchange-rates")

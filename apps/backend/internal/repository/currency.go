@@ -15,10 +15,16 @@ import (
 type CurrencyFilter struct {
 	Keyword string
 	Status  *model.EnableStatus
+	// IncludeDeleted 把已软删的币种也查出来：它们只在"含已删除"里出现，
+	// 而恢复的第一步是先看得见。
+	IncludeDeleted bool
 }
 
 func (f CurrencyFilter) scopes() []Scope {
-	scopes := make([]Scope, 0, 2)
+	scopes := make([]Scope, 0, 3)
+	if f.IncludeDeleted {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
+	}
 	if f.Keyword != "" {
 		scopes = append(scopes, likeAny(f.Keyword, "code", "name", "symbol"))
 	}
@@ -35,7 +41,10 @@ type CurrencyRepository interface {
 	Create(ctx context.Context, m *model.Currency) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Currency, error)
+	// FindByIDIncludingDeleted 是恢复路径专用：常规查询看不见已删除的币种。
+	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.Currency, error)
 	// FindByCode 按三位代码查，用于单据折算与汇率校验。
 	FindByCode(ctx context.Context, code string) (*model.Currency, error)
 	// FindBase 返回本币。没有设置时返回 errs.ErrNotFound。
@@ -67,8 +76,32 @@ func (r *currencyRepo) Delete(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
 }
 
+func (r *currencyRepo) Restore(ctx context.Context, id uint) error {
+	err := r.conn(ctx).Unscoped().Model(&model.Currency{}).
+		Where("id = ?", id).
+		Update("deleted_at", 0).Error
+	if err != nil {
+		return fmt.Errorf("恢复币种 id=%d: %w", id, err)
+	}
+	return nil
+}
+
 func (r *currencyRepo) FindByID(ctx context.Context, id uint) (*model.Currency, error) {
 	return r.Base.FindByID(ctx, id)
+}
+
+func (r *currencyRepo) FindByIDIncludingDeleted(
+	ctx context.Context, id uint,
+) (*model.Currency, error) {
+	var m model.Currency
+	err := r.conn(ctx).Unscoped().First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询币种 id=%d（含已删除）: %w", id, err)
+	}
+	return &m, nil
 }
 
 func (r *currencyRepo) FindByCode(ctx context.Context, code string) (*model.Currency, error) {

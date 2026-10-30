@@ -1,6 +1,6 @@
 import { Form, Input, InputNumber, Select, Switch } from 'antd'
 
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { CURRENCY_STATUS_OPTIONS } from '@/constants/catalog'
 
 /**
  * 币种表单字段。
@@ -56,8 +56,13 @@ export function CurrencyFormFields({ codeReadOnly = false }: { codeReadOnly?: bo
         <Switch />
       </Form.Item>
 
-      <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={ENABLE_STATUS_OPTIONS} />
+      <Form.Item
+        name="status"
+        label="归档"
+        initialValue={1}
+        extra="归档后不再出现在下拉与缺汇率待办里；已有汇率的历史单据仍按它折算"
+      >
+        <Select options={CURRENCY_STATUS_OPTIONS} />
       </Form.Item>
 
       <Form.Item name="remark" label="备注" className="form-item-full">

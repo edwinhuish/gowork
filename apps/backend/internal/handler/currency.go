@@ -76,6 +76,20 @@ func (h *CurrencyHandler) Update(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Restore PUT /api/v1/currencies/:id/restore
+func (h *CurrencyHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.currencies.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 // Delete DELETE /api/v1/currencies/:id
 func (h *CurrencyHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

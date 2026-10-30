@@ -1,7 +1,6 @@
 import { useSelect } from '@refinedev/core'
 import { Form, Input, Select, Switch } from 'antd'
 
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Partner } from '@/types'
 
 /**
@@ -99,10 +98,6 @@ export function ContactFormFields({ partnerReadOnly = false }: { partnerReadOnly
 
       <Form.Item name="is_primary" label="主联系人" valuePropName="checked">
         <Switch />
-      </Form.Item>
-
-      <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
       <Form.Item name="remark" label="备注" className="form-item-full">

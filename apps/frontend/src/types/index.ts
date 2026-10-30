@@ -359,8 +359,11 @@ export interface Currency {
   symbol: string
   decimal_places: number
   is_base: boolean
+  /** 归档标记（1 在用 / 0 已归档）。归档不是删除，历史单据仍按它折算。 */
   status: number
   remark: string
+  /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
+  deleted_at?: number
   created_at: string
   updated_at: string
 }

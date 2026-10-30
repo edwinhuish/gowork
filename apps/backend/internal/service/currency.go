@@ -28,6 +28,7 @@ type CurrencyService interface {
 	Create(ctx context.Context, in dto.CurrencyInput) (*model.Currency, error)
 	Update(ctx context.Context, id uint, in dto.CurrencyInput) (*model.Currency, error)
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) (*model.Currency, error)
 	Get(ctx context.Context, id uint) (*model.Currency, error)
 	List(ctx context.Context, q dto.CurrencyQuery) (*dto.PageResult[model.Currency], error)
 	// ConvertDecimal 把 amount 从 from 折算成 to，汇率取 on 当日生效的那条。
@@ -133,7 +134,7 @@ func (s *currencyService) Update(ctx context.Context, id uint, in dto.CurrencyIn
 		return nil, err
 	}
 	if code != cur.Code {
-		return nil, errs.BadRequest("币种代码是业务身份，不可修改；请停用后新增一个币种")
+		return nil, errs.BadRequest("币种代码是业务身份，不可修改；请归档后新增一个币种")
 	}
 	dp, err := normDecimalPlaces(in.DecimalPlaces, cur.DecimalPlaces)
 	if err != nil {
@@ -181,16 +182,42 @@ func (s *currencyService) Delete(ctx context.Context, id uint) error {
 	if cur.IsBase {
 		return errs.ErrConflict.WithMsg("本币不能删除，请先把另一个币种设为本币")
 	}
-	// 有汇率记录的币种只能停用。软删除币种而把汇率留着，
+	// 有汇率记录的币种只能归档。软删除币种而把汇率留着，
 	// 之后按代码折算会命中"币种不存在"，而汇率页里那些记录看起来完全正常。
 	n, err := s.rates.CountByCurrencyCode(ctx, cur.Code)
 	if err != nil {
 		return err
 	}
 	if n > 0 {
-		return errs.ErrConflict.WithMsg(fmt.Sprintf("该币种已有 %d 条汇率记录，请停用而不是删除", n))
+		return errs.ErrConflict.WithMsg(fmt.Sprintf("该币种已有 %d 条汇率记录，请归档而不是删除", n))
 	}
 	return s.repo.Delete(ctx, id)
+}
+
+// Restore 把软删的币种放回来。
+//
+// 先查代码是否被占：删掉之后可以重新录一个同代码的币种，
+// 那时恢复会让两张单据指向不同的 id，而按代码折算又分不出来。
+func (s *currencyService) Restore(ctx context.Context, id uint) (*model.Currency, error) {
+	cur, err := s.repo.FindByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if cur.DeletedAt == 0 {
+		return nil, errs.BadRequest("该币种未被删除，无需恢复")
+	}
+	dup, err := s.repo.ExistsByCode(ctx, cur.Code, id)
+	if err != nil {
+		return nil, err
+	}
+	if dup {
+		return nil, errs.ErrConflict.WithMsg("币种代码已被占用：" + cur.Code)
+	}
+	if err := s.repo.Restore(ctx, id); err != nil {
+		return nil, err
+	}
+	s.log.Info("恢复币种", "id", id, "code", cur.Code)
+	return s.repo.FindByID(ctx, id)
 }
 
 func (s *currencyService) Get(ctx context.Context, id uint) (*model.Currency, error) {
@@ -201,8 +228,9 @@ func (s *currencyService) List(ctx context.Context, q dto.CurrencyQuery) (*dto.P
 	q.PageQuery.Normalize()
 
 	filter := repository.CurrencyFilter{
-		Keyword: q.Keyword,
-		Status:  enableStatusPtr(q.Status),
+		Keyword:        q.Keyword,
+		Status:         enableStatusPtr(q.Status),
+		IncludeDeleted: q.IncludeDeleted,
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 

@@ -185,6 +185,8 @@ func (r *reportRepo) ListMissingRates(
 		Select("c.code, c.name").
 		Where("c.deleted_at = 0").
 		Where("c.is_base = ?", false).
+		// 归档的币种不进待办：它不是删掉了，是刻意停用——
+		// 已经不再用的币种每天提醒一次缺汇率，等于用常驻噪音淹没真正要补的那条。
 		Where("c.status = ?", model.EnableStatusOn).
 		Where(`NOT EXISTS (
 			SELECT 1 FROM md_exchange_rate AS r

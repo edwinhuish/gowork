@@ -202,6 +202,17 @@ export const ENABLE_STATUS_OPTIONS = [
 ]
 
 /**
+ * 币种的同一个字段叫归档，不叫停用。
+ *
+ * 归档掉的币种仍然按代码折算历史单据、汇率表里也还留着它的记录，
+ * 说它是"停用"会让人以为这张单据已经失效了。
+ */
+export const CURRENCY_STATUS_OPTIONS = [
+  { value: 1, label: '在用', tone: 'success' as StatusTone },
+  { value: 0, label: '已归档', tone: 'default' as StatusTone },
+]
+
+/**
  * 产品编号来源。取值与后端 model.ProductCodeSource* 一致。
  *
  * 来源决定「这个号是谁叫的」：写成「客户」「客户A」「customer」三种说法之后，

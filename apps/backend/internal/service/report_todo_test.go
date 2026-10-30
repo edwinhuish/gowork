@@ -156,7 +156,7 @@ func TestTodoMissingRates(t *testing.T) {
 
 	res := f.todos(t, dto.TodoQuery{})
 	if len(res.MissingRates) != 1 || res.MissingRates[0].Code != "EUR" {
-		t.Fatalf("只该提示 EUR（停用的 JPY 与本币都不算），得到 %+v", res.MissingRates)
+		t.Fatalf("只该提示 EUR（归档的 JPY 与本币都不算），得到 %+v", res.MissingRates)
 	}
 }
 

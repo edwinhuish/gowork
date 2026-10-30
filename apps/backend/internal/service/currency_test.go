@@ -144,7 +144,7 @@ func TestCurrencyRules(t *testing.T) {
 		}
 	})
 
-	t.Run("有汇率的币种只能停用", func(t *testing.T) {
+	t.Run("有汇率的币种只能归档", func(t *testing.T) {
 		usd, err := currencySvc.List(ctx, dto.CurrencyQuery{PageQuery: dto.PageQuery{Keyword: "USD"}})
 		if err != nil || len(usd.List) != 1 {
 			t.Fatalf("查 USD 失败: %v", err)
@@ -152,6 +152,51 @@ func TestCurrencyRules(t *testing.T) {
 		err = currencySvc.Delete(ctx, usd.List[0].ID)
 		if e, ok := errs.From(err); !ok || e.Code != errs.CodeConflict {
 			t.Fatalf("期望 40901，实际 %v", err)
+		}
+	})
+
+	t.Run("没有汇率的币种删掉后能恢复", func(t *testing.T) {
+		jpy, err := currencySvc.Create(ctx, dto.CurrencyInput{Code: "JPY", Name: "日元", Symbol: "¥"})
+		if err != nil {
+			t.Fatalf("建 JPY 失败: %v", err)
+		}
+		if err := currencySvc.Delete(ctx, jpy.ID); err != nil {
+			t.Fatalf("删除 JPY 失败: %v", err)
+		}
+		if _, err := currencySvc.Get(ctx, jpy.ID); !errors.Is(err, errs.ErrNotFound) {
+			t.Errorf("删掉的币种 Get 应 404，得到 %v", err)
+		}
+		// 已删除的币种只在「含已删除」里出现，界面上靠它点恢复。
+		withDeleted, err := currencySvc.List(ctx, dto.CurrencyQuery{IncludeDeleted: true})
+		if err != nil {
+			t.Fatalf("含已删除列表失败: %v", err)
+		}
+		found := false
+		for _, row := range withDeleted.List {
+			if row.ID == jpy.ID {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("含已删除时应查得到这条 JPY")
+		}
+
+		if _, err := currencySvc.Restore(ctx, jpy.ID); err != nil {
+			t.Fatalf("恢复 JPY 失败: %v", err)
+		}
+		if _, err := currencySvc.Restore(ctx, jpy.ID); err == nil {
+			t.Error("恢复未被删除的币种应报错")
+		}
+		// 恢复之后重新录一个同代码的，再恢复就成了冲突：
+		// 单据按代码折算，两个同代码的行分不清该命中哪个。
+		if err := currencySvc.Delete(ctx, jpy.ID); err != nil {
+			t.Fatalf("再次删除失败: %v", err)
+		}
+		if _, err := currencySvc.Create(ctx, dto.CurrencyInput{Code: "JPY", Name: "日元", Symbol: "¥"}); err != nil {
+			t.Fatalf("重建 JPY 失败: %v", err)
+		}
+		if _, err := currencySvc.Restore(ctx, jpy.ID); err == nil {
+			t.Error("代码被占时应拒绝恢复")
 		}
 	})
 
