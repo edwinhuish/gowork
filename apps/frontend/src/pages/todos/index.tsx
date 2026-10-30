@@ -15,6 +15,7 @@ import {
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
 import { PageHeader, StatCard } from '@/components/page'
+import { ResponsiveTable } from '@/components/page'
 import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection, TodoContractTerm } from '@/types'
 import { formatTime } from '@/utils/format'
 
@@ -82,13 +83,13 @@ export function TodoPage() {
         title="待跟进"
         extra={<span className="cell-sub">下次跟进日早于今天（当天不算）</span>}
       >
-        <Table<TodoFollowup>
+        <ResponsiveTable<TodoFollowup>
           size="small"
           rowKey="id"
           loading={isLoading}
-          dataSource={data?.followups ?? []}
+          rows={data?.followups ?? []}
           pagination={false}
-          locale={{ emptyText: '没有到期的跟进' }}
+          empty="没有到期的跟进"
         >
           <Table.Column
             title="客户"
@@ -116,7 +117,7 @@ export function TodoPage() {
               </Tag>
             )}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 口径里的 "<=" 写成表达式：JSX 文本里的小于号会被当成标签开头。 */}
@@ -125,13 +126,16 @@ export function TodoPage() {
         title="应收待催"
         extra={<span className="cell-sub">{'到期日 <= 今天且未结清（当天就算）'}</span>}
       >
-        <Table<TodoReceivable>
+        <ResponsiveTable<TodoReceivable>
           size="small"
           rowKey="id"
           loading={isLoading}
-          dataSource={data?.receivables ?? []}
+          rows={data?.receivables ?? []}
           pagination={false}
-          locale={{ emptyText: '没有到期的应收' }}
+          empty="没有到期的应收"
+          // 最后一列「未结清（本币）」无 dataIndex 只有 render，会被当成操作列
+          // 挪到卡片底部、把标签弄丢。待办这几张表都没有操作列。
+          cardActionKeys={[]}
         >
           <Table.Column
             dataIndex="doc_no"
@@ -176,7 +180,7 @@ export function TodoPage() {
               </span>
             )}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 验货到期（T-62）：代理采购唯一能对客户承诺的事，逾期没验意味着交期要出问题。
@@ -186,13 +190,13 @@ export function TodoPage() {
         title="验货到期"
         extra={<span className="cell-sub">{'计划日 <= 今天且未完成'}</span>}
       >
-        <Table<TodoInspection>
+        <ResponsiveTable<TodoInspection>
           size="small"
           rowKey="id"
           loading={isLoading}
-          dataSource={data?.inspections ?? []}
+          rows={data?.inspections ?? []}
           pagination={false}
-          locale={{ emptyText: '没有逾期未验的采购行' }}
+          empty="没有逾期未验的采购行"
         >
           <Table.Column
             dataIndex="doc_no"
@@ -228,7 +232,7 @@ export function TodoPage() {
               )
             }
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       {/* 合同分期待收（T-61）：订金没到账就先开工，是这类生意最常见的现金流断裂。 */}
@@ -237,13 +241,14 @@ export function TodoPage() {
         title="合同分期待收"
         extra={<span className="cell-sub">{'约定付款日 <= 今天且未收到'}</span>}
       >
-        <Table<TodoContractTerm>
+        <ResponsiveTable<TodoContractTerm>
           size="small"
           rowKey="id"
           loading={isLoading}
-          dataSource={data?.contract_terms ?? []}
+          rows={data?.contract_terms ?? []}
           pagination={false}
-          locale={{ emptyText: '没有逾期未收的合同分期' }}
+          empty="没有逾期未收的合同分期"
+          cardActionKeys={[]}
         >
           <Table.Column
             dataIndex="doc_no"
@@ -293,7 +298,7 @@ export function TodoPage() {
               </span>
             )}
           />
-        </Table>
+        </ResponsiveTable>
       </Card>
 
       <Card

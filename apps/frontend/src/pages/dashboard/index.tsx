@@ -36,6 +36,7 @@ import { dashboardApi } from '@/api/dashboard'
 import { reportApi } from '@/api/reports'
 import { Money } from '@/components/fields'
 import { EmptyGuide, PageHeader, StatCard } from '@/components/page'
+import { ResponsiveTable } from '@/components/page'
 import type { SalesDashboardRow } from '@/types'
 
 /**
@@ -385,13 +386,13 @@ export function DashboardPage() {
             }
             loading={sales.isLoading}
           >
-            <Table<SalesDashboardRow>
+            <ResponsiveTable<SalesDashboardRow>
               size="small"
               rowKey="key"
-              dataSource={sales.data?.rows ?? []}
+              rows={sales.data?.rows ?? []}
               pagination={false}
-              scroll={{ x: 720 }}
-              locale={{ emptyText: '本月还没有出货记录' }}
+              scrollX={720}
+              empty="本月还没有出货记录"
             >
               <Table.Column
                 dataIndex="label"
@@ -438,7 +439,7 @@ export function DashboardPage() {
                   row.cost_hidden ? <span className="cell-empty">—</span> : percent(value)
                 }
               />
-            </Table>
+            </ResponsiveTable>
             {sales.data?.truncated ? (
               <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
                 只列前 5 个客户，合计与毛利率仍是全量。
