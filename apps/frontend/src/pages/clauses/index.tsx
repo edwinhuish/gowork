@@ -243,7 +243,9 @@ export function ClauseList() {
         dataIndex="body"
         title="正文"
         render={(v: string) => (
-          <Typography.Text ellipsis style={{ maxWidth: 420 }}>
+          // 限宽用百分比：420px 是"宽屏单元格"里算出来的，窄屏（卡片里）
+          // 容器只剩 260px，写死 420 会把整页撑出 154px。
+          <Typography.Text ellipsis style={{ maxWidth: '100%' }}>
             {v}
           </Typography.Text>
         )}

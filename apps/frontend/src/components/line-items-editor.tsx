@@ -1,4 +1,4 @@
-import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
+import { Button, Col, Form, Grid, Input, InputNumber, Row, Typography } from 'antd'
 
 import { AccentTag } from '@/components/fields'
 import { ProductSelect, type ProductHint } from '@/components/product-select'
@@ -66,9 +66,15 @@ export function LineItemsEditor({
     form.setFieldValue(['items', index, 'source_id'], undefined)
   }
 
-  const spans = showSource
-    ? { product: 7, qty: 3, price: 3, source: 6, subtotal: 3, action: 2 }
-    : { product: 10, qty: 4, price: 4, source: 0, subtotal: 4, action: 2 }
+  // 窄屏那一行 5~6 列挤在 375px 里：产品只剩 130px、数量单价各 50px，
+  // 「删除」连自己的 60px 都挤不出来（实机量到出界 9px）。改成竖着排：
+  // 产品整行，数量 / 单价各半行，小计与删除同行（金额靠左、按钮靠右）。
+  const narrow = Grid.useBreakpoint().md === false
+  const spans = narrow
+    ? { product: 24, qty: 12, price: 12, source: 24, subtotal: 12, action: 12 }
+    : showSource
+      ? { product: 7, qty: 3, price: 3, source: 6, subtotal: 3, action: 2 }
+      : { product: 10, qty: 4, price: 4, source: 0, subtotal: 4, action: 2 }
 
   return (
     <div>
@@ -78,26 +84,30 @@ export function LineItemsEditor({
           : '金额由后端按「数量 × 单价 × 单据汇率」算，前端提交的合计不参与。'}
       </Typography.Paragraph>
 
-      <Row gutter={8} style={{ marginBottom: 4 }}>
-        <Col span={spans.product}>
-          <Typography.Text type="secondary">产品</Typography.Text>
-        </Col>
-        <Col span={spans.qty}>
-          <Typography.Text type="secondary">数量</Typography.Text>
-        </Col>
-        <Col span={spans.price}>
-          <Typography.Text type="secondary">单价</Typography.Text>
-        </Col>
-        {showSource && (
-          <Col span={spans.source}>
-            <Typography.Text type="secondary">成本货源</Typography.Text>
+      {/* 表头标签只在宽屏给：窄屏竖排之后这行标签会各占一行、与下面错位。
+          窄屏靠每个输入的 placeholder 自报家门。 */}
+      {!narrow && (
+        <Row gutter={8} style={{ marginBottom: 4 }}>
+          <Col span={spans.product}>
+            <Typography.Text type="secondary">产品</Typography.Text>
           </Col>
-        )}
-        <Col span={spans.subtotal}>
-          <Typography.Text type="secondary">行小计</Typography.Text>
-        </Col>
-        <Col span={spans.action} />
-      </Row>
+          <Col span={spans.qty}>
+            <Typography.Text type="secondary">数量</Typography.Text>
+          </Col>
+          <Col span={spans.price}>
+            <Typography.Text type="secondary">单价</Typography.Text>
+          </Col>
+          {showSource && (
+            <Col span={spans.source}>
+              <Typography.Text type="secondary">成本货源</Typography.Text>
+            </Col>
+          )}
+          <Col span={spans.subtotal}>
+            <Typography.Text type="secondary">行小计</Typography.Text>
+          </Col>
+          <Col span={spans.action} />
+        </Row>
+      )}
 
       <Form.List name="items">
         {(fields, { add, remove }) => (
@@ -142,7 +152,7 @@ export function LineItemsEditor({
                         step={1}
                         precision={3}
                         stringMode
-                        placeholder="0"
+                        placeholder={narrow ? '数量' : '0'}
                       />
                     </Form.Item>
                   </Col>
@@ -154,7 +164,7 @@ export function LineItemsEditor({
                         step={0.01}
                         precision={4}
                         stringMode
-                        placeholder="0.00"
+                        placeholder={narrow ? '单价' : '0.00'}
                       />
                     </Form.Item>
                   </Col>
@@ -167,6 +177,8 @@ export function LineItemsEditor({
                   )}
                   <Col span={spans.subtotal}>
                     <div style={{ paddingTop: 6, fontVariantNumeric: 'tabular-nums' }}>
+                      {/* 窄屏没有表头那行，光秃秃一个金额不知道是什么。 */}
+                      {narrow ? <span className="cell-sub">小计 </span> : null}
                       {subtotal.toLocaleString('zh-CN', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,

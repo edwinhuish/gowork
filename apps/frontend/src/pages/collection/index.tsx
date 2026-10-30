@@ -204,7 +204,8 @@ export function CollectionPage() {
         variant="borderless"
         title={isPayable ? '超期未付明细' : '超期未收明细'}
         extra={
-          <Space size={12}>
+          // 四个桶横排要 470px，窄屏必须换行（实机量到卡片整体出界 131px）。
+          <Space size={12} wrap>
             {/* 四个桶是同一个量在变大（逾期天数），不是四种状态：
                 同一色相由浅到深，越久越红。 */}
             <HeatTag level={0}>
