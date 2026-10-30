@@ -18,6 +18,14 @@ export interface ResponsiveTableProps<T> {
    * 卡片这份要自己接，所以两个 props 分开传，不要互相猜。
    */
   pager?: PaginationProps
+  /**
+   * `rows` 是**全部**数据、由两种布局各自切页（客户端分页）。
+   *
+   * 不传时表示 rows 已经是当前页（服务端分页的 useTable 就是这样，
+   * 卡片只负责画页码条）。两者的区别必须显式说：靠"有没有 current"去猜，
+   * 服务端分页在首屏 current 为空时就会被切成空列表。
+   */
+  clientPaged?: boolean
   scrollX?: number | string
   /** 空态文案。 */
   empty?: ReactNode
@@ -55,6 +63,7 @@ export function ResponsiveTable<T extends object>({
   loading,
   pagination,
   pager,
+  clientPaged,
   scrollX,
   empty,
   summary,
@@ -72,9 +81,13 @@ export function ResponsiveTable<T extends object>({
   // 推导不出列（条件渲染、包了不认识的节点）就退回表格：
   // 最坏情况是没有降级，不会白屏。
   if (narrow && columns.length > 0) {
+    const start = ((pager?.current ?? 1) - 1) * (pager?.pageSize ?? rows.length)
+    const pageRows =
+      clientPaged && pager?.pageSize ? rows.slice(start, start + pager.pageSize) : rows
+
     return (
       <RecordCards<T>
-        rows={rows}
+        rows={pageRows}
         columns={columns}
         rowKey={rowKey}
         loading={loading}
