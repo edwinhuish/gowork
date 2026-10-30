@@ -47,14 +47,15 @@ export interface PartnerCardsProps {
 export function toCardPager(
   pager: TablePaginationConfig | false | undefined,
   showTotal: (total: number) => string,
+  pageSizeOptions: string[] = PARTNER_CARD_PAGE_SIZES,
 ): PaginationProps | undefined {
   if (!pager || typeof pager !== 'object') return undefined
   return {
     current: pager.current ?? 1,
-    pageSize: pager.pageSize ?? Number(PARTNER_CARD_PAGE_SIZES[0]),
+    pageSize: pager.pageSize ?? Number(pageSizeOptions[0]),
     total: pager.total ?? 0,
     showSizeChanger: true,
-    pageSizeOptions: PARTNER_CARD_PAGE_SIZES,
+    pageSizeOptions,
     showTotal,
     onChange: pager.onChange as (page: number, pageSize: number) => void,
   }

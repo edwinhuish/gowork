@@ -70,9 +70,12 @@ async function exportProducts() {
  *
  * 两种视图共用同一个 useTable：切换只换渲染方式，不换数据源。
  * 否则每切一次都要重新请求、页码与筛选还会丢。
+ *
+ * 窄屏由 useListView 强制卡片：这个宽度上表格只能横滑着看，
+ * 切换控件也一并隐藏（一个点了没反应的开关比没有开关更让人困惑）。
  */
 export function ProductList() {
-  const { view, setView } = useListView('gowork:products:view')
+  const { view, setView, narrow } = useListView('gowork:products:view')
   const { show } = useNavigation()
   const invalidate = useInvalidate()
 
@@ -270,15 +273,17 @@ export function ProductList() {
       table={view === 'card' ? cardView : undefined}
       extra={
         <>
-          <Segmented
-            value={view}
-            onChange={(value) => setView(value as 'list' | 'card')}
-            options={[
-              { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一件，字段最全' },
-              { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按图找货' },
-            ]}
-            aria-label="切换产品视图"
-          />
+          {narrow ? null : (
+            <Segmented
+              value={view}
+              onChange={(value) => setView(value as 'list' | 'card')}
+              options={[
+                { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一件，字段最全' },
+                { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按图找货' },
+              ]}
+              aria-label="切换产品视图"
+            />
+          )}
           <Select
             value={sortValue}
             onChange={changeSort}

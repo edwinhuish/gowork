@@ -41,7 +41,8 @@ interface SupplierSearch {
  * 切换时筛选、排序、页码都不动。
  */
 export function SupplierList() {
-  const { view, setView } = useListView('gowork:suppliers:view')
+  // 窄屏强制卡片视图（表格在这个宽度上只能横滑），切换控件随之隐藏。
+  const { view, setView, narrow } = useListView('gowork:suppliers:view')
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'suppliers',
     syncWithLocation: true,
@@ -117,15 +118,17 @@ export function SupplierList() {
       pageSizeOptions={PARTNER_CARD_PAGE_SIZES}
       table={view === 'card' ? cardView : undefined}
       extra={
-        <Segmented
-          value={view}
-          onChange={(value) => setView(value as 'list' | 'card')}
-          options={[
-            { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
-            { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
-          ]}
-          aria-label="切换供应商视图"
-        />
+        narrow ? null : (
+          <Segmented
+            value={view}
+            onChange={(value) => setView(value as 'list' | 'card')}
+            options={[
+              { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
+              { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
+            ]}
+            aria-label="切换供应商视图"
+          />
+        )
       }
       filters={
         <>

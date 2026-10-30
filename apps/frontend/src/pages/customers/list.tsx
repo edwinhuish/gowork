@@ -61,7 +61,8 @@ async function exportPartners() {
 }
 
 export function CustomerList() {
-  const { view, setView } = useListView('gowork:customers:view')
+  // 窄屏强制卡片视图（表格在这个宽度上只能横滑），切换控件随之隐藏。
+  const { view, setView, narrow } = useListView('gowork:customers:view')
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'customers',
     syncWithLocation: true,
@@ -152,15 +153,17 @@ export function CustomerList() {
       table={view === 'card' ? cardView : undefined}
       extra={
         <>
-          <Segmented
-            value={view}
-            onChange={(value) => setView(value as 'list' | 'card')}
-            options={[
-              { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
-              { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
-            ]}
-            aria-label="切换客户视图"
-          />
+          {narrow ? null : (
+            <Segmented
+              value={view}
+              onChange={(value) => setView(value as 'list' | 'card')}
+              options={[
+                { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
+                { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
+              ]}
+              aria-label="切换客户视图"
+            />
+          )}
           {/* 导出的是"这一角色下的全部"，不走页面筛选——筛选条件在表格内部，
               拿不到就不假装能拿到。行数上限 10000（后端另有拦截）。 */}
           <Tooltip title="导出全部客户（CSV，忽略当前筛选，上限 10000 行）">

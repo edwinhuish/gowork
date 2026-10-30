@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { Grid } from 'antd'
 
 export type ListViewMode = 'list' | 'card'
 
@@ -11,6 +12,12 @@ export type ListViewMode = 'list' | 'card'
  *   - localStorage 次之，是因为一个人习惯卡片视图，不该每次进来都退回表格；
  *   - 都没有才用默认。
  *
+ * **窄屏（< 768px）强制卡片**，压过上面三个来源：此时表格只能靠横向滚动看全，
+ * 而这个宽度上横滑五六屏比竖着读几张卡难得多。强制只在渲染层生效，
+ * 不改 URL 也不改 localStorage —— 把窗口拉宽，用户原来选的视图还在。
+ * 页面拿到 `narrow` 后应当把切换控件隐藏掉：一个点了没反应的开关
+ * 比没有开关更让人困惑。
+ *
  * 切换时记住滚动位置，布局换完再按新的文档高度夹一次：卡片比表格高，
  * 但结果只有三五条时反而更矮，直接还原原位置会停在空白处。
  *
@@ -21,6 +28,8 @@ export function useListView(storageKey: string, fallback: ListViewMode = 'list')
   const [searchParams, setSearchParams] = useSearchParams()
   const [view, setViewState] = useState<ListViewMode>(() => readInitial(searchParams.get('view'), storageKey, fallback))
   const pendingScroll = useRef<number | null>(null)
+  // antd 的 md 断点是 768px：md 为 false 即「比平板窄」。
+  const narrow = Grid.useBreakpoint().md === false
 
   const setView = useCallback(
     (next: ListViewMode) => {
@@ -58,7 +67,7 @@ export function useListView(storageKey: string, fallback: ListViewMode = 'list')
     return () => cancelAnimationFrame(raf)
   }, [view])
 
-  return { view, setView }
+  return { view: narrow ? 'card' : view, setView, narrow }
 }
 
 function readInitial(fromUrl: string | null, storageKey: string, fallback: ListViewMode): ListViewMode {

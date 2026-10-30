@@ -2,9 +2,13 @@ import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { CreateButton, List } from '@refinedev/antd'
 import { Button, Empty, Form, Grid, Space, Table } from 'antd'
 import type { FormProps, TableProps } from 'antd'
+import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
+import { toCardPager } from '@/components/partner-cards'
 import { useUiPrefs } from '@/providers/uiPrefs'
+import type { CardColumn } from './record-cards'
+import { collectCardColumns, RecordCards } from './record-cards'
 
 /**
  * 列表页外壳。
@@ -15,6 +19,11 @@ import { useUiPrefs } from '@/providers/uiPrefs'
  *
  * 不吞掉 refine 的能力：`tableProps` / `searchFormProps` 原样透传，
  * 页面仍然能用 useTable 的排序、筛选、分页与 URL 同步。
+ *
+ * 窄屏（< 768px）在没有自定义 `table` 时自动降级成卡片：列定义从
+ * `<Table.Column>` 的 children 读出来（见 record-cards.tsx），
+ * 页面不需要为手机再写一套视图。给了 `table` 的页面（产品与三张往来单位表）
+ * 自己有双视图，由 useListView 在窄屏把默认视图改成卡片。
  */
 
 export interface PageListProps<T> {
@@ -68,6 +77,14 @@ export function PageList<T extends object>({
   const { compact } = useUiPrefs()
   const screens = Grid.useBreakpoint()
   const narrow = screens.md === false
+
+  // 列定义只依赖 children 的引用；页面每次渲染都新建这些元素，
+  // 但推导本身很便宜，且 children 变化时必须重算，所以只按 children 记忆。
+  const cardColumns = useMemo(
+    () => collectCardColumns(children) as CardColumn<T>[],
+    [children],
+  )
+  const degradeToCards = narrow && !table && cardColumns.length > 0
 
   const headerButtons =
     extra || createLabel ? (
@@ -125,17 +142,28 @@ export function PageList<T extends object>({
         </Form>
       ) : null}
 
-      {table ?? (
-        <Table<T>
-          {...tableProps}
+      {degradeToCards ? (
+        <RecordCards<T>
+          rows={(tableProps.dataSource ?? []) as T[]}
+          columns={cardColumns}
           rowKey={rowKey}
-          size={compact ? 'small' : 'middle'}
-          pagination={pagination}
-          scroll={{ x: scrollX ?? 'max-content' }}
-          locale={{ emptyText: empty, ...tableProps.locale }}
-        >
-          {children}
-        </Table>
+          loading={tableProps.loading === true}
+          pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`, pageSizeOptions)}
+          empty={empty}
+        />
+      ) : (
+        (table ?? (
+          <Table<T>
+            {...tableProps}
+            rowKey={rowKey}
+            size={compact ? 'small' : 'middle'}
+            pagination={pagination}
+            scroll={{ x: scrollX ?? 'max-content' }}
+            locale={{ emptyText: empty, ...tableProps.locale }}
+          >
+            {children}
+          </Table>
+        ))
       )}
 
       {footer}

@@ -852,6 +852,102 @@ body {
   }
 }
 
+/* ---------- 窄屏：宽表降级成的卡片 ---------- */
+
+/*
+ * 这张卡不是某个模块专属的，是 PageList 在 < 768px 时把任意一张宽表折出来的
+ * （列定义从 Table.Column 读出，见 components/page/record-cards.tsx）。
+ * 所以它必须"中性"：不假设第一列是图、也不假设有几行标签，
+ * 结构与往来单位卡一致（标题 → 标签值列表 → 操作），两处长得像才像同一套界面。
+ *
+ * 最小宽度 260px 而不是产品的 200px：这里每张卡有五六行「标签：值」，
+ * 太窄会把值挤成一列省略号；手机上（≤575px）直接单列铺满。
+ */
+.record-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.record-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+  border-radius: 12px;
+  background: var(--ant-color-bg-container, #fff);
+  box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
+}
+
+.record-card-title {
+  min-width: 0;
+  color: var(--ant-color-text, #1c2532);
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.record-card-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px dashed var(--ant-color-border-secondary, #e3e8f0);
+  border-bottom: 1px dashed var(--ant-color-border-secondary, #e3e8f0);
+}
+
+.record-card-fact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 12.5px;
+}
+
+/* 标签固定宽度：值有长有短可以接受，标签参差不齐就变成一列读不出结构的文字。 */
+.record-card-fact-label {
+  flex: none;
+  width: 76px;
+  color: var(--ant-color-text-quaternary, #98a3b3);
+}
+
+/* 值允许换行：金额、单号、备注都是"必须看到完整内容"的，截断等于没给。 */
+.record-card-fact-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.record-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.record-grid-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 575px) {
+  .record-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-grid-pager {
+    justify-content: center;
+  }
+}
+
+[data-density='compact'] .record-grid {
+  gap: var(--space-3);
+}
+
+[data-density='compact'] .record-card {
+  padding: 10px;
+}
+
 /* ---------- 列表里的「头像 + 名称」---------- */
 .cell-avatar {
   display: flex;
