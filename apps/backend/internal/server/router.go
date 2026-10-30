@@ -21,6 +21,8 @@ import (
 type Handlers struct {
 	Auth    *handler.AuthHandler
 	Product *handler.ProductHandler
+	// ProductImage 是产品图片：顺序即主图，独立于附件面板。
+	ProductImage *handler.ProductImageHandler
 	// ProductCode 是产品别名编号（旧 SKU / 客户号 / 供应商货号）。
 	ProductCode *handler.ProductCodeHandler
 	Partner     *handler.PartnerHandler
@@ -156,6 +158,16 @@ func New(
 		products.DELETE("/:id", h.Product.Delete)
 		// 删除是可追溯的（软删），恢复就该有入口，否则「删错了」只能靠改库。
 		products.POST("/:id/restore", h.Product.Restore)
+
+		// 产品图片：第一张即主图。排序走全量提交，替换保留位置。
+		// 取图也在这组里（而不是公开静态目录）：鉴权只有一套，另开公开地址
+		// 等于多一条会进日志、会被转发的取图通道。
+		products.GET("/:id/images", h.ProductImage.List)
+		products.POST("/:id/images", h.ProductImage.Upload)
+		products.PUT("/:id/images/order", h.ProductImage.Reorder)
+		products.PUT("/:id/images/:imageId", h.ProductImage.Replace)
+		products.DELETE("/:id/images/:imageId", h.ProductImage.Delete)
+		products.GET("/:id/images/:imageId/content", h.ProductImage.Content)
 
 		// 产品编号：SKU 之外的那些号（旧 SKU、客户物料号、供应商货号、工厂号）。
 		// 独立前缀而不是 /products/:id/codes：与货源一致，用 ?product_id= 过滤，

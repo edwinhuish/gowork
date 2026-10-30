@@ -152,6 +152,8 @@ func New(cfg *config.Config) (*App, error) {
 	currencyRepo := repository.NewCurrencyRepository(db)
 	rateRepo := repository.NewExchangeRateRepository(db)
 	sourceRepo := repository.NewProductSourceRepository(db)
+	// 产品图片：主图由顺序推导，独立于 sys_attachment 的单证归档。
+	productImageRepo := repository.NewProductImageRepository(db)
 	contactRepo := repository.NewContactRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	opptyRepo := repository.NewOpportunityRepository(db)
@@ -192,6 +194,10 @@ func New(cfg *config.Config) (*App, error) {
 	)
 	productSvc := service.NewProductService(
 		productRepo, partnerRepo, sourceRepo, productCodeRepo, txs, service.WithProductLogger(log))
+	// 图片是产品的子表：列表与详情靠仓储批量回填主图，不经过图片服务，
+	// 免得两个服务互相依赖。
+	productImageSvc := service.NewProductImageService(
+		productImageRepo, productRepo, txs, service.WithProductImageLogger(log))
 	// 编号自己一套读写：它是产品的别名，不是产品的一个字段，
 	// 前端在产品详情页当成一个面板用，产品表单不参与。
 	productCodeSvc := service.NewProductCodeService(
@@ -347,6 +353,7 @@ func New(cfg *config.Config) (*App, error) {
 	engine := server.New(cfg, log, authSvc, auditSvc, c, server.Handlers{
 		Auth:            handler.NewAuthHandler(authSvc),
 		Product:         handler.NewProductHandler(productSvc),
+		ProductImage:    handler.NewProductImageHandler(productImageSvc),
 		ProductCode:     handler.NewProductCodeHandler(productCodeSvc),
 		Partner:         handler.NewPartnerHandler(partnerSvc, creditSvc),
 		PartnerAddress:  handler.NewPartnerAddressHandler(partnerAddressSvc),
