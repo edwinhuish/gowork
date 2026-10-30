@@ -242,6 +242,10 @@ export function ClauseList() {
       <Table.Column
         dataIndex="body"
         title="正文"
+        // 这一列必须给宽度：不给就是唯一一列"随内容伸缩"，auto 布局会把
+        // 剩下的空间全给它（实机量到 800px），回头把编码 / 标题挤到 64 / 55px
+        // —— 标题只剩两个字宽，写死的 width={180} 完全没生效。
+        width={420}
         render={(v: string) => (
           // 限宽用百分比：420px 是"宽屏单元格"里算出来的，窄屏（卡片里）
           // 容器只剩 260px，写死 420 会把整页撑出 154px。

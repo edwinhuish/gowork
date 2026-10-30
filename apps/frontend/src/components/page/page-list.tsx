@@ -2,7 +2,8 @@ import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { CreateButton, List } from '@refinedev/antd'
 import { Button, Empty, Form, Grid, Space } from 'antd'
 import type { FormProps, TableProps } from 'antd'
-import type { ReactNode } from 'react'
+import { Children, cloneElement, isValidElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import { toCardPager } from '@/components/partner-cards'
 import { useUiPrefs } from '@/providers/uiPrefs'
@@ -53,6 +54,29 @@ export interface PageListProps<T> {
   /** 表格之后的内容：导入弹窗、汇总行等。不放这里会被当成表格列。 */
   footer?: ReactNode
   children?: ReactNode
+}
+
+/**
+ * 「操作」列钉在右边。
+ *
+ * 列多的表在宽屏也会横向滚动：客户列表 13 列，1440 下要横滑 393px，
+ * 「操作」连同电话 / 结算方式 / 账期一起被滑出屏幕 —— 用户得先横滑才知道
+ * 这一行有按钮可点。钉住之后操作列始终可见。
+ *
+ * 只钉**最后一列**、且仅当它叫「操作」并给了宽度（antd 的固定列必须有宽度，
+ * 没有就会塌成 0）；不符合就原样返回，不去猜列序。
+ * 窄屏降级成卡片时这列是卡片底部的动作区，fixed 不参与，无影响。
+ */
+function withFixedActions(children: ReactNode): ReactNode {
+  const list = Children.toArray(children)
+  const last = list[list.length - 1]
+  if (!isValidElement(last)) return children
+  const props = last.props as { title?: unknown; width?: unknown; fixed?: unknown }
+  if (props.title !== '操作' || props.fixed || !props.width) return children
+  return [
+    ...list.slice(0, -1),
+    cloneElement(last as ReactElement<{ fixed?: 'right' }>, { fixed: 'right' }),
+  ]
 }
 
 export function PageList<T extends object>({
@@ -144,7 +168,7 @@ export function PageList<T extends object>({
           scrollX={scrollX}
           empty={empty}
         >
-          {children}
+          {withFixedActions(children)}
         </ResponsiveTable>
       )}
 
