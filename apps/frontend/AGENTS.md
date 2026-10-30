@@ -249,6 +249,24 @@ pages/xxx/
 并由 `create.tsx` 与 `edit.tsx` 共用。行的隐藏主键（`product_id`、`sales_order_item_id`）
 必须用 hidden 的 `Form.Item` 渲染出来——不渲染就提交，这一行到后端就是空的。
 
+### 列表页的双视图（表格 / 卡片）
+
+产品列表同时提供表格与卡片两种视图，开关在 `hooks/use-list-view.ts`，页面侧只用
+`const { view, setView } = useListView('gowork:xxx:view')`。
+
+要点只有三条，其余都是排版：
+
+- **两种视图共用同一个 `useTable`**。切换只换渲染方式，不换数据源；组件不卸载，
+  所以筛选、排序、页码天然保留。各自建一套 `useTable` 会变成"切一次重新请求一次"。
+- **视图存在两处**：URL 的 `?view=card` 优先（发链接能看到同一屏），其次是
+  `localStorage`（个人习惯），都没有才用默认。优先级写在 hook 里，页面不要自己读。
+- **卡片视图要自己渲染分页**：`Table` 自带的分页条在卡片模式下根本不存在，
+  用 `tableProps.pagination` 转成 `<Pagination>`。滚动位置由 hook 在切换后按新的
+  文档高度夹一次，不这么做会停在空白处（卡片比表格矮的时候）。
+
+卡片栅格用 `auto-fill + minmax(200px, 1fr)`，不为每个断点写列数；断点只调间距。
+排序控件与表头箭头必须驱动同一个 `sorters`，否则"点了表头、下拉框没变"。
+
 ### 新增一个模块的完整步骤
 
 1. `src/types/index.ts` 加实体类型，字段与后端 json tag 一致（snake_case）。

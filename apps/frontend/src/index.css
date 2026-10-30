@@ -531,6 +531,218 @@ body {
   line-height: 1.7;
 }
 
+/* ---------- 产品列表：列表 / 卡片双视图 ---------- */
+
+/* 卡片栅格用 auto-fill + minmax：列数随容器自己变（宽屏 5–6 列、平板 3 列、
+   手机 2 列），不需要为每个断点写一套列数。断点只调间距与最小宽度。 */
+.product-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  animation: product-grid-in 0.18s ease-out;
+}
+
+@keyframes product-grid-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+  border-radius: 12px;
+  background: var(--ant-color-bg-container, #fff);
+  box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.product-card:hover,
+.product-card:focus-visible {
+  border-color: var(--ant-color-primary-border, #a9c8ff);
+  box-shadow: 0 10px 24px rgb(16 24 40 / 10%);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.product-card-media {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--ant-color-fill-quaternary, #f5f7fa);
+}
+
+.product-card-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ant-color-text-quaternary, #c3ccd9);
+  font-size: 26px;
+}
+
+.product-card-badges {
+  position: absolute;
+  inset: 8px 8px auto auto;
+  display: flex;
+  gap: 4px;
+}
+
+/* 徽标压在图上：图有深有浅，只有白底能保证在哪张上都读得清。 */
+.product-card-badges .ant-tag {
+  margin: 0;
+  background: rgb(255 255 255 / 92%);
+}
+
+.product-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 10px;
+}
+
+.product-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--ant-color-text, #1c2532);
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.product-card-sub {
+  overflow: hidden;
+  margin: 0;
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.product-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.product-card-prices {
+  display: flex;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.product-card-price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ant-color-text, #1c2532);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.product-card-price .cell-sub {
+  font-weight: 400;
+  font-size: 11.5px;
+}
+
+.product-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--ant-color-border-secondary, #e3e8f0);
+  font-size: 12px;
+}
+
+.product-card-footer .cell-sub {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.product-card-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.product-card-actions .ant-tag {
+  margin: 0;
+}
+
+/* 加载骨架：结构与真实卡片一致，图片位置先占住，数据到了不会跳一下。 */
+.product-card--ghost {
+  padding-bottom: 12px;
+  pointer-events: none;
+  cursor: default;
+}
+
+.product-card--ghost .product-card__ghost-media {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border-radius: 0;
+}
+
+.product-card--ghost .ant-skeleton {
+  padding: 12px;
+}
+
+.product-grid-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+@media (max-width: 575px) {
+  .product-grid {
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .product-card-body {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .product-card-prices {
+    gap: 10px;
+  }
+
+  .product-grid-pager {
+    justify-content: center;
+  }
+}
+
 /* ---------- 登录页 ---------- */
 
 .login-page {
