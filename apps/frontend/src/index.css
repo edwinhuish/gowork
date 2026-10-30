@@ -44,9 +44,46 @@ body {
   --space-6: 24px;
   --space-8: 32px;
 
+  /* 密度标尺：--space-* 是刻度，这一组是它的语义别名（说明见下）。 */
+  --gap-section: var(--space-6);
+  --gap-block: var(--space-4);
+  --gap-inline: var(--space-3);
+  --gap-item: var(--space-2);
+  --pad-block: var(--space-4);
+  --filter-min: 176px;
+  --filter-max: 264px;
+
   --motion-fast: 0.1s;
   --motion-mid: 0.18s;
   --motion-slow: 0.26s;
+}
+
+/*
+ * 紧凑密度：只改上面那几个别名的指向。
+ *
+ * 之前是逐条规则各写一遍 `[data-density='compact']` 覆写（筛选条内距、
+ * 表单项下边距、报表筛选条、说明文字…），加一处就要记得补一条覆写，
+ * 漏一处就露成"控件变小了、留白还是大的"。现在密度只有一个开关：
+ * 所有用这些别名的规则一起收档，新加规则只要引用别名就自动跟上。
+ *
+ * 别名各管一段：
+ *   --gap-section     区块之间（表单两列的列间距）
+ *   --gap-block       页头 / 筛选条与它下方内容之间
+ *   --gap-inline      同一行的控件之间
+ *   --gap-item        同一组里的紧邻项
+ *   --pad-block       筛选条 / 卡片的内距
+ *   --filter-min/max  筛选项的弹性宽度：紧凑档收窄，一行能多放一个条件
+ *
+ * 与 :root 同特异性，靠顺序取胜：必须写在上面那组之后。
+ */
+[data-density='compact'] {
+  --gap-section: var(--space-5);
+  --gap-block: var(--space-3);
+  --gap-inline: var(--space-2);
+  --gap-item: var(--space-1);
+  --pad-block: var(--space-3);
+  --filter-min: 152px;
+  --filter-max: 232px;
 }
 
 /*
@@ -251,8 +288,8 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-4);
+  gap: var(--gap-inline) var(--gap-block);
+  margin-bottom: var(--gap-block);
 }
 
 .page-head-text {
@@ -283,14 +320,14 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--gap-item);
 }
 
 /* ---------- 列表页：说明与筛选条 ---------- */
 
 /* 一句口径说明：这页的数是怎么算的、包含哪些状态。可选，写了才占位。 */
 .list-caption {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--gap-inline);
   color: var(--ant-color-text-tertiary, #98a3b3);
   font-size: 12.5px;
   line-height: 1.7;
@@ -298,11 +335,7 @@ body {
 
 /* 汇总指标卡：与筛选条之间留一口气，不要贴在一起。 */
 .list-summary {
-  margin-bottom: var(--space-4);
-}
-
-[data-density='compact'] .list-summary {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--gap-block);
 }
 
 /*
@@ -316,17 +349,17 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3) var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--gap-inline);
+  margin-bottom: var(--gap-block);
+  padding: var(--pad-block);
   border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
   border-radius: 10px;
   background: var(--ant-color-bg-container, #fff);
 }
 
 .list-filters .ant-form-item {
-  flex: 1 1 180px;
-  max-width: 280px;
+  flex: 1 1 var(--filter-min);
+  max-width: var(--filter-max);
   margin: 0;
 }
 
@@ -361,16 +394,6 @@ body {
   margin-left: 0;
 }
 
-/* 密度切到紧凑时，容器内距与间距同步收一档，否则控件小了、留白还是大的。 */
-[data-density='compact'] .list-filters {
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-3);
-}
-
-[data-density='compact'] .list-caption {
-  margin-bottom: var(--space-2);
-}
-
 /* ---------- 表单 ---------- */
 
 /*
@@ -381,12 +404,8 @@ body {
 .entity-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 24px;
+  gap: 0 var(--gap-section);
   max-width: 880px;
-}
-
-.entity-form .ant-form-item {
-  margin-bottom: 20px;
 }
 
 /* 带明细编辑器的单据表单：两列网格里放明细行会横向挤成一团，放宽到 1180。 */
@@ -402,10 +421,6 @@ body {
 .entity-form > .ant-divider,
 .entity-form > :not(.ant-form-item) {
   grid-column: 1 / -1;
-}
-
-[data-density='compact'] .entity-form .ant-form-item {
-  margin-bottom: 14px;
 }
 
 @media (max-width: 720px) {
@@ -518,13 +533,10 @@ body {
   background: var(--ant-color-error-bg);
 }
 
-/* 报表筛选条：条件在左、口径在右，窄屏自动换行（Flex wrap 已处理，这里只收内距）。 */
+/* 报表筛选条：条件在左、口径在右，窄屏自动换行（Flex wrap 已处理，这里只收内距）。
+   内距走同一组密度变量，与列表页筛选条在两种密度下保持一致。 */
 .filter-bar .ant-card-body {
-  padding: 12px 16px;
-}
-
-[data-density='compact'] .filter-bar .ant-card-body {
-  padding: 10px 12px;
+  padding: var(--gap-inline) var(--pad-block);
 }
 
 /* 待办清单的一行：整行可点，hover 才给底色，不额外画边框。 */

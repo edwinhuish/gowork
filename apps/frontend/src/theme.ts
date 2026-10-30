@@ -83,13 +83,20 @@ export const brand = palette.light
 /** 全站统一圆角。表格、卡片、按钮、输入框共用一套档位，避免圆角混搭。 */
 const RADIUS = 8
 
-/** 表格与卡片的行高/内距，密度切换时按比例收一档。 */
+/**
+ * 表格与卡片的行高/内距，密度切换时按比例收一档。
+ *
+ * `formItemGap` 是表单项下边距的**唯一来源**：CSS 里那条
+ * `.entity-form .ant-form-item { margin-bottom }` 已经删了 ——
+ * 同样是 20/14 的两份写法，改一处就会露成"控件小了、留白还是大的"。
+ * 结构性间距（页头、筛选条、卡片内距）不在 antd 的 token 里，
+ * 由 index.css 的 --gap-* / --pad-block 一组变量按同一个 [data-density] 收档。
+ */
 const density = (compact: boolean) => ({
   cellPaddingBlock: compact ? 8 : 12,
   cardPadding: compact ? 14 : 20,
   headerHeight: compact ? 46 : 50,
   formItemGap: compact ? 14 : 20,
-  filterPadding: compact ? '10px 12px' : '14px 16px',
 })
 
 /**
