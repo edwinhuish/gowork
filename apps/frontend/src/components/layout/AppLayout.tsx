@@ -1,11 +1,21 @@
-import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined } from '@ant-design/icons'
+import {
+  BellOutlined,
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  UserOutlined,
+} from '@ant-design/icons'
 import { ThemedLayout, ThemedSider, useThemedLayoutContext } from '@refinedev/antd'
 import { useGetIdentity, useLogout } from '@refinedev/core'
-import { Avatar, Button, Dropdown, Layout } from 'antd'
+import { useQuery } from '@tanstack/react-query'
+import { Avatar, Badge, Button, Dropdown, Layout, Tooltip } from 'antd'
 import type { FC } from 'react'
-import { Outlet } from 'react-router'
+import { useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router'
 
+import { reportApi } from '@/api/reports'
 import type { UserInfo } from '@/types'
+import { ModuleSearch } from './module-search'
 
 type SiderTitle = FC<{ collapsed: boolean }>
 
@@ -45,11 +55,28 @@ function AppSider({ Title }: { Title?: SiderTitle }) {
  *
  * 折叠按钮用 useThemedLayoutContext 控制侧栏 —— 窄屏下 ThemedLayout 会自动把
  * 侧栏变成抽屉，这个按钮就是抽屉的开关，所以必须自己渲染而不是依赖默认头部。
+ *
+ * 三类信息放在这一条上：先找（模块搜索），再看（待办条目数），最后是自己。
  */
 function AppHeader() {
   const { siderCollapsed, setSiderCollapsed } = useThemedLayoutContext()
   const { data: identity } = useGetIdentity<UserInfo>()
   const { mutate: logout } = useLogout()
+  const navigate = useNavigate()
+
+  // 与概览页用同一个 query key：两处共用一次请求，徽标不会比页面慢一拍。
+  const { data: todos } = useQuery({
+    queryKey: ['report-todos', 5],
+    queryFn: () => reportApi.todos({ limit: 5 }),
+    staleTime: 60_000,
+  })
+
+  const pending =
+    (todos?.followup_count ?? 0) +
+    (todos?.receivable_count ?? 0) +
+    (todos?.inspection_count ?? 0) +
+    (todos?.contract_term_count ?? 0) +
+    (todos?.missing_rates.length ?? 0)
 
   return (
     <Layout.Header className="app-header">
@@ -60,7 +87,22 @@ function AppHeader() {
         onClick={() => setSiderCollapsed(!siderCollapsed)}
       />
 
+      <ModuleSearch />
+
       <div className="app-header-spacer" />
+
+      <Tooltip title={pending > 0 ? `${pending} 件到期的事` : '没有到期的事'}>
+        <button
+          type="button"
+          className="app-header-action"
+          aria-label="待办"
+          onClick={() => navigate('/todos')}
+        >
+          <Badge count={pending} size="small" offset={[2, -2]}>
+            <BellOutlined style={{ fontSize: 17 }} />
+          </Badge>
+        </button>
+      </Tooltip>
 
       <Dropdown
         trigger={['click']}
@@ -84,8 +126,19 @@ function AppHeader() {
   )
 }
 
-/** 所有受保护页面的外壳：侧栏 + 顶栏 + 内容区，由 refine 的 ThemedLayout 提供。 */
+/**
+ * 所有受保护页面的外壳：侧栏 + 顶栏 + 内容区，由 refine 的 ThemedLayout 提供。
+ *
+ * 路由切换时把滚动位置拉回顶部：ThemedLayout 的内容区不是滚动容器，
+ * 滚的是 window，不手动复位的话从长列表点进详情会停在页面中间。
+ */
 export function AppLayout() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [pathname])
+
   return (
     <ThemedLayout Title={BrandTitle} Header={AppHeader} Sider={AppSider}>
       <Outlet />

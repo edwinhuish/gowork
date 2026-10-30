@@ -124,6 +124,13 @@ body {
   flex: 1;
 }
 
+/* 窄屏顶栏只留折叠按钮、待办与头像：220px 的搜索框会把它们挤成一团。 */
+@media (max-width: 768px) {
+  .app-header-search {
+    display: none;
+  }
+}
+
 .app-user {
   display: flex;
   align-items: center;
