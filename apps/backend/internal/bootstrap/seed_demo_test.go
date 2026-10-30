@@ -134,6 +134,8 @@ func TestDemoSeedCoversMainChain(t *testing.T) {
 	// 它们分别代表账龄、回款率、销售看板与汇兑损益四个报表的口径。
 	assertReportNotZero(t, srv, token, "待跟进（todos.followup_count）", "/api/v1/reports/todos", "followup_count")
 	assertReportNotZero(t, srv, token, "应收待催（todos.receivable_count）", "/api/v1/reports/todos", "receivable_count")
+	assertReportNotZero(t, srv, token, "待验货（todos.inspection_count）", "/api/v1/reports/todos", "inspection_count")
+	assertReportNotZero(t, srv, token, "合同待收（todos.contract_term_count）", "/api/v1/reports/todos", "contract_term_count")
 	assertReportNotZero(t, srv, token, "账龄合计（aging.grand_total_base）", "/api/v1/reports/aging?direction=10", "grand_total_base")
 	assertReportNotZero(t, srv, token, "本期回款（collection.received_base）", "/api/v1/reports/collection?direction=10", "received_base")
 	assertReportNotZero(t, srv, token, "逾期余额（collection.overdue_base）", "/api/v1/reports/collection?direction=10", "overdue_base")

@@ -82,7 +82,7 @@ func (a *App) seedTrading(ctx context.Context, d seedDeps, m *demoMaster) error 
 
 	// ---- 合同：从报价单生成，两期付款，挂两条条款快照 ----
 	clauseIDs := a.firstClauseIDs(ctx, d, 2)
-	if _, err := d.Contracts.Generate(ctx, dto.ContractGenerateInput{
+	contract, err := d.Contracts.Generate(ctx, dto.ContractGenerateInput{
 		Type:       int8(model.ContractTypeSales),
 		SourceType: int8(model.ContractSourceQuotation),
 		SourceID:   q1.ID,
@@ -90,13 +90,22 @@ func (a *App) seedTrading(ctx context.Context, d seedDeps, m *demoMaster) error 
 		// 分期合计必须等于合同总额，否则服务端拒绝（合计不等时对账单永远差一截）。
 		// 15570 = 6000×1.25 + 2400×2.30 + 3000×0.85，与上面那张报价单一致。
 		Terms: []dto.ContractTermInput{
-			{Name: "订金 30%", Amount: dec("4671"), DueDate: day(10), Trigger: "合同签订后 7 个工作日"},
+			{Name: "订金 30%", Amount: dec("4671"), DueDate: day(-5), Trigger: "合同签订后 7 个工作日"},
 			{Name: "尾款 70%", Amount: dec("10899"), DueDate: day(40), Trigger: "见提单副本后 7 个工作日"},
 		},
 		ClauseIDs: clauseIDs,
-	}); err != nil {
+	})
+	if err != nil {
 		// 合同不是主链的必经环节（报价也能直接转订单），失败只记日志，不挡住后面的单据。
 		a.Log.Warn("演示合同生成失败，跳过", "err", err)
+	} else {
+		// 草稿合同不进待收清单（还没签的字不能拿来催款），所以这里要真的确认。
+		_, confirmErr := d.Contracts.UpdateStatus(ctx, contract.ID, dto.ContractStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		})
+		if confirmErr != nil {
+			a.Log.Warn("演示合同确认失败，跳过", "err", confirmErr)
+		}
 	}
 
 	// ---- 销售订单 ----
@@ -463,35 +472,38 @@ func (a *App) seedPurchase(ctx context.Context, d seedDeps, m *demoMaster, order
 	}
 
 	// 跟单节点：下单已完成、生产完成逾期、验货还没做。
-	if items, err := d.Purchases.Milestones(ctx, po.ID); err == nil && len(items) > 0 {
-		saves := make([]dto.PurchaseMilestoneInput, 0, 3)
-		for _, ms := range items {
-			switch ms.Node {
-			case model.PurchaseNodeOrdered:
-				saves = append(saves, dto.PurchaseMilestoneInput{
-					PurchaseOrderItemID: ms.PurchaseOrderItemID,
-					Node:                int8(ms.Node),
-					PlanDate:            day(-35),
-					DoneDate:            day(-34),
-				})
-			case model.PurchaseNodeProduced:
-				saves = append(saves, dto.PurchaseMilestoneInput{
-					PurchaseOrderItemID: ms.PurchaseOrderItemID,
-					Node:                int8(ms.Node),
-					PlanDate:            day(-18),
-				})
-			case model.PurchaseNodeInspected:
-				saves = append(saves, dto.PurchaseMilestoneInput{
-					PurchaseOrderItemID: ms.PurchaseOrderItemID,
-					Node:                int8(ms.Node),
+	//
+	// 节点是按「行 × 节点」存的，而且 SaveMilestones 只处理提交上来的那几条，
+	// 所以这里要自己按订单行铺开，不能拿一次空列表当成"节点已存在"。
+	//
+	// 日期从采购单自己的下单日往后推：服务端会校验节点日不早于下单日，
+	// 写死"今天减去 35 天"在日期归一化多走一天时会直接被拒。
+	if poDetail, err := d.Purchases.Get(ctx, po.ID); err == nil && len(poDetail.Items) > 0 {
+		orderedOn := model.DateOnly(po.OrderDate)
+		saves := make([]dto.PurchaseMilestoneInput, 0, len(poDetail.Items)*3)
+		for _, item := range poDetail.Items {
+			saves = append(saves,
+				dto.PurchaseMilestoneInput{
+					PurchaseOrderItemID: item.ID,
+					Node:                int8(model.PurchaseNodeOrdered),
+					PlanDate:            orderedOn.Format("2006-01-02"),
+					DoneDate:            orderedOn.Format("2006-01-02"),
+				},
+				dto.PurchaseMilestoneInput{
+					PurchaseOrderItemID: item.ID,
+					Node:                int8(model.PurchaseNodeProduced),
+					PlanDate:            orderedOn.AddDate(0, 0, 17).Format("2006-01-02"),
+				},
+				// 验货计划日已过、完成日空着 —— 待办页的「待验货」就是这一条。
+				dto.PurchaseMilestoneInput{
+					PurchaseOrderItemID: item.ID,
+					Node:                int8(model.PurchaseNodeInspected),
 					PlanDate:            day(-6),
-				})
-			}
+				},
+			)
 		}
-		if len(saves) > 0 {
-			if _, err := d.Purchases.SaveMilestones(ctx, po.ID, dto.PurchaseMilestoneSaveInput{Milestones: saves}); err != nil {
-				a.Log.Warn("演示跟单节点写入失败，跳过", "err", err)
-			}
+		if _, err := d.Purchases.SaveMilestones(ctx, po.ID, dto.PurchaseMilestoneSaveInput{Milestones: saves}); err != nil {
+			a.Log.Warn("演示跟单节点写入失败，跳过", "err", err)
 		}
 	}
 
