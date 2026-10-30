@@ -929,25 +929,26 @@ body {
 }
 
 .record-card-facts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: grid;
+  /* 两列：标签列按**这张卡里最长的标签**取宽 —— 短标签对齐长标签，
+     长标签（「订单额（下单日）」这种带口径的）不再折成两截；
+     固定像素宽做不到这一点，76px 时 6 字以上的标签全部断行。 */
+  grid-template-columns: minmax(76px, max-content) 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
   padding: var(--space-2) 0;
   border-top: 1px dashed var(--ant-color-border-secondary, #e3e8f0);
   border-bottom: 1px dashed var(--ant-color-border-secondary, #e3e8f0);
 }
 
+/* 每条 fact 只是"标签 + 值"这一对：display: contents 把它们直接交给
+   上面的网格排，标签才能跨行对齐。 */
 .record-card-fact {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  display: contents;
   font-size: 12.5px;
 }
 
-/* 标签固定宽度：值有长有短可以接受，标签参差不齐就变成一列读不出结构的文字。 */
 .record-card-fact-label {
-  flex: none;
-  width: 76px;
   color: var(--ant-color-text-quaternary, #626d7f);
 }
 
@@ -1001,6 +1002,7 @@ body {
 }
 
 .record-card--total .record-card-facts {
+  display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--gap-item) var(--gap-block);
@@ -1008,8 +1010,12 @@ body {
   border-bottom: none;
 }
 
-.record-card--total .record-card-fact-label {
-  width: auto;
+/* 合计卡的字段横向排，pair 自己成行（不用 display: contents —— 那会把
+   标签和值拆散进换行流，"未到期 46,008" 可能分到两行去）。 */
+.record-card--total .record-card-fact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
 }
 
 /* ---------- 列表里的「头像 + 名称」---------- */
