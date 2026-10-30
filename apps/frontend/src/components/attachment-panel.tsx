@@ -5,6 +5,7 @@ import { Button, Card, Popconfirm, Space, Table, Tag, Typography, Upload, messag
 import { attachmentApi, type AttachmentEntity } from '@/api/attachments'
 import { download } from '@/api/client'
 import { Empty } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import type { Attachment } from '@/types'
 import { formatBytes, formatTime } from '@/utils/format'
 
@@ -111,14 +112,14 @@ export function AttachmentPanel({ entityType, entityId, title = '附件' }: Atta
         —— 类型与大小由服务端复核，改个后缀骗不过去。
       </Typography.Paragraph>
 
-      <Table
-        dataSource={list}
+      <ResponsiveTable
+        rows={list}
         loading={loading}
         rowKey="id"
         size="small"
         pagination={false}
-        scroll={{ x: 720 }}
-        locale={{ emptyText: '还没有附件。货代或海关发来的文件到手后在这里补传。' }}
+        scrollX={720}
+        empty="还没有附件。货代或海关发来的文件到手后在这里补传。"
       >
         <Table.Column
           dataIndex="file_name"
@@ -183,7 +184,7 @@ export function AttachmentPanel({ entityType, entityId, title = '附件' }: Atta
             </Space>
           )}
         />
-      </Table>
+      </ResponsiveTable>
     </Card>
   )
 }

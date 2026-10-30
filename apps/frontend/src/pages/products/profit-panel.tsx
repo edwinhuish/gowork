@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import type { ProductProfitRow } from '@/types'
 
 /**
@@ -43,13 +44,15 @@ export function ProfitPanel({ productId }: { productId: number }) {
         <Typography.Text type="danger">{(error as Error).message}</Typography.Text>
       ) : (
         <>
-          <Table<ProductProfitRow>
+          <ResponsiveTable<ProductProfitRow>
             rowKey="shipment_id"
             size="small"
             pagination={false}
-            scroll={{ x: 860 }}
-            dataSource={data?.rows ?? []}
-            locale={{ emptyText: '这个产品还没有出货记录' }}
+            scrollX={860}
+            rows={data?.rows ?? []}
+            empty="这个产品还没有出货记录"
+            // 第一列是出货日，卡上该写出货单号：认一票靠的是单号。
+            cardTitleKey="doc_no"
           >
             <Table.Column
               dataIndex="ship_date"
@@ -120,7 +123,7 @@ export function ProfitPanel({ productId }: { productId: number }) {
                 row.cost_hidden || row.cost_missing ? <span className="cell-empty">—</span> : <Money value={value} />
               }
             />
-          </Table>
+          </ResponsiveTable>
 
           <Space size={16} wrap style={{ marginTop: 12 }}>
             <span className="cell-sub">

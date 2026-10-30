@@ -3,6 +3,7 @@ import { Button, Card, Input, Popconfirm, Select, Space, Table, Tag, Typography,
 
 import { productCodeApi } from '@/api/product-codes'
 import { Empty, Mono } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { PRODUCT_CODE_SOURCE_OPTIONS, productCodeSourceLabel } from '@/constants/catalog'
 import type { ProductCode } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -109,13 +110,13 @@ export function CodePanel({ productId }: { productId: number }) {
         </Button>
       </Space.Compact>
 
-      <Table
-        dataSource={list}
+      <ResponsiveTable
+        rows={list}
         loading={loading}
         rowKey="id"
         size="small"
         pagination={false}
-        locale={{ emptyText: '还没有其他编号。客户或供应商给过别的叫法，就记在这里。' }}
+        empty="还没有其他编号。客户或供应商给过别的叫法，就记在这里。"
       >
         <Table.Column
           dataIndex="code"
@@ -157,7 +158,7 @@ export function CodePanel({ productId }: { productId: number }) {
             </Popconfirm>
           )}
         />
-      </Table>
+      </ResponsiveTable>
     </Card>
   )
 }

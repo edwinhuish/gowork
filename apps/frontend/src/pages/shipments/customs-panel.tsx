@@ -22,6 +22,8 @@ import {
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
+import { toCardPager } from '@/components/partner-cards'
 import { CUSTOMS_STATUS_OPTIONS, SUPERVISION_MODE_OPTIONS } from '@/constants/catalog'
 import type { CustomsDeclaration } from '@/types'
 import { formatDate } from '@/utils/format'
@@ -134,12 +136,18 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
         报关单号是海关给的外部号，只记录、不参与发号。
       </Typography.Paragraph>
 
-      <Table
-        {...tableProps}
+      <ResponsiveTable
+        tableProps={tableProps}
+        rows={(tableProps.dataSource ?? []) as CustomsDeclaration[]}
+        loading={tableProps.loading === true}
+        pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
-        scroll={{ x: 900 }}
-        locale={{ emptyText: '还没有报关记录。要素备齐后在这里登记，报关单号可以后补。' }}
+        scrollX={900}
+        // 第一列是状态，卡上该写报关单号：一票可能有多张报关单（分票 / 退单重报），
+        // 状态不能区分它们。
+        cardTitleKey="decl_no"
+        empty="还没有报关记录。要素备齐后在这里登记，报关单号可以后补。"
       >
         <Table.Column
           dataIndex="status"
@@ -191,7 +199,7 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
             </Space>
           )}
         />
-      </Table>
+      </ResponsiveTable>
 
       <Modal
         open={modalOpen}

@@ -4,6 +4,7 @@ import { Alert, Card, Col, Row, Space, Statistic, Table, Tabs, Tag, Typography }
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { activityTypeLabel, opportunityStageLabel, orderStatusLabel } from '@/constants/catalog'
 import type {
   Partner360Activity,
@@ -90,13 +91,13 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
             key: 'orders',
             label: '最近订单',
             children: (
-              <Table<Partner360Order>
+              <ResponsiveTable<Partner360Order>
                 size="small"
                 rowKey="id"
                 loading={isLoading}
-                dataSource={data?.orders ?? []}
+                rows={data?.orders ?? []}
                 pagination={false}
-                locale={{ emptyText: '还没有订单' }}
+                empty="还没有订单"
               >
                 <Table.Column
                   dataIndex="doc_no"
@@ -126,20 +127,20 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   align="right"
                   render={(_, row: Partner360Order) => <Money value={row.amount_base_total} />}
                 />
-              </Table>
+              </ResponsiveTable>
             ),
           },
           {
             key: 'receivables',
             label: '未结清应收',
             children: (
-              <Table<Partner360Receivable>
+              <ResponsiveTable<Partner360Receivable>
                 size="small"
                 rowKey="id"
                 loading={isLoading}
-                dataSource={data?.receivables ?? []}
+                rows={data?.receivables ?? []}
                 pagination={false}
-                locale={{ emptyText: '没有未结清的应收' }}
+                empty="没有未结清的应收"
               >
                 <Table.Column
                   dataIndex="doc_no"
@@ -182,20 +183,22 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                     </span>
                   )}
                 />
-              </Table>
+              </ResponsiveTable>
             ),
           },
           {
             key: 'activities',
             label: '最近跟进',
             children: (
-              <Table<Partner360Activity>
+              <ResponsiveTable<Partner360Activity>
                 size="small"
                 rowKey="id"
                 loading={isLoading}
-                dataSource={data?.activities ?? []}
+                rows={data?.activities ?? []}
                 pagination={false}
-                locale={{ emptyText: '还没有跟进记录' }}
+                // 第一列是日期，卡上该写主题：认一条跟进靠的是"谈了什么"。
+                cardTitleKey="subject"
+                empty="还没有跟进记录"
               >
                 <Table.Column dataIndex="occurred_at" title="日期" width={110} />
                 <Table.Column
@@ -219,20 +222,20 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   width={120}
                   render={(value: string) => value || <Empty />}
                 />
-              </Table>
+              </ResponsiveTable>
             ),
           },
           {
             key: 'opportunities',
             label: '在谈商机',
             children: (
-              <Table<Partner360Opportunity>
+              <ResponsiveTable<Partner360Opportunity>
                 size="small"
                 rowKey="id"
                 loading={isLoading}
-                dataSource={data?.opportunities ?? []}
+                rows={data?.opportunities ?? []}
                 pagination={false}
-                locale={{ emptyText: '没有在谈的商机' }}
+                empty="没有在谈的商机"
               >
                 <Table.Column
                   dataIndex="subject"
@@ -263,12 +266,14 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   render={(_, row: Partner360Opportunity) => <Money value={row.amount_base} />}
                 />
                 <Table.Column dataIndex="expected_close_date" title="预计成交" width={120} />
-              </Table>
+              </ResponsiveTable>
             ),
           },
           {
             key: 'shipments',
             label: '最近出货',
+            // 出货只有 3 列（单号 / 出货日 / 状态），窄屏一屏内看得完，
+            // 卡片化反而更啰嗦，所以这张保留表格。
             children: (
               <Table<Partner360Shipment>
                 size="small"

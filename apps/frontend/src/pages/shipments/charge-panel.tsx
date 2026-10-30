@@ -21,6 +21,8 @@ import {
 
 import { shipmentChargeApi, type ShipmentChargeInput } from '@/api/shipment-charges'
 import { Empty, Money } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
+import { toCardPager } from '@/components/partner-cards'
 import { SHIPMENT_CHARGE_OPTIONS, shipmentChargeLabel } from '@/constants/catalog'
 import type { Currency, Partner, ShipmentCharge } from '@/types'
 
@@ -178,12 +180,15 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
         毛利凭空低一截而钱一分没花。外币金额按录入当日汇率折本币并锁定。
       </Typography.Paragraph>
 
-      <Table
-        {...tableProps}
+      <ResponsiveTable
+        tableProps={tableProps}
+        rows={(tableProps.dataSource ?? []) as ShipmentCharge[]}
+        loading={tableProps.loading === true}
+        pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
-        scroll={{ x: 960 }}
-        locale={{ emptyText: '还没有费用记录。货代账单到手后在这里补录。' }}
+        scrollX={960}
+        empty="还没有费用记录。货代账单到手后在这里补录。"
       >
         <Table.Column
           dataIndex="type"
@@ -257,7 +262,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
             </Space>
           )}
         />
-      </Table>
+      </ResponsiveTable>
 
       <Modal
         open={modalOpen}

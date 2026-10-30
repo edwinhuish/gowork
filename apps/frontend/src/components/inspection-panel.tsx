@@ -10,7 +10,6 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
   message,
 } from 'antd'
@@ -23,6 +22,7 @@ import {
 } from '@/api/inspections'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -133,13 +133,13 @@ export function InspectionPanel({
         </Button>
       }
     >
-      <Table<Inspection>
+      <ResponsiveTable<Inspection>
         rowKey="id"
         size="small"
         loading={loading}
-        dataSource={rows}
+        rows={rows}
         pagination={false}
-        locale={{ emptyText: '还没有验货记录。「我验过货」这句话，需要这里的一条记录来支撑。' }}
+        empty="还没有验货记录。「我验过货」这句话，需要这里的一条记录来支撑。"
         columns={[
           {
             title: '验货日',

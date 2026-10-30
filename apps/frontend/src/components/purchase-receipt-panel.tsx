@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Input, InputNumber, Modal, Popconfirm, Space, Table, Tag, message } from 'antd'
+import { Button, Card, DatePicker, Input, InputNumber, Modal, Popconfirm, Space, Tag, message } from 'antd'
 
 import {
   purchaseReceiptApi,
@@ -8,6 +8,7 @@ import {
   type PurchaseReceiptSummary,
 } from '@/api/purchase-receipts'
 import { Empty } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
 
@@ -144,13 +145,13 @@ export function PurchaseReceiptPanel({
         </Button>
       }
     >
-      <Table<PurchaseReceipt>
+      <ResponsiveTable<PurchaseReceipt>
         rowKey="id"
         size="small"
         loading={loading}
-        dataSource={data.receipts}
+        rows={data.receipts}
         pagination={false}
-        locale={{ emptyText: '还没有收货记录。建单并确认后，库存才会计入。' }}
+        empty="还没有收货记录。建单并确认后，库存才会计入。"
         columns={[
           { title: '单号', dataIndex: 'doc_no', width: 160 },
           {
@@ -252,10 +253,10 @@ export function PurchaseReceiptPanel({
             />
           </Space>
 
-          <Table<PurchaseOrderItem>
+          <ResponsiveTable<PurchaseOrderItem>
             rowKey="id"
             size="small"
-            dataSource={items}
+            rows={items}
             pagination={false}
             columns={[
               { title: 'SKU', dataIndex: 'sku_code', width: 140 },
@@ -318,10 +319,10 @@ export function PurchaseReceiptPanel({
           <span className="cell-sub">
             退货会生成一张采购退货出库单，库存随之减少；累计退货不得超过收货量。
           </span>
-          <Table<PurchaseReceiptItem>
+          <ResponsiveTable<PurchaseReceiptItem>
             rowKey="id"
             size="small"
-            dataSource={returning?.items ?? []}
+            rows={returning?.items ?? []}
             pagination={false}
             columns={[
               { title: 'SKU', dataIndex: 'sku_code', width: 140 },

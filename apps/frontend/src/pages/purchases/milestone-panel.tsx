@@ -4,6 +4,7 @@ import { Button, Card, Form, Input, Modal, Space, Table, Tag, Tooltip, message }
 
 import { purchaseOrderApi } from '@/api/purchase-orders'
 import { Mono } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { PURCHASE_NODES, type PurchaseMilestone, type PurchaseOrder } from '@/types'
 
 const NODE_LABEL = new Map<number, string>(PURCHASE_NODES.map((n) => [n.value, n.label]))
@@ -87,13 +88,16 @@ export function PurchaseMilestonePanel({ order }: { order: PurchaseOrder }) {
       loading={isLoading}
       extra={<span className="cell-sub">点格子补录计划日与实际完成日</span>}
     >
-      <Table
+      <ResponsiveTable
         rowKey="id"
         size="small"
-        dataSource={items}
+        rows={items}
         pagination={false}
-        scroll={{ x: 900 }}
-        locale={{ emptyText: '这张采购单还没有明细' }}
+        scrollX={900}
+        empty="这张采购单还没有明细"
+        // 最后一列也是「点一下补录」的节点，会被当成操作列挪到卡片底部、
+        // 连"这是哪个节点"一起弄丢。这张表没有操作列。
+        cardActionKeys={[]}
       >
         <Table.Column
           title="物料"
@@ -151,7 +155,7 @@ export function PurchaseMilestonePanel({ order }: { order: PurchaseOrder }) {
             }}
           />
         ))}
-      </Table>
+      </ResponsiveTable>
 
       <Modal
         open={!!editing}

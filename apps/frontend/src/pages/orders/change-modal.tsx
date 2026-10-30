@@ -3,6 +3,7 @@ import { Form, Input, InputNumber, Modal, Table, Typography, message } from 'ant
 
 import { salesOrderApi, type SalesOrderChangeInput } from '@/api/sales-orders'
 import { Empty, Mono } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { SalesOrder, SalesOrderItem } from '@/types'
 import { formatQty } from '@/utils/format'
@@ -146,13 +147,16 @@ export function ChangeModal({
           要加减货请作废重下。金额由后端按新值重算，这里只显示原值。
         </Typography.Paragraph>
 
-        <Table
+        <ResponsiveTable
           rowKey="id"
           size="small"
-          dataSource={items}
+          rows={items}
           pagination={false}
-          scroll={{ x: 860 }}
-          locale={{ emptyText: '这张订单没有明细' }}
+          scrollX={860}
+          empty="这张订单没有明细"
+          // 最后一列「新单价」无 dataIndex 只有 render，会被当成操作列挪到卡片
+          // 底部、把标签弄丢。这张表没有操作列。
+          cardActionKeys={[]}
         >
           <Table.Column
             dataIndex="sku_code"
@@ -232,7 +236,7 @@ export function ChangeModal({
               </Form.Item>
             )}
           />
-        </Table>
+        </ResponsiveTable>
       </Form>
     </Modal>
   )

@@ -22,6 +22,8 @@ import {
 
 import { productSourceApi, type ProductSourceInput } from '@/api/product-sources'
 import { Empty, Mono, Money } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
+import { toCardPager } from '@/components/partner-cards'
 import type { Currency, Partner, ProductSource } from '@/types'
 
 interface SourceForm {
@@ -182,12 +184,15 @@ export function SourcesPanel({ productId }: { productId: number }) {
         采购价按录入当日汇率折算本币，列表按本币价升序；同一供应商下货号不可重复。
       </Typography.Paragraph>
 
-      <Table
-        {...tableProps}
+      <ResponsiveTable
+        tableProps={tableProps}
+        rows={(tableProps.dataSource ?? []) as ProductSource[]}
+        loading={tableProps.loading === true}
+        pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
-        scroll={{ x: 980 }}
-        locale={{ emptyText: '还没有货源记录，先挂一家供应商的报价' }}
+        scrollX={980}
+        empty="还没有货源记录，先挂一家供应商的报价"
       >
         <Table.Column
           dataIndex="partner"
@@ -274,7 +279,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
             </Space>
           )}
         />
-      </Table>
+      </ResponsiveTable>
 
       <Modal
         open={modalOpen}

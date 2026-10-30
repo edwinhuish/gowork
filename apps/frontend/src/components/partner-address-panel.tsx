@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, message } from 'antd'
+import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Tag, message } from 'antd'
 
 import { partnerApi, type PartnerAddressInput } from '@/api/partners'
 import { AccentTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import { PARTNER_ADDRESS_TYPE_OPTIONS } from '@/constants/catalog'
 import type { PartnerAddress } from '@/types'
 
@@ -105,13 +106,13 @@ export function PartnerAddressPanel({ partnerId }: { partnerId: number }) {
       }
       style={{ marginTop: 16 }}
     >
-      <Table<PartnerAddress>
+      <ResponsiveTable<PartnerAddress>
         rowKey="id"
         size="small"
         loading={loading}
-        dataSource={rows}
+        rows={rows}
         pagination={false}
-        locale={{ emptyText: '还没有地址。单证会自动回退到主体上的地址。' }}
+        empty="还没有地址。单证会自动回退到主体上的地址。"
         columns={[
           {
             title: '用途',
