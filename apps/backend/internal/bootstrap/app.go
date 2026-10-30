@@ -408,7 +408,7 @@ func New(cfg *config.Config) (*App, error) {
 			Purchases: purchaseSvc, Shipments: shipmentSvc,
 			Charges: chargeSvc, Customs: customsSvc,
 			Receivables: receivableSvc, Payables: payableSvc, Payments: paymentSvc,
-			StockDocs: stockDocSvc,
+			StockDocs: stockDocSvc, Receipts: receiptSvc, Inspections: inspectionSvc,
 		}
 		if err := app.seed(context.Background(), deps, cfg.Database.DemoSeed); err != nil {
 			app.Close()

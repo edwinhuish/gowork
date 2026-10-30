@@ -203,12 +203,14 @@ func (a *App) seedTrading(ctx context.Context, d seedDeps, m *demoMaster) error 
 		return fmt.Errorf("写入应收（Central）: %w", err)
 	}
 	// 出货票也开一张应收：分票开票是常态，票上挂着它才能在出货详情里看到开票情况。
+	// 到期日往前放 75 天，是为了让账龄报表出现 61-90 天这一档 ——
+	// 所有应收都落在同一个桶里时，分桶看不出对不对。
 	if _, err := d.Receivables.Create(ctx, dto.ReceivableInput{
 		SourceType: int8(model.SettlementSourceShipment),
 		SourceID:   shipmentID,
 		Amount:     dec("3000"),
-		DueDate:    day(-8),
-		Remark:     "按一票出货开票 3000 美元",
+		DueDate:    day(-75),
+		Remark:     "按一票出货开票 3000 美元，账期 30 天已严重逾期",
 	}); err != nil {
 		a.Log.Warn("演示应收（按出货）写入失败，跳过", "err", err)
 	}
@@ -490,6 +492,41 @@ func (a *App) seedPurchase(ctx context.Context, d seedDeps, m *demoMaster, order
 			if _, err := d.Purchases.SaveMilestones(ctx, po.ID, dto.PurchaseMilestoneSaveInput{Milestones: saves}); err != nil {
 				a.Log.Warn("演示跟单节点写入失败，跳过", "err", err)
 			}
+		}
+	}
+
+	// 验货与收货：采购单详情里的两个面板就靠这两条记录，
+	// 没有它们面板是空的，也看不出「收货确认会自动生成采购入库单」这条链路。
+	if poDetail, err := d.Purchases.Get(ctx, po.ID); err == nil && len(poDetail.Items) > 0 {
+		firstItem := poDetail.Items[0].ID
+		if _, err := d.Inspections.Create(ctx, po.ID, dto.InspectionInput{
+			PurchaseOrderItemID: &firstItem,
+			Result:              "passed",
+			SampleRate:          10,
+			InspectedAt:         day(-12),
+			Inspector:           "QC-王工",
+			Remark:              "抽检 10%，尺寸与表面处理均合格",
+		}); err != nil {
+			a.Log.Warn("演示验货记录写入失败，跳过", "err", err)
+		}
+
+		receiptItems := make([]dto.PurchaseReceiptItemInput, 0, len(poDetail.Items))
+		for _, item := range poDetail.Items {
+			receiptItems = append(receiptItems, dto.PurchaseReceiptItemInput{
+				PurchaseOrderItemID: item.ID,
+				BatchNo:             "B" + day(-10),
+				Qty:                 item.Qty,
+			})
+		}
+		receipt, err := d.Receipts.Create(ctx, po.ID, dto.PurchaseReceiptInput{
+			ReceivedDate: day(-10),
+			Remark:       "整单到货，已点收",
+			Items:        receiptItems,
+		})
+		if err != nil {
+			a.Log.Warn("演示收货单写入失败，跳过", "err", err)
+		} else if _, err := d.Receipts.Confirm(ctx, receipt.ID); err != nil {
+			a.Log.Warn("演示收货单确认失败，跳过", "err", err)
 		}
 	}
 

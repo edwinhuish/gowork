@@ -140,6 +140,47 @@ func TestDemoSeedCoversMainChain(t *testing.T) {
 	assertReportNotZero(t, srv, token, "销售看板收入（sales-dashboard）", "/api/v1/reports/sales-dashboard?dimension=customer", "total")
 	assertReportNotZero(t, srv, token, "汇兑损益（exchange-gains）", "/api/v1/reports/exchange-gains", "total_gain_base")
 	assertReportNotZero(t, srv, token, "单票毛利（shipment-profits）", "/api/v1/reports/shipment-profits", "total")
+
+	// 采购单详情里的两个面板：收货与验货不单独成页，没有它们那条详情页就少两块内容。
+	assertHasRows(t, srv, token, "收货单", "/api/v1/purchase-orders/1/receipts")
+	assertHasRows(t, srv, token, "验货记录", "/api/v1/purchase-orders/1/inspections")
+}
+
+// assertHasRows 断言接口回来了至少一行数据。
+//
+// 挂在单据下的子列表形状不统一：有的直接返回数组，有的包一层（收货单是
+// `{receipts, received_by_item}`）。所以两种都试：能解成非空数组就通过，
+// 否则在对象里找第一个非空数组。要的是"有数据"，不是锁死某个外层字段名。
+func assertHasRows(t *testing.T, srv *httptest.Server, token, name, path string) {
+	t.Helper()
+	res := call(t, srv, http.MethodGet, path, token, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("%s: GET %s = %d", name, path, res.StatusCode)
+	}
+	code, msg, data := decodeEnvelope(t, res)
+	if code != 0 {
+		t.Fatalf("%s: 业务错误 %d %s", name, code, msg)
+	}
+
+	var list []json.RawMessage
+	if err := json.Unmarshal(data, &list); err == nil {
+		if len(list) == 0 {
+			t.Errorf("%s 是空的（%s），这一块在详情页里会是空白", name, path)
+		}
+		return
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil {
+		t.Fatalf("%s: 返回既不是数组也不是对象: %s", name, data)
+	}
+	for _, raw := range object {
+		var rows []json.RawMessage
+		if err := json.Unmarshal(raw, &rows); err == nil && len(rows) > 0 {
+			return
+		}
+	}
+	t.Errorf("%s 是空的（%s），这一块在详情页里会是空白: %s", name, path, data)
 }
 
 // assertReportNotZero 只断言字段存在且不为零：这些字段都是数字或对象，

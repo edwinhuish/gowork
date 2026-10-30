@@ -44,6 +44,8 @@ type seedDeps struct {
 	Payables    service.PayableService
 	Payments    service.PaymentService
 	StockDocs   service.StockDocumentService
+	Receipts    service.PurchaseReceiptService
+	Inspections service.InspectionService
 }
 
 // seed 只在数据为空时写入，重复启动不会产生重复数据。
