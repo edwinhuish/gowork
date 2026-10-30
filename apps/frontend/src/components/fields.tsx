@@ -17,7 +17,13 @@ import type { Currency } from '@/types'
  * `render: (v) => <StatusTag value={v} />`。
  */
 
-/** 启用/停用。用柔和的 success/default 而不是红绿，停用不等于出错。 */
+/**
+ * 启用 / 停用。
+ *
+ * 只对账号与币种这类"还留着这个状态"的对象用：主数据的启用状态已经拿掉，
+ * 列表里剩下的筛选维度是软删除。用柔和的 success/default 而不是红绿，
+ * 停用不等于出错。币种那边同一个字段叫归档，说辞在 CURRENCY_STATUS_OPTIONS。
+ */
 export function StatusTag({ value }: { value?: number | null }) {
   return <OptionTag value={value} options={ENABLE_STATUS_OPTIONS} />
 }

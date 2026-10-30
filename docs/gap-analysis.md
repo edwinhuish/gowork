@@ -88,7 +88,7 @@ T-37 把金额换成了定点 `Decimal`，浮点尾巴这一层风险已经消�
 | 主数据 | 币种与汇率：唯一本币、汇率只增不改（无 PUT）、同日同币种唯一、按生效日半开区间取、缺汇率 400、跨币种折算只有一个 `Convert` | `model/currency.go:22-69`；`service/currency.go:199-303`；`service/exchange_rate.go:18-110` |
 | 主数据 | 条款模板库：CRUD + 恢复，生成合同时抄快照 | `model/clause.go:10-44` |
 | CRM | 联系人（多行 + 主联系人唯一）、跟进（时间线 + `?due=1` 超期）、线索（4 态机 + 幂等转化）、商机（6 阶段可回退、终态锁定、赢/输概率强制 100/0、加权汇总） | `model/contact.go`、`model/activity.go:34-51`、`model/lead.go:39-51`、`model/opportunity.go:44-133` |
-| 交易 | 报价：单号 + 案号、多版本、有效期、成本快照（最低启用货源）、毛利、试算不落库、转订单（条件更新防并发）、PDF | `service/quotation.go:198-311`；`repository/quotation.go:64-68` |
+| 交易 | 报价：单号 + 案号、多版本、有效期、成本快照（最低货源）、毛利、试算不落库、转订单（条件更新防并发）、PDF | `service/quotation.go:198-311`；`repository/quotation.go:64-68` |
 | 交易 | 销售订单：完整状态机、合计只由明细汇总、确认时信用额度拦截（超额 409、admin 可强制放行）、已确认走变更单留痕（原因 + 行级前后值）、已出 / 未出数量投影 | `service/sales_order.go:221-321`；`service/credit.go:79-122`；`model/sales_order_change.go:20-67` |
 | 交易 | 采购订单：状态机、以销定采挂订单行（三项校验）、独立锁汇率、5 个跟单节点（计划 / 完成 / 补录人）、逾期筛选 | `service/purchase_order.go:142-182`；`model/purchase_milestone.go:72-89` |
 | 交易 | 合同（PI / SC）：只能从报价或订单生成、分期合计必须等于总额、条款快照、PDF | `service/contract.go:89-397` |
@@ -683,7 +683,7 @@ gorm 的 embed 与软删、索引、`TableName` 的交互有坑（`apps/backend/
 |---|---|---|---|
 | 1 | 表结构 | 23 张表加 `tenant_id`；`Base` 加字段最省事，但会让 `sys_doc_seq` 这类表也带一个无意义列 | 漏一张表 = 跨租户读到别人的数据 |
 | 2 | **唯一索引全部要改** | 9 处唯一键：`md_product.sku_code`、`md_partner.code`、`md_currency.code`、`md_exchange_rate(currency,base,date)`、`biz_quotation(doc_no,version)`、四张单据的 `doc_no`、`sys_user.username`、`sys_doc_seq(doc_type,period)` | 不加租户维度 → 两个租户不能有同一个 `PART-001`；加了但漏索引 → 建单 500 |
-| 3 | 唯一本币 | `md_currency` 的「唯一本币」是全局约束（停用不删除） | 全库只能有一个租户设本币 |
+| 3 | 唯一本币 | `md_currency` 的「唯一本币」是全局约束（归档不删除） | 全库只能有一个租户设本币 |
 | 4 | 发号器 | `sys_doc_seq` 的键要加租户，否则两个租户共用号段（单号会串，客户看到别人的单号） | 单号连续性失去意义 |
 | 5 | 缓存 key | `session:{jti}`、`login_fail:{username}`、`dashboard:summary` 都不含租户 | `dashboard:summary` 直接串数据（现在就已经是全进程共享） |
 | 6 | 令牌与会话 | JWT claims 加 `tid`；`Verify` 校验会话与租户一致 | 换租户不重新登录 |

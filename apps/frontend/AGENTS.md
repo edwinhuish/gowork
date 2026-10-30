@@ -66,7 +66,7 @@ apps/frontend/
     │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
     │   ├── product-source-select.tsx  明细行的成本货源：按产品现查，不再全量取数
     │   └── authed-image.tsx      带令牌取图（fetch → blob → object URL），图片接口不能用 <img src>
-    ├── constants/catalog.ts 产品类别字典、启用状态、主体类型选项、角色位常量
+    ├── constants/catalog.ts 产品类别字典、账号启用状态与币种归档状态、主体类型选项、角色位常量
     ├── hooks/
     │   └── use-idempotency-key.ts  写操作的幂等键：同一次提交的重试复用，成功后轮换
     ├── utils/format.ts      时间格式化
@@ -144,7 +144,7 @@ pages/products/list.tsx
    │ 2  把分页/筛选/排序规范化成 CrudFilters
    ▼
 providers/dataProvider.ts
-   │ 3  filters → 后端查询参数（page / page_size / keyword / category / status）
+   │ 3  filters → 后端查询参数（page / page_size / keyword / category / include_deleted）
    ▼
 api/client.ts
    │ 4  加 Authorization、注入令牌、fetch、读 X-Renewed-Token
@@ -203,12 +203,12 @@ api/client.ts
 | `providers/dataProvider.ts` | 分页与筛选翻译、白名单 | 后端加查询参数时同步 `PASSTHROUGH_FILTERS` |
 | `providers/authProvider.ts` | 登录/登出/check/onError/identity | `check` 里别再直接打接口，先看 identity 缓存 |
 | `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render |
-| `constants/catalog.ts` | 字典类枚举：产品类别、启用状态 | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
+| `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
 | `components/product-select.tsx` | 任何「选一个产品」的下拉（明细行、库存流水、出入库单明细） | 搜索走后端 `/products?keyword=`，不要退化成 `useSelect` 取满 200 条——本地过滤筛不出客户报的编号，产品过两百条之后后半段还会选不到 |
-| `components/product-source-select.tsx` | 明细行的成本货源（报价单） | 按 `product_id` 现查、只列启用货源；已选的那条停用或被删时仍占位显示，别让它变成一个光秃秃的 id |
+| `components/product-source-select.tsx` | 明细行的成本货源（报价单） | 按 `product_id` 现查（货源没有启用状态了）；已选的那条被删时仍占位显示，别让它变成一个光秃秃的 id |
 | `hooks/use-idempotency-key.ts` | 任何会**重复建单**的新建页（报价 / 订单 / 采购 / 出货 / 合同 / 应收应付 / 出入库单），以及**不在表单里、但每次调用都会新建记录**的接口（订单变更 `POST /sales-orders/:id/changes`） | 表单页挂到 `useForm` 的 `mutationMeta` 上、成功后 `onMutationSuccess` 里轮换；非表单的调用把 `key` 作为 `http.post` 的第三个参数传（`{ 'Idempotency-Key': key }`），成功后手动 `rotate()`。键必须在「用户意图」这层生成：让 http 层每次自动生成等于每次都是新操作，幂等无从谈起 |
 | `pages/shipments/allocation-editor.tsx` | 出货分配行（选销售订单行 + 数量 + 装箱数据） | 选行来源是 `/shipment-candidates`，不是订单列表；编辑时传 `excludeShipmentId`；装箱数据（箱数 / 毛净重 / 尺寸）可留空，净重大于毛重由后端拒 |
 | `pages/products/profit-panel.tsx` | 产品详情页的「逐票毛利」（T-31 下钻） | 一行一票、点进那一票（毛利对不上要看的是那一票的费用）；口径来自 `/reports/product-profit`，前端不重算；`cost_hidden` 显示「—」 |

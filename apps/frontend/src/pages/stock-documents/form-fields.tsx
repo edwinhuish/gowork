@@ -26,7 +26,7 @@ export function StockDocFormFields({ typeReadOnly = false }: { typeReadOnly?: bo
     optionLabel: (item) => `${item.name}（${item.code}）`,
     optionValue: 'id',
     pagination: { mode: 'off' },
-    filters: [{ field: 'status', operator: 'eq', value: 1 }],
+    // 已删的仓库由后端软删条件排除，不用再按状态筛一次。
   })
 
   const { options: partnerOptions, query: partnerQuery } = useSelect<Partner>({

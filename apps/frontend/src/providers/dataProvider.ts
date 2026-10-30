@@ -16,9 +16,11 @@ import type { PageResult } from '@/types'
  * 后端分页与筛选契约（见 apps/backend/internal/dto/common.go 与各资源 Query）：
  *   page / page_size / keyword 全资源通用
  *   sort_field + sort_order 目前只有产品列表消费（白名单在 repository/product.go）
- *   category+supplier_id+status 仅产品
- *   country+status+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
- *   currency_code 仅汇率；币种本身只用 status + keyword
+ *   category+supplier_id 仅产品
+ *   country+role+entity_type 仅往来单位（/partners 及其 customers/suppliers 别名）
+ *   currency_code 仅汇率
+ *   status 是两处残留下来的：币种的归档标记与账号的启用 / 禁用。
+ *     其余主数据的启用状态已经拿掉，那些资源的后端不再认识这个参数。
  *   partner_id 仅联系人 / 跟进记录 / 产品货源（按主体看是 CRM 的主维度，货源侧是反向查）
  *   product_id 仅产品货源（产品详情页的货源面板按产品取数）
  *   shipment_id 仅运费杂费（出货详情页的费用面板按票取数）

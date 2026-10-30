@@ -195,7 +195,12 @@ export function paymentTargetLabel(value?: number | null): string | undefined {
   return PAYMENT_TARGET_MAP.get(value) ?? `未知核销对象(${value})`
 }
 
-/** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
+/**
+ * 启用状态下拉选项：账号专用（主数据的启用状态已经拿掉）。
+ *
+ * 取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。
+ * 币种的同一个字段叫归档，见 CURRENCY_STATUS_OPTIONS。
+ */
 export const ENABLE_STATUS_OPTIONS = [
   { value: 1, label: '启用', tone: 'success' as StatusTone },
   { value: 0, label: '停用', tone: 'default' as StatusTone },

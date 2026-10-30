@@ -13,6 +13,9 @@ const (
 // 用 nil 表示"未提交"，由 service 按各模块默认值补齐。
 // 不能拿 0 当"没填"——那样就分不清"显式停用"和"没传这个字段"。
 // 取值合法性不在这里校验，交给 service 的 normEnableStatus。
+//
+// 主数据的启用状态已经退场，现在只剩两处在用它：
+// 账号（sys_user，登录门禁与最后管理员保护要它）与币种的归档标记。
 type EnableStatusInput = *int8
 
 // PageQuery 是通用分页参数，各业务查询结构体嵌入它即可。

@@ -201,10 +201,17 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 
 | 中文 | 英文标识 | 取值 | 含义 |
 |---|---|---|---|
-| 启用状态 | `EnableStatus` | `1` 启用 / `0` 停用 | 这条**主数据或账号**还能不能被业务引用。停用不删除，历史单据仍指得到 |
+| 启用状态 | `EnableStatus` | `1` 启用 / `0` 停用 | **只有账号与币种还留着它**。账号那套是登录门禁与最后管理员保护的依据；停用不删除，历史单据仍指得到 |
 | 单据状态 | `DocumentStatus` | `10` 草稿 / `20` 已确认 / `30` 备货中 / `40` 已出货 / `50` 已完成 / `90` 已取消 | **业务单据**的流转阶段 |
 
 两者是不同类型，不要共用字段、不要共用一个 `status` 列。
+
+**其余主数据没有启用状态了**：产品、货源、条款、往来单位、联系人、仓库
+把各自的 `status` 字段摘掉了。它们本来就具备完整的软删除链路
+（删除 → 含已删除查询 → 恢复），再多一层"启用 / 停用"只会让
+"这条记录到底还算不算数"有两个答案。要让它不再出现在下拉与列表里，删掉；
+要它回来，恢复。**币种是个例外口径**：同一个字段在那里叫**归档**——
+归档的币种仍按代码折算历史单据，说它是"停用"会被读成失效。
 
 `DocumentStatus` 的取值**故意留空档**（10 / 20 / 30 …）：将来要在"已确认"和"备货中"之间
 插一个"已收订金"，只需给一个新值，不用把已有记录的 30 改成 40。连续编号看着整齐，
@@ -242,7 +249,7 @@ role === 1                            // 错，理由同上
 
 | 不要用 | 用 | 原因 |
 |---|---|---|
-| Active / 在售 / 有效 | Enabled / 启用 | 同一个 `status=1` 曾有三种叫法，代码、文档、界面各说各的 |
+| Active / 在售 / 有效 | Enabled / 启用（**主数据里已不存在这个说法**，要说"已删除"） | 同一个 `status=1` 曾有三种叫法，代码、文档、界面各说各的 |
 | Contact（指人名时） | `ContactName` | `Contact` 是 CRM 实体，不是字段 |
 | `code`（指 SKU 时） | `sku_code` / `SKUCode` | 往来单位也有 `code`，语义不同 |
 | Status（脱离上下文的裸写法） | `EnableStatus` / `DocumentStatus` | 不带限定词的 status 无法判断是哪套状态 |
@@ -303,7 +310,7 @@ role === 1                            // 错，理由同上
 | 规则 | 例子 |
 |---|---|
 | 缩写词全大写（Go 官方 Code Review Comments） | `SKUCode`、`UserID`、`TokenID`、`HTTP`、`DSN`、`CORSOrigins`、`JWT`。不写 `SkuCode`、`UserId` |
-| 导出标识符 PascalCase，包内 camelCase | `ProductService`、`normEnableStatus`、`enableStatusPtr` |
+| 导出标识符 PascalCase，包内 camelCase | `ProductService`、`normEnableStatus`（只剩账号与币种在用） |
 | 接口以职责命名，不加 `I` 前缀 | `ProductRepository`，不是 `IProductRepository` |
 | 构造函数 `New + 类型名`，可选依赖走 Option | `NewProductService(repo, WithProductLogger(log))` |
 | 仓储查重方法带列语义 | `ExistsBySKUCode` / `ExistsByCode`，不写含糊的 `Exists` |
@@ -327,11 +334,11 @@ role === 1                            // 错，理由同上
 | 列名 | snake_case，与 JSON tag 对齐 | `sku_code`、`supplier_id`、`entity_type` |
 | 主键 | 一律 `id`，自增 `uint` | 见 `docs/architecture.md` 第五节 |
 | API 路径 | 复数、kebab-case | `/api/v1/products`、`/api/v1/partners`、`/api/v1/sales-orders` |
-| JSON 字段 | snake_case | `product_total`、`enabled_products` |
+| JSON 字段 | snake_case | `product_total`、`supplier_total`（`enabled_products` 随产品启用状态一起删了） |
 | 单据编号列 | 一律 `doc_no`，加 `uniqueIndex` | `biz_sales_order.doc_no` = `DZ2603-SO01` |
 | 币种列 | `currency_code`，存 ISO 4217 三位代码 | 不要存币种 `id`：单据要能脱离主数据读懂 |
 | 金额列 | 跨币种单据必须成对出现 | `amount`（原币）+ `amount_base`（本币），另存 `exchange_rate` |
-| 单据状态列 | 一律叫 `status`，类型 `model.DocumentStatus` | 与主数据的 `status`（`EnableStatus`）同名不同型，靠类型而非列名区分 |
+| 单据状态列 | 一律叫 `status`，类型 `model.DocumentStatus` | 与 `EnableStatus` 同名不同型，靠类型而非列名区分；主数据已经没有那个 `status` 列了 |
 
 **列名与 Go 字段可以不同，但必须有理由。** 例：`Partner.ContactName` 的列名是
 `contact`，因为改名会让 AutoMigrate 新增列、把既有数据留在旧列里。

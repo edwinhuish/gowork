@@ -251,10 +251,13 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 有机会抹掉供应商身份）。改这套逻辑前先看 `internal/handler/partner.go` 的注释。
 
 列表通用查询参数：`page`（默认 1）、`page_size`（默认 20，上限 200）、`keyword`；
-产品另有 `category` / `supplier_id` / `status`，往来单位另有 `role` / `entity_type` /
-`country` / `status`，产品货源另有 `product_id` / `partner_id` / `status`，
-报价单与销售订单另有 `partner_id` / `status`，采购订单另有 `supplier_id` / `status`，
-出货单另有 `status` / `sales_order_id`（查"这张订单出了几次货"），
+`include_deleted` 由带软删的资源各自支持（把它旁边的开关打开才列得出已删记录）。
+产品另有 `category` / `supplier_id`，往来单位另有 `role` / `entity_type` / `country`，
+产品货源另有 `product_id` / `partner_id`，
+报价单与销售订单另有 `partner_id`（`status` 是**状态机筛选**，见下文各列表文档），
+采购订单另有 `supplier_id` / `status`，
+出货单另有 `status`（也是状态机筛已取消之外的）/ `sales_order_id`（查"这张订单出了几次货"），
+币种另有 `status`（这里是归档标记，不是启用状态），
 库存流水另有 `product_id` / `type` / `from` / `to`（发生日区间，含两端）。
 
 **路由表只有一处**：`internal/server/router.go`。加接口先在这里挂，再写 handler。
@@ -484,9 +487,14 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
   写 `role == model.PartnerRoleSupplier` 会把客供两用的主体判成"不是供应商"。
   列表按角色筛选走 `model.RoleValuesContaining` 展开成 `IN`，不要直写位运算条件
   （PG 与 MySQL 上都用不了 btree 索引）。
-- **两类状态不要混**：主数据与账号用 `model.EnableStatus`（1 启用 / 0 停用）；
-  单据状态是 `model.DocumentStatus`（10 草稿 / 20 已确认 / 30 备货中 / 40 已出货 /
-  50 已完成 / 90 已取消）。两者取值都是小整数，赋错了编译器不报，只会在筛选条件上出错。
+- **两类状态不要混**：账号与币种用 `model.EnableStatus`（1 启用 / 0 停用，
+  币种那边界面叫**归档**）；单据状态是 `model.DocumentStatus`（10 草稿 / 20 已确认 /
+  30 备货中 / 40 已出货 / 50 已完成 / 90 已取消）。两者取值都是小整数，
+  赋错了编译器不报，只会在筛选条件上出错。
+- **主数据没有启用状态了**：产品、货源、条款、往来单位、联系人、仓库
+  的 `status` 字段已删——要让它不再出现在下拉与列表里，用软删；要它回来，用恢复。
+  软删两件事各有固定叫法：列表筛选参数是 `include_deleted`，
+  恢复路径是 `PUT/POST /xxx/:id/restore`（币种、条款这类按各自既有写法）。
 - **单据状态只能按 `CanTransitTo` 跳转**，校验统一走 `service.checkDocumentTransit`。
   各模块自己写 if 的那一刻，状态机就有了第二份实现，分叉的表现是"同样一次取消，
   报价单允许、订单拒绝"。已出货的单据不允许取消——货在海上，要冲出得走退货单。
@@ -564,7 +572,7 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 库存数与流水算出来的对不上 | 有人直接改了 `inv_stock_snapshot`，或某次写入没走同一事务 | 跑 `POST /stock-snapshots/recalc`，它会把差异报出来并按流水修正 |
 | 订单明明没出完，出货却总报"超出未出数量" | 统计已出数量时把已取消的出货也算进去了（或编辑时没排除本票） | 统计一律带 `biz_shipment.status <> 90`，编辑传 `excludeShipmentID` |
 | 出货单里的"来源订单"列全是空 | 只 Preload 了 `Allocations.SalesOrderItem`，没再 `Preload("Allocations.SalesOrderItem.SalesOrder")`，或没走 `annotateDocNo` 摊平 | 仓储三处 Preload 要齐；返回前调 `annotateDocNo`（`sales_order_doc_no` 是 `gorm:"-"` 投影） |
-| 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响） |
+| 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响）。这条现在只会发生在账号与币种的 `status` 上——主数据已经没有这个字段了 |
 | 迁移后少了若干条旧数据 | 读旧表时漏了 `Unscoped`，软删除条件由目标 struct 的 schema 决定，`Table()` 指定表名也绕不过去 | `tx.Table("md_xxx").Unscoped().Find(&rows)`，`internal/migrate/legacy_merge_test.go` 有对应用例 |
 | 库越大，服务启动越慢；PG 日志里每次启动都有同一句 DDL | 启动期迁移被写成了无条件执行：`DROP INDEX` + `CREATE`、`UPDATE ... WHERE 某列 = 0` 一条到底 | 判据是**空转成本为零**：改索引列先读列（`repository/index_migrate.go` 的 `ensureIndexColumns`）、一次性回填先查 `sys_migration`、大表回填按 id 游标分批（`repository/stock_migrate.go` 的 `backfillWarehouse`）。这些函数在 `bootstrap.New` 里，每次启动都跑 |
 | 接口整批 500，`/auth/login` 却正常 | 跑着的是改表名前编译的旧二进制，仍按 `md_party` 查询已被改名的 `md_partner`；登录只碰 `sys_user` 所以不受影响 | 重启 dev 即可，不是代码缺陷。判断版本：`/partners` 404 + `/parties` 401 就是旧二进制。`response.Fail` 已把真实原因写进日志，先看日志再猜 |

@@ -10,6 +10,11 @@ import (
 	"github.com/edwinhuish/gowork/internal/pkg/errs"
 )
 
+// 下面两个 helper 是给"还保留启用状态的两个实体"用的：
+// 账号的启用 / 禁用，与币种的归档标记（同一个字段，币种那边叫归档）。
+//
+// 其余主数据的启用状态已经拿掉了——它们原本就具备完整的软删除链路，
+// 多一层 state 只会让"这条记录到底算不算还在"有两个答案。
 var errInvalidEnableStatus = errs.BadRequest("status 只能是 1（启用）或 0（停用）")
 
 // normEnableStatus 把可选的启用状态入参归一化，并拒绝越界值。
