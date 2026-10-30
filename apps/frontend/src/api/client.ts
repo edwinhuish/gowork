@@ -134,10 +134,14 @@ export async function download(path: string, fallbackName: string): Promise<void
   const link = document.createElement('a')
   link.href = url
   link.download = filename
+  // 必须挂到文档上再点：脱离文档的 <a>.click() 只有 Chromium 认，
+  // Firefox / Safari 直接不触发下载（导出点了没反应，还查不到原因）。
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // 点完就 revoke 有概率把下载掐掉：浏览器还没开始取 blob，URL 就失效了。
+  // 放到下一拍，下载已经启动，内存也不会一直占着。
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export const http = {
@@ -173,9 +177,12 @@ export const http = {
     const a = document.createElement('a')
     a.href = url
     a.download = name
+    // 同上面的 download()：脱离文档的 <a> 在 Firefox 下不触发下载，
+    // 且 revoke 要放到下一拍。两条下载链路保持一致。
+    document.body.appendChild(a)
     a.click()
-    // 不 revoke 会一直占着内存，直到页面关掉。
-    URL.revokeObjectURL(url)
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   },
   /**
    * POST。headers 用来带 Idempotency-Key 这类"这次操作"的标记，

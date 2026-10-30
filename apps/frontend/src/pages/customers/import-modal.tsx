@@ -6,6 +6,21 @@ import { Mono } from '@/components/fields'
 import type { PartnerImportFailure, PartnerImportReport } from '@/types'
 
 /**
+ * 一格 CSV：加引号、转义引号，并挡住公式注入。
+ *
+ * 最后那条不是多余——失败行是从**用户上传的文件**里抄出来的（名称就是原样），
+ * 这份 CSV 又要拿去 Excel 打开。一个叫 `=cmd|'/C calc'!A0` 的客户名，足以让
+ * 打开文件的人中招。后端导出走的是 internal/pkg/csvx，同样的规则，这里照做。
+ * 单数开头的负号要放过（-12.34 是正常金额，加了前缀 Excel 里就求不了和了）。
+ */
+function csvCell(value: string): string {
+  const s = value ?? ''
+  const looksLikeFormula = /^[=+@\t\r]/.test(s) || (/^-/.test(s) && !/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(s))
+  const body = looksLikeFormula ? `'${s}` : s
+  return `"${body.replace(/"/g, '""')}"`
+}
+
+/**
  * 主体导入（T-35）。
  *
  * 两步：先 dry_run 出报告，看清哪几行会被跳过，再确认落库。
@@ -56,7 +71,7 @@ export function PartnerImportModal({
     if (!report?.failures.length) return
     const header = '行号,编码,名称,原因'
     const lines = report.failures.map(
-      (f) => `${f.line},${f.code},"${f.name.replace(/"/g, '""')}","${f.reason.replace(/"/g, '""')}"`,
+      (f) => `${f.line},${csvCell(f.code)},${csvCell(f.name)},${csvCell(f.reason)}`,
     )
     // 加 BOM：与后端导出一致，Excel 打开中文不乱码。
     const blob = new Blob([`\ufeff${[header, ...lines].join('\n')}`], {
@@ -66,8 +81,12 @@ export function PartnerImportModal({
     const a = document.createElement('a')
     a.href = url
     a.download = 'import-failures.csv'
+    // 同 api/client.ts 的下载：脱离文档的 <a> 在 Firefox 下不触发下载，
+    // revoke 也要放到下一拍（否则有概率把下载掐掉）。
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   return (
