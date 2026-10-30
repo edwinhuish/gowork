@@ -8,7 +8,7 @@
   "paths": {
     "/api/v1/activities": {
       "get": {
-        "operationId": "GET_handler_ActivityHandler_List-fm",
+        "operationId": "GET_api_v1_activities",
         "tags": [
           "activities"
         ],
@@ -42,7 +42,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ActivityHandler_Create-fm",
+        "operationId": "POST_api_v1_activities",
         "tags": [
           "activities"
         ],
@@ -78,7 +78,7 @@
     },
     "/api/v1/activities/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ActivityHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_activities_id",
         "tags": [
           "activities"
         ],
@@ -112,7 +112,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ActivityHandler_Get-fm",
+        "operationId": "GET_api_v1_activities_id",
         "tags": [
           "activities"
         ],
@@ -146,7 +146,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ActivityHandler_Update-fm",
+        "operationId": "PUT_api_v1_activities_id",
         "tags": [
           "activities"
         ],
@@ -182,7 +182,7 @@
     },
     "/api/v1/attachments": {
       "get": {
-        "operationId": "GET_handler_AttachmentHandler_List-fm",
+        "operationId": "GET_api_v1_attachments",
         "tags": [
           "attachments"
         ],
@@ -216,7 +216,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_AttachmentHandler_Upload-fm",
+        "operationId": "POST_api_v1_attachments",
         "tags": [
           "attachments"
         ],
@@ -252,7 +252,7 @@
     },
     "/api/v1/attachments/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_AttachmentHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_attachments_id",
         "tags": [
           "attachments"
         ],
@@ -288,7 +288,7 @@
     },
     "/api/v1/attachments/{id}/download": {
       "get": {
-        "operationId": "GET_handler_AttachmentHandler_Download-fm",
+        "operationId": "GET_api_v1_attachments_id_download",
         "tags": [
           "attachments"
         ],
@@ -324,7 +324,7 @@
     },
     "/api/v1/audit-logs": {
       "get": {
-        "operationId": "GET_handler_AuditHandler_List-fm",
+        "operationId": "GET_api_v1_audit_logs",
         "tags": [
           "audit-logs"
         ],
@@ -360,7 +360,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "operationId": "POST_handler_AuthHandler_Login-fm",
+        "operationId": "POST_api_v1_auth_login",
         "tags": [
           "auth"
         ],
@@ -391,7 +391,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "operationId": "POST_handler_AuthHandler_Logout-fm",
+        "operationId": "POST_api_v1_auth_logout",
         "tags": [
           "auth"
         ],
@@ -427,7 +427,7 @@
     },
     "/api/v1/auth/profile": {
       "get": {
-        "operationId": "GET_handler_AuthHandler_Profile-fm",
+        "operationId": "GET_api_v1_auth_profile",
         "tags": [
           "auth"
         ],
@@ -463,7 +463,7 @@
     },
     "/api/v1/clauses": {
       "get": {
-        "operationId": "GET_handler_ClauseHandler_List-fm",
+        "operationId": "GET_api_v1_clauses",
         "tags": [
           "clauses"
         ],
@@ -497,7 +497,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ClauseHandler_Create-fm",
+        "operationId": "POST_api_v1_clauses",
         "tags": [
           "clauses"
         ],
@@ -533,7 +533,7 @@
     },
     "/api/v1/clauses/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ClauseHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_clauses_id",
         "tags": [
           "clauses"
         ],
@@ -567,7 +567,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ClauseHandler_Update-fm",
+        "operationId": "PUT_api_v1_clauses_id",
         "tags": [
           "clauses"
         ],
@@ -603,7 +603,7 @@
     },
     "/api/v1/clauses/{id}/restore": {
       "post": {
-        "operationId": "POST_handler_ClauseHandler_Restore-fm",
+        "operationId": "POST_api_v1_clauses_id_restore",
         "tags": [
           "clauses"
         ],
@@ -639,7 +639,7 @@
     },
     "/api/v1/contacts": {
       "get": {
-        "operationId": "GET_handler_ContactHandler_List-fm",
+        "operationId": "GET_api_v1_contacts",
         "tags": [
           "contacts"
         ],
@@ -673,7 +673,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ContactHandler_Create-fm",
+        "operationId": "POST_api_v1_contacts",
         "tags": [
           "contacts"
         ],
@@ -709,7 +709,7 @@
     },
     "/api/v1/contacts/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ContactHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_contacts_id",
         "tags": [
           "contacts"
         ],
@@ -743,7 +743,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ContactHandler_Get-fm",
+        "operationId": "GET_api_v1_contacts_id",
         "tags": [
           "contacts"
         ],
@@ -777,7 +777,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ContactHandler_Update-fm",
+        "operationId": "PUT_api_v1_contacts_id",
         "tags": [
           "contacts"
         ],
@@ -813,7 +813,7 @@
     },
     "/api/v1/contacts/{id}/restore": {
       "put": {
-        "operationId": "PUT_handler_ContactHandler_Restore-fm",
+        "operationId": "PUT_api_v1_contacts_id_restore",
         "tags": [
           "contacts"
         ],
@@ -849,7 +849,7 @@
     },
     "/api/v1/contracts": {
       "get": {
-        "operationId": "GET_handler_ContractHandler_List-fm",
+        "operationId": "GET_api_v1_contracts",
         "tags": [
           "contracts"
         ],
@@ -883,7 +883,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ContractHandler_Generate-fm",
+        "operationId": "POST_api_v1_contracts",
         "tags": [
           "contracts"
         ],
@@ -919,7 +919,7 @@
     },
     "/api/v1/contracts/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ContractHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_contracts_id",
         "tags": [
           "contracts"
         ],
@@ -953,7 +953,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ContractHandler_Get-fm",
+        "operationId": "GET_api_v1_contracts_id",
         "tags": [
           "contracts"
         ],
@@ -987,7 +987,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ContractHandler_Update-fm",
+        "operationId": "PUT_api_v1_contracts_id",
         "tags": [
           "contracts"
         ],
@@ -1023,7 +1023,7 @@
     },
     "/api/v1/contracts/{id}/pdf": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_Contract-fm",
+        "operationId": "GET_api_v1_contracts_id_pdf",
         "tags": [
           "contracts"
         ],
@@ -1059,7 +1059,7 @@
     },
     "/api/v1/contracts/{id}/status": {
       "put": {
-        "operationId": "PUT_handler_ContractHandler_UpdateStatus-fm",
+        "operationId": "PUT_api_v1_contracts_id_status",
         "tags": [
           "contracts"
         ],
@@ -1095,7 +1095,7 @@
     },
     "/api/v1/contracts/{id}/terms/{termId}/invoice": {
       "post": {
-        "operationId": "POST_handler_ContractHandler_InvoiceTerm-fm",
+        "operationId": "POST_api_v1_contracts_id_terms_termId_invoice",
         "tags": [
           "contracts"
         ],
@@ -1131,7 +1131,7 @@
     },
     "/api/v1/credit-notes": {
       "get": {
-        "operationId": "GET_handler_CreditNoteHandler_List-fm",
+        "operationId": "GET_api_v1_credit_notes",
         "tags": [
           "credit-notes"
         ],
@@ -1165,7 +1165,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_CreditNoteHandler_Create-fm",
+        "operationId": "POST_api_v1_credit_notes",
         "tags": [
           "credit-notes"
         ],
@@ -1201,7 +1201,7 @@
     },
     "/api/v1/currencies": {
       "get": {
-        "operationId": "GET_handler_CurrencyHandler_List-fm",
+        "operationId": "GET_api_v1_currencies",
         "tags": [
           "currencies"
         ],
@@ -1235,7 +1235,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_CurrencyHandler_Create-fm",
+        "operationId": "POST_api_v1_currencies",
         "tags": [
           "currencies"
         ],
@@ -1271,7 +1271,7 @@
     },
     "/api/v1/currencies/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_CurrencyHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_currencies_id",
         "tags": [
           "currencies"
         ],
@@ -1305,7 +1305,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_CurrencyHandler_Get-fm",
+        "operationId": "GET_api_v1_currencies_id",
         "tags": [
           "currencies"
         ],
@@ -1339,7 +1339,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_CurrencyHandler_Update-fm",
+        "operationId": "PUT_api_v1_currencies_id",
         "tags": [
           "currencies"
         ],
@@ -1375,7 +1375,7 @@
     },
     "/api/v1/currencies/{id}/restore": {
       "put": {
-        "operationId": "PUT_handler_CurrencyHandler_Restore-fm",
+        "operationId": "PUT_api_v1_currencies_id_restore",
         "tags": [
           "currencies"
         ],
@@ -1411,7 +1411,7 @@
     },
     "/api/v1/customers": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_List_func1",
+        "operationId": "GET_api_v1_customers",
         "tags": [
           "customers"
         ],
@@ -1445,7 +1445,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Create_func1",
+        "operationId": "POST_api_v1_customers",
         "tags": [
           "customers"
         ],
@@ -1481,7 +1481,7 @@
     },
     "/api/v1/customers/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
+        "operationId": "DELETE_api_v1_customers_id",
         "tags": [
           "customers"
         ],
@@ -1515,7 +1515,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Get_func1",
+        "operationId": "GET_api_v1_customers_id",
         "tags": [
           "customers"
         ],
@@ -1549,7 +1549,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PartnerHandler_Update_func1",
+        "operationId": "PUT_api_v1_customers_id",
         "tags": [
           "customers"
         ],
@@ -1585,7 +1585,7 @@
     },
     "/api/v1/customs-declarations": {
       "get": {
-        "operationId": "GET_handler_CustomsDeclarationHandler_List-fm",
+        "operationId": "GET_api_v1_customs_declarations",
         "tags": [
           "customs-declarations"
         ],
@@ -1619,7 +1619,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_CustomsDeclarationHandler_Create-fm",
+        "operationId": "POST_api_v1_customs_declarations",
         "tags": [
           "customs-declarations"
         ],
@@ -1655,7 +1655,7 @@
     },
     "/api/v1/customs-declarations/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_CustomsDeclarationHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_customs_declarations_id",
         "tags": [
           "customs-declarations"
         ],
@@ -1689,7 +1689,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_CustomsDeclarationHandler_Get-fm",
+        "operationId": "GET_api_v1_customs_declarations_id",
         "tags": [
           "customs-declarations"
         ],
@@ -1723,7 +1723,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_CustomsDeclarationHandler_Update-fm",
+        "operationId": "PUT_api_v1_customs_declarations_id",
         "tags": [
           "customs-declarations"
         ],
@@ -1759,7 +1759,7 @@
     },
     "/api/v1/dashboard/summary": {
       "get": {
-        "operationId": "GET_handler_DashboardHandler_Summary-fm",
+        "operationId": "GET_api_v1_dashboard_summary",
         "tags": [
           "dashboard"
         ],
@@ -1795,7 +1795,7 @@
     },
     "/api/v1/debit-notes": {
       "get": {
-        "operationId": "GET_handler_DebitNoteHandler_List-fm",
+        "operationId": "GET_api_v1_debit_notes",
         "tags": [
           "debit-notes"
         ],
@@ -1829,7 +1829,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_DebitNoteHandler_Create-fm",
+        "operationId": "POST_api_v1_debit_notes",
         "tags": [
           "debit-notes"
         ],
@@ -1865,7 +1865,7 @@
     },
     "/api/v1/exchange-rates": {
       "get": {
-        "operationId": "GET_handler_ExchangeRateHandler_List-fm",
+        "operationId": "GET_api_v1_exchange_rates",
         "tags": [
           "exchange-rates"
         ],
@@ -1899,7 +1899,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ExchangeRateHandler_Create-fm",
+        "operationId": "POST_api_v1_exchange_rates",
         "tags": [
           "exchange-rates"
         ],
@@ -1935,7 +1935,7 @@
     },
     "/api/v1/exchange-rates/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ExchangeRateHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_exchange_rates_id",
         "tags": [
           "exchange-rates"
         ],
@@ -1969,7 +1969,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ExchangeRateHandler_Get-fm",
+        "operationId": "GET_api_v1_exchange_rates_id",
         "tags": [
           "exchange-rates"
         ],
@@ -2005,7 +2005,7 @@
     },
     "/api/v1/exports/partners": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Export-fm",
+        "operationId": "GET_api_v1_exports_partners",
         "tags": [
           "exports"
         ],
@@ -2041,7 +2041,7 @@
     },
     "/api/v1/exports/payables": {
       "get": {
-        "operationId": "GET_handler_PayableHandler_ExportPayables-fm",
+        "operationId": "GET_api_v1_exports_payables",
         "tags": [
           "exports"
         ],
@@ -2077,7 +2077,7 @@
     },
     "/api/v1/exports/payments": {
       "get": {
-        "operationId": "GET_handler_PaymentHandler_ExportPayments-fm",
+        "operationId": "GET_api_v1_exports_payments",
         "tags": [
           "exports"
         ],
@@ -2113,7 +2113,7 @@
     },
     "/api/v1/exports/products": {
       "get": {
-        "operationId": "GET_handler_ProductHandler_Export-fm",
+        "operationId": "GET_api_v1_exports_products",
         "tags": [
           "exports"
         ],
@@ -2149,7 +2149,7 @@
     },
     "/api/v1/exports/receivables": {
       "get": {
-        "operationId": "GET_handler_ReceivableHandler_ExportReceivables-fm",
+        "operationId": "GET_api_v1_exports_receivables",
         "tags": [
           "exports"
         ],
@@ -2185,7 +2185,7 @@
     },
     "/api/v1/exports/sales-orders": {
       "get": {
-        "operationId": "GET_handler_SalesOrderHandler_ExportSalesOrders-fm",
+        "operationId": "GET_api_v1_exports_sales_orders",
         "tags": [
           "exports"
         ],
@@ -2221,7 +2221,7 @@
     },
     "/api/v1/exports/shipments": {
       "get": {
-        "operationId": "GET_handler_ShipmentHandler_ExportShipments-fm",
+        "operationId": "GET_api_v1_exports_shipments",
         "tags": [
           "exports"
         ],
@@ -2257,7 +2257,7 @@
     },
     "/api/v1/forwarders": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_List_func1",
+        "operationId": "GET_api_v1_forwarders",
         "tags": [
           "forwarders"
         ],
@@ -2291,7 +2291,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Create_func1",
+        "operationId": "POST_api_v1_forwarders",
         "tags": [
           "forwarders"
         ],
@@ -2327,7 +2327,7 @@
     },
     "/api/v1/forwarders/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
+        "operationId": "DELETE_api_v1_forwarders_id",
         "tags": [
           "forwarders"
         ],
@@ -2361,7 +2361,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Get_func1",
+        "operationId": "GET_api_v1_forwarders_id",
         "tags": [
           "forwarders"
         ],
@@ -2395,7 +2395,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PartnerHandler_Update_func1",
+        "operationId": "PUT_api_v1_forwarders_id",
         "tags": [
           "forwarders"
         ],
@@ -2431,7 +2431,7 @@
     },
     "/api/v1/imports/partners": {
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Import-fm",
+        "operationId": "POST_api_v1_imports_partners",
         "tags": [
           "imports"
         ],
@@ -2467,7 +2467,7 @@
     },
     "/api/v1/inspections/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_InspectionHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_inspections_id",
         "tags": [
           "inspections"
         ],
@@ -2503,7 +2503,7 @@
     },
     "/api/v1/leads": {
       "get": {
-        "operationId": "GET_handler_LeadHandler_List-fm",
+        "operationId": "GET_api_v1_leads",
         "tags": [
           "leads"
         ],
@@ -2537,7 +2537,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_LeadHandler_Create-fm",
+        "operationId": "POST_api_v1_leads",
         "tags": [
           "leads"
         ],
@@ -2573,7 +2573,7 @@
     },
     "/api/v1/leads/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_LeadHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_leads_id",
         "tags": [
           "leads"
         ],
@@ -2607,7 +2607,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_LeadHandler_Get-fm",
+        "operationId": "GET_api_v1_leads_id",
         "tags": [
           "leads"
         ],
@@ -2641,7 +2641,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_LeadHandler_Update-fm",
+        "operationId": "PUT_api_v1_leads_id",
         "tags": [
           "leads"
         ],
@@ -2677,7 +2677,7 @@
     },
     "/api/v1/leads/{id}/convert": {
       "post": {
-        "operationId": "POST_handler_LeadHandler_Convert-fm",
+        "operationId": "POST_api_v1_leads_id_convert",
         "tags": [
           "leads"
         ],
@@ -2713,7 +2713,7 @@
     },
     "/api/v1/opportunities": {
       "get": {
-        "operationId": "GET_handler_OpportunityHandler_List-fm",
+        "operationId": "GET_api_v1_opportunities",
         "tags": [
           "opportunities"
         ],
@@ -2747,7 +2747,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_OpportunityHandler_Create-fm",
+        "operationId": "POST_api_v1_opportunities",
         "tags": [
           "opportunities"
         ],
@@ -2783,7 +2783,7 @@
     },
     "/api/v1/opportunities-summary": {
       "get": {
-        "operationId": "GET_handler_OpportunityHandler_Summary-fm",
+        "operationId": "GET_api_v1_opportunities_summary",
         "tags": [
           "opportunities-summary"
         ],
@@ -2819,7 +2819,7 @@
     },
     "/api/v1/opportunities/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_OpportunityHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_opportunities_id",
         "tags": [
           "opportunities"
         ],
@@ -2853,7 +2853,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_OpportunityHandler_Get-fm",
+        "operationId": "GET_api_v1_opportunities_id",
         "tags": [
           "opportunities"
         ],
@@ -2887,7 +2887,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_OpportunityHandler_Update-fm",
+        "operationId": "PUT_api_v1_opportunities_id",
         "tags": [
           "opportunities"
         ],
@@ -2923,7 +2923,7 @@
     },
     "/api/v1/opportunities/{id}/revalue": {
       "post": {
-        "operationId": "POST_handler_OpportunityHandler_Revalue-fm",
+        "operationId": "POST_api_v1_opportunities_id_revalue",
         "tags": [
           "opportunities"
         ],
@@ -2959,7 +2959,7 @@
     },
     "/api/v1/opportunities/{id}/stage-logs": {
       "get": {
-        "operationId": "GET_handler_OpportunityHandler_StageLogs-fm",
+        "operationId": "GET_api_v1_opportunities_id_stage_logs",
         "tags": [
           "opportunities"
         ],
@@ -2995,7 +2995,7 @@
     },
     "/api/v1/partner-duplicates": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Duplicates-fm",
+        "operationId": "GET_api_v1_partner_duplicates",
         "tags": [
           "partner-duplicates"
         ],
@@ -3031,7 +3031,7 @@
     },
     "/api/v1/partner-duplicates/candidates": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_DuplicateCandidates-fm",
+        "operationId": "GET_api_v1_partner_duplicates_candidates",
         "tags": [
           "partner-duplicates"
         ],
@@ -3067,7 +3067,7 @@
     },
     "/api/v1/partners": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_List_func1",
+        "operationId": "GET_api_v1_partners",
         "tags": [
           "partners"
         ],
@@ -3101,7 +3101,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Create_func1",
+        "operationId": "POST_api_v1_partners",
         "tags": [
           "partners"
         ],
@@ -3137,7 +3137,7 @@
     },
     "/api/v1/partners/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
+        "operationId": "DELETE_api_v1_partners_id",
         "tags": [
           "partners"
         ],
@@ -3171,7 +3171,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Get_func1",
+        "operationId": "GET_api_v1_partners_id",
         "tags": [
           "partners"
         ],
@@ -3205,7 +3205,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PartnerHandler_Update_func1",
+        "operationId": "PUT_api_v1_partners_id",
         "tags": [
           "partners"
         ],
@@ -3241,7 +3241,7 @@
     },
     "/api/v1/partners/{id}/addresses": {
       "get": {
-        "operationId": "GET_handler_PartnerAddressHandler_List-fm",
+        "operationId": "GET_api_v1_partners_id_addresses",
         "tags": [
           "partners"
         ],
@@ -3275,7 +3275,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PartnerAddressHandler_Create-fm",
+        "operationId": "POST_api_v1_partners_id_addresses",
         "tags": [
           "partners"
         ],
@@ -3311,7 +3311,7 @@
     },
     "/api/v1/partners/{id}/addresses/{addressId}": {
       "delete": {
-        "operationId": "DELETE_handler_PartnerAddressHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_partners_id_addresses_addressId",
         "tags": [
           "partners"
         ],
@@ -3345,7 +3345,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PartnerAddressHandler_Update-fm",
+        "operationId": "PUT_api_v1_partners_id_addresses_addressId",
         "tags": [
           "partners"
         ],
@@ -3381,7 +3381,7 @@
     },
     "/api/v1/partners/{id}/credit": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Credit-fm",
+        "operationId": "GET_api_v1_partners_id_credit",
         "tags": [
           "partners"
         ],
@@ -3417,7 +3417,7 @@
     },
     "/api/v1/partners/{id}/merge": {
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Merge-fm",
+        "operationId": "POST_api_v1_partners_id_merge",
         "tags": [
           "partners"
         ],
@@ -3453,7 +3453,7 @@
     },
     "/api/v1/partners/{id}/owner": {
       "put": {
-        "operationId": "PUT_handler_PartnerHandler_TransferOwner-fm",
+        "operationId": "PUT_api_v1_partners_id_owner",
         "tags": [
           "partners"
         ],
@@ -3489,7 +3489,7 @@
     },
     "/api/v1/partners/{id}/restore": {
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Restore-fm",
+        "operationId": "POST_api_v1_partners_id_restore",
         "tags": [
           "partners"
         ],
@@ -3525,7 +3525,7 @@
     },
     "/api/v1/payables": {
       "get": {
-        "operationId": "GET_handler_PayableHandler_List-fm",
+        "operationId": "GET_api_v1_payables",
         "tags": [
           "payables"
         ],
@@ -3559,7 +3559,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PayableHandler_Create-fm",
+        "operationId": "POST_api_v1_payables",
         "tags": [
           "payables"
         ],
@@ -3595,7 +3595,7 @@
     },
     "/api/v1/payables/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PayableHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_payables_id",
         "tags": [
           "payables"
         ],
@@ -3629,7 +3629,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PayableHandler_Get-fm",
+        "operationId": "GET_api_v1_payables_id",
         "tags": [
           "payables"
         ],
@@ -3663,7 +3663,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PayableHandler_Update-fm",
+        "operationId": "PUT_api_v1_payables_id",
         "tags": [
           "payables"
         ],
@@ -3699,7 +3699,7 @@
     },
     "/api/v1/payments": {
       "get": {
-        "operationId": "GET_handler_PaymentHandler_List-fm",
+        "operationId": "GET_api_v1_payments",
         "tags": [
           "payments"
         ],
@@ -3733,7 +3733,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PaymentHandler_Create-fm",
+        "operationId": "POST_api_v1_payments",
         "tags": [
           "payments"
         ],
@@ -3769,7 +3769,7 @@
     },
     "/api/v1/payments/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PaymentHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_payments_id",
         "tags": [
           "payments"
         ],
@@ -3803,7 +3803,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PaymentHandler_Get-fm",
+        "operationId": "GET_api_v1_payments_id",
         "tags": [
           "payments"
         ],
@@ -3837,7 +3837,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PaymentHandler_Update-fm",
+        "operationId": "PUT_api_v1_payments_id",
         "tags": [
           "payments"
         ],
@@ -3873,7 +3873,7 @@
     },
     "/api/v1/payments/{id}/allocations/{allocationId}": {
       "delete": {
-        "operationId": "DELETE_handler_PaymentHandler_RemoveAllocation-fm",
+        "operationId": "DELETE_api_v1_payments_id_allocations_allocationId",
         "tags": [
           "payments"
         ],
@@ -3909,7 +3909,7 @@
     },
     "/api/v1/product-codes": {
       "get": {
-        "operationId": "GET_handler_ProductCodeHandler_List-fm",
+        "operationId": "GET_api_v1_product_codes",
         "tags": [
           "product-codes"
         ],
@@ -3943,7 +3943,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ProductCodeHandler_Create-fm",
+        "operationId": "POST_api_v1_product_codes",
         "tags": [
           "product-codes"
         ],
@@ -3979,7 +3979,7 @@
     },
     "/api/v1/product-codes/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ProductCodeHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_product_codes_id",
         "tags": [
           "product-codes"
         ],
@@ -4015,7 +4015,7 @@
     },
     "/api/v1/product-sources": {
       "get": {
-        "operationId": "GET_handler_ProductSourceHandler_List-fm",
+        "operationId": "GET_api_v1_product_sources",
         "tags": [
           "product-sources"
         ],
@@ -4049,7 +4049,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ProductSourceHandler_Create-fm",
+        "operationId": "POST_api_v1_product_sources",
         "tags": [
           "product-sources"
         ],
@@ -4085,7 +4085,7 @@
     },
     "/api/v1/product-sources/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ProductSourceHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_product_sources_id",
         "tags": [
           "product-sources"
         ],
@@ -4119,7 +4119,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ProductSourceHandler_Get-fm",
+        "operationId": "GET_api_v1_product_sources_id",
         "tags": [
           "product-sources"
         ],
@@ -4153,7 +4153,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ProductSourceHandler_Update-fm",
+        "operationId": "PUT_api_v1_product_sources_id",
         "tags": [
           "product-sources"
         ],
@@ -4189,7 +4189,7 @@
     },
     "/api/v1/product-sources/{id}/restore": {
       "put": {
-        "operationId": "PUT_handler_ProductSourceHandler_Restore-fm",
+        "operationId": "PUT_api_v1_product_sources_id_restore",
         "tags": [
           "product-sources"
         ],
@@ -4225,7 +4225,7 @@
     },
     "/api/v1/products": {
       "get": {
-        "operationId": "GET_handler_ProductHandler_List-fm",
+        "operationId": "GET_api_v1_products",
         "tags": [
           "products"
         ],
@@ -4259,7 +4259,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ProductHandler_Create-fm",
+        "operationId": "POST_api_v1_products",
         "tags": [
           "products"
         ],
@@ -4295,7 +4295,7 @@
     },
     "/api/v1/products/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ProductHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_products_id",
         "tags": [
           "products"
         ],
@@ -4329,7 +4329,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ProductHandler_Get-fm",
+        "operationId": "GET_api_v1_products_id",
         "tags": [
           "products"
         ],
@@ -4363,7 +4363,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ProductHandler_Update-fm",
+        "operationId": "PUT_api_v1_products_id",
         "tags": [
           "products"
         ],
@@ -4399,7 +4399,7 @@
     },
     "/api/v1/products/{id}/images": {
       "get": {
-        "operationId": "GET_handler_ProductImageHandler_List-fm",
+        "operationId": "GET_api_v1_products_id_images",
         "tags": [
           "products"
         ],
@@ -4433,7 +4433,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ProductImageHandler_Upload-fm",
+        "operationId": "POST_api_v1_products_id_images",
         "tags": [
           "products"
         ],
@@ -4469,7 +4469,7 @@
     },
     "/api/v1/products/{id}/images/order": {
       "put": {
-        "operationId": "PUT_handler_ProductImageHandler_Reorder-fm",
+        "operationId": "PUT_api_v1_products_id_images_order",
         "tags": [
           "products"
         ],
@@ -4505,7 +4505,7 @@
     },
     "/api/v1/products/{id}/images/{imageId}": {
       "delete": {
-        "operationId": "DELETE_handler_ProductImageHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_products_id_images_imageId",
         "tags": [
           "products"
         ],
@@ -4539,7 +4539,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ProductImageHandler_Replace-fm",
+        "operationId": "PUT_api_v1_products_id_images_imageId",
         "tags": [
           "products"
         ],
@@ -4575,7 +4575,7 @@
     },
     "/api/v1/products/{id}/images/{imageId}/content": {
       "get": {
-        "operationId": "GET_handler_ProductImageHandler_Content-fm",
+        "operationId": "GET_api_v1_products_id_images_imageId_content",
         "tags": [
           "products"
         ],
@@ -4611,7 +4611,7 @@
     },
     "/api/v1/products/{id}/restore": {
       "post": {
-        "operationId": "POST_handler_ProductHandler_Restore-fm",
+        "operationId": "POST_api_v1_products_id_restore",
         "tags": [
           "products"
         ],
@@ -4647,7 +4647,7 @@
     },
     "/api/v1/purchase-orders": {
       "get": {
-        "operationId": "GET_handler_PurchaseOrderHandler_List-fm",
+        "operationId": "GET_api_v1_purchase_orders",
         "tags": [
           "purchase-orders"
         ],
@@ -4681,7 +4681,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PurchaseOrderHandler_Create-fm",
+        "operationId": "POST_api_v1_purchase_orders",
         "tags": [
           "purchase-orders"
         ],
@@ -4717,7 +4717,7 @@
     },
     "/api/v1/purchase-orders/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PurchaseOrderHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_purchase_orders_id",
         "tags": [
           "purchase-orders"
         ],
@@ -4751,7 +4751,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PurchaseOrderHandler_Get-fm",
+        "operationId": "GET_api_v1_purchase_orders_id",
         "tags": [
           "purchase-orders"
         ],
@@ -4785,7 +4785,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PurchaseOrderHandler_Update-fm",
+        "operationId": "PUT_api_v1_purchase_orders_id",
         "tags": [
           "purchase-orders"
         ],
@@ -4821,7 +4821,7 @@
     },
     "/api/v1/purchase-orders/{id}/inspections": {
       "get": {
-        "operationId": "GET_handler_InspectionHandler_List-fm",
+        "operationId": "GET_api_v1_purchase_orders_id_inspections",
         "tags": [
           "purchase-orders"
         ],
@@ -4855,7 +4855,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_InspectionHandler_Create-fm",
+        "operationId": "POST_api_v1_purchase_orders_id_inspections",
         "tags": [
           "purchase-orders"
         ],
@@ -4891,7 +4891,7 @@
     },
     "/api/v1/purchase-orders/{id}/milestones": {
       "get": {
-        "operationId": "GET_handler_PurchaseOrderHandler_Milestones-fm",
+        "operationId": "GET_api_v1_purchase_orders_id_milestones",
         "tags": [
           "purchase-orders"
         ],
@@ -4925,7 +4925,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PurchaseOrderHandler_SaveMilestones-fm",
+        "operationId": "PUT_api_v1_purchase_orders_id_milestones",
         "tags": [
           "purchase-orders"
         ],
@@ -4961,7 +4961,7 @@
     },
     "/api/v1/purchase-orders/{id}/pdf": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_PurchaseOrder-fm",
+        "operationId": "GET_api_v1_purchase_orders_id_pdf",
         "tags": [
           "purchase-orders"
         ],
@@ -4997,7 +4997,7 @@
     },
     "/api/v1/purchase-orders/{id}/receipts": {
       "get": {
-        "operationId": "GET_handler_PurchaseReceiptHandler_Summary-fm",
+        "operationId": "GET_api_v1_purchase_orders_id_receipts",
         "tags": [
           "purchase-orders"
         ],
@@ -5031,7 +5031,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PurchaseReceiptHandler_Create-fm",
+        "operationId": "POST_api_v1_purchase_orders_id_receipts",
         "tags": [
           "purchase-orders"
         ],
@@ -5067,7 +5067,7 @@
     },
     "/api/v1/purchase-orders/{id}/status": {
       "put": {
-        "operationId": "PUT_handler_PurchaseOrderHandler_UpdateStatus-fm",
+        "operationId": "PUT_api_v1_purchase_orders_id_status",
         "tags": [
           "purchase-orders"
         ],
@@ -5103,7 +5103,7 @@
     },
     "/api/v1/purchase-receipts/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PurchaseReceiptHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_purchase_receipts_id",
         "tags": [
           "purchase-receipts"
         ],
@@ -5137,7 +5137,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PurchaseReceiptHandler_Get-fm",
+        "operationId": "GET_api_v1_purchase_receipts_id",
         "tags": [
           "purchase-receipts"
         ],
@@ -5173,7 +5173,7 @@
     },
     "/api/v1/purchase-receipts/{id}/confirm": {
       "put": {
-        "operationId": "PUT_handler_PurchaseReceiptHandler_Confirm-fm",
+        "operationId": "PUT_api_v1_purchase_receipts_id_confirm",
         "tags": [
           "purchase-receipts"
         ],
@@ -5209,7 +5209,7 @@
     },
     "/api/v1/purchase-receipts/{id}/return": {
       "post": {
-        "operationId": "POST_handler_PurchaseReceiptHandler_Return-fm",
+        "operationId": "POST_api_v1_purchase_receipts_id_return",
         "tags": [
           "purchase-receipts"
         ],
@@ -5245,7 +5245,7 @@
     },
     "/api/v1/quotations": {
       "get": {
-        "operationId": "GET_handler_QuotationHandler_List-fm",
+        "operationId": "GET_api_v1_quotations",
         "tags": [
           "quotations"
         ],
@@ -5279,7 +5279,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_QuotationHandler_Create-fm",
+        "operationId": "POST_api_v1_quotations",
         "tags": [
           "quotations"
         ],
@@ -5315,7 +5315,7 @@
     },
     "/api/v1/quotations-preview": {
       "post": {
-        "operationId": "POST_handler_QuotationHandler_Preview-fm",
+        "operationId": "POST_api_v1_quotations_preview",
         "tags": [
           "quotations-preview"
         ],
@@ -5351,7 +5351,7 @@
     },
     "/api/v1/quotations/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_QuotationHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_quotations_id",
         "tags": [
           "quotations"
         ],
@@ -5385,7 +5385,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_QuotationHandler_Get-fm",
+        "operationId": "GET_api_v1_quotations_id",
         "tags": [
           "quotations"
         ],
@@ -5419,7 +5419,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_QuotationHandler_Update-fm",
+        "operationId": "PUT_api_v1_quotations_id",
         "tags": [
           "quotations"
         ],
@@ -5455,7 +5455,7 @@
     },
     "/api/v1/quotations/{id}/convert": {
       "post": {
-        "operationId": "POST_handler_QuotationHandler_Convert-fm",
+        "operationId": "POST_api_v1_quotations_id_convert",
         "tags": [
           "quotations"
         ],
@@ -5491,7 +5491,7 @@
     },
     "/api/v1/quotations/{id}/pdf": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_Quotation-fm",
+        "operationId": "GET_api_v1_quotations_id_pdf",
         "tags": [
           "quotations"
         ],
@@ -5527,7 +5527,7 @@
     },
     "/api/v1/quotations/{id}/status": {
       "put": {
-        "operationId": "PUT_handler_QuotationHandler_UpdateStatus-fm",
+        "operationId": "PUT_api_v1_quotations_id_status",
         "tags": [
           "quotations"
         ],
@@ -5563,7 +5563,7 @@
     },
     "/api/v1/quotations/{id}/versions": {
       "post": {
-        "operationId": "POST_handler_QuotationHandler_NewVersion-fm",
+        "operationId": "POST_api_v1_quotations_id_versions",
         "tags": [
           "quotations"
         ],
@@ -5599,7 +5599,7 @@
     },
     "/api/v1/receivables": {
       "get": {
-        "operationId": "GET_handler_ReceivableHandler_List-fm",
+        "operationId": "GET_api_v1_receivables",
         "tags": [
           "receivables"
         ],
@@ -5633,7 +5633,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ReceivableHandler_Create-fm",
+        "operationId": "POST_api_v1_receivables",
         "tags": [
           "receivables"
         ],
@@ -5669,7 +5669,7 @@
     },
     "/api/v1/receivables/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ReceivableHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_receivables_id",
         "tags": [
           "receivables"
         ],
@@ -5703,7 +5703,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ReceivableHandler_Get-fm",
+        "operationId": "GET_api_v1_receivables_id",
         "tags": [
           "receivables"
         ],
@@ -5737,7 +5737,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ReceivableHandler_Update-fm",
+        "operationId": "PUT_api_v1_receivables_id",
         "tags": [
           "receivables"
         ],
@@ -5773,7 +5773,7 @@
     },
     "/api/v1/reports/aging": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_Aging-fm",
+        "operationId": "GET_api_v1_reports_aging",
         "tags": [
           "reports"
         ],
@@ -5809,7 +5809,7 @@
     },
     "/api/v1/reports/collection": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_Collection-fm",
+        "operationId": "GET_api_v1_reports_collection",
         "tags": [
           "reports"
         ],
@@ -5845,7 +5845,7 @@
     },
     "/api/v1/reports/exchange-gains": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_ExchangeGains-fm",
+        "operationId": "GET_api_v1_reports_exchange_gains",
         "tags": [
           "reports"
         ],
@@ -5881,7 +5881,7 @@
     },
     "/api/v1/reports/partner-360": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_Partner360-fm",
+        "operationId": "GET_api_v1_reports_partner_360",
         "tags": [
           "reports"
         ],
@@ -5917,7 +5917,7 @@
     },
     "/api/v1/reports/product-profit": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_ProductProfit-fm",
+        "operationId": "GET_api_v1_reports_product_profit",
         "tags": [
           "reports"
         ],
@@ -5953,7 +5953,7 @@
     },
     "/api/v1/reports/receivable-statement": {
       "get": {
-        "operationId": "GET_handler_StatementHandler_Receivable-fm",
+        "operationId": "GET_api_v1_reports_receivable_statement",
         "tags": [
           "reports"
         ],
@@ -5989,7 +5989,7 @@
     },
     "/api/v1/reports/receivable-statement/pdf": {
       "get": {
-        "operationId": "GET_handler_StatementHandler_ReceivablePDF-fm",
+        "operationId": "GET_api_v1_reports_receivable_statement_pdf",
         "tags": [
           "reports"
         ],
@@ -6025,7 +6025,7 @@
     },
     "/api/v1/reports/revaluation": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_Revaluation-fm",
+        "operationId": "GET_api_v1_reports_revaluation",
         "tags": [
           "reports"
         ],
@@ -6061,7 +6061,7 @@
     },
     "/api/v1/reports/sales-dashboard": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_SalesDashboard-fm",
+        "operationId": "GET_api_v1_reports_sales_dashboard",
         "tags": [
           "reports"
         ],
@@ -6097,7 +6097,7 @@
     },
     "/api/v1/reports/shipment-profits": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_ShipmentProfits-fm",
+        "operationId": "GET_api_v1_reports_shipment_profits",
         "tags": [
           "reports"
         ],
@@ -6133,7 +6133,7 @@
     },
     "/api/v1/reports/todos": {
       "get": {
-        "operationId": "GET_handler_ReportHandler_Todos-fm",
+        "operationId": "GET_api_v1_reports_todos",
         "tags": [
           "reports"
         ],
@@ -6169,7 +6169,7 @@
     },
     "/api/v1/sales-orders": {
       "get": {
-        "operationId": "GET_handler_SalesOrderHandler_List-fm",
+        "operationId": "GET_api_v1_sales_orders",
         "tags": [
           "sales-orders"
         ],
@@ -6203,7 +6203,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_SalesOrderHandler_Create-fm",
+        "operationId": "POST_api_v1_sales_orders",
         "tags": [
           "sales-orders"
         ],
@@ -6239,7 +6239,7 @@
     },
     "/api/v1/sales-orders/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_SalesOrderHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_sales_orders_id",
         "tags": [
           "sales-orders"
         ],
@@ -6273,7 +6273,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_SalesOrderHandler_Get-fm",
+        "operationId": "GET_api_v1_sales_orders_id",
         "tags": [
           "sales-orders"
         ],
@@ -6307,7 +6307,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_SalesOrderHandler_Update-fm",
+        "operationId": "PUT_api_v1_sales_orders_id",
         "tags": [
           "sales-orders"
         ],
@@ -6343,7 +6343,7 @@
     },
     "/api/v1/sales-orders/{id}/changes": {
       "get": {
-        "operationId": "GET_handler_SalesOrderHandler_Changes-fm",
+        "operationId": "GET_api_v1_sales_orders_id_changes",
         "tags": [
           "sales-orders"
         ],
@@ -6377,7 +6377,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_SalesOrderHandler_Change-fm",
+        "operationId": "POST_api_v1_sales_orders_id_changes",
         "tags": [
           "sales-orders"
         ],
@@ -6413,7 +6413,7 @@
     },
     "/api/v1/sales-orders/{id}/pdf": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_SalesOrder-fm",
+        "operationId": "GET_api_v1_sales_orders_id_pdf",
         "tags": [
           "sales-orders"
         ],
@@ -6449,7 +6449,7 @@
     },
     "/api/v1/sales-orders/{id}/status": {
       "put": {
-        "operationId": "PUT_handler_SalesOrderHandler_UpdateStatus-fm",
+        "operationId": "PUT_api_v1_sales_orders_id_status",
         "tags": [
           "sales-orders"
         ],
@@ -6485,7 +6485,7 @@
     },
     "/api/v1/shipment-candidates": {
       "get": {
-        "operationId": "GET_handler_ShipmentHandler_Candidates-fm",
+        "operationId": "GET_api_v1_shipment_candidates",
         "tags": [
           "shipment-candidates"
         ],
@@ -6521,7 +6521,7 @@
     },
     "/api/v1/shipment-charges": {
       "get": {
-        "operationId": "GET_handler_ShipmentChargeHandler_List-fm",
+        "operationId": "GET_api_v1_shipment_charges",
         "tags": [
           "shipment-charges"
         ],
@@ -6555,7 +6555,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ShipmentChargeHandler_Create-fm",
+        "operationId": "POST_api_v1_shipment_charges",
         "tags": [
           "shipment-charges"
         ],
@@ -6591,7 +6591,7 @@
     },
     "/api/v1/shipment-charges-summary": {
       "get": {
-        "operationId": "GET_handler_ShipmentChargeHandler_Summary-fm",
+        "operationId": "GET_api_v1_shipment_charges_summary",
         "tags": [
           "shipment-charges-summary"
         ],
@@ -6627,7 +6627,7 @@
     },
     "/api/v1/shipment-charges/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ShipmentChargeHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_shipment_charges_id",
         "tags": [
           "shipment-charges"
         ],
@@ -6661,7 +6661,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ShipmentChargeHandler_Get-fm",
+        "operationId": "GET_api_v1_shipment_charges_id",
         "tags": [
           "shipment-charges"
         ],
@@ -6695,7 +6695,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ShipmentChargeHandler_Update-fm",
+        "operationId": "PUT_api_v1_shipment_charges_id",
         "tags": [
           "shipment-charges"
         ],
@@ -6731,7 +6731,7 @@
     },
     "/api/v1/shipments": {
       "get": {
-        "operationId": "GET_handler_ShipmentHandler_List-fm",
+        "operationId": "GET_api_v1_shipments",
         "tags": [
           "shipments"
         ],
@@ -6765,7 +6765,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_ShipmentHandler_Create-fm",
+        "operationId": "POST_api_v1_shipments",
         "tags": [
           "shipments"
         ],
@@ -6801,7 +6801,7 @@
     },
     "/api/v1/shipments/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_ShipmentHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_shipments_id",
         "tags": [
           "shipments"
         ],
@@ -6835,7 +6835,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_ShipmentHandler_Get-fm",
+        "operationId": "GET_api_v1_shipments_id",
         "tags": [
           "shipments"
         ],
@@ -6869,7 +6869,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_ShipmentHandler_Update-fm",
+        "operationId": "PUT_api_v1_shipments_id",
         "tags": [
           "shipments"
         ],
@@ -6905,7 +6905,7 @@
     },
     "/api/v1/shipments/{id}/booking-request": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_BookingRequest-fm",
+        "operationId": "GET_api_v1_shipments_id_booking_request",
         "tags": [
           "shipments"
         ],
@@ -6941,7 +6941,7 @@
     },
     "/api/v1/shipments/{id}/carton-labels": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_CartonLabels-fm",
+        "operationId": "GET_api_v1_shipments_id_carton_labels",
         "tags": [
           "shipments"
         ],
@@ -6977,7 +6977,7 @@
     },
     "/api/v1/shipments/{id}/certificate-of-origin": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_CertificateOfOrigin-fm",
+        "operationId": "GET_api_v1_shipments_id_certificate_of_origin",
         "tags": [
           "shipments"
         ],
@@ -7013,7 +7013,7 @@
     },
     "/api/v1/shipments/{id}/insurance-policy": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_InsurancePolicy-fm",
+        "operationId": "GET_api_v1_shipments_id_insurance_policy",
         "tags": [
           "shipments"
         ],
@@ -7049,7 +7049,7 @@
     },
     "/api/v1/shipments/{id}/invoice": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_Invoice-fm",
+        "operationId": "GET_api_v1_shipments_id_invoice",
         "tags": [
           "shipments"
         ],
@@ -7085,7 +7085,7 @@
     },
     "/api/v1/shipments/{id}/logistics": {
       "put": {
-        "operationId": "PUT_handler_ShipmentHandler_UpdateLogistics-fm",
+        "operationId": "PUT_api_v1_shipments_id_logistics",
         "tags": [
           "shipments"
         ],
@@ -7121,7 +7121,7 @@
     },
     "/api/v1/shipments/{id}/packing-list": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_PackingList-fm",
+        "operationId": "GET_api_v1_shipments_id_packing_list",
         "tags": [
           "shipments"
         ],
@@ -7157,7 +7157,7 @@
     },
     "/api/v1/shipments/{id}/reissue": {
       "post": {
-        "operationId": "POST_handler_ShipmentHandler_Reissue-fm",
+        "operationId": "POST_api_v1_shipments_id_reissue",
         "tags": [
           "shipments"
         ],
@@ -7193,7 +7193,7 @@
     },
     "/api/v1/shipments/{id}/shipping-advice": {
       "get": {
-        "operationId": "GET_handler_PDFHandler_ShippingAdvice-fm",
+        "operationId": "GET_api_v1_shipments_id_shipping_advice",
         "tags": [
           "shipments"
         ],
@@ -7229,7 +7229,7 @@
     },
     "/api/v1/shipments/{id}/status": {
       "put": {
-        "operationId": "PUT_handler_ShipmentHandler_UpdateStatus-fm",
+        "operationId": "PUT_api_v1_shipments_id_status",
         "tags": [
           "shipments"
         ],
@@ -7265,7 +7265,7 @@
     },
     "/api/v1/stock-documents": {
       "get": {
-        "operationId": "GET_handler_StockDocumentHandler_List-fm",
+        "operationId": "GET_api_v1_stock_documents",
         "tags": [
           "stock-documents"
         ],
@@ -7299,7 +7299,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_StockDocumentHandler_Create-fm",
+        "operationId": "POST_api_v1_stock_documents",
         "tags": [
           "stock-documents"
         ],
@@ -7335,7 +7335,7 @@
     },
     "/api/v1/stock-documents/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_StockDocumentHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_stock_documents_id",
         "tags": [
           "stock-documents"
         ],
@@ -7369,7 +7369,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_StockDocumentHandler_Get-fm",
+        "operationId": "GET_api_v1_stock_documents_id",
         "tags": [
           "stock-documents"
         ],
@@ -7403,7 +7403,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_StockDocumentHandler_Update-fm",
+        "operationId": "PUT_api_v1_stock_documents_id",
         "tags": [
           "stock-documents"
         ],
@@ -7439,7 +7439,7 @@
     },
     "/api/v1/stock-documents/{id}/confirm": {
       "post": {
-        "operationId": "POST_handler_StockDocumentHandler_Confirm-fm",
+        "operationId": "POST_api_v1_stock_documents_id_confirm",
         "tags": [
           "stock-documents"
         ],
@@ -7475,7 +7475,7 @@
     },
     "/api/v1/stock-documents/{id}/reverse": {
       "post": {
-        "operationId": "POST_handler_StockDocumentHandler_Reverse-fm",
+        "operationId": "POST_api_v1_stock_documents_id_reverse",
         "tags": [
           "stock-documents"
         ],
@@ -7511,7 +7511,7 @@
     },
     "/api/v1/stock-movements": {
       "get": {
-        "operationId": "GET_handler_StockHandler_ListMovements-fm",
+        "operationId": "GET_api_v1_stock_movements",
         "tags": [
           "stock-movements"
         ],
@@ -7545,7 +7545,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_StockHandler_CreateMovement-fm",
+        "operationId": "POST_api_v1_stock_movements",
         "tags": [
           "stock-movements"
         ],
@@ -7581,7 +7581,7 @@
     },
     "/api/v1/stock-movements/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_StockHandler_DeleteMovement-fm",
+        "operationId": "DELETE_api_v1_stock_movements_id",
         "tags": [
           "stock-movements"
         ],
@@ -7615,7 +7615,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_StockHandler_GetMovement-fm",
+        "operationId": "GET_api_v1_stock_movements_id",
         "tags": [
           "stock-movements"
         ],
@@ -7651,7 +7651,7 @@
     },
     "/api/v1/stock-snapshots": {
       "get": {
-        "operationId": "GET_handler_StockHandler_ListSnapshots-fm",
+        "operationId": "GET_api_v1_stock_snapshots",
         "tags": [
           "stock-snapshots"
         ],
@@ -7687,7 +7687,7 @@
     },
     "/api/v1/stock-snapshots/recalc": {
       "post": {
-        "operationId": "POST_handler_StockHandler_Recalc-fm",
+        "operationId": "POST_api_v1_stock_snapshots_recalc",
         "tags": [
           "stock-snapshots"
         ],
@@ -7723,7 +7723,7 @@
     },
     "/api/v1/suppliers": {
       "get": {
-        "operationId": "GET_handler_PartnerHandler_List_func1",
+        "operationId": "GET_api_v1_suppliers",
         "tags": [
           "suppliers"
         ],
@@ -7757,7 +7757,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_PartnerHandler_Create_func1",
+        "operationId": "POST_api_v1_suppliers",
         "tags": [
           "suppliers"
         ],
@@ -7793,7 +7793,7 @@
     },
     "/api/v1/suppliers/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
+        "operationId": "DELETE_api_v1_suppliers_id",
         "tags": [
           "suppliers"
         ],
@@ -7827,7 +7827,7 @@
         }
       },
       "get": {
-        "operationId": "GET_handler_PartnerHandler_Get_func1",
+        "operationId": "GET_api_v1_suppliers_id",
         "tags": [
           "suppliers"
         ],
@@ -7861,7 +7861,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_PartnerHandler_Update_func1",
+        "operationId": "PUT_api_v1_suppliers_id",
         "tags": [
           "suppliers"
         ],
@@ -7897,7 +7897,7 @@
     },
     "/api/v1/user-accounts": {
       "get": {
-        "operationId": "GET_handler_UserHandler_List-fm",
+        "operationId": "GET_api_v1_user_accounts",
         "tags": [
           "user-accounts"
         ],
@@ -7931,7 +7931,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_UserHandler_Create-fm",
+        "operationId": "POST_api_v1_user_accounts",
         "tags": [
           "user-accounts"
         ],
@@ -7967,7 +7967,7 @@
     },
     "/api/v1/user-accounts/{id}": {
       "put": {
-        "operationId": "PUT_handler_UserHandler_Update-fm",
+        "operationId": "PUT_api_v1_user_accounts_id",
         "tags": [
           "user-accounts"
         ],
@@ -8003,7 +8003,7 @@
     },
     "/api/v1/users": {
       "get": {
-        "operationId": "GET_handler_UserHandler_ListActive-fm",
+        "operationId": "GET_api_v1_users",
         "tags": [
           "users"
         ],
@@ -8039,7 +8039,7 @@
     },
     "/api/v1/warehouses": {
       "get": {
-        "operationId": "GET_handler_WarehouseHandler_List-fm",
+        "operationId": "GET_api_v1_warehouses",
         "tags": [
           "warehouses"
         ],
@@ -8073,7 +8073,7 @@
         }
       },
       "post": {
-        "operationId": "POST_handler_WarehouseHandler_Create-fm",
+        "operationId": "POST_api_v1_warehouses",
         "tags": [
           "warehouses"
         ],
@@ -8109,7 +8109,7 @@
     },
     "/api/v1/warehouses/{id}": {
       "delete": {
-        "operationId": "DELETE_handler_WarehouseHandler_Delete-fm",
+        "operationId": "DELETE_api_v1_warehouses_id",
         "tags": [
           "warehouses"
         ],
@@ -8143,7 +8143,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_handler_WarehouseHandler_Update-fm",
+        "operationId": "PUT_api_v1_warehouses_id",
         "tags": [
           "warehouses"
         ],
@@ -8179,7 +8179,7 @@
     },
     "/api/v1/warehouses/{id}/restore": {
       "put": {
-        "operationId": "PUT_handler_WarehouseHandler_Restore-fm",
+        "operationId": "PUT_api_v1_warehouses_id_restore",
         "tags": [
           "warehouses"
         ],
@@ -8215,7 +8215,7 @@
     },
     "/healthz": {
       "get": {
-        "operationId": "GET_handler_Health",
+        "operationId": "GET_healthz",
         "tags": [
           "healthz"
         ],

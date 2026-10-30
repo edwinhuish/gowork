@@ -1,6 +1,7 @@
 package server
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -78,9 +79,15 @@ func BuildOpenAPI(routes []gin.RouteInfo) OpenAPIDoc {
 		}
 		method := strings.ToLower(r.Method)
 		op := OpenAPIOp{
-			// handler 名里带包路径，只取最后的 `(*XxxHandler).Method-fm`，
-			// 拼上方法保证全局唯一（同一个 handler 可能挂两条路由）。
-			OperationID: r.Method + "_" + handlerName(r.Handler),
+			// operationId 由「方法 + 路径」生成，不取 handler 的函数名：
+			// gin 给的名字是编译器生成的，闭包那部分跨 Go 版本会变
+			// （1.27 是 handler.PartnerHandler.List.func1，1.26 是
+			// server.New.PartnerHandler.List.func19 —— 归属和序号都不同）。
+			// 于是同一份路由在不同工具链下生成的文档不一样：go.mod 写的是
+			// 1.26，CI 装的也是 1.26，本地却是 1.27 —— 表现为"本地过、CI 不过"。
+			// 路径是写死在注册代码里的，跟编译器无关。
+			// 同一个 handler 挂两条路由时路径不同，唯一性照样成立。
+			OperationID: operationID(r.Method, path),
 			Tags:        []string{tagOf(path)},
 			Responses:   standardResponses(),
 		}
@@ -169,24 +176,21 @@ func toOpenAPIPath(path string) string {
 	return strings.Join(segs, "/")
 }
 
-// handlerName 从 gin 的 handler 标识里取出可读的方法名。
+// repeatedUnderscores 用于把 /api/v1/x/{id} 转换后连着的下划线并成一个。
+var repeatedUnderscores = regexp.MustCompile(`_+`)
+
+// operationID 用「方法 + 路径」拼 operationId，形如
+// GET_api_v1_partners_id_addresses。
 //
-// gin 给的是完整符号，形如：
-//
-//	github.com/edwinhuish/gowork/internal/handler.(*ProductHandler).List-fm
-func handlerName(symbol string) string {
-	if idx := strings.LastIndex(symbol, "/"); idx >= 0 {
-		symbol = symbol[idx+1:]
-	}
-	symbol = strings.TrimPrefix(symbol, "(")
-	symbol = strings.ReplaceAll(symbol, "(*", "")
-	symbol = strings.ReplaceAll(symbol, ")-fm", "")
-	symbol = strings.ReplaceAll(symbol, ")", "")
-	if symbol == "" {
-		return "unknown"
-	}
-	// operationId 里不放点号：规范只要求唯一，但不少代码生成器把它当标识符用。
-	return strings.ReplaceAll(symbol, ".", "_")
+// 分隔符与 {参数} 的花括号都换成下划线：规范只要求 operationId 唯一，
+// 但不少代码生成器把它当标识符用，点号 / 斜杠 / 花括号都不该出现。
+func operationID(method, path string) string {
+	replaced := strings.NewReplacer("/", "_", "{", "_", "}", "_", ".", "_", "-", "_").Replace(
+		strings.Trim(path, "/"),
+	)
+	// 末尾的 {id} 会留下一个悬空下划线（…/activities/{id} → activities_id_），
+	// 前后都修掉。
+	return method + "_" + strings.Trim(repeatedUnderscores.ReplaceAllString(replaced, "_"), "_")
 }
 
 // tagOf 取路径里的资源名作为分组：/api/v1/shipments/{id}/invoice → shipments。
