@@ -92,7 +92,9 @@ tasks:
       GOWORK_TEST_MYSQL_DSN: '{{.MYSQL_DSN | default "gowork:gowork@tcp(127.0.0.1:3306)/gowork?charset=utf8mb4&parseTime=True&loc=Local"}}'
       GOWORK_TEST_REDIS_ADDR: '{{.REDIS_ADDR | default "127.0.0.1:6379"}}'
     cmds:
-      - go test ./internal/... -count=1 -run 'TestStorage|TestCache' -v
+      # TestStartupMigrations 也在这里跑：它验的是启动期迁移链（默认仓先建、再回填），
+      # 同样需要真实 PG / MySQL，把 DSN 传下去才有意义。
+      - go test ./internal/... -count=1 -run 'TestStorage|TestCache|TestStartupMigrations' -v
 
   vet:
     desc: 静态检查
