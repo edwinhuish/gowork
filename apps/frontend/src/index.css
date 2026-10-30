@@ -700,8 +700,15 @@ body {
 .product-card:focus-visible {
   border-color: var(--ant-color-primary-border, #a9c8ff);
   box-shadow: 0 10px 24px color-mix(in srgb, var(--ant-color-text) 14%, transparent);
-  outline: none;
   transform: translateY(-2px);
+}
+
+/* 焦点环：卡片的 hover 用「上浮 + 阴影」表达，但焦点不能只靠这两个 ——
+   它们和 hover 视觉上完全一样，键盘 Tab 过来分不清"我到哪了"。
+   按全局约定（上面 [tabindex]:focus-visible）补回描边。 */
+.product-card:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #2563eb);
+  outline-offset: 2px;
 }
 
 .product-card-media {
@@ -1106,8 +1113,13 @@ body {
 .partner-card:focus-visible {
   border-color: var(--ant-color-primary-border, #a9c8ff);
   box-shadow: 0 10px 24px color-mix(in srgb, var(--ant-color-text) 14%, transparent);
-  outline: none;
   transform: translateY(-2px);
+}
+
+/* 同上：焦点不能只靠「上浮 + 阴影」，那和 hover 没区别。 */
+.partner-card:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #2563eb);
+  outline-offset: 2px;
 }
 
 .partner-card-head {
