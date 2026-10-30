@@ -166,7 +166,9 @@ export function StockDocumentShow() {
                 },
               ]
             : []),
-          { key: 'remark', label: '备注', span: 2, children: d?.remark || <Empty /> },
+          // 'filled'：占满这一行剩下的列。column 是响应式的（窄屏只有 1 列），
+          // 写死 2 会超出列数 —— antd 告警，这一格还会被裁回 1 列。
+          { key: 'remark', label: '备注', span: 'filled', children: d?.remark || <Empty /> },
         ]}
       />
 

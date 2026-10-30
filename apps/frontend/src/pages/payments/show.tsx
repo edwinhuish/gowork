@@ -139,7 +139,9 @@ export function PaymentShow() {
             label: '水单号',
             children: result?.reference ? <Mono>{result.reference}</Mono> : <Empty />,
           },
-          { key: 'remark', label: '备注', span: 3, children: result?.remark || <Empty /> },
+          // 'filled'：占满这一行剩下的列。column 是响应式的（窄屏只有 1 列），
+          // 写死 2 / 3 会超出列数 —— antd 告警，这一格还会被裁回 1 列。
+          { key: 'remark', label: '备注', span: 'filled', children: result?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(result?.created_at) },
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}

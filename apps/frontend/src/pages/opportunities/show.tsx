@@ -92,7 +92,9 @@ export function OpportunityShow() {
       }
     >
       <Descriptions bordered size="small" column={2}>
-        <Descriptions.Item label="客户" span={2}>
+        {/* 客户名带编号，占满整行（column 写死 2 列，与 'filled' 等价；
+            哪天 column 改成响应式也不会超出列数）。 */}
+        <Descriptions.Item label="客户" span="filled">
           {o?.partner ? `${o.partner.name}（${o.partner.code}）` : <Empty />}
         </Descriptions.Item>
         <Descriptions.Item label="阶段">

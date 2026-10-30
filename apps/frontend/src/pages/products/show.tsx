@@ -81,13 +81,15 @@ export function ProductShow() {
           {
             key: 'material',
             label: '材质与用途',
-            span: 2,
+            // 'filled'：占满这一行剩下的列。column 是响应式的（窄屏只有 1 列），
+            // 写死 2 会超出列数 —— antd 告警，这一格还会被裁回 1 列。
+            span: 'filled',
             children: result?.material || <Empty />,
           },
           {
             key: 'remark',
             label: '备注',
-            span: 2,
+            span: 'filled',
             children: result?.remark || <Empty />,
           },
           { key: 'created_at', label: '创建时间', children: formatTime(result?.created_at) },

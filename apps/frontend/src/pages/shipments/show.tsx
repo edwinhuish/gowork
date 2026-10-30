@@ -285,7 +285,9 @@ export function ShipmentShow() {
             key: 'packing',
             label: '装箱 / 毛净重',
             // 纸箱与重量是印装箱单与报关资料用的，由明细逐行相加得出。
-            span: 2,
+            // 'filled'：占满这一行剩下的列。column 是响应式的（窄屏只有 1 列），
+            // 写死 2 / 3 会超出列数 —— antd 告警，这一格还会被裁回 1 列。
+            span: 'filled',
             children:
               packCartons > 0 || packGross > 0 || packNet > 0 ? (
                 <span className="cell-mono">
@@ -296,7 +298,7 @@ export function ShipmentShow() {
                 <Empty />
               ),
           },
-          { key: 'remark', label: '备注', span: 2, children: s?.remark || <Empty /> },
+          { key: 'remark', label: '备注', span: 'filled', children: s?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(s?.created_at) },
           { key: 'updated_at', label: '更新时间', children: formatTime(s?.updated_at) },
         ]}
