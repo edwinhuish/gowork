@@ -988,6 +988,30 @@ body {
   padding: 10px;
 }
 
+/*
+ * 合计卡：宽屏那行 `Table.Summary` 在窄屏的对应物。
+ *
+ * 放在列表**上方**而不是末尾 —— 下面可能是几十张卡甚至还有分页，
+ * 放末尾等于要滑到底才看得到合计。字段横向排：竖着 6~7 行会占掉半屏，
+ * 而合计是"扫一眼"的数，不是逐行读的明细。
+ */
+.record-card--total {
+  margin-bottom: var(--gap-block);
+  background: var(--ant-color-fill-quaternary, #f8fafc);
+}
+
+.record-card--total .record-card-facts {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--gap-item) var(--gap-block);
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.record-card--total .record-card-fact-label {
+  width: auto;
+}
+
 /* ---------- 列表里的「头像 + 名称」---------- */
 .cell-avatar {
   display: flex;

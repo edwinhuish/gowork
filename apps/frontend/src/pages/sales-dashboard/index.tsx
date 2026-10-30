@@ -18,7 +18,7 @@ import {
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import { FilterBar, PageHeader } from '@/components/page'
+import { FilterBar, PageHeader, ResponsiveTable } from '@/components/page'
 import type { ProductProfitRow, SalesDashboardRow } from '@/types'
 
 type Dimension = 'customer' | 'product' | 'category' | 'country' | 'month'
@@ -73,6 +73,9 @@ function MarginCell({ row }: { row: SalesDashboardRow }) {
     </span>
   )
 }
+
+/** 成本与毛利对当前账号不可见时的占位：短横，不是 0 —— 0 会被读成"没成本"。 */
+const HIDDEN = <span className="cell-sub">—</span>
 
 /** 毛利：负数标红，正负在一列里必须一眼分得出。 */
 function ProfitCell({ value, strong }: { value: string; strong?: boolean }) {
@@ -217,13 +220,55 @@ export function SalesDashboardPage() {
       )}
 
       <Card variant="borderless" title={`按${DIMENSION_COLUMN[dimension]}看`}>
-        <Table<SalesDashboardRow>
-          dataSource={rows}
+        <ResponsiveTable<SalesDashboardRow>
+          rows={rows}
           rowKey="key"
           loading={isLoading}
           pagination={false}
-          scroll={{ x: 1180 }}
-          locale={{ emptyText: '范围内没有出货或订单' }}
+          scrollX={1180}
+          empty="范围内没有出货或订单"
+          // 与上面的合计行是同一份数：换维度不换数，卡上也要是"全量"那一栏。
+          // 成本不可见时给「—」而不是 0 —— 0 会被读成"这批货没成本"。
+          cardSummary={{
+            title: '全量合计',
+            facts: [
+              {
+                key: 'order',
+                label: '订单额（按下单日）',
+                value: <Money value={total?.order_amount} />,
+              },
+              {
+                key: 'revenue',
+                label: '收入（已出货）',
+                value: (
+                  <span className="cell-strong">
+                    <Money value={total?.revenue} />
+                  </span>
+                ),
+              },
+              {
+                key: 'cost',
+                label: '采购成本',
+                value: total?.cost_hidden ? HIDDEN : <Money value={total?.cost} />,
+              },
+              {
+                key: 'charge',
+                label: '运杂费',
+                value: total?.cost_hidden ? HIDDEN : <Money value={total?.charge} />,
+              },
+              {
+                key: 'profit',
+                label: '毛利',
+                value: total?.cost_hidden ? HIDDEN : total ? <ProfitCell value={total.profit} strong /> : <Empty />,
+              },
+              {
+                key: 'margin',
+                label: '毛利率',
+                value: total?.cost_hidden ? HIDDEN : total ? <MarginCell row={total} /> : <Empty />,
+              },
+              { key: 'shipments', label: '票数', value: total?.shipments },
+            ],
+          }}
           summary={() =>
             rows.length > 0 && total ? (
               <Table.Summary fixed>
@@ -366,7 +411,7 @@ export function SalesDashboardPage() {
             width={80}
             align="right"
           />
-        </Table>
+        </ResponsiveTable>
 
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
           口径与单票毛利同源：收入按「本票数量 ÷ 销售行数量」分摊销售行本币金额，
@@ -428,14 +473,27 @@ function ProductDrillModal({
     >
       {error && <Alert type="error" showIcon message={(error as Error).message} />}
 
-      <Table<ProductProfitRow>
+      <ResponsiveTable<ProductProfitRow>
         size="small"
         rowKey="shipment_id"
         loading={isLoading}
-        dataSource={data?.rows ?? []}
+        rows={data?.rows ?? []}
         pagination={false}
-        scroll={{ x: 900 }}
-        locale={{ emptyText: '范围内没有这个产品的出货' }}
+        scrollX={900}
+        empty="范围内没有这个产品的出货"
+        cardSummary={{
+          title: '合计',
+          facts: [
+            { key: 'revenue', label: '收入', value: <Money value={data?.revenue} /> },
+            { key: 'cost', label: '成本', value: <Money value={data?.cost} /> },
+            { key: 'charge', label: '运杂费', value: <Money value={data?.charge} /> },
+            {
+              key: 'profit',
+              label: '毛利',
+              value: data ? <ProfitCell value={data.profit} strong /> : <Empty />,
+            },
+          ],
+        }}
         summary={() =>
           data && data.rows.length > 0 ? (
             <Table.Summary.Row>
@@ -495,7 +553,7 @@ function ProductDrillModal({
           align="right"
           render={(_, row: ProductProfitRow) => <ProfitCell value={row.profit} strong />}
         />
-      </Table>
+      </ResponsiveTable>
 
       <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
         与看板同一份分摊：收入按本票数量占销售行的比例、成本按采购加权单价、

@@ -18,7 +18,7 @@ import {
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import { FilterBar, PageHeader } from '@/components/page'
+import { FilterBar, PageHeader, ResponsiveTable } from '@/components/page'
 import type { AgingRow } from '@/types'
 
 /** 桶里的金额：有值才显示，0 一律给短横，避免整列看起来像满的。 */
@@ -128,13 +128,34 @@ export function AgingPage() {
       </FilterBar>
 
       <Card variant="borderless" title={isPayable ? '按供应商的账龄' : '按客户的账龄'}>
-        <Table<AgingRow>
-          dataSource={rows}
+        <ResponsiveTable<AgingRow>
+          rows={rows}
           rowKey={(row) => `${row.partner_id}-${row.currency_code}`}
           loading={isLoading}
           pagination={false}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: '没有未结清的单据' }}
+          scrollX={1200}
+          empty="没有未结清的单据"
+          // 窄屏没有列可对齐，同一份合计排成一张卡（原币合计跨币种没有意义，
+          // 表里留空、卡里也就不列这一行）。
+          cardSummary={{
+            title: '本币合计',
+            facts: [
+              { key: 'not_due', label: '未到期', value: <Money value={total?.not_due} /> },
+              { key: 'd30', label: '逾期 1-30', value: <Money value={total?.days_1_30} /> },
+              { key: 'd60', label: '31-60', value: <Money value={total?.days_31_60} /> },
+              { key: 'd90', label: '61-90', value: <Money value={total?.days_61_90} /> },
+              { key: 'over', label: '90 天以上', value: <Money value={total?.days_over_90} /> },
+              {
+                key: 'total',
+                label: '合计',
+                value: (
+                  <span className="cell-strong">
+                    <Money value={data?.grand_total_base} />
+                  </span>
+                ),
+              },
+            ],
+          }}
           summary={() =>
             rows.length > 0 ? (
               <Table.Summary fixed>
@@ -259,7 +280,7 @@ export function AgingPage() {
               )
             }
           />
-        </Table>
+        </ResponsiveTable>
 
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
           口径：逾期天数 = 截止日 − 到期日，到期当天不算逾期；作废与已结清的单据不计入。

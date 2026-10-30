@@ -18,7 +18,7 @@ import {
 
 import { reportApi } from '@/api/reports'
 import { Empty, HeatTag, Mono, Money } from '@/components/fields'
-import { FilterBar, PageHeader, StatCard } from '@/components/page'
+import { FilterBar, PageHeader, ResponsiveTable, StatCard } from '@/components/page'
 import type { CollectionRow } from '@/types'
 
 function pad(n: number) {
@@ -232,13 +232,16 @@ export function CollectionPage() {
           />
         )}
 
-        <Table<CollectionRow>
-          dataSource={rows}
+        {/* 没有合计行：分桶金额在卡片标题栏（上面那四个标签），
+            逐张单再加一遍只会让人以为它是"这几张的和"。
+            逾期天数在卡片上只是值，排序没了 —— 后端本来就按逾期天数倒序截断。 */}
+        <ResponsiveTable<CollectionRow>
+          rows={rows}
           rowKey="id"
           loading={isLoading}
           pagination={false}
-          scroll={{ x: 1000 }}
-          locale={{ emptyText: isPayable ? '没有超期未付的单据' : '没有超期未收的单据' }}
+          scrollX={1000}
+          empty={isPayable ? '没有超期未付的单据' : '没有超期未收的单据'}
         >
           <Table.Column
             dataIndex="doc_no"
@@ -302,7 +305,7 @@ export function CollectionPage() {
               </span>
             )}
           />
-        </Table>
+        </ResponsiveTable>
 
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
           只列<b>已过到期日且尚未结清</b>的单据，未到期的只计入上面的「当前未结清」。

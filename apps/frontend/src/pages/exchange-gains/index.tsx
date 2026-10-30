@@ -5,7 +5,7 @@ import { Alert, Card, Flex, Input, Select, Space, Table, Tag, Typography, theme 
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import { FilterBar, PageHeader } from '@/components/page'
+import { FilterBar, PageHeader, ResponsiveTable } from '@/components/page'
 import { PAYMENT_TARGET_OPTIONS, paymentDirectionLabel } from '@/constants/catalog'
 import type { Currency, ExchangeGainLine, Partner } from '@/types'
 
@@ -77,6 +77,12 @@ export function ExchangeGainsPage() {
   const lines = data?.lines ?? []
   const applyRange = () => setRange({ from: fromInput.trim(), to: toInput.trim() })
 
+  // 页码自己存：表格与卡片是两种布局，分页状态不共用（antd 那份在 Table 内部）。
+  // 不存的话，在卡片视图翻到第 3 页再切回表格，会莫名回到第 1 页。
+  const [page, setPage] = useState(1)
+  const pageSize = 50
+  const paged = { current: page, pageSize, hideOnSinglePage: true, onChange: setPage }
+
   return (
     <Flex vertical gap={16}>
       <PageHeader
@@ -136,13 +142,28 @@ export function ExchangeGainsPage() {
       </FilterBar>
 
       <Card variant="borderless" title="汇兑损益明细">
-        <Table<ExchangeGainLine>
-          dataSource={lines}
+        <ResponsiveTable<ExchangeGainLine>
+          rows={lines}
           rowKey={(row) => `${row.payment_id}-${row.target_doc_no}-${row.amount}`}
           loading={isLoading}
-          pagination={{ pageSize: 50, hideOnSinglePage: true }}
-          scroll={{ x: 1300 }}
-          locale={{ emptyText: '这段时间没有产生汇兑差额的核销' }}
+          pagination={paged}
+          // lines 是全量，两种布局各自切页（表格那份由 antd 在内部切）。
+          pager={{ ...paged, total: lines.length }}
+          clientPaged
+          scrollX={1300}
+          empty="这段时间没有产生汇兑差额的核销"
+          // 第一列是到账日，卡上该写单号：认一笔损益靠的是"哪张收付款单"。
+          cardTitleKey="payment_doc_no"
+          cardSummary={{
+            title: '本币合计',
+            facts: [
+              {
+                key: 'gain',
+                label: '汇兑损益',
+                value: <GainValue value={data?.total_gain_base} strong />,
+              },
+            ],
+          }}
           summary={() =>
             lines.length > 0 ? (
               <Table.Summary fixed>
@@ -236,7 +257,7 @@ export function ExchangeGainsPage() {
             align="right"
             render={(value: string) => <GainValue value={value} strong />}
           />
-        </Table>
+        </ResponsiveTable>
 
         {data && data.subtotals.length > 0 && (
           <Space wrap size={8} style={{ marginTop: 12 }}>
