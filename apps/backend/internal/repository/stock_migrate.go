@@ -34,7 +34,7 @@ var stockBackfillBatch = 5000
 func MigrateStockWarehouse(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 	ids := make([]uint, 0, 1)
 	if err := db.WithContext(ctx).Model(&model.Warehouse{}).
-		Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+		Where("is_default = ?", true).
 		Order("id ASC").Limit(1).Pluck("id", &ids).Error; err != nil {
 		return fmt.Errorf("查询默认仓库: %w", err)
 	}

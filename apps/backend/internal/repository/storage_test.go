@@ -376,8 +376,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 
 		wh := &model.Warehouse{
-			Code: "WH-" + mark, Name: "测试默认仓",
-			IsDefault: true, Status: model.EnableStatusOn,
+			Code: "WH-" + mark, Name: "测试默认仓", IsDefault: true,
 		}
 		if err := db.Create(wh).Error; err != nil {
 			t.Fatalf("建默认仓: %v", err)
@@ -396,11 +395,11 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			_ = db.Unscoped().Where("id = ?", wh.ID).Delete(&model.Warehouse{}).Error
 		})
 
-		// 迁移按「is_default 且启用、id 最小」挑仓库：共享库里可能已经有一条，
+		// 迁移按「is_default 且 id 最小」挑仓库：共享库里可能已经有一条，
 		// 所以断言的对象是它挑中的那条，而不是本测试新建的这条。
 		var defaultIDs []uint
 		if err := db.Model(&model.Warehouse{}).
-			Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+			Where("is_default = ?", true).
 			Order("id ASC").Limit(1).Pluck("id", &defaultIDs).Error; err != nil {
 			t.Fatalf("查默认仓: %v", err)
 		}

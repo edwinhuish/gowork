@@ -19,9 +19,8 @@ type Warehouse struct {
 	Address string `gorm:"size:255" json:"address"`
 	// IsDefault 标记默认仓库：新流水不指定仓库时落在这里。
 	// 允许多条为 false，但只能有一条为 true（应用层事务保证，与默认地址同一套路）。
-	IsDefault bool         `gorm:"not null;default:false;index" json:"is_default"`
-	Status    EnableStatus `gorm:"not null;default:1;index" json:"status"`
-	Remark    string       `gorm:"size:255" json:"remark"`
+	IsDefault bool   `gorm:"not null;default:false;index" json:"is_default"`
+	Remark    string `gorm:"size:255" json:"remark"`
 }
 
 func (Warehouse) TableName() string { return "md_warehouse" }

@@ -8,7 +8,5 @@ type WarehouseInput struct {
 	Name      string `json:"name" binding:"required,max=64"`
 	Address   string `json:"address" binding:"max=255"`
 	IsDefault bool   `json:"is_default"`
-	// Status 1 启用 / 0 停用；留空按启用。
-	Status int8   `json:"status"`
-	Remark string `json:"remark" binding:"max=255"`
+	Remark    string `json:"remark" binding:"max=255"`
 }

@@ -347,8 +347,9 @@ func (r *stockRepo) ProductsWithMovements(ctx context.Context) ([]uint, error) {
 // 所以单仓下的行为与改造前完全一致。
 func defaultWarehouseID(tx *gorm.DB) uint {
 	ids := make([]uint, 0, 1)
+	// 只认 is_default：仓库没有启用状态了，删除由软删条件兜住。
 	err := tx.Model(&model.Warehouse{}).
-		Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+		Where("is_default = ?", true).
 		Order("id ASC").Limit(1).Pluck("id", &ids).Error
 	if err != nil || len(ids) == 0 {
 		return 0

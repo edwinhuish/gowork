@@ -38,11 +38,11 @@ func TestMigrateStockWarehouse(t *testing.T) {
 	}
 
 	// 默认仓必须先存在：迁移要拿它的 id 去回填。
-	wh := &model.Warehouse{Code: "MAIN", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	wh := &model.Warehouse{Code: "MAIN", Name: "主仓", IsDefault: true}
 	if err := db.Create(wh).Error; err != nil {
 		t.Fatalf("建默认仓: %v", err)
 	}
-	other := &model.Warehouse{Code: "B", Name: "分仓", Status: model.EnableStatusOn}
+	other := &model.Warehouse{Code: "B", Name: "分仓"}
 	if err := db.Create(other).Error; err != nil {
 		t.Fatalf("建第二个仓: %v", err)
 	}

@@ -87,7 +87,7 @@ jwt:
 			// 默认仓必须已经有了：没有它，回填那一步是空转。
 			var defaults int64
 			if err := app.DB.Model(&model.Warehouse{}).
-				Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+				Where("is_default = ?", true).
 				Count(&defaults).Error; err != nil {
 				t.Fatalf("统计默认仓: %v", err)
 			}

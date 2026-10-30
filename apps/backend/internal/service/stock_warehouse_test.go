@@ -27,11 +27,11 @@ func TestStockWarehouseIsolation(t *testing.T) {
 	repo := repository.NewStockRepository(db)
 
 	// 两个仓：A 是默认仓（defaultWarehouseID 会取它），B 不是。
-	a := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	a := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true}
 	if err := db.Create(a).Error; err != nil {
 		t.Fatalf("建仓 A: %v", err)
 	}
-	b := &model.Warehouse{Code: "B", Name: "分仓", Status: model.EnableStatusOn}
+	b := &model.Warehouse{Code: "B", Name: "分仓"}
 	if err := db.Create(b).Error; err != nil {
 		t.Fatalf("建仓 B: %v", err)
 	}

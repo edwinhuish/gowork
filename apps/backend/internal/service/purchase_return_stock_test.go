@@ -35,7 +35,7 @@ func TestPurchaseReturnReducesStock(t *testing.T) {
 	if err := productRepo.Create(ctx, product); err != nil {
 		t.Fatalf("建产品: %v", err)
 	}
-	wh := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	wh := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true}
 	if err := db.Create(wh).Error; err != nil {
 		t.Fatalf("建仓: %v", err)
 	}

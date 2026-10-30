@@ -18,8 +18,12 @@ func NewWarehouseHandler(warehouses service.WarehouseService) *WarehouseHandler 
 }
 
 // List GET /api/v1/warehouses
+//
+// ?include_deleted=1 把已软删的仓库一并列出：列表页靠它给恢复留一个入口，
+// 而下拉选仓库永远不带这个参数——删掉的仓不该出现在可选范围之内。
 func (h *WarehouseHandler) List(c *gin.Context) {
-	rows, err := h.warehouses.List(c.Request.Context())
+	includeDeleted := c.Query("include_deleted") == "1" || c.Query("include_deleted") == "true"
+	rows, err := h.warehouses.List(c.Request.Context(), includeDeleted)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -56,4 +60,31 @@ func (h *WarehouseHandler) Update(c *gin.Context) {
 		return
 	}
 	response.OK(c, gin.H{"id": id})
+}
+
+// Delete DELETE /api/v1/warehouses/:id
+func (h *WarehouseHandler) Delete(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if err := h.warehouses.Delete(c.Request.Context(), id); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, gin.H{"deleted": true})
+}
+
+// Restore PUT /api/v1/warehouses/:id/restore
+func (h *WarehouseHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.warehouses.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
 }

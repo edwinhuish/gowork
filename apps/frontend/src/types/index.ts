@@ -31,9 +31,9 @@ export interface Warehouse {
   name: string
   address: string
   is_default: boolean
-  /** 1 启用 / 0 停用 */
-  status: number
   remark: string
+  /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
+  deleted_at?: number
 }
 
 export interface SystemUser {

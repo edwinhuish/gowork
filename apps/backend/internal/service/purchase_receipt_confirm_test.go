@@ -35,7 +35,7 @@ func TestPurchaseReceiptConfirmIncreasesStock(t *testing.T) {
 		t.Fatalf("建产品: %v", err)
 	}
 	// 默认仓：确认入库时留空 warehouse_id 会落到它。
-	wh := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	wh := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true}
 	if err := db.Create(wh).Error; err != nil {
 		t.Fatalf("建仓: %v", err)
 	}

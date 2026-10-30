@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import type { CrudFilters } from '@refinedev/core'
 import { useList } from '@refinedev/core'
-import { Button, Form, Input, Modal, Switch, Table, Tag, message } from 'antd'
+import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag, message } from 'antd'
 
 import { http } from '@/api/client'
-import { Empty, StatusTag } from '@/components/fields'
+import { Empty } from '@/components/fields'
 import { PageList } from '@/components/page'
 import type { Warehouse } from '@/types'
 
@@ -12,7 +13,6 @@ interface WarehouseForm {
   name: string
   address?: string
   is_default: boolean
-  status: boolean
   remark?: string
 }
 
@@ -22,14 +22,18 @@ interface WarehouseForm {
  * 在此之前仓库只有一条启动时自动建的「主仓」，界面上一处都改不了，
  * 而调拨、按仓盘点、按仓看库存都要先有两个仓可选。
  *
- * 只做三件事：列出来、建一个、设默认。**不提供删除**：
- * 仓库被流水引用之后删掉，历史库存会指向一个不存在的仓——
- * 不要了就把状态关掉，它只是不再出现在下拉里。
+ * 删除是软删：被流水引用过的仓删掉之后，历史库存仍指向它，
+ * 只是不再出现在下拉里，需要时能原样恢复回去。默认仓不让删——
+ * 它不是"更常用的一条"，而是新流水唯一能自动落的位置。
  */
 export function WarehouseList() {
+  const [showDeleted, setShowDeleted] = useState(false)
   const { query, result } = useList<Warehouse>({
     resource: 'warehouses',
     pagination: { mode: 'off' },
+    filters: showDeleted
+      ? ([{ field: 'include_deleted', operator: 'eq', value: true }] as CrudFilters)
+      : [],
   })
   const rows: Warehouse[] = result?.data ?? []
 
@@ -42,7 +46,7 @@ export function WarehouseList() {
 
   const openCreate = () => {
     form.resetFields()
-    form.setFieldsValue({ is_default: false, status: true })
+    form.setFieldsValue({ is_default: false })
     setCreating(true)
   }
 
@@ -52,10 +56,31 @@ export function WarehouseList() {
       name: row.name,
       address: row.address,
       is_default: row.is_default,
-      status: row.status === 1,
       remark: row.remark,
     })
     setEditing(row)
+  }
+
+  const remove = async (row: Warehouse) => {
+    try {
+      await http.delete<{ deleted: boolean }>(`/warehouses/${row.id}`)
+      message.success('已删除仓库')
+      await reload()
+    } catch (err) {
+      // 默认仓不让删是 409，后端文案写明了要先换个默认仓。
+      message.error(err instanceof Error ? err.message : '删除失败')
+    }
+  }
+
+  const restore = async (row: Warehouse) => {
+    try {
+      await http.put<Warehouse>(`/warehouses/${row.id}/restore`)
+      message.success('已恢复仓库')
+      await reload()
+    } catch (err) {
+      // 编码被别的仓占了是 409，后端文案写明了是哪个编码。
+      message.error(err instanceof Error ? err.message : '恢复失败')
+    }
   }
 
   const submit = async () => {
@@ -67,7 +92,6 @@ export function WarehouseList() {
         name: v.name,
         address: v.address ?? '',
         is_default: !!v.is_default,
-        status: v.status ? 1 : 0,
         remark: v.remark ?? '',
       }
       if (editing) {
@@ -90,11 +114,16 @@ export function WarehouseList() {
   return (
     <PageList
       title="仓库"
-      description="只有默认仓会被新流水自动使用；停用的仓不出现在下拉里"
+      description="只有默认仓会被新流水自动使用；删除是软删，必要时可以恢复回来"
       extra={
-        <Button type="primary" onClick={openCreate}>
-          新增仓库
-        </Button>
+        <Space size={8}>
+          <Checkbox checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)}>
+            含已删除
+          </Checkbox>
+          <Button type="primary" onClick={openCreate}>
+            新增仓库
+          </Button>
+        </Space>
       }
       tableProps={{ dataSource: rows, loading: query.isLoading, pagination: false }}
       rowKey="id"
@@ -135,9 +164,6 @@ export function WarehouseList() {
             >
               <Switch />
             </Form.Item>
-            <Form.Item name="status" label="启用" valuePropName="checked">
-              <Switch />
-            </Form.Item>
             <Form.Item name="remark" label="备注">
               <Input.TextArea rows={2} maxLength={255} />
             </Form.Item>
@@ -159,18 +185,35 @@ export function WarehouseList() {
         render={(v: boolean) => (v ? <Tag color="blue">默认</Tag> : <Empty />)}
       />
       <Table.Column
-        dataIndex="status"
-        title="状态"
-        width={90}
-        render={(v: number) => <StatusTag value={v} />}
-      />
-      <Table.Column
         title="操作"
-        width={90}
+        width={140}
         render={(_: unknown, row: Warehouse) => (
-          <Button size="small" type="link" onClick={() => openEdit(row)}>
-            编辑
-          </Button>
+          <Space size={4}>
+            {row.deleted_at ? (
+              // 已软删的仓只能恢复：它的编码可能已经被别人占了，
+              // 那时后端 409 会说明是哪个编码。
+              <Button size="small" type="link" onClick={() => restore(row)}>
+                恢复
+              </Button>
+            ) : (
+              <>
+                <Button size="small" type="link" onClick={() => openEdit(row)}>
+                  编辑
+                </Button>
+                <Popconfirm
+                  title={`删除仓库 ${row.code}？`}
+                  description="默认仓不能删除；删掉的仓不再出现在下拉里，可恢复"
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={() => remove(row)}
+                >
+                  <Button size="small" type="link" danger>
+                    删除
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
+          </Space>
         )}
       />
     </PageList>

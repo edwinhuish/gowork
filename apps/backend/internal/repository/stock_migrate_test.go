@@ -88,7 +88,7 @@ func TestMigrateStockWarehouseSkipsIndexRebuild(t *testing.T) {
 	log, _ := captureLog()
 	db := openMigrateTestDB(t, log)
 
-	wh := &model.Warehouse{Code: "MAIN", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	wh := &model.Warehouse{Code: "MAIN", Name: "主仓", IsDefault: true}
 	if err := db.Create(wh).Error; err != nil {
 		t.Fatalf("建默认仓: %v", err)
 	}

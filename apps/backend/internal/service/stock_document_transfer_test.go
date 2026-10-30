@@ -42,11 +42,11 @@ func TestStockDocTransfer(t *testing.T) {
 		t.Fatalf("建产品: %v", err)
 	}
 
-	a := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true, Status: model.EnableStatusOn}
+	a := &model.Warehouse{Code: "A", Name: "主仓", IsDefault: true}
 	if err := db.Create(a).Error; err != nil {
 		t.Fatalf("建仓 A: %v", err)
 	}
-	b := &model.Warehouse{Code: "B", Name: "分仓", Status: model.EnableStatusOn}
+	b := &model.Warehouse{Code: "B", Name: "分仓"}
 	if err := db.Create(b).Error; err != nil {
 		t.Fatalf("建仓 B: %v", err)
 	}

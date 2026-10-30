@@ -529,6 +529,8 @@ func New(
 		warehouses.GET("", h.Warehouse.List)
 		warehouses.POST("", h.Warehouse.Create)
 		warehouses.PUT("/:id", h.Warehouse.Update)
+		warehouses.DELETE("/:id", h.Warehouse.Delete)
+		warehouses.PUT("/:id/restore", h.Warehouse.Restore)
 
 		// 附件：横切的归档能力，不挂在任何业务前缀下——挂什么由 entity_type 决定。
 		// 列表与上传共用同一个入口，且 entity_type + entity_id 都是必填：
