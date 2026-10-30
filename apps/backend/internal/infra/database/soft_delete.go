@@ -56,6 +56,17 @@ func prepareSoftDelete(db *gorm.DB, models ...any) error {
 		if !db.Migrator().HasTable(item.model) || !db.Migrator().HasIndex(item.model, item.name) {
 			continue
 		}
+		table := tableOf(db, item.model)
+		migrated, err := deletedAtIsMillis(db, dialect, table)
+		if err != nil {
+			return fmt.Errorf("读取 %s.deleted_at 的类型: %w", table, err)
+		}
+		// 已经换成毫秒整数就别再拆索引：汇率与产品编号两个索引改造前后同名，
+		// 只看"索引存在"会让它们每次启动都被删一次再重建一遍——存量表上那就是
+		// 一次全表扫描，而这一步跑在服务启动路径上。
+		if migrated {
+			continue
+		}
 		if err := db.Migrator().DropIndex(item.model, item.name); err != nil {
 			return fmt.Errorf("删除旧的唯一索引 %s: %w", item.name, err)
 		}
@@ -98,6 +109,17 @@ func tableOf(db *gorm.DB, m any) string {
 		return ""
 	}
 	return stmt.Schema.Table
+}
+
+// deletedAtIsMillis 判断 softDelete 改造是否已经落到这张表上。
+//
+// 列不存在（新表）也算"没有旧东西要改"：这两种情况下 prepareSoftDelete 都该空转。
+func deletedAtIsMillis(db *gorm.DB, dialect, table string) (bool, error) {
+	columnType, err := deletedAtColumnType(db, dialect, table)
+	if err != nil {
+		return false, err
+	}
+	return columnType == "" || strings.Contains(columnType, "int"), nil
 }
 
 // deletedAtColumnType 返回列的声明类型；列不存在时返回空串。

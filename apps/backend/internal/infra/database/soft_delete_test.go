@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/edwinhuish/gowork/internal/config"
 	"github.com/edwinhuish/gowork/internal/model"
 )
@@ -149,6 +151,64 @@ func TestPrepareSoftDeleteUpgradesLegacyColumn(t *testing.T) {
 			}
 		})
 	}
+}
+
+// 改造过的库上再来一次，不该再拆索引。
+//
+// 汇率（uni_exchange_rate_pair）与产品编号（uni_product_code）这两个索引改造前后同名，
+// 只判"索引存在"的话，它们每次启动都会被删一次、再由 AutoMigrate 重建一次——
+// 存量表上那就是一次全表扫描加一把锁，而这段跑在服务启动路径上。
+// 判据用 sqlite 的 schema_version：这个函数除了 DDL 什么都不做，它一动就说明真的动了表。
+func TestPrepareSoftDeleteLeavesMigratedIndexesAlone(t *testing.T) {
+	db, err := Open(config.Database{
+		Driver:      config.DriverSQLite,
+		DSN:         filepath.Join(t.TempDir(), "migrated.db"),
+		MaxOpen:     2,
+		MaxIdle:     1,
+		MaxLifetime: 60,
+		LogLevel:    "error",
+	}, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatalf("连接: %v", err)
+	}
+	t.Cleanup(func() { _ = Close(db) })
+
+	if err := AutoMigrate(db, &model.ExchangeRate{}); err != nil {
+		t.Fatalf("建表: %v", err)
+	}
+	if !db.Migrator().HasIndex(&model.ExchangeRate{}, "uni_exchange_rate_pair") {
+		t.Fatal("前提不成立：迁移后应有汇率唯一索引")
+	}
+	before := sqliteSchemaVersion(t, db)
+
+	if err := prepareSoftDelete(db, &model.ExchangeRate{}); err != nil {
+		t.Fatalf("二次准备失败（应空转）: %v", err)
+	}
+	if after := sqliteSchemaVersion(t, db); after != before {
+		t.Errorf("改造过的库上又动了表结构（schema_version %d → %d）：每次启动都会重建索引", before, after)
+	}
+	if !db.Migrator().HasIndex(&model.ExchangeRate{}, "uni_exchange_rate_pair") {
+		t.Error("索引被删掉了，AutoMigrate 之外没人会把它建回来")
+	}
+
+	// 判据自检：手工删一次索引，schema_version 必须跟着变，否则上面那条断言没有判别力。
+	if err := db.Migrator().DropIndex(&model.ExchangeRate{}, "uni_exchange_rate_pair"); err != nil {
+		t.Fatalf("自检:删索引: %v", err)
+	}
+	if v := sqliteSchemaVersion(t, db); v == before {
+		t.Errorf("删了索引但 schema_version 没变（%d），这条测试的判据无效", v)
+	}
+}
+
+// sqliteSchemaVersion 读 schema_version：任何 DDL 都会让它加一。
+func sqliteSchemaVersion(t *testing.T, db *gorm.DB) int {
+	t.Helper()
+
+	var v int
+	if err := db.Raw("PRAGMA schema_version").Scan(&v).Error; err != nil {
+		t.Fatalf("读 schema_version: %v", err)
+	}
+	return v
 }
 
 // 空库（列还不存在）时应当是纯空转，不报错、不做任何结构改动。
