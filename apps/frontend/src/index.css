@@ -263,12 +263,8 @@ body {
     display: none;
   }
 
-  /* refine 的 ThemedSider 在窄屏会自己渲染一个 fixed 的抽屉开关，正好压在
-     页面标题上（「工作台」只剩半个字）。顶栏左侧的折叠按钮在窄屏就是同一个
-     抽屉的开关（见 AppHeader），这个浮动按钮是重复入口，藏掉。 */
-  .ant-layout-has-sider > .ant-btn {
-    display: none;
-  }
+  /* 窄屏的导航开关只有顶栏左侧那一个（见 AppHeader / AppSider）：
+     侧栏自己不再渲染 refine 那个会压住页面标题的浮动开关。 */
 }
 
 .app-user {

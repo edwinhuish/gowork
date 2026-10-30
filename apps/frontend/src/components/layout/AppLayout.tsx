@@ -9,14 +9,26 @@ import {
   SunOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { ThemedLayout, ThemedSider, useThemedLayoutContext } from '@refinedev/antd'
-import { useGetIdentity, useLogout } from '@refinedev/core'
+import { ThemedLayout, useThemedLayoutContext } from '@refinedev/antd'
+import { useGetIdentity, useLogout, useMenu, type TreeMenuItem } from '@refinedev/core'
 import { useQuery } from '@tanstack/react-query'
-import { Avatar, Badge, Button, Dropdown, Grid, Layout, Space, Tooltip } from 'antd'
+import {
+  Avatar,
+  Badge,
+  Button,
+  Drawer,
+  Dropdown,
+  Grid,
+  Layout,
+  Menu,
+  Space,
+  Tooltip,
+  theme,
+} from 'antd'
 import type { MenuProps } from 'antd'
 import type { FC } from 'react'
-import { useEffect } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
+import { useEffect, useMemo } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { useUiPrefs } from '@/providers/uiPrefs'
@@ -48,12 +60,127 @@ function BrandTitle({ collapsed }: { collapsed: boolean }) {
 /**
  * 侧栏。
  *
- * refine 的 ThemedSider 默认把「Logout」当成最后一个菜单项塞进导航里，
- * 和业务菜单混在一起；退出登录已经收在顶栏头像下拉里，导航栏不该再放一遍。
- * render 回调拿到的就是 `{ items, logout, collapsed }`，只取 items 即可。
+ * 不用 refine 的 ThemedSider：它用的是 antd 已废弃的 Menu children 写法
+ * （<Menu.Item> / <Menu.SubMenu>），每次加载刷两条告警 —— "children is
+ * deprecated" 与 React 19 的 "Accessing element.ref"，30 个页面各一次，
+ * 把真问题埋在噪音里。菜单数据仍来自 refine 的 useMenu（同一份 resources，
+ * 分组 / 图标 / 选中态都在里面），只是换成 items 写法自己渲染。
+ *
+ * 与 ThemedSider 有意保持一致的两处：退出登录不进导航（顶栏头像下拉里已有）；
+ * 窄屏侧栏是抽屉，由顶栏左侧那个按钮打开（见 AppHeader），不再渲染 refine
+ * 那个会压住页面标题的浮动开关。
+ *
+ * 分成两层是因为 refine 判 hasSider 的方式是**把 Sider 当普通函数调用一次**
+ * （`!!SiderToRender({ Title })`）——那一刻还没有 context provider，
+ * 带 hook 的组件直接被调用会拿不到 context。外层不带 hook，只返回一个元素。
  */
 function AppSider({ Title }: { Title?: SiderTitle }) {
-  return <ThemedSider Title={Title} render={({ items }) => items} />
+  return <AppSiderBody Title={Title} />
+}
+
+/** refine 的菜单树 → antd Menu 的 items（叶子节点才给链接）。 */
+function toMenuItems(nodes: TreeMenuItem[]): NonNullable<MenuProps['items']> {
+  return nodes.map((node) => {
+    const label = node.label ?? node.meta?.label ?? node.name
+    const icon = node.icon ?? node.meta?.icon
+    // 分组（resources 里带 meta.parent 的那些）：只有标题，点了不跳转。
+    if (node.children.length > 0) {
+      return { key: node.key, icon, label, children: toMenuItems(node.children) }
+    }
+    const route = node.route ?? node.list
+    // 没有列表页的资源不给链接：点不动比跳到首页强。
+    return { key: node.key, icon, label: route ? <Link to={route}>{label}</Link> : label }
+  })
+}
+
+function AppSiderBody({ Title }: { Title?: SiderTitle }) {
+  const { token } = theme.useToken()
+  const { siderCollapsed, setSiderCollapsed, mobileSiderOpen, setMobileSiderOpen } =
+    useThemedLayoutContext()
+  const { menuItems, selectedKey, defaultOpenKeys } = useMenu()
+  // 与 refine 同一条判定（lg 之下是抽屉）；首帧拿不到断点时当宽屏处理。
+  const isMobile = Grid.useBreakpoint().lg === false
+  const RenderToTitle = Title ?? (() => null)
+  const items = useMemo(() => toMenuItems(menuItems), [menuItems])
+
+  // 用 Link 而不是 onClick 导航：中键 / 右键「在新标签打开」是常态操作，
+  // 走 onClick 就只有左键能用。窄屏点了顺手关掉抽屉。
+  const menu = (
+    <Menu
+      mode="inline"
+      items={items}
+      selectedKeys={selectedKey ? [selectedKey] : []}
+      defaultOpenKeys={defaultOpenKeys}
+      style={{ borderInlineEnd: 'none' }}
+      onClick={() => {
+        if (isMobile) setMobileSiderOpen(false)
+      }}
+    />
+  )
+
+  // 品牌块：宽 200 / 收起 80，与侧栏同宽，高与顶栏对齐。
+  const brand = (collapsed: boolean) => (
+    <div
+      style={{
+        width: collapsed ? '80px' : '200px',
+        padding: collapsed ? '0' : '0 16px',
+        display: 'flex',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        alignItems: 'center',
+        height: '64px',
+        backgroundColor: token.colorBgElevated,
+        fontSize: '14px',
+      }}
+    >
+      <RenderToTitle collapsed={collapsed} />
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer
+        placement="left"
+        width={200}
+        open={mobileSiderOpen}
+        onClose={() => setMobileSiderOpen(false)}
+        closable={false}
+        styles={{ body: { padding: 0 } }}
+      >
+        {brand(false)}
+        {menu}
+      </Drawer>
+    )
+  }
+
+  return (
+    <Layout.Sider
+      collapsible
+      collapsed={siderCollapsed}
+      // 只认手动点开关：breakpoint 触发的（type === 'responsive'）由侧栏自己管。
+      onCollapse={(collapsed, type) => {
+        if (type === 'clickTrigger') setSiderCollapsed(collapsed)
+      }}
+      collapsedWidth={80}
+      breakpoint="lg"
+      width={200}
+      trigger={
+        <Button
+          type="text"
+          aria-label={siderCollapsed ? '展开导航' : '收起导航'}
+          icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          style={{
+            borderRadius: 0,
+            height: '100%',
+            width: '100%',
+            backgroundColor: token.colorBgElevated,
+          }}
+        />
+      }
+    >
+      {brand(siderCollapsed)}
+      {menu}
+    </Layout.Sider>
+  )
 }
 
 /**
