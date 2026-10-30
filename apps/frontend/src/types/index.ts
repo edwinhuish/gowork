@@ -136,6 +136,14 @@ export interface Partner {
   owner_id: number
   /** 负责人登录名，后端列表 join 出来的只读投影。 */
   owner_name?: string
+  /**
+   * 头像 / Logo 的取图路径（`/attachments/:id/download`），同样是不建列的只读投影。
+   *
+   * 取的是挂在 `partner` 上的**最新一张图片附件**，由后端一次 IN 查询整页回填，
+   * 列表与详情口径一致。没有图片时后端不带这个字段；
+   * 传图取到的是 PDF 也不算图片（`<img>` 显示不了 PDF）。
+   */
+  logo_url?: string
   created_at: string
   updated_at: string
 }

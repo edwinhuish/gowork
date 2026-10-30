@@ -165,8 +165,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | PUT / DELETE | `/api/v1/products/:id/images/:imageId`、`PUT …/images/order`、`GET …/content?size=thumb` | `ProductImage.Replace` / `.Delete` / `.Reorder` / `.Content` | 替换保留位置与主图身份（换的是外观）；排序收**完整排列**，与库中集合不一致 409；删除是元数据软删 + 字节物理删除（图片不是凭证）；取图要 Authorization，响应带 `ETag`（sha256）与 304，缩略图统一 `image/jpeg` |
 | GET / POST | `/api/v1/product-codes` | `ProductCode.List` / `.Create` | 产品编号（旧 SKU / 客户物料号 / 供应商货号 / 工厂号）：`?product_id=` 必填；归一化后同产品重复 409、跨产品可共用；`code_norm` 由服务端算 |
 | DELETE | `/api/v1/product-codes/:id` | `ProductCode.Delete` | **硬删**：软删会让「删掉再加回来」撞唯一索引，而列表里又看不见那行 |
-| GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |
-| GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法 |
+| GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create`。列表由 `fillPartnerLogos` 用**一次 IN 查询**整页回填 `logo_url`（只读投影，不建列）：取该主体挂在 `partner` 上的最新一张**图片**附件（`model.AttachmentImageTypes`，PDF 不算），详情同一口径。不要在主体行上逐条查附件 |
+| GET / PUT / DELETE | `/api/v1/partners/:id` | `Partner.Get(nil)` / `.Update(nil)` / `.Delete(nil)` | 同名方法；`Get` 同样回填 `logo_url`（与列表一致的附件能力由 `WithPartnerAttachments` 注入，没装配时静默跳过） |
 | POST | `/api/v1/partners/:id/restore` | `Partner.Restore` | 恢复已软删的主体；只挂这一个入口，角色已在记录里，不再按 `/customers`、`/suppliers` 各复制一份 |
 | GET | `/api/v1/partners/:id/credit` | `Partner.Credit` | `CreditService.Summary`：额度、未结清应收、未开票订单、敞口；额度 0 = 不限 |
 | POST | `/api/v1/partners/:id/merge` | `Partner.Merge` | 把 `source_id` 并入 `:id`（主记录）：角色取并集、空字符串字段从被合并方补、引用按 `repository/partnerRefTables` 整体迁移（含 `sys_attachment`），被合并方软删；主记录已有主联系人时把被合并方的降级；货源同产品同货号冲突返回 409；带 `updated_at` 走乐观锁 |

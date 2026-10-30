@@ -1,12 +1,13 @@
+import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
-import { DeleteButton, useTable } from '@refinedev/antd'
+import { CreateButton, useTable } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
   Form,
   Input,
   message,
-  Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
@@ -16,8 +17,16 @@ import {
 
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
-import { PageList } from '@/components/page'
+import { EmptyGuide, PageList } from '@/components/page'
+import { PartnerAvatar } from '@/components/partner-avatar'
+import {
+  PartnerCards,
+  PartnerRowActions,
+  PARTNER_CARD_PAGE_SIZES,
+  toCardPager,
+} from '@/components/partner-cards'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
 interface SupplierSearch {
@@ -27,11 +36,19 @@ interface SupplierSearch {
   include_deleted?: boolean
 }
 
-/** 供应商列表。与产品列表同一套骨架：筛选条 + 表格 + 新建入口。 */
+/**
+ * 供应商列表。
+ *
+ * 支持列表 / 卡片两种视图，与产品列表同一套骨架：
+ * 筛选条 + 表格或卡片网格 + 新建入口，两种视图共用一个 useTable，
+ * 切换时筛选、排序、页码都不动。
+ */
 export function SupplierList() {
+  const { view, setView } = useListView('gowork:suppliers:view')
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'suppliers',
     syncWithLocation: true,
+    pagination: { pageSize: Number(PARTNER_CARD_PAGE_SIZES[0]) },
     onSearch: (values): CrudFilters => {
       const v = values as SupplierSearch
       const filters: CrudFilters = []
@@ -66,6 +83,36 @@ export function SupplierList() {
     searchFormProps.form?.submit()
   }
 
+  const rows = (tableProps.dataSource ?? []) as Partner[]
+  const cardView = (
+    <PartnerCards
+      rows={rows}
+      loading={tableProps.loading}
+      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个供应商`)}
+      onShow={(record) => show('suppliers', record.id)}
+      renderActions={(record) => (
+        <PartnerRowActions
+          record={record}
+          resource="suppliers"
+          entityLabel="供应商"
+          onRestore={(r) => void restore(r)}
+        />
+      )}
+      empty={
+        <EmptyGuide
+          title="没有符合条件的供应商"
+          description="换个筛选条件，或者直接新建一个供应商"
+          action={
+            <Space>
+              <Button onClick={resetFilters}>重置筛选</Button>
+              <CreateButton>新建供应商</CreateButton>
+            </Space>
+          }
+        />
+      }
+    />
+  )
+
   return (
     <PageList
       createLabel="新建供应商"
@@ -73,6 +120,19 @@ export function SupplierList() {
       onReset={resetFilters}
       tableProps={tableProps}
       rowKey="id"
+      pageSizeOptions={PARTNER_CARD_PAGE_SIZES}
+      table={view === 'card' ? cardView : undefined}
+      extra={
+        <Segmented
+          value={view}
+          onChange={(value) => setView(value as 'list' | 'card')}
+          options={[
+            { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
+            { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
+          ]}
+          aria-label="切换供应商视图"
+        />
+      }
       filters={
         <>
           <Form.Item name="keyword">
@@ -98,14 +158,18 @@ export function SupplierList() {
           </Space>
         )}
       />
-      {/* 名称即入口：货源、附件与合并都在详情页，列表不给链接就只能手敲 URL。 */}
+      {/* 名称即入口：货源、附件与合并都在详情页，列表不给链接就只能手敲 URL。
+          头像与卡片视图同组件同尺寸，换视图不能换长相。 */}
       <Table.Column
         dataIndex="name"
         title="名称"
         render={(value: string, record: Partner) => (
-          <Typography.Link onClick={() => show('suppliers', record.id)}>
-            <span className="cell-strong">{value}</span>
-          </Typography.Link>
+          <div className="cell-avatar">
+            <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
+            <Typography.Link onClick={() => show('suppliers', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          </div>
         )}
       />
       {/* 供应商与客户已合并为同一张表，这里会混进「客供两用」的主体。
@@ -141,30 +205,14 @@ export function SupplierList() {
       <Table.Column
         title="操作"
         width={90}
-        render={(_, record: Partner) =>
-          record.deleted_at ? (
-            <Popconfirm
-              title="恢复这个主体？"
-              description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
-              okText="恢复"
-              cancelText="返回"
-              onConfirm={() => restore(record)}
-            >
-              <Button size="small" type="link">
-                恢复
-              </Button>
-            </Popconfirm>
-          ) : (
-            <DeleteButton
-              size="small"
-              resource="suppliers"
-              recordItemId={record.id}
-              confirmTitle="删除这个供应商？"
-              confirmOkText="删除"
-              confirmCancelText="返回"
-            />
-          )
-        }
+        render={(_, record: Partner) => (
+          <PartnerRowActions
+            record={record}
+            resource="suppliers"
+            entityLabel="供应商"
+            onRestore={(r) => void restore(r)}
+          />
+        )}
       />
     </PageList>
   )

@@ -1,14 +1,15 @@
 import { useState } from 'react'
+import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { PartnerImportModal } from './import-modal'
-import { DeleteButton, useTable } from '@refinedev/antd'
+import { CreateButton, useTable } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
   Form,
   Input,
   message,
-  Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
@@ -20,8 +21,16 @@ import {
 import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
-import { PageList } from '@/components/page'
+import { EmptyGuide, PageList } from '@/components/page'
+import { PartnerAvatar } from '@/components/partner-avatar'
+import {
+  PartnerCards,
+  PartnerRowActions,
+  PARTNER_CARD_PAGE_SIZES,
+  toCardPager,
+} from '@/components/partner-cards'
 import { ENABLE_STATUS_OPTIONS, PARTNER_GRADE_FILTER_OPTIONS } from '@/constants/catalog'
+import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
 interface CustomerSearch {
@@ -53,9 +62,11 @@ async function exportPartners() {
 }
 
 export function CustomerList() {
+  const { view, setView } = useListView('gowork:customers:view')
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'customers',
     syncWithLocation: true,
+    pagination: { pageSize: Number(PARTNER_CARD_PAGE_SIZES[0]) },
     onSearch: (values): CrudFilters => {
       const v = values as CustomerSearch
       const filters: CrudFilters = []
@@ -103,6 +114,37 @@ export function CustomerList() {
     searchFormProps.form?.submit()
   }
 
+  const rows = (tableProps.dataSource ?? []) as Partner[]
+  const cardView = (
+    <PartnerCards
+      rows={rows}
+      loading={tableProps.loading}
+      showCustomerFacts
+      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个客户`)}
+      onShow={(record) => show('customers', record.id)}
+      renderActions={(record) => (
+        <PartnerRowActions
+          record={record}
+          resource="customers"
+          entityLabel="客户"
+          onRestore={(r) => void restore(r)}
+        />
+      )}
+      empty={
+        <EmptyGuide
+          title="没有符合条件的客户"
+          description="换个筛选条件，或者直接新建一个客户"
+          action={
+            <Space>
+              <Button onClick={resetFilters}>重置筛选</Button>
+              <CreateButton>新建客户</CreateButton>
+            </Space>
+          }
+        />
+      }
+    />
+  )
+
   return (
     <PageList
       createLabel="新建客户"
@@ -110,8 +152,19 @@ export function CustomerList() {
       onReset={resetFilters}
       tableProps={tableProps}
       rowKey="id"
+      pageSizeOptions={PARTNER_CARD_PAGE_SIZES}
+      table={view === 'card' ? cardView : undefined}
       extra={
         <>
+          <Segmented
+            value={view}
+            onChange={(value) => setView(value as 'list' | 'card')}
+            options={[
+              { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
+              { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
+            ]}
+            aria-label="切换客户视图"
+          />
           {/* 导出的是"这一角色下的全部"，不走页面筛选——筛选条件在表格内部，
               拿不到就不假装能拿到。行数上限 10000（后端另有拦截）。 */}
           <Tooltip title="导出全部客户（CSV，忽略当前筛选，上限 10000 行）">
@@ -166,14 +219,18 @@ export function CustomerList() {
         )}
       />
       {/* 名称是进详情页的入口：客户 360、附件、合并、转移负责人都在详情里，
-          列表上不给这个链接，等于这些能力只能靠手敲 URL。 */}
+          列表上不给这个链接，等于这些能力只能靠手敲 URL。
+          头像与卡片视图调用同一个组件、同一个默认尺寸，换视图不能换长相。 */}
       <Table.Column
         dataIndex="name"
         title="名称"
         render={(value: string, record: Partner) => (
-          <Typography.Link onClick={() => show('customers', record.id)}>
-            <span className="cell-strong">{value}</span>
-          </Typography.Link>
+          <div className="cell-avatar">
+            <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
+            <Typography.Link onClick={() => show('customers', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          </div>
         )}
       />
       {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
@@ -232,30 +289,14 @@ export function CustomerList() {
       <Table.Column
         title="操作"
         width={90}
-        render={(_, record: Partner) =>
-          record.deleted_at ? (
-            <Popconfirm
-              title="恢复这个主体？"
-              description="只去掉删除标记，删除期间改过的引用不会自动指回来。"
-              okText="恢复"
-              cancelText="返回"
-              onConfirm={() => restore(record)}
-            >
-              <Button size="small" type="link">
-                恢复
-              </Button>
-            </Popconfirm>
-          ) : (
-            <DeleteButton
-              size="small"
-              resource="customers"
-              recordItemId={record.id}
-              confirmTitle="删除这个客户？"
-              confirmOkText="删除"
-              confirmCancelText="返回"
-            />
-          )
-        }
+        render={(_, record: Partner) => (
+          <PartnerRowActions
+            record={record}
+            resource="customers"
+            entityLabel="客户"
+            onRestore={(r) => void restore(r)}
+          />
+        )}
       />
     </PageList>
   )

@@ -1,10 +1,14 @@
+import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useNavigation, type CrudFilters } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
-import { Form, Input, Select, Table, Typography } from 'antd'
+import { CreateButton, useTable } from '@refinedev/antd'
+import { Button, Form, Input, Segmented, Select, Space, Table, Typography } from 'antd'
 
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
-import { PageList } from '@/components/page'
+import { EmptyGuide, PageList } from '@/components/page'
+import { PartnerAvatar } from '@/components/partner-avatar'
+import { PartnerCards, PARTNER_CARD_PAGE_SIZES, toCardPager } from '@/components/partner-cards'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
 interface ForwarderSearch {
@@ -20,9 +24,11 @@ interface ForwarderSearch {
  */
 export function ForwarderList() {
   const { show } = useNavigation()
+  const { view, setView } = useListView('gowork:forwarders:view')
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'forwarders',
     syncWithLocation: true,
+    pagination: { pageSize: Number(PARTNER_CARD_PAGE_SIZES[0]) },
     onSearch: (values): CrudFilters => {
       const v = values as ForwarderSearch
       const filters: CrudFilters = []
@@ -41,6 +47,30 @@ export function ForwarderList() {
     searchFormProps.form?.submit()
   }
 
+  const rows = (tableProps.dataSource ?? []) as Partner[]
+  // 货代卡不给增删改入口：这张列表本来也就没有操作列（货代只被单据引用，
+  // 不存在"还没有单据就该删掉"的场景），别为了对齐另外两张卡凭空加出来。
+  const cardView = (
+    <PartnerCards
+      rows={rows}
+      loading={tableProps.loading}
+      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个货代`)}
+      onShow={(record) => show('forwarders', record.id)}
+      empty={
+        <EmptyGuide
+          title="没有符合条件的货代"
+          description="换个筛选条件，或者直接新建一个货代"
+          action={
+            <Space>
+              <Button onClick={resetFilters}>重置筛选</Button>
+              <CreateButton>新建货代</CreateButton>
+            </Space>
+          }
+        />
+      }
+    />
+  )
+
   return (
     <PageList
       createLabel="新建货代"
@@ -48,6 +78,19 @@ export function ForwarderList() {
       onReset={resetFilters}
       tableProps={tableProps}
       rowKey="id"
+      pageSizeOptions={PARTNER_CARD_PAGE_SIZES}
+      table={view === 'card' ? cardView : undefined}
+      extra={
+        <Segmented
+          value={view}
+          onChange={(value) => setView(value as 'list' | 'card')}
+          options={[
+            { value: 'list', icon: <BarsOutlined />, title: '列表视图：一行一家，字段最全' },
+            { value: 'card', icon: <AppstoreOutlined />, title: '卡片视图：按 Logo 与名称认人' },
+          ]}
+          aria-label="切换货代视图"
+        />
+      }
       filters={
         <>
           <Form.Item name="keyword">
@@ -65,13 +108,17 @@ export function ForwarderList() {
         width={120}
         render={(value: string) => <Mono>{value}</Mono>}
       />
+      {/* 头像与卡片视图同组件同尺寸：换视图不能换长相。 */}
       <Table.Column
         dataIndex="name"
         title="名称"
         render={(value: string, record: Partner) => (
-          <Typography.Link onClick={() => show('forwarders', record.id)}>
-            <span className="cell-strong">{value}</span>
-          </Typography.Link>
+          <div className="cell-avatar">
+            <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
+            <Typography.Link onClick={() => show('forwarders', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          </div>
         )}
       />
       <Table.Column

@@ -60,6 +60,8 @@ apps/frontend/
     ├── components/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
+    │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，列表与卡片共用
+    │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作 + 分页转换（三张角色表共用）
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
     │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
     │   ├── product-source-select.tsx  明细行的成本货源：按产品现查，不再全量取数
@@ -96,6 +98,8 @@ apps/frontend/
 ```
 
 **`suppliers/`、`customers/` 与 `forwarders/` 是同一个数据模型的三种角色视图**，类型都是 `Partner`。
+三者都支持**列表 / 卡片双视图**（切换方式与产品页一致，见第 6 节），
+并且共用 `components/partner-cards.tsx`——卡片该显示哪些信息只有一份实现。
 后端只有一张 `md_partner` 表，三个路径是它按角色切的入口（角色位 `2` / `1` / `4`）。
 所以三个目录里的 list 只差默认角色与列，改字段时三边都要看 —— 唯一的实质差异是
 货代表单不展示商务条件（贸易术语、账期、信用额度），那几列对货代没有意义。
@@ -221,6 +225,8 @@ api/client.ts
 | `components/partner-merge-modal.tsx` | 主体详情页的「合并到其他主体」 | 方向固定为「当前这条被并走」，即接口的路径 id 是选中的那条、`source_id` 是当前这条——两个 id 是换位的；三道闸（说明、勾选确认、成功后跳到留下的那条）不要省，合并不逆 |
 | `components/partner-360-panel.tsx` | 客户详情页的「客户 360」（T-30） | 抬头数字是全量、五块明细各 10 条且每行都能点回源单据；只挂客户侧——供应商那侧这几块基本是空的。断言"有数据"不够，字段名与列名对不上时接口会静默给空串 |
 | `pages/customers/`、`pages/suppliers/`、`pages/forwarders/` 列表 | 三张列表都有「负责人」列 | 空值显示灰字「未分配」而不是空白——空白会被读成"接口没返回"，而未分配是一种正常状态（公共池） |
+| `components/partner-avatar.tsx` | 往来单位的头像 / Logo（列表的名称列、卡片头部、以及任何需要"认人"的位置） | 只有这一个实现，两个视图调用同一个组件、同一个默认尺寸（`PARTNER_AVATAR_SIZE`）——换个视图就换个长相，会被当成两条数据。降级顺序：`logo_url` 取到字节 → 名称占位标识（中文取首字、西文取前两个词首字母，配色按名称哈希）；有图但加载失败也降级，不要显示浏览器破图。真图走 `useAuthedUrl`，与公司 logo 同通道 |
+| `components/partner-cards.tsx` | 三张主体列表的卡片视图 + 卡片里的删除 / 恢复（`PartnerRowActions`）+ 分页转换（`toCardPager`） | 卡片该显示什么只有一份实现，客户卡多的「分组 / 区域 / 结算 / 账期」由 `showCustomerFacts` 开关——货代表单原本就不给商务条件，这里是同一个结论。`PartnerRowActions` 同时用在表格操作列与卡片右下角，两边按钮必须一样 |
 | `pages/todos/` | 待办清单（T-34） | 每块副标题都写着判定口径（"早于今天（当天不算）"/"到期日 <= 今天（当天就算）"）——这类页面的争议永远在"为什么它算在这里"；口径里的 `<` 必须写成 `{'…'}`，JSX 文本里会被当成标签开头 |
 | `components/partner-owner-modal.tsx` | 三个主体详情页的「转移负责人」 | 选人列表来自 `GET /users`（只列启用账号），下拉第一项是「未分配（公共池）」——离职与暂时没人跟都要能把归属清掉；弹窗里必须写清"这个客户的单据会一起跟着走" |
 | `pages/clauses/`、`pages/contracts/clause-picker.tsx` | 条款模板库（T-27）+ 合同新建时的条款多选 | 模板是**主数据**，合同上存的是快照：改模板不影响已生成的合同（页面文案要写这句）。选择器只提交 `clause_ids`，**不要连正文一起传**——传了就没有"快照"这回事了；多选顺序即合同上的顺序 |
@@ -251,8 +257,14 @@ pages/xxx/
 
 ### 列表页的双视图（表格 / 卡片）
 
-产品列表同时提供表格与卡片两种视图，开关在 `hooks/use-list-view.ts`，页面侧只用
+产品列表与三张往来单位列表（客户 / 供应商 / 货代）都提供表格与卡片两种视图，
+开关在 `hooks/use-list-view.ts`，页面侧只用
 `const { view, setView } = useListView('gowork:xxx:view')`。
+
+切换控件统一用 antd `Segmented`（`BarsOutlined` / `AppstoreOutlined`），放在
+`PageList` 的 `extra` 里、其它操作按钮左侧，与产品列表保持同一位置——同一个功能在不同页
+换个地方放，等于每次都要重新找。storageKey 按资源分开写（`gowork:customers:view` 等），
+一个人习惯卡片视图不该连累了另一个列表。
 
 要点只有三条，其余都是排版：
 
@@ -264,7 +276,9 @@ pages/xxx/
   用 `tableProps.pagination` 转成 `<Pagination>`。滚动位置由 hook 在切换后按新的
   文档高度夹一次，不这么做会停在空白处（卡片比表格矮的时候）。
 
-卡片栅格用 `auto-fill + minmax(200px, 1fr)`，不为每个断点写列数；断点只调间距。
+卡片栅格用 `auto-fill + minmax(…, 1fr)`，不为每个断点写列数；断点只调间距。
+最小宽度按卡片内容定：产品卡一张图加两行字用 200px，往来单位卡有六到九行
+「标签：值」，用 240px——再窄就只剩省略号，看不出谁是谁的值。
 排序控件与表头箭头必须驱动同一个 `sorters`，否则"点了表头、下拉框没变"。
 
 ### 新增一个模块的完整步骤
