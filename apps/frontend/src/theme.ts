@@ -32,11 +32,36 @@ export const palette = {
     textMuted: '#6b7788',
     /** 第三级文字：占位、单位、口径说明。比 textMuted 更淡，但仍要能读。 */
     textFaint: '#98a3b3',
-    success: '#16a34a',
-    warning: '#d97706',
-    danger: '#dc2626',
+    /*
+     * 四档语义色：既是状态标签的字色，也是 Alert / Message / Progress 的
+     * 提示色，所以每个值都按"压在自己的浅底上仍要 ≥ 4.5:1"挑。
+     *
+     * 原来的 #16a34a / #0ea5e9 / #d97706 是 tailwind 600 档，单看很亮眼，
+     * 但配上 antd 从同一色相派生出来的底色（#d3e3d6 / #e6fbff / #fff7e6）
+     * 只有 2.47 / 2.59 / 2.99 —— 状态标签是 12px 正文，这是"看不清"。
+     * 压深一档（800 档）之后分别是 5.95 / 4.98 / 5.88，标签、提示条、
+     * 图标同时受益；色相没变，认色仍然认得出来。
+     */
+    success: '#166534',
+    warning: '#92400e',
+    danger: '#b91c1c',
     /** 信息蓝，用于"进行中"这类中性状态，与主色区分开。 */
-    info: '#0ea5e9',
+    info: '#0369a1',
+    /*
+     * 上面四档各自配一对"浅底 + 描边"：同一色相压进容器底 12% / 30%。
+     *
+     * 不写这一对就只能吃 antd 的派生值，而派生的底色深浅全看色相
+     * （绿底 #d3e3d6 比红底 #fff2f0 深一大截，对比度也就跟着差一倍）。
+     * 显式给出来之后四档的底色深浅一致，状态标签并排看才是同一个系列的。
+     */
+    successSoft: '#e3ede7',
+    successBorder: '#b9d1c2',
+    warningSoft: '#f2e8e2',
+    warningBorder: '#dec6b7',
+    dangerSoft: '#f7e4e4',
+    dangerBorder: '#eabbbb',
+    infoSoft: '#e1edf4',
+    infoBorder: '#b3d2e3',
     fillSecondary: '#eef2f8',
     fillTertiary: '#f4f6fa',
     fillQuaternary: '#f8fafc',
@@ -64,10 +89,29 @@ export const palette = {
      * 上只有 3.44，浅一档的 #8493a5 是 4.74 —— 再淡就属于"看不清"而不是"次要"。
      */
     textFaint: '#8493a5',
+    /*
+     * 暗色这四档**不是**最终字色：darkAlgorithm 会按色板把它们再派生一次
+     * （#2ecc71 → #2ab063、#f0a020 → #cf8b1e…），派生值比种子深一档。
+     * 所以下面每对 soft / border 都是拿"派生后的字色"压进容器底 14% / 40%，
+     * 不是拿种子压 —— 用种子算出来的底会浅一档，红档会掉到 3.8。
+     */
     success: '#2ecc71',
     warning: '#f0a020',
-    danger: '#f6705f',
+    /**
+     * 红档的种子比其它三档亮：派生后是 #dc7d6d，压 14% 的底上 4.77；
+     * 沿用原来的 #f6705f 时派生出 #d46254，怎么压底都过不了 4.5
+     * （连不带底、直接压在容器上才 4.62，稍一着底就掉下去）。
+     */
+    danger: '#ff8f7d',
     info: '#3ec2f0',
+    successSoft: '#19312e',
+    successBorder: '#1e573e',
+    warningSoft: '#302c24',
+    warningBorder: '#604822',
+    dangerSoft: '#322a2f',
+    dangerBorder: '#654342',
+    infoSoft: '#1b303d',
+    infoBorder: '#245469',
     fillSecondary: '#202834',
     fillTertiary: '#1a212b',
     fillQuaternary: '#151b23',
@@ -130,6 +174,21 @@ export function buildThemeConfig({
       colorWarning: c.warning,
       colorError: c.danger,
       colorInfo: c.info,
+      /*
+       * 状态标签（Tag 的 success / processing / warning / error）取的就是
+       * colorSuccess + colorSuccessBg + colorSuccessBorder 这一组，
+       * 所以底与边必须显式给：吃派生值的话四档深浅不齐（绿底比红底深一大截），
+       * 对比度也就从 2.47 到 4.42 各不相同。Alert / Message / Progress 的
+       * 提示色用的是同一组，一起受益。
+       */
+      colorSuccessBg: c.successSoft,
+      colorSuccessBorder: c.successBorder,
+      colorWarningBg: c.warningSoft,
+      colorWarningBorder: c.warningBorder,
+      colorErrorBg: c.dangerSoft,
+      colorErrorBorder: c.dangerBorder,
+      colorInfoBg: c.infoSoft,
+      colorInfoBorder: c.infoBorder,
       colorBgLayout: c.background,
       colorBgContainer: c.surface,
       colorBgElevated: c.surfaceElevated,
@@ -266,10 +325,18 @@ export function buildThemeConfig({
         contentFontSize: 26,
       },
 
+      /*
+       * 标签：中性底 + 正文字色。
+       *
+       * 之前字色用的是 textMuted（#6b7788 在这个灰底上只有 4.05），
+       * 而"草稿 / 已完成 / 停用"这些中性标签恰恰是读得最多的几个；
+       * 底是灰的已经足够弱化了，字色再压淡就只是糊。
+       * 圆角随密度收一档：紧凑模式下整屏标签更多，6px 会显得圆胖。
+       */
       Tag: {
         defaultBg: c.fillSecondary,
-        defaultColor: c.textMuted,
-        borderRadiusSM: 6,
+        defaultColor: c.text,
+        borderRadiusSM: compact ? 4 : 6,
       },
 
       Breadcrumb: {
