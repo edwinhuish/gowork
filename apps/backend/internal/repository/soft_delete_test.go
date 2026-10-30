@@ -38,7 +38,7 @@ func newSoftDeleteDB(t *testing.T) *gorm.DB {
 
 func mustCreateProduct(t *testing.T, repo ProductRepository, sku, name string) *model.Product {
 	t.Helper()
-	p := &model.Product{SKUCode: sku, NameCN: name, Unit: "PCS", Status: model.EnableStatusOn}
+	p := &model.Product{SKUCode: sku, NameCN: name, Unit: "PCS"}
 	if err := repo.Create(context.Background(), p); err != nil {
 		t.Fatalf("建产品 %s: %v", sku, err)
 	}

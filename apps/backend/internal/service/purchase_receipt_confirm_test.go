@@ -30,8 +30,7 @@ func TestPurchaseReceiptConfirmIncreasesStock(t *testing.T) {
 		&model.StockDocument{}, &model.StockDocumentItem{})
 
 	productRepo := repository.NewProductRepository(db)
-	product := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS",
-		Status: model.EnableStatusOn}
+	product := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS"}
 	if err := productRepo.Create(ctx, product); err != nil {
 		t.Fatalf("建产品: %v", err)
 	}

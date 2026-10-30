@@ -46,14 +46,14 @@ func TestDuplicateKeyReturnsConflict(t *testing.T) {
 	ctx := context.Background()
 
 	first := &model.Product{
-		SKUCode: "DUP-0001", NameCN: "先建的", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "DUP-0001", NameCN: "先建的", Unit: "PCS",
 	}
 	if err := repo.Create(ctx, first); err != nil {
 		t.Fatalf("建第一条产品失败: %v", err)
 	}
 
 	err := repo.Create(ctx, &model.Product{
-		SKUCode: "DUP-0001", NameCN: "撞号的", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "DUP-0001", NameCN: "撞号的", Unit: "PCS",
 	})
 	if err == nil {
 		t.Fatal("同 SKU 的第二条应被唯一索引拒绝")
@@ -73,14 +73,14 @@ func TestDuplicateKeyInsideTransactionReturnsConflict(t *testing.T) {
 	ctx := context.Background()
 
 	if err := repo.Create(ctx, &model.Product{
-		SKUCode: "DUP-0002", NameCN: "先建的", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "DUP-0002", NameCN: "先建的", Unit: "PCS",
 	}); err != nil {
 		t.Fatalf("建第一条产品失败: %v", err)
 	}
 
 	err := txs.Transaction(ctx, func(ctx context.Context) error {
 		return repo.Create(ctx, &model.Product{
-			SKUCode: "DUP-0002", NameCN: "事务里撞号的", Unit: "PCS", Status: model.EnableStatusOn,
+			SKUCode: "DUP-0002", NameCN: "事务里撞号的", Unit: "PCS",
 		})
 	})
 	if err == nil {

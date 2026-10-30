@@ -24,9 +24,9 @@ func TestProductListSort(t *testing.T) {
 
 	// 售价刻意与编码顺序相反，才分得清"按售价排"和"按 id 排"。
 	rows := []*model.Product{
-		{SKUCode: "AA-001", NameCN: "甲", Unit: "PCS", SalePrice: money.MustParse("30"), Status: model.EnableStatusOn},
-		{SKUCode: "BB-001", NameCN: "乙", Unit: "PCS", SalePrice: money.MustParse("10"), Status: model.EnableStatusOn},
-		{SKUCode: "CC-001", NameCN: "丙", Unit: "PCS", SalePrice: money.MustParse("20"), Status: model.EnableStatusOn},
+		{SKUCode: "AA-001", NameCN: "甲", Unit: "PCS", SalePrice: money.MustParse("30")},
+		{SKUCode: "BB-001", NameCN: "乙", Unit: "PCS", SalePrice: money.MustParse("10")},
+		{SKUCode: "CC-001", NameCN: "丙", Unit: "PCS", SalePrice: money.MustParse("20")},
 	}
 	ids := make([]uint, 0, len(rows))
 	for _, p := range rows {

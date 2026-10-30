@@ -81,11 +81,9 @@ func newQuotationFixture(t *testing.T, now *time.Time) quotationFixture {
 	productRepo := repository.NewProductRepository(db)
 	p1 := &model.Product{
 		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Spec: "100×75×3", Unit: "PCS",
-		Status: model.EnableStatusOn,
 	}
 	p2 := &model.Product{
 		SKUCode: "BH01-0002", NameCN: "没有货源的产品", Unit: "PCS",
-		Status: model.EnableStatusOn,
 	}
 	for _, p := range []*model.Product{p1, p2} {
 		if err := productRepo.Create(ctx, p); err != nil {

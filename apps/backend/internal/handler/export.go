@@ -131,22 +131,14 @@ func (h *ProductHandler) Export(c *gin.Context) {
 		rows = append(rows, []string{
 			p.SKUCode, p.NameCN, p.NameEN, p.Category, p.Spec, p.Unit,
 			cost, p.SalePrice.String(),
-			p.HSCode, statusText(p.Status),
+			p.HSCode,
 		})
 	}
 
 	writeCSV(c, "products",
 		[]string{"SKU", "品名", "英文品名", "品类", "规格", "单位",
-			"成本价", "售价", "HS编码", "状态"},
+			"成本价", "售价", "HS编码"},
 		rows)
-}
-
-// statusText 把启用状态写成人话：文件是给人看的，"1" 需要另一个文档来解释。
-func statusText(status model.EnableStatus) string {
-	if status == model.EnableStatusOn {
-		return "启用"
-	}
-	return "停用"
 }
 
 // ExportShipments GET /api/v1/exports/shipments

@@ -75,8 +75,7 @@ type Product struct {
 	// 报价按「箱」、报关按「千克」是常态，所以不能复用 Unit。
 	LegalUnit string `gorm:"size:16" json:"legal_unit"`
 
-	Status EnableStatus `gorm:"not null;default:1;index" json:"status"`
-	Remark string       `gorm:"size:255" json:"remark"`
+	Remark string `gorm:"size:255" json:"remark"`
 
 	Supplier *Partner `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 

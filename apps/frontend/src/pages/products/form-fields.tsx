@@ -1,7 +1,7 @@
 import { useSelect } from '@refinedev/core'
 import { Divider, Form, Input, InputNumber, Select, Switch } from 'antd'
 
-import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { CATEGORY_OPTIONS } from '@/constants/catalog'
 
 /**
  * 产品表单字段。
@@ -77,10 +77,6 @@ export function ProductFormFields() {
               .includes(input.toLowerCase())
           }
         />
-      </Form.Item>
-
-      <Form.Item name="status" label="状态" initialValue={1}>
-        <Select options={ENABLE_STATUS_OPTIONS} />
       </Form.Item>
 
       {/* stringMode：金额按字符串收发表单，走一遍 JS number 等于把后端的定点精度丢了。 */}

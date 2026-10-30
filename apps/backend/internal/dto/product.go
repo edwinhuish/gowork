@@ -9,9 +9,8 @@ import (
 // ProductQuery 产品列表查询条件。
 type ProductQuery struct {
 	PageQuery
-	Category   string            `form:"category"`
-	SupplierID *uint             `form:"supplier_id"`
-	Status     EnableStatusInput `form:"status"`
+	Category   string `form:"category"`
+	SupplierID *uint  `form:"supplier_id"`
 	// IncludeDeleted 把已软删的产品也列出来（列表页的「含已删除」开关）。
 	// 这些行只该做一件事：恢复——其余编辑入口对它们一律 404。
 	IncludeDeleted bool `form:"include_deleted"`
@@ -59,8 +58,7 @@ type ProductInput struct {
 	OriginCountry  string `json:"origin_country" binding:"max=64"`
 	LegalUnit      string `json:"legal_unit" binding:"max=16"`
 
-	Status EnableStatusInput `json:"status"`
-	Remark string            `json:"remark" binding:"max=255"`
+	Remark string `json:"remark" binding:"max=255"`
 	// UpdatedAt 是编辑页打开时读到的版本；带上它做条件更新，期间被别人改过则 409。
 	UpdatedAt *time.Time `json:"updated_at"`
 }

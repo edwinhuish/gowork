@@ -38,8 +38,7 @@ func newStockDocFixture(t *testing.T, now *time.Time) stockDocFixture {
 	stockRepo := repository.NewStockRepository(db)
 	docNoSvc := NewDocNoService(repository.NewDocSeqRepository(db), WithDocNoClock(clock))
 
-	p := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Spec: "100×75×3",
-		Unit: "PCS", Status: model.EnableStatusOn}
+	p := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Spec: "100×75×3", Unit: "PCS"}
 	if err := productRepo.Create(ctx, p); err != nil {
 		t.Fatalf("建产品失败: %v", err)
 	}

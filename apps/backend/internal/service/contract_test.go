@@ -90,7 +90,6 @@ func newContractFixture(t *testing.T, now time.Time) contractFixture {
 	productRepo := repository.NewProductRepository(db)
 	product := &model.Product{
 		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Spec: "100×75×3", Unit: "PCS",
-		Status: model.EnableStatusOn,
 	}
 	if err := productRepo.Create(ctx, product); err != nil {
 		t.Fatalf("建产品失败: %v", err)

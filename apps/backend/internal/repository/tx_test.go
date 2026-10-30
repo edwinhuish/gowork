@@ -72,7 +72,7 @@ func TestTxManagerRollsBackEveryRepo(t *testing.T) {
 		// 两个不同的仓储写两张表，都该跟着这次回滚一起消失。
 		if err := f.products.Create(ctx, &model.Product{
 			SKUCode: "TX-001", NameCN: "事务产品",
-			SupplierID: &f.partnerID, Status: model.EnableStatusOn,
+			SupplierID: &f.partnerID,
 		}); err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func TestTxManagerSharesOneConnection(t *testing.T) {
 	err := f.txs.Transaction(ctx, func(ctx context.Context) error {
 		if err := f.products.Create(ctx, &model.Product{
 			SKUCode: "TX-002", NameCN: "可见性产品",
-			SupplierID: &f.partnerID, Status: model.EnableStatusOn,
+			SupplierID: &f.partnerID,
 		}); err != nil {
 			return err
 		}
@@ -140,7 +140,7 @@ func TestTxManagerNestedJoinsOuter(t *testing.T) {
 		if err := f.txs.Transaction(ctx, func(ctx context.Context) error {
 			if err := f.products.Create(ctx, &model.Product{
 				SKUCode: "TX-003", NameCN: "嵌套事务产品",
-				SupplierID: &f.partnerID, Status: model.EnableStatusOn,
+				SupplierID: &f.partnerID,
 			}); err != nil {
 				return err
 			}

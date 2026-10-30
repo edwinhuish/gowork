@@ -3,7 +3,7 @@ import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { CategoryTag, Empty, Money, StatusTag } from '@/components/fields'
+import { CategoryTag, Empty, Money } from '@/components/fields'
 import type { Product } from '@/types'
 import { formatTime } from '@/utils/format'
 
@@ -40,7 +40,6 @@ export function ProductShow() {
             children: <span className="cell-mono">{result?.sku_code}</span>,
           },
           { key: 'category', label: '类别', children: <CategoryTag value={result?.category} /> },
-          { key: 'status', label: '状态', children: <StatusTag value={result?.status} /> },
           { key: 'name_cn', label: '中文品名', children: result?.name_cn || <Empty /> },
           { key: 'name_en', label: '英文品名', children: result?.name_en || <Empty /> },
           { key: 'spec', label: '规格', children: result?.spec || <Empty /> },

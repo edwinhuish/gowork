@@ -14,7 +14,7 @@ import type { PageResult, Product } from '@/types'
 export const productApi = {
   search: (keyword: string, pageSize = 20) =>
     http.get<PageResult<Product>>(
-      `/products${toQuery({ keyword, page_size: pageSize, status: 1 })}`,
+      `/products${toQuery({ keyword, page_size: pageSize })}`,
     ),
 
   get: (id: number) => http.get<Product>(`/products/${id}`),

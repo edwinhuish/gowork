@@ -70,10 +70,10 @@ func newSourceFixture(t *testing.T, now time.Time) sourceFixture {
 
 	productRepo := repository.NewProductRepository(db)
 	p1 := &model.Product{
-		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS",
 	}
 	p2 := &model.Product{
-		SKUCode: "BH01-0002", NameCN: "合页（彩盒装）", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "BH01-0002", NameCN: "合页（彩盒装）", Unit: "PCS",
 	}
 	for _, p := range []*model.Product{p1, p2} {
 		if err := productRepo.Create(ctx, p); err != nil {

@@ -69,9 +69,6 @@ func (s *dashboardService) Summary(ctx context.Context) (*dto.DashboardSummary, 
 	if summary.ProductTotal, err = s.products.Count(ctx); err != nil {
 		return nil, err
 	}
-	if summary.EnabledProducts, err = s.products.CountByEnableStatus(ctx, model.EnableStatusOn); err != nil {
-		return nil, err
-	}
 	// 供应商与客户现在是同一张表的两种角色，按角色计数。
 	// "客供两用"的主体在两个指标里各计一次 —— 它确实同时是两种身份，
 	// 只是共用一条记录、一套联系方式，这正是合并想达到的效果。

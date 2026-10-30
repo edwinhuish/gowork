@@ -165,10 +165,9 @@ export function DashboardPage() {
         title="工作台"
         description={
           <>
-            产品 {summary.data?.product_total ?? '—'} 个（启用{' '}
-            {summary.data?.enabled_products ?? '—'}）· 供应商 {summary.data?.supplier_total ?? '—'}{' '}
-            家 · 客户 {summary.data?.customer_total ?? '—'} 家 · 数据截至{' '}
-            {todos.data?.as_of ?? '今天'}
+            产品 {summary.data?.product_total ?? '—'} 个 · 供应商{' '}
+            {summary.data?.supplier_total ?? '—'} 家 · 客户 {summary.data?.customer_total ?? '—'}{' '}
+            家 · 数据截至 {todos.data?.as_of ?? '今天'}
           </>
         }
         extra={

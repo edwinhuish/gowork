@@ -106,7 +106,6 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			Category:   "FS",
 			Unit:       "PCS",
 			SupplierID: &supplier.ID,
-			Status:     model.EnableStatusOn,
 		},
 		{
 			SKUCode:    mark + "-002",
@@ -114,7 +113,6 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			Category:   "FS",
 			Unit:       "PCS",
 			SupplierID: &supplier.ID,
-			Status:     model.EnableStatusOn,
 		},
 	}
 	for _, p := range products {
@@ -283,7 +281,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		// 单列唯一索引做不到这一点，所以三库里都必须验一遍。
 		reborn := &model.Product{
 			SKUCode: products[1].SKUCode, NameCN: "重建的六角螺栓",
-			Unit: "PCS", Status: model.EnableStatusOn, SupplierID: &supplier.ID,
+			Unit: "PCS", SupplierID: &supplier.ID,
 		}
 		if err := repo.Create(ctx, reborn); err != nil {
 			t.Fatalf("软删后重建同 SKU 失败: %v", err)
@@ -386,7 +384,7 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 		}
 		other := &model.Product{
 			SKUCode: mark + "-WH", NameCN: "迁移测试件",
-			Unit: "PCS", Status: model.EnableStatusOn, SupplierID: &supplier.ID,
+			Unit: "PCS", SupplierID: &supplier.ID,
 		}
 		if err := repo.Create(ctx, other); err != nil {
 			t.Fatalf("创建产品: %v", err)

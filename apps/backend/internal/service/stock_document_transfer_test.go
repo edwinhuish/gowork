@@ -37,8 +37,7 @@ func TestStockDocTransfer(t *testing.T) {
 		WithStockDocumentLogger(slog.New(slog.DiscardHandler)),
 	)
 
-	p := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS",
-		Status: model.EnableStatusOn}
+	p := &model.Product{SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS"}
 	if err := productRepo.Create(ctx, p); err != nil {
 		t.Fatalf("建产品: %v", err)
 	}

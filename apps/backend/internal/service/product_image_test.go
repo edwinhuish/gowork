@@ -40,10 +40,10 @@ func newProductImageFixture(t *testing.T) productImageFixture {
 	txs := repository.NewTxManager(db)
 
 	a := &model.Product{
-		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS", Status: model.EnableStatusOn,
+		SKUCode: "BH01-0001", NameCN: "不锈钢合页", Unit: "PCS",
 	}
 	b := &model.Product{
-		SKUCode: "BH02-0001", NameCN: "抽屉滑轨", Unit: "SET", Status: model.EnableStatusOn,
+		SKUCode: "BH02-0001", NameCN: "抽屉滑轨", Unit: "SET",
 	}
 	for _, p := range []*model.Product{a, b} {
 		if err := productRepo.Create(ctx, p); err != nil {

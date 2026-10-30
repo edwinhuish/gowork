@@ -298,7 +298,6 @@ func (a *App) seedProducts(ctx context.Context, d seedDeps, master *demoMaster) 
 			DeclaredNameEN:    s.declaredEN,
 			OriginCountry:     "China",
 			LegalUnit:         s.unit,
-			Status:            model.EnableStatusOn,
 		}
 		if err := d.Products.Create(ctx, product); err != nil {
 			return fmt.Errorf("写入产品 %s: %w", s.sku, err)
@@ -306,7 +305,7 @@ func (a *App) seedProducts(ctx context.Context, d seedDeps, master *demoMaster) 
 		master.products[s.sku] = product
 
 		// 货源是报价的前置条件：报价要先按货源算成本快照，
-		// 一个没有启用货源的产品连报价单都开不出来。
+		// 没有货源的产品连报价单都开不出来。
 		if product.SupplierID == nil {
 			continue
 		}

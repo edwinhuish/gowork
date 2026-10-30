@@ -48,7 +48,6 @@ export interface SystemUser {
 
 export interface DashboardSummary {
   product_total: number
-  enabled_products: number
   supplier_total: number
   customer_total: number
 }
@@ -454,7 +453,6 @@ export interface Product {
   material: string
   origin_country: string
   legal_unit: string
-  status: number
   remark: string
   supplier?: Partner | null
   /**

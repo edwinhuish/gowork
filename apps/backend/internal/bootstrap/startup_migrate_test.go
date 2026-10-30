@@ -154,7 +154,6 @@ func plantLegacyMovement(t *testing.T, cfg *config.Config) (string, uint) {
 		SKUCode: fmt.Sprintf("PLANT-%d", suffix),
 		NameCN:  "迁移演练件",
 		Unit:    "PCS",
-		Status:  model.EnableStatusOn,
 	}
 	if err := db.Create(product).Error; err != nil {
 		t.Fatalf("埋产品: %v", err)

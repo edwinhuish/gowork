@@ -21,16 +21,15 @@ import {
 import { exportApi } from '@/api/exports'
 import { productApi } from '@/api/products'
 import { AuthedImage } from '@/components/authed-image'
-import { CategoryTag, Empty as EmptyValue, Mono, Money, StatusTag } from '@/components/fields'
+import { CategoryTag, Empty as EmptyValue, Mono, Money } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
-import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { CATEGORY_OPTIONS } from '@/constants/catalog'
 import { useListView } from '@/hooks/use-list-view'
 import type { Product } from '@/types'
 
 interface ProductSearch {
   keyword?: string
   category?: string
-  status?: number
   /** 含已删除：打开后已软删的行也出现在列表里，只能做一件事——恢复。 */
   include_deleted?: boolean
 }
@@ -66,7 +65,7 @@ async function exportProducts() {
  * 产品列表：表格视图 + 卡片视图。
  *
  * 筛选走 refine 的 onSearch → CrudFilters → dataProvider 翻译成后端的
- * keyword / category / status / sort_field / sort_order（白名单见 dataProvider）。
+ * keyword / category / sort_field / sort_order（白名单见 dataProvider）。
  * syncWithLocation 把分页、筛选、排序写进 URL：从详情页返回时不用重新翻页和重填条件。
  *
  * 两种视图共用同一个 useTable：切换只换渲染方式，不换数据源。
@@ -89,9 +88,6 @@ export function ProductList() {
       }
       if (v.category) {
         filters.push({ field: 'category', operator: 'eq', value: v.category })
-      }
-      if (v.status !== undefined && v.status !== null) {
-        filters.push({ field: 'status', operator: 'eq', value: v.status })
       }
       if (v.include_deleted) {
         filters.push({ field: 'include_deleted', operator: 'eq', value: true })
@@ -238,12 +234,13 @@ export function ProductList() {
                     <span className="cell-sub" title={record.supplier?.name || ''}>
                       {record.supplier?.name || '未指定供应商'}
                     </span>
+                    {/* 图片角标上的「已删除」是这条产品唯一的状态标记，
+                        按钮区不再放启用 / 停用——概念已经拿掉了。 */}
                     <span
                       className="product-card-actions"
                       onClick={(event) => event.stopPropagation()}
                       onKeyDown={(event) => event.stopPropagation()}
                     >
-                      <StatusTag value={record.status} />
                       <RowActions record={record} onRestore={restore} />
                     </span>
                   </div>
@@ -301,9 +298,6 @@ export function ProductList() {
           </Form.Item>
           <Form.Item name="category">
             <Select placeholder="全部类别" allowClear options={CATEGORY_OPTIONS} />
-          </Form.Item>
-          <Form.Item name="status">
-            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
           </Form.Item>
           <Form.Item name="include_deleted" valuePropName="checked">
             <Checkbox>含已删除</Checkbox>
@@ -410,12 +404,6 @@ export function ProductList() {
         sorter
         sortOrder={sortOrderOf('sale_price')}
         render={(value: number) => <Money value={value} />}
-      />
-      <Table.Column
-        dataIndex="status"
-        title="状态"
-        width={90}
-        render={(value: number) => <StatusTag value={value} />}
       />
       <Table.Column
         title="操作"

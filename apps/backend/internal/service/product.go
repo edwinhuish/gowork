@@ -77,11 +77,6 @@ func NewProductService(
 }
 
 func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*model.Product, error) {
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
-
 	dup, err := s.repo.ExistsBySKUCode(ctx, in.SKUCode, 0)
 	if err != nil {
 		return nil, err
@@ -124,7 +119,6 @@ func (s *productService) Create(ctx context.Context, in dto.ProductInput) (*mode
 		OriginCountry:  in.OriginCountry,
 		LegalUnit:      in.LegalUnit,
 
-		Status: status,
 		Remark: in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
@@ -140,11 +134,6 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 	if err != nil {
 		return nil, err
 	}
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
-
 	dup, err := s.repo.ExistsBySKUCode(ctx, in.SKUCode, id)
 	if err != nil {
 		return nil, err
@@ -190,7 +179,6 @@ func (s *productService) Update(ctx context.Context, id uint, in dto.ProductInpu
 		"origin_country":   in.OriginCountry,
 		"legal_unit":       in.LegalUnit,
 
-		"status": status,
 		"remark": in.Remark,
 	}
 	if in.UpdatedAt != nil {
@@ -305,7 +293,6 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 		Keyword:        q.Keyword,
 		Category:       q.Category,
 		SupplierID:     q.SupplierID,
-		Status:         enableStatusPtr(q.Status),
 		IncludeDeleted: q.IncludeDeleted,
 		SortField:      q.SortField,
 		SortOrder:      q.SortOrder,

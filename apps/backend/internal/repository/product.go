@@ -18,7 +18,6 @@ type ProductFilter struct {
 	Keyword    string
 	Category   string
 	SupplierID *uint
-	Status     *model.EnableStatus
 	// IncludeDeleted 把已软删的行也查出来，供「含已删除」的列表与恢复入口使用。
 	// 默认 false：其余所有查询都不该看见已删数据。
 	IncludeDeleted bool
@@ -76,12 +75,6 @@ func (f ProductFilter) scopes() []Scope {
 		sid := *f.SupplierID
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("supplier_id = ?", sid)
-		})
-	}
-	if f.Status != nil {
-		st := *f.Status
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", st)
 		})
 	}
 	return scopes
@@ -142,7 +135,6 @@ type ProductRepository interface {
 	ExistsBySKUCode(ctx context.Context, skuCode string, excludeID uint) (bool, error)
 	List(ctx context.Context, f ProductFilter, p Pagination) ([]model.Product, int64, error)
 	Count(ctx context.Context) (int64, error)
-	CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error)
 	CountBySupplierID(ctx context.Context, supplierID uint) (int64, error)
 }
 
@@ -227,12 +219,6 @@ func (r *productRepo) List(ctx context.Context, f ProductFilter, p Pagination) (
 
 func (r *productRepo) Count(ctx context.Context) (int64, error) {
 	return r.Base.Count(ctx)
-}
-
-func (r *productRepo) CountByEnableStatus(ctx context.Context, status model.EnableStatus) (int64, error) {
-	return r.Base.Count(ctx, func(db *gorm.DB) *gorm.DB {
-		return db.Where("status = ?", status)
-	})
 }
 
 // CountBySupplierID 统计挂在某个供应商下的产品数。

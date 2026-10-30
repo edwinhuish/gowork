@@ -39,17 +39,11 @@ func newDashboardFixture(t *testing.T, withCache bool) dashboardFixture {
 	}
 }
 
-func (f dashboardFixture) addProduct(t *testing.T, sku string, status model.EnableStatus) {
+func (f dashboardFixture) addProduct(t *testing.T, sku string) {
 	t.Helper()
 	p := &model.Product{SKUCode: sku, NameCN: sku, Unit: "PCS"}
 	if err := f.db.Create(p).Error; err != nil {
 		t.Fatalf("建产品失败: %v", err)
-	}
-	// Status 带 `default:1`：零值会被 gorm 省略、由数据库填 1，
-	// 于是"显式停用"被静默存成启用。建完单独写一次才可靠。
-	if err := f.db.Model(&model.Product{}).Where("id = ?", p.ID).
-		Update("status", status).Error; err != nil {
-		t.Fatalf("改产品状态失败: %v", err)
 	}
 }
 
@@ -70,9 +64,9 @@ func TestDashboardSummaryCounts(t *testing.T) {
 	f := newDashboardFixture(t, false)
 	ctx := context.Background()
 
-	f.addProduct(t, "P1", model.EnableStatusOn)
-	f.addProduct(t, "P2", model.EnableStatusOn)
-	f.addProduct(t, "P3", model.EnableStatusOff)
+	f.addProduct(t, "P1")
+	f.addProduct(t, "P2")
+	f.addProduct(t, "P3")
 	f.addPartner(t, "C1", model.PartnerRoleCustomer)
 	f.addPartner(t, "S1", model.PartnerRoleSupplier)
 	f.addPartner(t, "B1", model.PartnerRoleCustomer|model.PartnerRoleSupplier)
@@ -81,8 +75,8 @@ func TestDashboardSummaryCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("取汇总失败: %v", err)
 	}
-	if got.ProductTotal != 3 || got.EnabledProducts != 2 {
-		t.Errorf("产品 3 / 启用 2，得到 %d / %d", got.ProductTotal, got.EnabledProducts)
+	if got.ProductTotal != 3 {
+		t.Errorf("产品应有 3 个（停用概念取消后，未删除的就是全部），得到 %d", got.ProductTotal)
 	}
 	if got.CustomerTotal != 2 {
 		t.Errorf("客户应有 2 家（含客供两用），得到 %d", got.CustomerTotal)
@@ -96,7 +90,7 @@ func TestDashboardSummaryCounts(t *testing.T) {
 func TestDashboardSummaryCaches(t *testing.T) {
 	f := newDashboardFixture(t, true)
 	ctx := context.Background()
-	f.addProduct(t, "P1", model.EnableStatusOn)
+	f.addProduct(t, "P1")
 
 	first, err := f.svc.Summary(ctx)
 	if err != nil {
@@ -106,7 +100,7 @@ func TestDashboardSummaryCaches(t *testing.T) {
 		t.Fatalf("首次应为 1，得到 %d", first.ProductTotal)
 	}
 
-	f.addProduct(t, "P2", model.EnableStatusOn)
+	f.addProduct(t, "P2")
 	second, err := f.svc.Summary(ctx)
 	if err != nil {
 		t.Fatalf("取汇总失败: %v", err)
@@ -133,7 +127,7 @@ func TestDashboardSummaryCaches(t *testing.T) {
 func TestDashboardSummaryFallsBackOnBrokenCache(t *testing.T) {
 	f := newDashboardFixture(t, true)
 	ctx := context.Background()
-	f.addProduct(t, "P1", model.EnableStatusOn)
+	f.addProduct(t, "P1")
 
 	if err := f.c.Set(ctx, "dashboard:summary", "{not json", 0); err != nil {
 		t.Fatalf("写坏缓存失败: %v", err)
@@ -151,8 +145,8 @@ func TestDashboardSummaryFallsBackOnBrokenCache(t *testing.T) {
 func TestDashboardSummaryWithoutCache(t *testing.T) {
 	f := newDashboardFixture(t, false)
 	ctx := context.Background()
-	f.addProduct(t, "P1", model.EnableStatusOn)
-	f.addProduct(t, "P2", model.EnableStatusOn)
+	f.addProduct(t, "P1")
+	f.addProduct(t, "P2")
 
 	if _, err := f.svc.Summary(ctx); err != nil {
 		t.Fatalf("无缓存时取汇总失败: %v", err)

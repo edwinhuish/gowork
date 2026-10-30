@@ -94,9 +94,11 @@ func TestMergeLegacyCustomersAndSuppliers(t *testing.T) {
 		// 与供应商同码：两张表各自唯一，合并后要全局唯一，必须自动加后缀。
 		{`INSERT INTO md_customer (id, code, name, status, created_at, updated_at)
 		  VALUES (2, 'SUP001', '撞码的客户', 1, ?, ?)`, []any{legacyAt, legacyAt}},
-		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id, status) VALUES (1, 'P1', '产品一', 1, 1)`, nil},
-		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id, status) VALUES (2, 'P2', '产品二', 2, 1)`, nil},
-		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id, status) VALUES (3, 'P3', '产品三', NULL, 1)`, nil},
+		// md_product 是一直用下来的那张表（迁移只重写它的 supplier_id），
+		// 所以它按新模型的形状写：没有 status 列。
+		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id) VALUES (1, 'P1', '产品一', 1)`, nil},
+		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id) VALUES (2, 'P2', '产品二', 2)`, nil},
+		{`INSERT INTO md_product (id, sku_code, name_cn, supplier_id) VALUES (3, 'P3', '产品三', NULL)`, nil},
 	}
 	for _, s := range seed {
 		if err := db.Exec(s.sql, s.args...).Error; err != nil {
