@@ -59,13 +59,24 @@ type partnerService struct {
 	// users 只用来校验"转移给谁"里的那个人确实存在且可用。
 	// 不校验的话，转给一个停用账号等于把这家的单据交给一个看不到的人。
 	users repository.UserRepository
-	log   *slog.Logger
+	// attachments 只读地给列表与详情回填 Logo：取这个主体挂在 partner 上的
+	// 最新一张图片附件（口径见 fillPartnerLogos）。
+	//
+	// 注入的是仓储而不是附件服务：这里只查元数据拿 id 拼路径，不上传也不下载，
+	// 没必要把两个服务缠在一起。nil 表示这个功能没装配，回填直接跳过。
+	attachments repository.AttachmentRepository
+	log         *slog.Logger
 }
 
 type PartnerOption func(*partnerService)
 
 func WithPartnerLogger(l *slog.Logger) PartnerOption {
 	return func(s *partnerService) { s.log = l }
+}
+
+// WithPartnerAttachments 打开 Logo 回填。没调它时 partnerService 照常工作。
+func WithPartnerAttachments(repo repository.AttachmentRepository) PartnerOption {
+	return func(s *partnerService) { s.attachments = repo }
 }
 
 func NewPartnerService(
@@ -296,7 +307,49 @@ func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, erro
 	if owner := ownerScope(ctx); owner != nil && m.OwnerID != 0 && m.OwnerID != *owner {
 		return nil, errs.ErrForbidden
 	}
+	// 详情的 Logo 与列表同一口径：都是这个人最新的一张图片附件。
+	// 不给它单独一套取法，否则列表有图、详情没图会当场露出来。
+	if err := s.fillPartnerLogos(ctx, []*model.Partner{m}); err != nil {
+		return nil, err
+	}
 	return m, nil
+}
+
+// fillPartnerLogos 给一批主体回填 logo_url。
+//
+// 一次 IN 查询取回整页的 Logo，而不是每行一次请求：20 行的列表多 19 次往返，
+// 翻页时能明显感觉到卡。
+//
+// 取哪一张的口径：**这个人挂在 partner 上的、最新上传的一张图片附件**
+// （仓储按 id DESC 取首个，软删附件已被 gorm 过滤）。用"最新"而不是"最早"，
+// 是为了跟附件面板的默认排序一致——用户在详情页第一眼看到的那份文件，
+// 就是列表里的那个头像；反过来会让人以为"换了图却没生效"。
+//
+// 这里刻意不引入 is_logo 标记字段：那要在附件上加一列状态、再加一个"设为 Logo"
+// 的接口和一个"取消"的动作，而我们只需要一个自洽的规则。真有人传了不想显示、
+// 又不想删的文件，删掉它就是。
+func (s *partnerService) fillPartnerLogos(
+	ctx context.Context, list []*model.Partner,
+) error {
+	if s.attachments == nil || len(list) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(list))
+	for _, p := range list {
+		ids = append(ids, p.ID)
+	}
+	logos, err := s.attachments.LatestImages(ctx, model.AttachPartner, ids)
+	if err != nil {
+		return err
+	}
+	for _, p := range list {
+		a, ok := logos[p.ID]
+		if !ok {
+			continue
+		}
+		p.LogoURL = fmt.Sprintf("/attachments/%d/download", a.ID)
+	}
+	return nil
 }
 
 // ownerScope 按当前身份算数据范围：返回 nil 表示不限制。
@@ -569,6 +622,15 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 
 	list, total, err := s.repo.List(ctx, filter, page)
 	if err != nil {
+		return nil, err
+	}
+	// 列表 Logo：一页主体只查一次，绝不能在主体行上逐条查。
+	// PageResult 装的是 []model.Partner，回填的是元素本身的指针。
+	ptrs := make([]*model.Partner, len(list))
+	for i := range list {
+		ptrs[i] = &list[i]
+	}
+	if err := s.fillPartnerLogos(ctx, ptrs); err != nil {
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil

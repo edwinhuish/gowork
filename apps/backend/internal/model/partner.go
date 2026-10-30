@@ -233,6 +233,14 @@ type Partner struct {
 	// 用 `->;-:migration` 而不是 `gorm:"-"`：前者是"只读、不建列"，
 	// 后者会让 gorm 完全忽略这个字段，join 出来的值扫不进来（表现为永远空串）。
 	OwnerName string `gorm:"->;-:migration" json:"owner_name,omitempty"`
+
+	// LogoURL 是列表与详情展示用的头像 / Logo 取图路径，同样是不建列的只读投影。
+	//
+	// 它不落成 md_partner 的一列：Logo 就是挂在 `partner` 上的图片附件，
+	// 已经在库里；再存一份路径等于两份真相，换图时必然有一处没跟上。
+	// 由 PartnerService 用一次 IN 查询整页回填（见 service.fillPartnerLogos），
+	// 列表与详情共用同一口径。没有图片时不出现这个字段（omitempty）。
+	LogoURL string `gorm:"->;-:migration" json:"logo_url,omitempty"`
 }
 
 func (Partner) TableName() string { return "md_partner" }

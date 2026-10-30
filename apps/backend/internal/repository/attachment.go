@@ -24,6 +24,11 @@ type AttachmentRepository interface {
 	// FindContent 单独取内容。与 FindByID 分开，是为了让列表接口不可能顺手带出字节。
 	FindContent(ctx context.Context, id uint) ([]byte, error)
 	List(ctx context.Context, f AttachmentFilter) ([]model.Attachment, error)
+	// LatestImages 一次取回一批实体各自**最新的一张图片**附件。
+	//
+	// 存在的理由与产品主图那次一样：列表页要给 20 个主体显示 Logo，
+	// 逐条 List 就是 20 次往返，而调用方手里已经有整页 id。
+	LatestImages(ctx context.Context, entityType string, entityIDs []uint) (map[uint]model.Attachment, error)
 	Delete(ctx context.Context, id uint) error
 	// EntityExists 报告附件要挂的东西是否存在；未知类型返回 false。
 	EntityExists(ctx context.Context, entityType string, id uint) (bool, error)
@@ -110,6 +115,38 @@ func (r *attachmentRepo) List(ctx context.Context, f AttachmentFilter) ([]model.
 		return nil, fmt.Errorf("查询附件列表 %s=%d: %w", f.EntityType, f.EntityID, err)
 	}
 	return list, nil
+}
+
+// LatestImages 见接口注释。返回 key 是 entity_id，没有图片的主体不在 map 里。
+func (r *attachmentRepo) LatestImages(
+	ctx context.Context, entityType string, entityIDs []uint,
+) (map[uint]model.Attachment, error) {
+	out := make(map[uint]model.Attachment, len(entityIDs))
+	if len(entityIDs) == 0 {
+		return out, nil
+	}
+
+	rows := make([]model.Attachment, 0, len(entityIDs))
+	// 只碰元数据表，字节在 sys_attachment_content 里，这里取不到也不需要。
+	err := r.conn(ctx).
+		Where("entity_type = ? AND entity_id IN ? AND mime_type IN ?",
+			entityType, entityIDs, model.AttachmentImageTypes).
+		Order("id DESC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询 %s 的图片附件: %w", entityType, err)
+	}
+
+	// id DESC 之后每个实体第一次出现即为最新那张，其余跳过。
+	// 在 Go 里去重而不是写窗口函数：三方方言的写法各不相同，
+	// 而一个主体的附件通常只有几条，多拉这几十行比多运维一份 SQL 划算。
+	for _, row := range rows {
+		if _, seen := out[row.EntityID]; seen {
+			continue
+		}
+		out[row.EntityID] = row
+	}
+	return out, nil
 }
 
 // Delete 只软删元数据，内容留着。

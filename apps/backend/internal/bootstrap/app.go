@@ -207,7 +207,8 @@ func New(cfg *config.Config) (*App, error) {
 	productCodeSvc := service.NewProductCodeService(
 		productCodeRepo, productRepo, service.WithProductCodeLogger(log))
 	partnerSvc := service.NewPartnerService(
-		partnerRepo, productRepo, currencyRepo, userRepo, service.WithPartnerLogger(log))
+		partnerRepo, productRepo, currencyRepo, userRepo,
+		service.WithPartnerLogger(log), service.WithPartnerAttachments(attachmentRepo))
 	// 多地址跟着主体走：只依赖主体仓储（要确认主体存在），不依赖任何业务服务。
 	partnerAddressSvc := service.NewPartnerAddressService(
 		repository.NewPartnerAddressRepository(db), partnerRepo,

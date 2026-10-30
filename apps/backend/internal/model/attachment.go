@@ -44,6 +44,14 @@ type Attachment struct {
 
 func (Attachment) TableName() string { return "sys_attachment" }
 
+// AttachmentImageTypes 是能当图片展示的附件类型。
+//
+// 它是 service.allowedAttachmentTypes 里除 PDF 之外的那几个 MIME：
+// PDF 没有可直接渲染的首页，塞进 <img> 只会得到一个破图，
+// 所以"能不能当 Logo / 头像用"必须比"能不能上传"更窄。
+// 两边由 service/attachment_mime_test.go 的一致性用例兜住，不要各抄一份。
+var AttachmentImageTypes = []string{"image/jpeg", "image/png", "image/webp"}
+
 // AttachmentContent 是附件内容，与元数据 1:1。
 //
 // 拆成两张表，是为了让「查列表」不可能顺手把字节拖出来：只要字节和元数据在同一个
