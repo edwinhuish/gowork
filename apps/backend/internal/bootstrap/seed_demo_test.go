@@ -146,6 +146,56 @@ func TestDemoSeedCoversMainChain(t *testing.T) {
 	// 采购单详情里的两个面板：收货与验货不单独成页，没有它们那条详情页就少两块内容。
 	assertHasRows(t, srv, token, "收货单", "/api/v1/purchase-orders/1/receipts")
 	assertHasRows(t, srv, token, "验货记录", "/api/v1/purchase-orders/1/inspections")
+
+	// 产品图：卡片视图全靠它，一张没有就是一片占位图标。
+	assertEveryProductHasImage(t, srv, token)
+}
+
+// assertEveryProductHasImage 断言每个产品都有主图，且缩略图真的取得到。
+//
+// 只断言"有 primary_image"不够：URL 拼错了照样能过，界面上却是 16 个占位图标。
+// 所以再拿第一张缩略图真的下载一次，看它是不是一张 PNG。
+func assertEveryProductHasImage(t *testing.T, srv *httptest.Server, token string) {
+	t.Helper()
+	res := call(t, srv, http.MethodGet, "/api/v1/products?page_size=100", token, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("产品列表: %d", res.StatusCode)
+	}
+	_, msg, data := decodeEnvelope(t, res)
+	var page struct {
+		List []struct {
+			SKU   string `json:"sku_code"`
+			Image *struct {
+				ThumbURL string `json:"thumb_url"`
+			} `json:"primary_image"`
+		} `json:"list"`
+	}
+	if err := json.Unmarshal(data, &page); err != nil {
+		t.Fatalf("产品列表解码失败: %v（%s）", err, msg)
+	}
+	if len(page.List) == 0 {
+		t.Fatal("产品列表是空的")
+	}
+	missing := make([]string, 0, len(page.List))
+	for _, p := range page.List {
+		if p.Image == nil || p.Image.ThumbURL == "" {
+			missing = append(missing, p.SKU)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("这些产品没有主图：%v", missing)
+		return
+	}
+
+	thumb := call(t, srv, http.MethodGet, "/api/v1"+page.List[0].Image.ThumbURL, token, nil)
+	if thumb.StatusCode != http.StatusOK {
+		t.Fatalf("取缩略图 %s = %d", page.List[0].Image.ThumbURL, thumb.StatusCode)
+	}
+	// 缩略图由上传服务重新编码（统一转 JPEG 省体积），所以只断言"是图"，
+	// 不锁死具体格式 —— 换成 webp 缩略图不该让这条断言变红。
+	if ct := thumb.Header.Get("Content-Type"); !strings.HasPrefix(ct, "image/") {
+		t.Errorf("缩略图 Content-Type = %q，期望 image/*", ct)
+	}
 }
 
 // assertHasRows 断言接口回来了至少一行数据。

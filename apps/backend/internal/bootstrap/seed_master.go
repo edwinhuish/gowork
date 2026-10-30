@@ -37,6 +37,10 @@ func day(offset int) string {
 // 三段是有依赖的：CRM 里的跟进与商机挂在客户上，交易单据要客户与产品，
 // 库存要按已出货的数量给足，顺序反过来就会缺这缺那。
 func (a *App) seedBusiness(ctx context.Context, d seedDeps, master *demoMaster) error {
+	// 产品图先灌：卡片视图靠它，而后面的单据与图片没有依赖。
+	if err := a.seedProductImages(ctx, d, master); err != nil {
+		return err
+	}
 	if err := a.seedCRM(ctx, d, master); err != nil {
 		return err
 	}
