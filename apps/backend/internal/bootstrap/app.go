@@ -316,8 +316,8 @@ func New(cfg *config.Config) (*App, error) {
 		repository.NewWarehouseRepository(db), service.WithWarehouseLogger(log))
 
 	// 库存切到仓库维度（T-56 第二步）：回填存量并把快照唯一键换成
-	// (warehouse_id, product_id, deleted_at)。两步都幂等。
-	if err := repository.MigrateStockWarehouse(db); err != nil {
+	// (warehouse_id, product_id, deleted_at)。两步都幂等，回填按批推进。
+	if err := repository.MigrateStockWarehouse(context.Background(), db, log); err != nil {
 		log.Error("库存仓库维度迁移失败；快照写入可能受影响", "err", err)
 	}
 	// 客户对账单（T-53）：纯聚合，不落表、不发号。

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 // 否则 openTestDB 的 AutoMigrate 会直接建出新索引，测出来的东西与线上无关。
 func TestMigrateStockWarehouse(t *testing.T) {
 	ctx := context.Background()
+	quiet := slog.New(slog.DiscardHandler)
 	db := openTestDB(t, &model.Warehouse{}, &model.StockMovement{}, &model.StockSnapshot{}).
 		WithContext(ctx)
 
@@ -73,7 +75,7 @@ func TestMigrateStockWarehouse(t *testing.T) {
 		t.Fatalf("旧索引下第二个仓的快照竟然插进去了，说明旧索引没装回去")
 	}
 
-	if err := repository.MigrateStockWarehouse(db); err != nil {
+	if err := repository.MigrateStockWarehouse(ctx, db, quiet); err != nil {
 		t.Fatalf("迁移失败: %v", err)
 	}
 
@@ -114,7 +116,7 @@ func TestMigrateStockWarehouse(t *testing.T) {
 	}
 
 	// 幂等：再跑一次不该失败，也不该把数据改坏。
-	if err := repository.MigrateStockWarehouse(db); err != nil {
+	if err := repository.MigrateStockWarehouse(ctx, db, quiet); err != nil {
 		t.Fatalf("第二次迁移失败（应幂等）: %v", err)
 	}
 	if err := db.First(&gotSnap, snap.ID).Error; err != nil {
