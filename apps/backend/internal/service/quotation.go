@@ -676,7 +676,7 @@ func (s *quotationService) buildItems(
 	return items, totals, nil
 }
 
-// pickSource 定下这一行的成本来源：指定了就校验归属，没指定就取本币价最低的启用货源。
+// pickSource 定下这一行的成本来源：指定了就校验归属，没指定就取本币价最低的货源。
 func (s *quotationService) pickSource(
 	ctx context.Context, product *model.Product, sourceID *uint,
 ) (*model.ProductSource, error) {
@@ -691,9 +691,8 @@ func (s *quotationService) pickSource(
 		if src.ProductID != product.ID {
 			return nil, errs.BadRequest("指定的货源不属于这个产品：" + product.SKUCode)
 		}
-		if src.Status != model.EnableStatusOn {
-			return nil, errs.BadRequest("指定的货源已停用，不能用于报价成本")
-		}
+		// 已删除的货源在 FindByID 那一步就查不到了，
+		// 落到这里的一定是"存在且属于这个产品"。
 		return src, nil
 	}
 
@@ -701,7 +700,7 @@ func (s *quotationService) pickSource(
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return nil, errs.BadRequest(fmt.Sprintf(
-				"产品 %s 没有启用的货源，请先在产品详情页维护货源再报价", product.SKUCode))
+				"产品 %s 还没有货源，请先在产品详情页维护货源再报价", product.SKUCode))
 		}
 		return nil, err
 	}

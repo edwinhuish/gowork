@@ -367,7 +367,9 @@ func (s *purchaseOrderService) buildItems(
 	return items, totals, nil
 }
 
-// checkSourceRef 校验货源引用：必须存在、属于这个产品、且没停用。
+// checkSourceRef 校验货源引用：必须存在、且属于这个产品。
+//
+// 不看启用状态：货源停用那套已经被删除替代，而删除由 FindByID 拦住。
 func (s *purchaseOrderService) checkSourceRef(
 	ctx context.Context, product *model.Product, sourceID *uint,
 ) error {
@@ -383,9 +385,6 @@ func (s *purchaseOrderService) checkSourceRef(
 	}
 	if src.ProductID != product.ID {
 		return errs.BadRequest("指定的货源不属于这个产品：" + product.SKUCode)
-	}
-	if src.Status != model.EnableStatusOn {
-		return errs.BadRequest("指定的货源已停用，不能再据此下单")
 	}
 	return nil
 }

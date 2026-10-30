@@ -19,7 +19,9 @@ type ProductSourceFilter struct {
 	// Keyword 只搜供应商货号与备注：产品名在货源行里是冗余展示，
 	// 按产品名搜应该回到产品列表，两个入口搜同一件事会让人分不清自己在哪。
 	Keyword string
-	Status  *model.EnableStatus
+	// IncludeDeleted 把已软删的货源也列出来：产品价格页的货源面板上，
+	// 「含已删除」打开后才能对着一条删掉的货源点恢复。
+	IncludeDeleted bool
 }
 
 func (f ProductSourceFilter) scopes() []Scope {
@@ -36,14 +38,11 @@ func (f ProductSourceFilter) scopes() []Scope {
 			return db.Where("partner_id = ?", sid)
 		})
 	}
+	if f.IncludeDeleted {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
+	}
 	if f.Keyword != "" {
 		scopes = append(scopes, likeAny(f.Keyword, "supplier_sku", "remark"))
-	}
-	if f.Status != nil {
-		st := *f.Status
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", st)
-		})
 	}
 	return scopes
 }
@@ -52,7 +51,11 @@ type ProductSourceRepository interface {
 	Create(ctx context.Context, m *model.ProductSource) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.ProductSource, error)
+	// FindByIDIncludingDeleted 是恢复路径专用：常规 FindByID 带软删条件，
+	// 已删除的货源查不出来，而恢复的第一步就是先把它读出来。
+	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.ProductSource, error)
 	List(ctx context.Context, f ProductSourceFilter, p Pagination) ([]model.ProductSource, int64, error)
 	// ExistsBySupplierSKU 判断"同一产品在同一供应商下是否已有这个货号"。
 	//
@@ -102,6 +105,16 @@ func (r *productSourceRepo) Delete(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
 }
 
+func (r *productSourceRepo) Restore(ctx context.Context, id uint) error {
+	err := r.conn(ctx).Unscoped().Model(&model.ProductSource{}).
+		Where("id = ?", id).
+		Update("deleted_at", 0).Error
+	if err != nil {
+		return fmt.Errorf("恢复产品货源 id=%d: %w", id, err)
+	}
+	return nil
+}
+
 func (r *productSourceRepo) FindByID(ctx context.Context, id uint) (*model.ProductSource, error) {
 	var m model.ProductSource
 	err := r.conn(ctx).Preload("Product").Preload("Partner").First(&m, id).Error
@@ -110,6 +123,20 @@ func (r *productSourceRepo) FindByID(ctx context.Context, id uint) (*model.Produ
 	}
 	if err != nil {
 		return nil, fmt.Errorf("查询产品货源 id=%d: %w", id, err)
+	}
+	return &m, nil
+}
+
+func (r *productSourceRepo) FindByIDIncludingDeleted(
+	ctx context.Context, id uint,
+) (*model.ProductSource, error) {
+	var m model.ProductSource
+	err := r.conn(ctx).Unscoped().Preload("Product").Preload("Partner").First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询产品货源 id=%d（含已删除）: %w", id, err)
 	}
 	return &m, nil
 }
@@ -180,7 +207,7 @@ func (r *productSourceRepo) FindCheapestByProductID(
 	var m model.ProductSource
 	err := r.conn(ctx).
 		Preload("Partner").
-		Where("product_id = ? AND status = ?", productID, model.EnableStatusOn).
+		Where("product_id = ?", productID).
 		Order("purchase_price_base ASC, id ASC").
 		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

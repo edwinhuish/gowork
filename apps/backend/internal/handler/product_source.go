@@ -76,6 +76,20 @@ func (h *ProductSourceHandler) Update(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Restore PUT /api/v1/product-sources/:id/restore
+func (h *ProductSourceHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.sources.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 // Delete DELETE /api/v1/product-sources/:id
 func (h *ProductSourceHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
 import { useTable } from '@refinedev/antd'
 import {
   Button,
   Card,
+  Checkbox,
   Col,
   Form,
   Input,
@@ -20,8 +21,7 @@ import {
 } from 'antd'
 
 import { productSourceApi, type ProductSourceInput } from '@/api/product-sources'
-import { Empty, Mono, Money, StatusTag } from '@/components/fields'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { Empty, Mono, Money } from '@/components/fields'
 import type { Currency, Partner, ProductSource } from '@/types'
 
 interface SourceForm {
@@ -31,7 +31,6 @@ interface SourceForm {
   currency_code?: string
   moq: number
   delivery_days: number
-  status: number
   remark?: string
 }
 
@@ -51,12 +50,22 @@ export function SourcesPanel({ productId }: { productId: number }) {
   // 写操作走 http 而不是 refine 的 mutation 钩子，因此要显式让列表失效重查。
   const invalidate = useInvalidate()
 
-  const { tableProps } = useTable<ProductSource>({
+  const [showDeleted, setShowDeleted] = useState(false)
+  const { tableProps, setFilters } = useTable<ProductSource>({
     resource: 'product-sources',
     filters: {
       permanent: [{ field: 'product_id', operator: 'eq', value: productId }],
     },
   })
+
+  // 永久筛选之外只有这一个条件，变化时整份写回而不是逐个合并：
+  // 关掉开关时才能确保 include_deleted 真的不再出现在查询里。
+  useEffect(() => {
+    setFilters(
+      showDeleted ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
+      'replace',
+    )
+  }, [showDeleted, setFilters])
 
   // 供应商下拉取 /suppliers 而不是 /partners：货源指向的主体必须是供应商角色，
   // 后端也会校验，这里只是不让用户先选一个客户再撞一次 400。
@@ -77,7 +86,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ status: 1, purchase_price: '0', moq: 0, delivery_days: 0 })
+    form.setFieldsValue({ purchase_price: '0', moq: 0, delivery_days: 0 })
     setModalOpen(true)
   }
 
@@ -90,7 +99,6 @@ export function SourcesPanel({ productId }: { productId: number }) {
       currency_code: record.currency_code,
       moq: record.moq,
       delivery_days: record.delivery_days,
-      status: record.status,
       remark: record.remark,
     })
     setModalOpen(true)
@@ -106,7 +114,6 @@ export function SourcesPanel({ productId }: { productId: number }) {
       currency_code: values.currency_code || undefined,
       moq: values.moq ?? 0,
       delivery_days: values.delivery_days ?? 0,
-      status: values.status ?? 1,
       remark: values.remark?.trim() ?? '',
     }
 
@@ -140,14 +147,35 @@ export function SourcesPanel({ productId }: { productId: number }) {
     }
   }
 
+  const restore = async (record: ProductSource) => {
+    try {
+      await productSourceApi.restore(record.id)
+      message.success('已恢复货源')
+      await invalidate({ resource: 'product-sources', invalidates: ['list'] })
+    } catch (err) {
+      // 货号被别的货源占了是 409，后端文案写明了是哪个货号。
+      message.error(err instanceof Error ? err.message : '恢复失败')
+    }
+  }
+
   return (
     <Card
       title="产品货源"
       style={{ marginTop: 16 }}
       extra={
-        <Button type="primary" onClick={openCreate}>
-          新增货源
-        </Button>
+        <Space size={8}>
+          {/* 删除是软删：这一行的恢复入口藏在开关后面，
+              平时列表里看不到它们。 */}
+          <Checkbox
+            checked={showDeleted}
+            onChange={(e) => setShowDeleted(e.target.checked)}
+          >
+            含已删除
+          </Checkbox>
+          <Button type="primary" onClick={openCreate}>
+            新增货源
+          </Button>
+        </Space>
       }
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: -4 }}>
@@ -216,30 +244,33 @@ export function SourcesPanel({ productId }: { productId: number }) {
           render={(value: number) => (value ? `${value} 天` : <Empty />)}
         />
         <Table.Column
-          dataIndex="status"
-          title="状态"
-          width={90}
-          render={(value: number) => <StatusTag value={value} />}
-        />
-        <Table.Column
           title="操作"
           width={140}
           render={(_, record: ProductSource) => (
             <Space size={4}>
-              <Button size="small" type="link" onClick={() => openEdit(record)}>
-                编辑
-              </Button>
-              <Popconfirm
-                title="删除这条货源？"
-                description="已锁定成本快照的历史报价不受影响"
-                okText="删除"
-                cancelText="取消"
-                onConfirm={() => remove(record)}
-              >
-                <Button size="small" type="link" danger>
-                  删除
+              {record.deleted_at ? (
+                // 已删除的货源只能做恢复：编辑与删除对它都是 404。
+                <Button size="small" type="link" onClick={() => restore(record)}>
+                  恢复
                 </Button>
-              </Popconfirm>
+              ) : (
+                <>
+                  <Button size="small" type="link" onClick={() => openEdit(record)}>
+                    编辑
+                  </Button>
+                  <Popconfirm
+                    title="删除这条货源？"
+                    description="已锁定成本快照的历史报价不受影响"
+                    okText="删除"
+                    cancelText="取消"
+                    onConfirm={() => remove(record)}
+                  >
+                    <Button size="small" type="link" danger>
+                      删除
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
             </Space>
           )}
         />
@@ -333,12 +364,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
               </Form.Item>
             </Col>
 
-            <Col span={12}>
-              <Form.Item name="status" label="状态" initialValue={1}>
-                <Select options={ENABLE_STATUS_OPTIONS} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item name="remark" label="备注">
                 <Input placeholder="选填" maxLength={255} />
               </Form.Item>

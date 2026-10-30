@@ -18,7 +18,6 @@ export interface ProductSourceInput {
   currency_code?: string
   moq: number
   delivery_days: number
-  status: number
   remark: string
 }
 
@@ -30,4 +29,6 @@ export const productSourceApi = {
     http.put<ProductSource>(`/product-sources/${id}`, body),
 
   remove: (id: number) => http.delete<{ deleted: boolean }>(`/product-sources/${id}`),
+
+  restore: (id: number) => http.put<ProductSource>(`/product-sources/${id}/restore`),
 }

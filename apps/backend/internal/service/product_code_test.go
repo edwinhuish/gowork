@@ -194,7 +194,6 @@ func TestProductListFindsBySupplierSKU(t *testing.T) {
 		SupplierSKU:     "A-100",
 		SupplierSKUNorm: codenorm.Normalize("A-100"),
 		CurrencyCode:    "CNY",
-		Status:          model.EnableStatusOn,
 	}
 	if err := f.sources.Create(ctx, src); err != nil {
 		t.Fatalf("建货源失败: %v", err)
@@ -226,7 +225,6 @@ func TestProductListFindsBySupplierSKU(t *testing.T) {
 		SupplierSKU:     "A-100",
 		SupplierSKUNorm: codenorm.Normalize("A-100"),
 		CurrencyCode:    "CNY",
-		Status:          model.EnableStatusOn,
 	}); err != nil {
 		t.Fatalf("重建货源失败: %v", err)
 	}

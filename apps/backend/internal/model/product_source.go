@@ -45,10 +45,7 @@ type ProductSource struct {
 	// lead_time 在搜索与讨论里会被读成"线索时间"。中文仍叫交期。
 	DeliveryDays int `gorm:"not null;default:0" json:"delivery_days"`
 
-	// Status 刻意不写 default tag：写了之后显式传 0（停用）会被静默存成 1，
-	// 停用的货源会重新出现在比价列表里。值由 service 统一归一化。
-	Status EnableStatus `gorm:"not null;index" json:"status"`
-	Remark string       `gorm:"size:255" json:"remark"`
+	Remark string `gorm:"size:255" json:"remark"`
 
 	Product *Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
 	Partner *Partner `gorm:"foreignKey:PartnerID" json:"partner,omitempty"`

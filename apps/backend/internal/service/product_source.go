@@ -25,6 +25,7 @@ type ProductSourceService interface {
 	Create(ctx context.Context, in dto.ProductSourceInput) (*model.ProductSource, error)
 	Update(ctx context.Context, id uint, in dto.ProductSourceInput) (*model.ProductSource, error)
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) (*model.ProductSource, error)
 	Get(ctx context.Context, id uint) (*model.ProductSource, error)
 	List(ctx context.Context, q dto.ProductSourceQuery) (*dto.PageResult[model.ProductSource], error)
 }
@@ -99,7 +100,6 @@ func (s *productSourceService) Create(
 		ExchangeRate:      terms.ExchangeRate,
 		MOQ:               terms.MOQ,
 		DeliveryDays:      terms.DeliveryDays,
-		Status:            terms.Status,
 		Remark:            terms.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
@@ -123,7 +123,7 @@ func (s *productSourceService) Update(
 		return nil, errs.BadRequest("货源不能换到另一个产品，请在该产品下新建")
 	}
 	if in.PartnerID != 0 && in.PartnerID != existing.PartnerID {
-		return nil, errs.BadRequest("货源不能换到另一个供应商，请新建一条并从旧货源停用")
+		return nil, errs.BadRequest("货源不能换到另一个供应商，请新建一条并删掉旧的")
 	}
 
 	terms, err := s.buildTerms(ctx, in, existing.ProductID, existing.PartnerID, id)
@@ -140,7 +140,6 @@ func (s *productSourceService) Update(
 		"exchange_rate":       terms.ExchangeRate,
 		"moq":                 terms.MOQ,
 		"delivery_days":       terms.DeliveryDays,
-		"status":              terms.Status,
 		"remark":              terms.Remark,
 	}
 	if err := s.repo.Update(ctx, id, fields); err != nil {
@@ -158,6 +157,32 @@ func (s *productSourceService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
+func (s *productSourceService) Restore(
+	ctx context.Context, id uint,
+) (*model.ProductSource, error) {
+	m, err := s.repo.FindByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if m.DeletedAt == 0 {
+		return nil, errs.BadRequest("该货源未被删除，无需恢复")
+	}
+	// 先挡一次货号冲突：这条货源删掉之后可能又录了一条同样的，
+	// 交给唯一索引只能得到通用的「数据已存在」。
+	dup, err := s.repo.ExistsBySupplierSKU(ctx, m.ProductID, m.PartnerID, m.SupplierSKU, id)
+	if err != nil {
+		return nil, err
+	}
+	if dup {
+		return nil, errs.ErrConflict.WithMsg("该供应商下已有相同货号的货源：" + m.SupplierSKU)
+	}
+	if err := s.repo.Restore(ctx, id); err != nil {
+		return nil, err
+	}
+	s.log.Info("恢复产品货源", "id", id, "product_id", m.ProductID)
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *productSourceService) Get(ctx context.Context, id uint) (*model.ProductSource, error) {
 	return s.repo.FindByID(ctx, id)
 }
@@ -168,10 +193,10 @@ func (s *productSourceService) List(
 	q.PageQuery.Normalize()
 
 	filter := repository.ProductSourceFilter{
-		ProductID: q.ProductID,
-		PartnerID: q.PartnerID,
-		Keyword:   q.Keyword,
-		Status:    enableStatusPtr(q.Status),
+		ProductID:      q.ProductID,
+		PartnerID:      q.PartnerID,
+		Keyword:        q.Keyword,
+		IncludeDeleted: q.IncludeDeleted,
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 
@@ -196,7 +221,6 @@ type productSourceTerms struct {
 	ExchangeRate      money.Decimal
 	MOQ               int
 	DeliveryDays      int
-	Status            model.EnableStatus
 	Remark            string
 }
 
@@ -215,10 +239,6 @@ func (s *productSourceService) buildTerms(
 	}
 	if in.DeliveryDays < 0 || in.DeliveryDays > 3650 {
 		return out, errs.BadRequest("交期天数应在 0 到 3650 之间")
-	}
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return out, err
 	}
 
 	// 按「产品 + 供应商 + 货号」查重：同一家给同一个货号报两次价，
@@ -260,7 +280,6 @@ func (s *productSourceService) buildTerms(
 		ExchangeRate:      rate,
 		MOQ:               in.MOQ,
 		DeliveryDays:      in.DeliveryDays,
-		Status:            status,
 		Remark:            in.Remark,
 	}
 	return out, nil
@@ -268,8 +287,8 @@ func (s *productSourceService) buildTerms(
 
 // ensureSupplierRole 确认 id 指向的主体存在且具备供应商角色。
 //
-// 不校验启用状态：供应商停用后，已经挂着它的货源仍要能改价、停用。
-// 停用的主体在供应商下拉里已经选不到，新引用进不来，这就够了。
+// 只看存在与角色：主体被删除之后，已经挂着它的货源仍要能改价，
+// 历史报价锁定的成本快照才有出处。新引用进不来就够了。
 func ensureSupplierRole(
 	ctx context.Context, partners repository.PartnerRepository, id *uint,
 ) error {

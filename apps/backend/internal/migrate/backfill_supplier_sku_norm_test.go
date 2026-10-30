@@ -19,12 +19,11 @@ func TestBackfillSupplierSKUNorm(t *testing.T) {
 
 	// 新列由 AutoMigrate 加出来时是空的：这三行就是要被回填的"存量"。
 	rows := []*model.ProductSource{
-		{ProductID: 1, PartnerID: 1, SupplierSKU: "A-100", CurrencyCode: "CNY", Status: model.EnableStatusOn},
-		{ProductID: 1, PartnerID: 2, SupplierSKU: "", CurrencyCode: "CNY", Status: model.EnableStatusOn},
+		{ProductID: 1, PartnerID: 1, SupplierSKU: "A-100", CurrencyCode: "CNY"},
+		{ProductID: 1, PartnerID: 2, SupplierSKU: "", CurrencyCode: "CNY"},
 		{
 			ProductID: 1, PartnerID: 3, SupplierSKU: "B-200", CurrencyCode: "CNY",
-			Status: model.EnableStatusOn,
-			Base:   model.Base{DeletedAt: model.DeletedAt(time.Now().UnixMilli())},
+			Base: model.Base{DeletedAt: model.DeletedAt(time.Now().UnixMilli())},
 		},
 	}
 	for _, r := range rows {

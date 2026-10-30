@@ -523,8 +523,9 @@ export interface ProductSource {
   moq: number
   /** 交期天数，0 表示未确认。 */
   delivery_days: number
-  status: number
   remark: string
+  /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
+  deleted_at?: number
   product?: Product | null
   partner?: Partner | null
   created_at: string

@@ -309,7 +309,6 @@ func (a *App) seedProducts(ctx context.Context, d seedDeps, master *demoMaster) 
 		if product.SupplierID == nil {
 			continue
 		}
-		enabled := int8(model.EnableStatusOn)
 		source := dto.ProductSourceInput{
 			ProductID:     product.ID,
 			PartnerID:     *product.SupplierID,
@@ -317,7 +316,6 @@ func (a *App) seedProducts(ctx context.Context, d seedDeps, master *demoMaster) 
 			PurchasePrice: dec(s.cost),
 			MOQ:           500,
 			DeliveryDays:  25,
-			Status:        &enabled,
 			Remark:        "演示货源",
 		}
 		if _, err := d.Sources.Create(ctx, source); err != nil {

@@ -185,6 +185,9 @@ func New(
 		sources.GET("/:id", h.Source.Get)
 		sources.PUT("/:id", h.Source.Update)
 		sources.DELETE("/:id", h.Source.Delete)
+		// 恢复与条款、往来单位同一处：
+		// 挂在 /:id 之后的子路径，不挤占 :id 本身的 PUT。
+		sources.PUT("/:id/restore", h.Source.Restore)
 
 		partners := secured.Group("/partners")
 		partners.GET("", h.Partner.List(nil))

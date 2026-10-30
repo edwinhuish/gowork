@@ -4115,6 +4115,42 @@
         }
       }
     },
+    "/api/v1/product-sources/{id}/restore": {
+      "put": {
+        "operationId": "PUT_handler_ProductSourceHandler_Restore-fm",
+        "tags": [
+          "product-sources"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        }
+      }
+    },
     "/api/v1/products": {
       "get": {
         "operationId": "GET_handler_ProductHandler_List-fm",

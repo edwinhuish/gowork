@@ -10,7 +10,8 @@ type ProductSourceQuery struct {
 	PageQuery
 	ProductID *uint `form:"product_id"`
 	PartnerID *uint `form:"partner_id"`
-	Status    *int8 `form:"status"`
+	// IncludeDeleted 把已软删的货源一并列出，这些行只能做一件事：恢复。
+	IncludeDeleted bool `form:"include_deleted"`
 }
 
 // ProductSourceInput 新建与编辑共用。
@@ -22,10 +23,9 @@ type ProductSourceInput struct {
 	PartnerID   uint   `json:"partner_id" binding:"required"`
 	SupplierSKU string `json:"supplier_sku" binding:"max=64"`
 	// PurchasePrice 原币采购价。币种留空即本币，由 service 折算并回填。
-	PurchasePrice money.Decimal     `json:"purchase_price"`
-	CurrencyCode  string            `json:"currency_code" binding:"max=8"`
-	MOQ           int               `json:"moq" binding:"gte=0"`
-	DeliveryDays  int               `json:"delivery_days" binding:"gte=0,lte=3650"`
-	Status        EnableStatusInput `json:"status"`
-	Remark        string            `json:"remark" binding:"max=255"`
+	PurchasePrice money.Decimal `json:"purchase_price"`
+	CurrencyCode  string        `json:"currency_code" binding:"max=8"`
+	MOQ           int           `json:"moq" binding:"gte=0"`
+	DeliveryDays  int           `json:"delivery_days" binding:"gte=0,lte=3650"`
+	Remark        string        `json:"remark" binding:"max=255"`
 }

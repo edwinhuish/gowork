@@ -106,7 +106,6 @@ func TestPartnerMerge(t *testing.T) {
 		ProductID: product.ID, PartnerID: source.ID, SupplierSKU: "HY-4",
 		CurrencyCode: "CNY", PurchasePrice: money.MustParse("6.8"),
 		PurchasePriceBase: money.MustParse("6.8"), ExchangeRate: money.MustParse("1"),
-		Status: model.EnableStatusOn,
 	}
 	mustCreate(t, f.db, src)
 
@@ -290,7 +289,6 @@ func TestPartnerMergeRejectsProductSourceConflict(t *testing.T) {
 			ProductID: product.ID, PartnerID: partnerID, SupplierSKU: "HY-4",
 			CurrencyCode: "CNY", PurchasePrice: money.MustParse("6.8"),
 			PurchasePriceBase: money.MustParse("6.8"), ExchangeRate: money.MustParse("1"),
-			Status: model.EnableStatusOn,
 		})
 	}
 

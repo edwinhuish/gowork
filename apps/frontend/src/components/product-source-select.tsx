@@ -27,12 +27,8 @@ export function SourceSelect({
   const { query } = useList<ProductSource>({
     resource: 'product-sources',
     pagination: { mode: 'off' },
-    filters: productId
-      ? [
-          { field: 'product_id', operator: 'eq', value: productId },
-          { field: 'status', operator: 'eq', value: 1 },
-        ]
-      : [],
+    // 只看这个产品下的货源；已删除的由后端软删条件自然排除。
+    filters: productId ? [{ field: 'product_id', operator: 'eq', value: productId }] : [],
     queryOptions: { enabled: !!productId },
   })
 

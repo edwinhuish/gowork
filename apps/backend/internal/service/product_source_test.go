@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 	"time"
@@ -189,23 +190,49 @@ func TestProductSourceRules(t *testing.T) {
 		}
 	})
 
-	t.Run("停用状态不会被默认值覆盖", func(t *testing.T) {
-		// md_product_source.status 刻意没有 default tag：写了之后显式传 0
-		// 会被 gorm 省略、由数据库默认值填成 1，停用的货源又重新出现在比价列表里。
-		off := int8(model.EnableStatusOff)
+	t.Run("删除后可恢复", func(t *testing.T) {
 		m, err := fx.sources.Create(ctx, dto.ProductSourceInput{
 			ProductID: fx.productID, PartnerID: fx.supplierID,
-			SupplierSKU: "A-300", PurchasePrice: money.MustParse("2"), Status: &off,
+			SupplierSKU: "A-300", PurchasePrice: money.MustParse("2"),
 		})
 		if err != nil {
-			t.Fatalf("新增停用货源失败: %v", err)
+			t.Fatalf("新增货源失败: %v", err)
 		}
-		stored, err := fx.sources.Get(ctx, m.ID)
+		if err := fx.sources.Delete(ctx, m.ID); err != nil {
+			t.Fatalf("删除货源失败: %v", err)
+		}
+		if _, err := fx.sources.Get(ctx, m.ID); !errors.Is(err, errs.ErrNotFound) {
+			t.Errorf("删掉的货源 Get 应 404，得到 %v", err)
+		}
+		// 恢复要先能从"含已删除"里读出来：常规 Get 看不见它。
+		if _, err := fx.sources.Restore(ctx, m.ID); err != nil {
+			t.Fatalf("恢复货源失败: %v", err)
+		}
+		page, err := fx.sources.List(ctx, dto.ProductSourceQuery{ProductID: &fx.productID})
 		if err != nil {
-			t.Fatalf("查货源失败: %v", err)
+			t.Fatalf("列表失败: %v", err)
 		}
-		if stored.Status != model.EnableStatusOff {
-			t.Errorf("status = %d，期望停用（0）", stored.Status)
+		found := false
+		for _, row := range page.List {
+			if row.ID == m.ID {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("恢复之后这条货源应重新出现在列表里")
+		}
+	})
+
+	t.Run("恢复一条没删的货源要说清楚", func(t *testing.T) {
+		m, err := fx.sources.Create(ctx, dto.ProductSourceInput{
+			ProductID: fx.productID, PartnerID: fx.supplierID,
+			SupplierSKU: "A-400", PurchasePrice: money.MustParse("3"),
+		})
+		if err != nil {
+			t.Fatalf("新增货源失败: %v", err)
+		}
+		if _, err := fx.sources.Restore(ctx, m.ID); err == nil {
+			t.Error("恢复未被删除的货源应报错")
 		}
 	})
 
