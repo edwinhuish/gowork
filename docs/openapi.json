@@ -1339,7 +1339,7 @@
     },
     "/api/v1/customers": {
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_List_func19",
+        "operationId": "GET_handler_PartnerHandler_List_func1",
         "tags": [
           "customers"
         ],
@@ -1373,7 +1373,7 @@
         }
       },
       "post": {
-        "operationId": "POST_server_New_PartnerHandler_Create_func20",
+        "operationId": "POST_handler_PartnerHandler_Create_func1",
         "tags": [
           "customers"
         ],
@@ -1409,7 +1409,7 @@
     },
     "/api/v1/customers/{id}": {
       "delete": {
-        "operationId": "DELETE_server_New_PartnerHandler_Delete_func23",
+        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
         "tags": [
           "customers"
         ],
@@ -1443,7 +1443,7 @@
         }
       },
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_Get_func21",
+        "operationId": "GET_handler_PartnerHandler_Get_func1",
         "tags": [
           "customers"
         ],
@@ -1477,7 +1477,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_server_New_PartnerHandler_Update_func22",
+        "operationId": "PUT_handler_PartnerHandler_Update_func1",
         "tags": [
           "customers"
         ],
@@ -2185,7 +2185,7 @@
     },
     "/api/v1/forwarders": {
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_List_func29",
+        "operationId": "GET_handler_PartnerHandler_List_func1",
         "tags": [
           "forwarders"
         ],
@@ -2219,7 +2219,7 @@
         }
       },
       "post": {
-        "operationId": "POST_server_New_PartnerHandler_Create_func30",
+        "operationId": "POST_handler_PartnerHandler_Create_func1",
         "tags": [
           "forwarders"
         ],
@@ -2255,7 +2255,7 @@
     },
     "/api/v1/forwarders/{id}": {
       "delete": {
-        "operationId": "DELETE_server_New_PartnerHandler_Delete_func33",
+        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
         "tags": [
           "forwarders"
         ],
@@ -2289,7 +2289,7 @@
         }
       },
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_Get_func31",
+        "operationId": "GET_handler_PartnerHandler_Get_func1",
         "tags": [
           "forwarders"
         ],
@@ -2323,7 +2323,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_server_New_PartnerHandler_Update_func32",
+        "operationId": "PUT_handler_PartnerHandler_Update_func1",
         "tags": [
           "forwarders"
         ],
@@ -2995,7 +2995,7 @@
     },
     "/api/v1/partners": {
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_List_func14",
+        "operationId": "GET_handler_PartnerHandler_List_func1",
         "tags": [
           "partners"
         ],
@@ -3029,7 +3029,7 @@
         }
       },
       "post": {
-        "operationId": "POST_server_New_PartnerHandler_Create_func15",
+        "operationId": "POST_handler_PartnerHandler_Create_func1",
         "tags": [
           "partners"
         ],
@@ -3065,7 +3065,7 @@
     },
     "/api/v1/partners/{id}": {
       "delete": {
-        "operationId": "DELETE_server_New_PartnerHandler_Delete_func18",
+        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
         "tags": [
           "partners"
         ],
@@ -3099,7 +3099,7 @@
         }
       },
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_Get_func16",
+        "operationId": "GET_handler_PartnerHandler_Get_func1",
         "tags": [
           "partners"
         ],
@@ -3133,7 +3133,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_server_New_PartnerHandler_Update_func17",
+        "operationId": "PUT_handler_PartnerHandler_Update_func1",
         "tags": [
           "partners"
         ],
@@ -7367,7 +7367,7 @@
     },
     "/api/v1/suppliers": {
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_List_func24",
+        "operationId": "GET_handler_PartnerHandler_List_func1",
         "tags": [
           "suppliers"
         ],
@@ -7401,7 +7401,7 @@
         }
       },
       "post": {
-        "operationId": "POST_server_New_PartnerHandler_Create_func25",
+        "operationId": "POST_handler_PartnerHandler_Create_func1",
         "tags": [
           "suppliers"
         ],
@@ -7437,7 +7437,7 @@
     },
     "/api/v1/suppliers/{id}": {
       "delete": {
-        "operationId": "DELETE_server_New_PartnerHandler_Delete_func28",
+        "operationId": "DELETE_handler_PartnerHandler_Delete_func1",
         "tags": [
           "suppliers"
         ],
@@ -7471,7 +7471,7 @@
         }
       },
       "get": {
-        "operationId": "GET_server_New_PartnerHandler_Get_func26",
+        "operationId": "GET_handler_PartnerHandler_Get_func1",
         "tags": [
           "suppliers"
         ],
@@ -7505,7 +7505,7 @@
         }
       },
       "put": {
-        "operationId": "PUT_server_New_PartnerHandler_Update_func27",
+        "operationId": "PUT_handler_PartnerHandler_Update_func1",
         "tags": [
           "suppliers"
         ],
