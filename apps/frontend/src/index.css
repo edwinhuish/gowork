@@ -864,6 +864,34 @@ body {
   }
 }
 
+/* ---------- 标签（Tag）---------- */
+
+/*
+ * 状态标签（success / processing / warning / error）一律不带描边：
+ * 底色已经是同色相的浅底，颜色本身就是信号，再加一道框会把它读成按钮。
+ * 中性灰标签保留描边 —— 灰底没有色可认，少了边界就不成形。
+ *
+ * 选择器写成两个 class 是为了压过 antd 运行时注入的 `.ant-tag-success`：
+ * antd 的 cssinjs 是在运行时往 <head> 追加 <style> 的，顺序在 index.css 之后，
+ * 同权重时它赢。
+ */
+.ant-tag.ant-tag-success,
+.ant-tag.ant-tag-processing,
+.ant-tag.ant-tag-warning,
+.ant-tag.ant-tag-error {
+  border-color: transparent;
+}
+
+/*
+ * 紧凑密度下标签跟着控件一起收一档：整屏标签更多，默认内距（8px）+ 20px 行高
+ * 会让它看起来像一颗颗小按钮，挤掉行的呼吸。
+ * `[data-density]` 这个属性选择器的权重高于 antd 的单类名，不需要 !important。
+ */
+[data-density='compact'] .ant-tag {
+  padding-inline: 6px;
+  line-height: 18px;
+}
+
 /* ---------- 窄屏：宽表降级成的卡片 ---------- */
 
 /*

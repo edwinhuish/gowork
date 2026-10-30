@@ -59,7 +59,8 @@ apps/frontend/
     │       stock / stock-documents   单个资源的非 CRUD 动作（转单、确认、重算…）
     ├── components/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
-    │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / Money / CategoryTag / Mono / Empty
+    │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / AccentTag / HeatTag /
+    │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
     │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，列表与卡片共用
     │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作 + 分页转换（三张角色表共用）
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
@@ -203,7 +204,8 @@ api/client.ts
 | `index.css` 的 `--gap-*` / `--pad-block` | 结构性间距的密度标尺 | 新加结构间距引用这些别名，不要再写一条 `[data-density='compact']` 覆写；表单项下边距归 `theme.ts` 的 `formItemGap`，不要两边都写 |
 | `providers/dataProvider.ts` | 分页与筛选翻译、白名单 | 后端加查询参数时同步 `PASSTHROUGH_FILTERS` |
 | `providers/authProvider.ts` | 登录/登出/check/onError/identity | `check` 里别再直接打接口，先看 identity 缓存 |
-| `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render |
+| `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render；标签别自己挑颜色，按"标签的三档用法"选件 |
+| `utils/color.ts` | `mixHex`：两个颜色之间插值 | 只有有序量（逾期分桶那种梯度）用得到；不要拿它给新模块造色号，色号归 `theme.ts` |
 | `components/page/page-list.tsx` | 列表页外壳：筛选条 + 表格 + 分页 + 空态，**窄屏自动降级成卡片** | 页面只给「哪些筛选项、哪些列」；`scrollX` 不传按内容自适应，别各页手写宽度 |
 | `components/page/record-cards.tsx` | 窄屏的通用卡片视图 + 从 `<Table.Column>` 读列定义（`collectCardColumns`） | 卡片内容由列定义推导，不要为某个模块再写一套卡片；推导不出来会退回表格，不会白屏 |
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
@@ -287,6 +289,26 @@ pages/xxx/
 最小宽度按卡片内容定：产品卡一张图加两行字用 200px，往来单位卡有六到九行
 「标签：值」，用 240px——再窄就只剩省略号，看不出谁是谁的值。
 排序控件与表头箭头必须驱动同一个 `sorters`，否则"点了表头、下拉框没变"。
+
+### 标签的三档用法
+
+颜色是**语义**，不是装饰。加标签前先问它属于哪一档，用对应的件，不要自己挑色号：
+
+| 档 | 用什么 | 例子 |
+|---|---|---|
+| **状态**（有"进行中 / 完成 / 出错"） | `OptionTag` + 字典的 `tone`，或 `<Tag color="success\|processing\|warning\|error">` | 订单状态、结算状态、报关状态 |
+| **强调**（"这一条是特殊的那一个"） | `AccentTag`（主色淡底） | 默认地址、默认仓库、本币、主联系人、主图、以销定采、个人主体 |
+| **有序量**（同一个量在变大） | `HeatTag`：warning → error 四档插值 | 逾期天数分桶 |
+
+- **中性**（身份 / 类别）：直接 `<Tag>`，不给颜色。客户 / 供应商 / 货代、公司主体、
+  币种、出入库类型都在这里 —— 角色是身份不是状态，三个分不出的蓝只会让人以为
+  存在三种需要不同处理的状态。
+- **不要**用 antd 的固定调色板（`blue` / `geekblue` / `cyan` / `gold` / `orange` /
+  `volcano` / `red` / `green`）：它们不跟 `theme.ts` 走，暗色下是 antd 自己算的另一套。
+- **不要**在页面里写 `statusColor()`：字典的 `tone` 就是颜色的唯一来源，
+  再写一份必然出现"同一个状态在两页上两种颜色"（合同页曾把「已取消」画成灰色）。
+- 五档语义色的字色是压深过的（亮色 800 档）：状态标签是 12px 正文，
+  压在自己的浅底上要 ≥ 4.5:1；改 `theme.ts` 里那几档之前先算一遍对比度。
 
 ### 新增一个模块的完整步骤
 
