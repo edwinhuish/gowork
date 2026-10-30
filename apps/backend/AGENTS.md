@@ -161,6 +161,8 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | GET / POST | `/api/v1/products` | `Product.List` / `.Create` | `ProductService.List` / `.Create`：`keyword` 同时匹配 SKU、中英文品名与**全部编号**（子查询 `md_product_code` 与 `md_product_source.supplier_sku_norm`），命中时列表项带 `matched_codes` |
 | GET / PUT / DELETE | `/api/v1/products/:id` | `Product.Get` / `.Update` / `.Delete` | 同名方法；改 SKU 时旧 SKU 自动沉淀为一条编号（`source=sku`），新 SKU 不得等于其他产品用过的编号（409）；删除产品在同一事务里清掉它的编号，旧号可立即复用 |
 | POST | `/api/v1/products/:id/restore` | `Product.Restore` | 把软删标记写回 0；`?include_deleted=1` 的列表里能看到已删行。SKU 已被别的产品占用时 409，对未删除的记录调用是 400 |
+| GET / POST | `/api/v1/products/:id/images` | `ProductImage.List` / `.Upload` | 产品图片：一次最多 4 张（4×5MB 低于请求体上限）、单张 5MB、每产品 12 张；只收 JPG / PNG / WebP，扩展名与嗅探结果都要对上，`DecodeConfig` 挡解压炸弹并记下宽高；`sort_order` 最小的那张即主图。列表与详情由 `ProductService` 用一次 IN 查询整页回填 `primary_image`，不要在产品行上逐条查 |
+| PUT / DELETE | `/api/v1/products/:id/images/:imageId`、`PUT …/images/order`、`GET …/content?size=thumb` | `ProductImage.Replace` / `.Delete` / `.Reorder` / `.Content` | 替换保留位置与主图身份（换的是外观）；排序收**完整排列**，与库中集合不一致 409；删除是元数据软删 + 字节物理删除（图片不是凭证）；取图要 Authorization，响应带 `ETag`（sha256）与 304，缩略图统一 `image/jpeg` |
 | GET / POST | `/api/v1/product-codes` | `ProductCode.List` / `.Create` | 产品编号（旧 SKU / 客户物料号 / 供应商货号 / 工厂号）：`?product_id=` 必填；归一化后同产品重复 409、跨产品可共用；`code_norm` 由服务端算 |
 | DELETE | `/api/v1/product-codes/:id` | `ProductCode.Delete` | **硬删**：软删会让「删掉再加回来」撞唯一索引，而列表里又看不见那行 |
 | GET / POST | `/api/v1/partners` | `Partner.List(nil)` / `.Create(nil)` | `PartnerService.List` / `.Create` |

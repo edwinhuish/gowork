@@ -1,3 +1,4 @@
+import { PictureOutlined } from '@ant-design/icons'
 import { useInvalidate, type CrudFilters } from '@refinedev/core'
 import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
 import {
@@ -16,6 +17,7 @@ import {
 
 import { exportApi } from '@/api/exports'
 import { productApi } from '@/api/products'
+import { AuthedImage } from '@/components/authed-image'
 import { CategoryTag, Empty, Mono, Money, StatusTag } from '@/components/fields'
 import { CATEGORY_OPTIONS, ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Product } from '@/types'
@@ -118,7 +120,38 @@ export function ProductList() {
         </Form.Item>
       </Form>
 
-      <Table {...tableProps} rowKey="id" scroll={{ x: 1080 }}>
+      <Table {...tableProps} rowKey="id" scroll={{ x: 1150 }}>
+        {/* 主图缩略图：列表只显示顺序第一张，没有就留占位。
+            后端已经整页批量带出 primary_image，不会逐行再请求。 */}
+        <Table.Column
+          dataIndex="primary_image"
+          title="图片"
+          width={72}
+          render={(value: Product['primary_image'], record: Product) =>
+            value ? (
+              <AuthedImage
+                path={value.thumb_url}
+                alt={record.name_cn || record.sku_code}
+                style={{
+                  width: 48,
+                  height: 48,
+                  objectFit: 'cover',
+                  borderRadius: 6,
+                  display: 'block',
+                  background: '#fafafa',
+                }}
+              />
+            ) : (
+              <span
+                className="cell-sub"
+                title="未上传图片"
+                style={{ display: 'inline-block', fontSize: 20, lineHeight: 1 }}
+              >
+                <PictureOutlined />
+              </span>
+            )
+          }
+        />
         <Table.Column
           dataIndex="sku_code"
           title="SKU 编码"

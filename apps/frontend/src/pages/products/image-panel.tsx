@@ -372,16 +372,18 @@ export function ProductImagesPanel({ productId }: { productId: number }) {
         onCancel={() => setPreview(null)}
       >
         {preview ? (
-          <AuthedImage
-            path={preview.url}
-            alt={preview.file_name}
-            style={{ width: '100%', display: 'block', marginTop: 8 }}
-          />
+          <>
+            <AuthedImage
+              path={preview.url}
+              alt={preview.file_name}
+              style={{ width: '100%', display: 'block', marginTop: 8 }}
+            />
+            <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
+              <PictureOutlined /> {preview.width}×{preview.height} ·{' '}
+              {formatBytes(preview.size)} · 这是原图，列表里用的是缩略图
+            </Typography.Paragraph>
+          </>
         ) : null}
-        <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
-          <PictureOutlined /> {preview?.width}×{preview?.height} ·{' '}
-          {formatBytes(preview?.size ?? 0)} · 这是原图，列表里用的是缩略图
-        </Typography.Paragraph>
       </Modal>
     </Card>
   )

@@ -114,6 +114,7 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 中文 | 英文标识 | 表名 | 定义 |
 |---|---|---|---|
 | 产品货源 | `ProductSource` | `md_product_source` | 某产品在某供应商处的采购来源与货号、价格、交期。一个产品可有多个货源 |
+| 产品图片 | `ProductImage` | `md_product_image`（内容 `md_product_image_content`） | 产品的外观照片。**顺序第一张即主图**：主图不落独立字段，「设为主图」等于把它移到第一位，因此不存在「标记与顺序打架」。`sort_order` 决定先后，重排提交**完整排列**（集合不一致 409，说明列表已被他人改动）。元数据与字节分表，缩略图（最长边 400px JPEG）随上传生成；替换保留位置，删除是元数据软删 + 字节物理删除——图片不是凭证，这一点与附件刻意不同 |
 | 报价单 | `Quotation` | `biz_quotation`（明细 `biz_quotation_item`） | 向客户发出的价格方案，含贸易术语、币种、有效期与多轮版本 |
 | 销售订单 | `SalesOrder` | `biz_sales_order`（明细 `biz_sales_order_item`） | 客户下达的订单，含明细行；金额由明细汇总 |
 | 订单变更单 | `SalesOrderChange` | `biz_sales_order_change`（明细 `biz_sales_order_change_line`） | 已确认订单的改量 / 改价 / 改交期记录：原因、操作人、每行的前后值。**订单本身更新到新值**，变更单只留痕。单号由订单号派生（`{订单号}-CH{n}`），不单独发号。**不允许增删行**——出货分配与以销定采都按明细行 id 引用 |
