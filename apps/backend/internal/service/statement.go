@@ -141,11 +141,19 @@ func (s *statementService) Statement(
 	out.Credit = out.Credit.Round(4)
 	out.Closing = out.Opening.Add(out.Debit).Sub(out.Credit).Round(4)
 
-	// 按日期升序；同一天按单号排，保证两次调用顺序一致——
+	// 按日期升序；同一天先开票、再贷项、最后收款，单号兜底。
+	//
+	// 只按单号排的话，同一天的单据谁在前取决于单号首字母（PM- 排在 RC- 之前），
+	// 余额列于是先跳到 −400 再回到 600——客户看到"我什么时候欠你负四百"，
+	// 然后开始怀疑整张单子。单号兜底只是为了两次调用行序一致：
 	// 对账单是会发给客户的，每次打开行序都不一样会让人以为数据在变。
 	sort.SliceStable(out.Lines, func(i, j int) bool {
 		if out.Lines[i].DocDate != out.Lines[j].DocDate {
 			return out.Lines[i].DocDate < out.Lines[j].DocDate
+		}
+		ri, rj := statementKindRank(out.Lines[i].Kind), statementKindRank(out.Lines[j].Kind)
+		if ri != rj {
+			return ri < rj
 		}
 		return out.Lines[i].DocNo < out.Lines[j].DocNo
 	})
@@ -153,6 +161,22 @@ func (s *statementService) Statement(
 	s.log.Info("生成客户对账单", "partner_id", partner.ID, "currency", currency,
 		"lines", len(out.Lines), "closing", out.Closing)
 	return out, nil
+}
+
+// statementKindRank 是同日发生额的先后：先算账（开票），再冲减，最后收款。
+//
+// 这个顺序不是审美问题：余额列是逐行累加的，先收款后开票会让它中途变成负数。
+func statementKindRank(kind string) int {
+	switch kind {
+	case "receivable":
+		return 1
+	case "credit_note":
+		return 2
+	case "payment":
+		return 3
+	default:
+		return 4
+	}
 }
 
 // signedAmount 给一笔发生额定方向：应收为正，贷项与收款为负。
