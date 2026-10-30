@@ -46,6 +46,8 @@ interface StatusAction {
   next: number
   primary?: boolean
   danger?: boolean
+  /** 见 shipments/show.tsx：走了没回头路的动作才写，点了先弹一次确认。 */
+  confirm?: string
 }
 
 /**
@@ -68,12 +70,24 @@ function nextActions(status: number): StatusAction[] {
       ]
     case 30:
       return [
-        { label: '标记已出货', next: 40, primary: true },
+        {
+          label: '标记已出货',
+          next: 40,
+          primary: true,
+          confirm: '标了已出货就不能再取消订单：货已经在路上，取消只会让对账多出一个悬空单据。',
+        },
         { label: '取消订单', next: 90, danger: true },
       ]
     case 40:
       // 已出货之后不再允许取消：货已经在路上，取消只会让对账多出一个悬空单据。
-      return [{ label: '标记已完成', next: 50, primary: true }]
+      return [
+        {
+          label: '标记已完成',
+          next: 50,
+          primary: true,
+          confirm: '完成是终态：订单就此结束，之后不能再改状态。',
+        },
+      ]
     default:
       return []
   }
@@ -241,16 +255,24 @@ export function OrderShow() {
             </Tooltip>
           )}
           {actions.map((a) =>
-            a.danger ? (
+            a.danger || a.confirm ? (
               <Popconfirm
                 key={a.next}
-                title="取消这张订单？"
-                description="取消是终态。已排产或已备料时请先与工厂确认。"
-                okText="取消订单"
+                title={a.danger ? '取消这张订单？' : `${a.label}？`}
+                description={
+                  a.danger ? '取消是终态。已排产或已备料时请先与工厂确认。' : a.confirm
+                }
+                okText={a.danger ? '取消订单' : a.label}
                 cancelText="返回"
-                onConfirm={() => changeStatus(a.next, '订单已取消')}
+                onConfirm={() =>
+                  changeStatus(
+                    a.next,
+                    a.danger ? '订单已取消' : `订单已标记为${orderStatusLabel(a.next)}`,
+                    a.next === 20 && forceCredit,
+                  )
+                }
               >
-                <Button danger loading={acting}>
+                <Button danger={a.danger} type={a.primary ? 'primary' : 'default'} loading={acting}>
                   {a.label}
                 </Button>
               </Popconfirm>

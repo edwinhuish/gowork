@@ -23,6 +23,14 @@ interface StatusAction {
   next: number
   primary?: boolean
   danger?: boolean
+  /**
+   * 这一走了就没有回头路时才写：点了会先弹一次确认，内容就是这句后果说明。
+   *
+   * 不能只看 danger：取消是 danger 所以要确认，但「标记已出货」之后取消按钮
+   * 就没了（货已在路上，要冲只能走退货单）—— 它才是真正的单向门，却因为不是
+   * danger 而一直是单击直达。闸门该跟着"有没有回头路"走，不是跟着"危不危险"走。
+   */
+  confirm?: string
 }
 
 /**
@@ -45,11 +53,23 @@ function nextActions(status: number): StatusAction[] {
       ]
     case 30:
       return [
-        { label: '标记已出货', next: 40, primary: true },
+        {
+          label: '标记已出货',
+          next: 40,
+          primary: true,
+          confirm: '标了已出货就不能再取消：货算是在路上了，要冲只能走退货单。',
+        },
         { label: '取消', next: 90, danger: true },
       ]
     case 40:
-      return [{ label: '标记已完成', next: 50, primary: true }]
+      return [
+        {
+          label: '标记已完成',
+          next: 50,
+          primary: true,
+          confirm: '完成是终态：这票就此结束，之后不能再改状态。',
+        },
+      ]
     default:
       return []
   }
@@ -194,16 +214,25 @@ export function ShipmentShow() {
           )}
           {s?.status === 10 && <EditButton resource="shipments" recordItemId={s.id} />}
           {actions.map((a) =>
-            a.danger ? (
+            a.danger || a.confirm ? (
               <Popconfirm
                 key={a.next}
-                title="取消这张出货单？"
-                description="取消后这部分数量会还给对应的销售订单行，可以重新出货。"
-                okText="确认取消"
+                title={a.danger ? '取消这张出货单？' : `${a.label}？`}
+                description={
+                  a.danger
+                    ? '取消后这部分数量会还给对应的销售订单行，可以重新出货。'
+                    : a.confirm
+                }
+                okText={a.danger ? '确认取消' : a.label}
                 cancelText="返回"
-                onConfirm={() => changeStatus(a.next, '出货单已取消')}
+                onConfirm={() =>
+                  changeStatus(
+                    a.next,
+                    a.danger ? '出货单已取消' : `出货单已标记为${orderStatusLabel(a.next)}`,
+                  )
+                }
               >
-                <Button danger loading={acting}>
+                <Button danger={a.danger} type={a.primary ? 'primary' : 'default'} loading={acting}>
                   {a.label}
                 </Button>
               </Popconfirm>
