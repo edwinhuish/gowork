@@ -367,4 +367,130 @@ func runStorageSuite(t *testing.T, driver, dsn string) {
 			t.Fatalf("未核销金额应为 0.1，得到 %s", stored.Outstanding())
 		}
 	})
+
+	t.Run("库存仓库维度迁移回填", func(t *testing.T) {
+		// 这条迁移原先只在 sqlite 上跑过，而它里面有三种引擎各写各的写法：
+		// 分批回填的 `UPDATE ... WHERE id IN (...)`、游标分页、以及改唯一索引的 DDL。
+		// 「旧三列索引 → 新四列索引」那段只在 sqlite 上装回旧索引来验：
+		// 共享测试库里已经有数据，三列唯一索引未必建得起来，而那不是这条要验的东西。
+		if err := database.AutoMigrate(db,
+			&model.Warehouse{}, &model.StockMovement{}, &model.StockSnapshot{}); err != nil {
+			t.Fatalf("迁移库存表失败: %v", err)
+		}
+
+		wh := &model.Warehouse{
+			Code: "WH-" + mark, Name: "测试默认仓",
+			IsDefault: true, Status: model.EnableStatusOn,
+		}
+		if err := db.Create(wh).Error; err != nil {
+			t.Fatalf("建默认仓: %v", err)
+		}
+		other := &model.Product{
+			SKUCode: mark + "-WH", NameCN: "迁移测试件",
+			Unit: "PCS", Status: model.EnableStatusOn, SupplierID: &supplier.ID,
+		}
+		if err := repo.Create(ctx, other); err != nil {
+			t.Fatalf("创建产品: %v", err)
+		}
+		productIDs := []uint{products[0].ID, other.ID}
+		t.Cleanup(func() {
+			_ = db.Unscoped().Where("product_id IN ?", productIDs).
+				Delete(&model.StockMovement{}, &model.StockSnapshot{}).Error
+			_ = db.Unscoped().Where("id = ?", wh.ID).Delete(&model.Warehouse{}).Error
+		})
+
+		// 迁移按「is_default 且启用、id 最小」挑仓库：共享库里可能已经有一条，
+		// 所以断言的对象是它挑中的那条，而不是本测试新建的这条。
+		var defaultIDs []uint
+		if err := db.Model(&model.Warehouse{}).
+			Where("is_default = ? AND status = ?", true, model.EnableStatusOn).
+			Order("id ASC").Limit(1).Pluck("id", &defaultIDs).Error; err != nil {
+			t.Fatalf("查默认仓: %v", err)
+		}
+		if len(defaultIDs) == 0 {
+			t.Fatal("库里没有默认仓")
+		}
+		defaultID := defaultIDs[0]
+
+		moves := make([]model.StockMovement, 0, 5)
+		for i := 0; i < 5; i++ {
+			moves = append(moves, model.StockMovement{
+				DocNo:      fmt.Sprintf("MV-%s-%d", mark, i),
+				ProductID:  products[0].ID,
+				SKUCode:    products[0].SKUCode,
+				Type:       model.StockMovementPurchase,
+				Direction:  model.StockDirectionIn,
+				Qty:        money.FromInt(1),
+				OccurredAt: model.DateOnly(time.Now()),
+			})
+		}
+		if err := db.Create(&moves).Error; err != nil {
+			t.Fatalf("建存量流水: %v", err)
+		}
+		snaps := []model.StockSnapshot{
+			{ProductID: productIDs[0], Qty: money.FromInt(1)},
+			{ProductID: productIDs[1], Qty: money.FromInt(2)},
+		}
+		if err := db.Create(&snaps).Error; err != nil {
+			t.Fatalf("建存量快照: %v", err)
+		}
+
+		log, _ := captureLog()
+		if err := MigrateStockWarehouse(ctx, db, log); err != nil {
+			t.Fatalf("迁移失败: %v", err)
+		}
+
+		var left int64
+		if err := db.Model(&model.StockMovement{}).
+			Where("warehouse_id = 0 AND doc_no LIKE ?", "MV-"+mark+"%").Count(&left).Error; err != nil {
+			t.Fatalf("统计未回填流水: %v", err)
+		}
+		if left != 0 {
+			t.Fatalf("还有 %d 条流水没回填", left)
+		}
+		for _, s := range snaps {
+			var got model.StockSnapshot
+			if err := db.First(&got, s.ID).Error; err != nil {
+				t.Fatalf("读回快照: %v", err)
+			}
+			if got.WarehouseID != defaultID {
+				t.Fatalf("快照应回填到默认仓 %d，实际 %d", defaultID, got.WarehouseID)
+			}
+		}
+
+		// 索引必须是四列：写入侧的 ON CONFLICT 靠它，而这个索引在三种库上
+		// 由 gorm 的 migrator 生成，列没对上就得当场发现。
+		indexes, err := db.Migrator().GetIndexes(&model.StockSnapshot{})
+		if err != nil {
+			t.Fatalf("读索引: %v", err)
+		}
+		hasWarehouse := false
+		for _, ix := range indexes {
+			if ix.Name() != "uni_stock_snapshot_product" {
+				continue
+			}
+			for _, col := range ix.Columns() {
+				if col == "warehouse_id" {
+					hasWarehouse = true
+				}
+			}
+		}
+		if !hasWarehouse {
+			t.Fatalf("快照唯一索引不含 warehouse_id：%+v", indexes)
+		}
+
+		// 幂等：仓库已经回落成默认仓，再跑一次不该报错，也不该改数。
+		if err := MigrateStockWarehouse(ctx, db, log); err != nil {
+			t.Fatalf("二次迁移失败（应幂等）: %v", err)
+		}
+		for _, s := range snaps {
+			var got model.StockSnapshot
+			if err := db.First(&got, s.ID).Error; err != nil {
+				t.Fatalf("二次迁移后读回快照: %v", err)
+			}
+			if got.WarehouseID != defaultID {
+				t.Fatalf("二次迁移不该改仓库，实际 %d", got.WarehouseID)
+			}
+		}
+	})
 }
