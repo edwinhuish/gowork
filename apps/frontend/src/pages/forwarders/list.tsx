@@ -1,6 +1,6 @@
-import type { CrudFilters } from '@refinedev/core'
+import { useNavigation, type CrudFilters } from '@refinedev/core'
 import { CreateButton, List, useTable } from '@refinedev/antd'
-import { Button, Form, Input, Select, Space, Table } from 'antd'
+import { Button, Form, Input, Select, Space, Table, Typography } from 'antd'
 
 import { Empty, EntityTypeTag, Mono, RoleTag, StatusTag } from '@/components/fields'
 import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
@@ -18,6 +18,7 @@ interface ForwarderSearch {
  * 顺手帮我们订舱），行上不标出来会让人以为串了数据。
  */
 export function ForwarderList() {
+  const { show } = useNavigation()
   const { tableProps, searchFormProps } = useTable<Partner>({
     resource: 'forwarders',
     syncWithLocation: true,
@@ -68,7 +69,11 @@ export function ForwarderList() {
         <Table.Column
           dataIndex="name"
           title="名称"
-          render={(value: string) => <span className="cell-strong">{value}</span>}
+          render={(value: string, record: Partner) => (
+            <Typography.Link onClick={() => show('forwarders', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          )}
         />
         <Table.Column
           dataIndex="role"

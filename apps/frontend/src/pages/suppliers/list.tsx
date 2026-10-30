@@ -1,4 +1,4 @@
-import { useInvalidate, type CrudFilters } from '@refinedev/core'
+import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
 import {
   Button,
@@ -11,6 +11,7 @@ import {
   Space,
   Table,
   Tag,
+  Typography,
 } from 'antd'
 
 import { partnerApi } from '@/api/partners'
@@ -47,6 +48,7 @@ export function SupplierList() {
   })
 
   const invalidate = useInvalidate()
+  const { show } = useNavigation()
 
   const restore = async (record: Partner) => {
     try {
@@ -97,10 +99,15 @@ export function SupplierList() {
             </Space>
           )}
         />
+        {/* 名称即入口：货源、附件与合并都在详情页，列表不给链接就只能手敲 URL。 */}
         <Table.Column
           dataIndex="name"
           title="名称"
-          render={(value: string) => <span className="cell-strong">{value}</span>}
+          render={(value: string, record: Partner) => (
+            <Typography.Link onClick={() => show('suppliers', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          )}
         />
         {/* 供应商与客户已合并为同一张表，这里会混进「客供两用」的主体。
             角色列把它标出来，免得运营以为是分录错了。 */}

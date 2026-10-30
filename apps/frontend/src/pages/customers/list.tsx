@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useInvalidate, type CrudFilters } from '@refinedev/core'
+import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { PartnerImportModal } from './import-modal'
 import { CreateButton, DeleteButton, List, useTable } from '@refinedev/antd'
 import {
@@ -14,6 +14,7 @@ import {
   Table,
   Tag,
   Tooltip,
+  Typography,
 } from 'antd'
 
 import { exportApi } from '@/api/exports'
@@ -83,6 +84,7 @@ export function CustomerList() {
   })
 
   const invalidate = useInvalidate()
+  const { show } = useNavigation()
   const [importOpen, setImportOpen] = useState(false)
 
   const restore = async (record: Partner) => {
@@ -164,10 +166,16 @@ export function CustomerList() {
             </Space>
           )}
         />
+        {/* 名称是进详情页的入口：客户 360、附件、合并、转移负责人都在详情里，
+            列表上不给这个链接，等于这些能力只能靠手敲 URL。 */}
         <Table.Column
           dataIndex="name"
           title="名称"
-          render={(value: string) => <span className="cell-strong">{value}</span>}
+          render={(value: string, record: Partner) => (
+            <Typography.Link onClick={() => show('customers', record.id)}>
+              <span className="cell-strong">{value}</span>
+            </Typography.Link>
+          )}
         />
         {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
         <Table.Column

@@ -9,6 +9,7 @@ import { formatTime } from '@/utils/format'
 
 import { CodePanel } from './code-panel'
 import { ProductImagesPanel } from './image-panel'
+import { ProfitPanel } from './profit-panel'
 import { SourcesPanel } from './source-panel'
 
 /**
@@ -100,6 +101,9 @@ export function ProductShow() {
 
       {/* 货源是产品的子表：报价成本从这里取，产品页上没有它就等于成本只能手填。 */}
       {result?.id ? <SourcesPanel productId={result.id} /> : null}
+
+      {/* 卖它赚不赚钱、赚在哪几票：只讲「这件货是什么」的产品页回答不了这个问题。 */}
+      {result?.id ? <ProfitPanel productId={result.id} /> : null}
 
       {/* 图纸、规格书、检测报告这类跟着产品走的文件：它们多年不变，
           挂在产品上比挂在某张订单上更容易找到——找的是"这件货长什么样"。 */}
