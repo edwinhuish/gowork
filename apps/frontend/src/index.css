@@ -4,10 +4,11 @@
  * 改造前这里有 525 行：布局、侧栏、按钮、表格、表单、分页、弹窗全部手写。
  * 引入 antd 后这些都由组件库 + theme.ts 的设计 token 统一接管，
  * 本文件只保留三类东西：
- *   1 antd 覆盖不到的结构性布局（品牌块、表单网格、登录页背景）
+ *   1 antd 覆盖不到的结构性布局（品牌块、页头、工作台网格、单据链、登录页背景）
  *   2 表格单元格里的排版语义（等宽、次要说明、空值）
  *   3 少量响应式断点
- * 颜色一律不在这里写死，统一来自 theme.ts，避免又出现两套色值。
+ * 颜色引用 --ant-* 变量（theme.ts 开了 cssVar），只有极少数深色侧栏的淡色值留了
+ * 字面量兜底 —— 新加颜色请先加到 theme.ts 的 brand，不要在这里再造一套。
  */
 
 body {
@@ -15,9 +16,18 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ---------- 侧栏品牌 ---------- */
+/* ---------- 卡片与层级 ---------- */
+
+/* antd 的 borderless 卡片本身既无边框也无阴影，铺在浅灰底上会"糊"进背景。
+   统一给一层极浅浮起，列表页与详情页才有一致的层次。 */
+.ant-card:not(.ant-card-inner) {
+  box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
+}
+
+/* 侧栏品牌 ---------- */
 
 .brand {
   display: flex;
@@ -35,18 +45,19 @@ body {
   height: 28px;
   flex: 0 0 28px;
   border-radius: 8px;
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--ant-color-primary, #2563eb), #4f7cf7);
   color: #fff;
   font-weight: 700;
   font-size: 15px;
   line-height: 1;
+  box-shadow: 0 2px 6px rgb(37 99 235 / 35%);
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
   line-height: 1.2;
-  color: #e8eefc;
+  color: var(--ant-color-text, #1c2532);
   font-weight: 600;
   font-size: 15px;
   letter-spacing: 0.2px;
@@ -55,12 +66,49 @@ body {
 /* 副标题标出双域定位，字号压到能看清但不抢主标题。 */
 .brand-sub {
   margin-top: 3px;
-  color: #7d8ea6;
+  color: var(--ant-color-text-tertiary, #98a3b3);
   font-size: 10px;
   font-style: normal;
   font-weight: 500;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+}
+
+/* ThemedSider 用内联样式把侧栏右边框写成了 colorBgElevated（= 白），在白底上看不见。
+   box-shadow 不冲突内联样式，用它补一条与全站一致的分隔线。 */
+.ant-layout-sider {
+  box-shadow: 1px 0 0 var(--ant-color-border-secondary, #e3e8f0);
+}
+
+/* 分组标题（SubMenu 的一级标题）比可点的子项弱一档：它只是分隔，不是入口。 */
+.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title {
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title .anticon {
+  font-size: 14px;
+}
+
+.ant-layout-sider .ant-menu-sub .ant-menu-item {
+  font-size: 13.5px;
+}
+
+/* 菜单项多（30 条），细滚动条比默认的宽滚动条更不抢位置。 */
+.ant-layout-sider .ant-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(28 37 50 / 14%) transparent;
+}
+
+.ant-layout-sider .ant-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ant-layout-sider .ant-menu::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgb(28 37 50 / 14%);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -69,7 +117,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid #e3e8f0;
+  border-bottom: 1px solid var(--ant-color-border-secondary, #e3e8f0);
 }
 
 .app-header-spacer {
@@ -84,14 +132,80 @@ body {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #1c2532;
+  color: var(--ant-color-text, #1c2532);
   font-size: 13.5px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .app-user:hover {
-  background: #f1f5fb;
+  background: var(--ant-color-fill-tertiary, #f4f6fa);
+}
+
+/* 顶栏上的待办入口：有到期事项时才有数字，没数字时只是一个图标。 */
+.app-header-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ant-color-text-secondary, #6b7788);
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.app-header-action:hover {
+  background: var(--ant-color-fill-tertiary, #f4f6fa);
+  color: var(--ant-color-primary, #2563eb);
+}
+
+/* ---------- 页头 ---------- */
+
+/* refine 的 List / Show 自带标题区，但标题下方没有"这是什么"的一句话。
+   页头把「标题 + 口径说明 + 右侧动作」收成一条，所有页面用同一个节奏。 */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.page-head-text {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.page-head-title {
+  margin: 0;
+  color: var(--ant-color-text, #1c2532);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.page-head-desc {
+  margin: 0;
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.page-head-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ---------- 列表页筛选条 ---------- */
@@ -99,13 +213,25 @@ body {
 .list-filters {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
   border-radius: 10px;
-  background: #fff;
+  background: var(--ant-color-bg-container, #fff);
 }
 
 .list-filters .ant-form-item {
   margin-bottom: 0;
+  margin-inline-end: 12px;
+}
+
+/* 筛选条在小屏上会挤成一条横线，改成逐项换行。 */
+@media (max-width: 960px) {
+  .list-filters {
+    row-gap: 10px;
+  }
+
+  .list-filters .ant-form-item {
+    margin-bottom: 8px;
+  }
 }
 
 /* ---------- 表单 ---------- */
@@ -149,7 +275,7 @@ body {
 }
 
 .cell-sub {
-  color: #6b7788;
+  color: var(--ant-color-text-secondary, #6b7788);
   font-size: 12.5px;
 }
 
@@ -160,15 +286,241 @@ body {
 }
 
 .cell-empty {
-  color: #b6bfcc;
+  color: var(--ant-color-text-quaternary, #b6bfcc);
 }
 
-/* ---------- 概览 ---------- */
+/* 表格里的可点实体（单号、客户名）：默认是文字色，hover 才变主色，
+   否则整张表全是蓝字，反而看不出哪个是重点。 */
+.cell-link {
+  color: var(--ant-color-text, #1c2532);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.cell-link:hover {
+  color: var(--ant-color-primary, #2563eb);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- 概览 / 工作台 ---------- */
+
+.stat-card {
+  height: 100%;
+}
 
 .stat-card .stat-hint {
   display: block;
   margin-top: 6px;
   font-size: 12.5px;
+}
+
+/* 统计卡抬头：左侧一条 3px 主色条 + 右上角图标块，扫一眼就知道这是哪类数。 */
+.stat-card .ant-statistic-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: var(--ant-color-primary-bg, #eff4ff);
+  color: var(--ant-color-primary, #2563eb);
+  font-size: 16px;
+}
+
+/* 工作台是 12 栅格的手工版：宽屏两块主体并排，窄屏逐块堆叠。 */
+.workbench {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.workbench > .span-4 {
+  grid-column: span 4;
+}
+
+.workbench > .span-5 {
+  grid-column: span 5;
+}
+
+.workbench > .span-6 {
+  grid-column: span 6;
+}
+
+.workbench > .span-7 {
+  grid-column: span 7;
+}
+
+.workbench > .span-8 {
+  grid-column: span 8;
+}
+
+.workbench > .span-12 {
+  grid-column: span 12;
+}
+
+@media (max-width: 1200px) {
+  .workbench > .span-4,
+  .workbench > .span-5,
+  .workbench > .span-6,
+  .workbench > .span-7,
+  .workbench > .span-8 {
+    grid-column: span 12;
+  }
+}
+
+/* 快捷入口：一行四到六个，图标 + 一句话，比侧栏里翻分组快。 */
+.quick-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+}
+
+.quick-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+  border-radius: 10px;
+  background: var(--ant-color-bg-container, #fff);
+  color: var(--ant-color-text, #1c2532);
+  cursor: pointer;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    transform 0.18s;
+}
+
+.quick-card:hover {
+  border-color: var(--ant-color-primary, #2563eb);
+  box-shadow: 0 4px 14px rgb(37 99 235 / 12%);
+  transform: translateY(-1px);
+}
+
+.quick-card-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 9px;
+  background: var(--ant-color-primary-bg, #eff4ff);
+  color: var(--ant-color-primary, #2563eb);
+  font-size: 15px;
+}
+
+.quick-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.quick-card-title {
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.quick-card-sub {
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12px;
+}
+
+/* ---------- 单据链 ---------- */
+
+/* 报价 → 合同 → 订单 → 出货 → 应收 → 收款。
+   每一环是一个可点的节点：已完成的实心、当前环节描边高亮、未到的置灰。 */
+.doc-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.doc-chain-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+  border-radius: 999px;
+  background: var(--ant-color-bg-container, #fff);
+  color: var(--ant-color-text-secondary, #6b7788);
+  font-size: 12.5px;
+  line-height: 1.6;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.doc-chain-node.is-done {
+  border-color: var(--ant-color-primary-border, #adc6ff);
+  background: var(--ant-color-primary-bg, #eff4ff);
+  color: var(--ant-color-primary, #2563eb);
+}
+
+.doc-chain-node.is-current {
+  border-color: var(--ant-color-primary, #2563eb);
+  color: var(--ant-color-primary, #2563eb);
+  font-weight: 600;
+}
+
+.doc-chain-node.is-clickable {
+  cursor: pointer;
+}
+
+.doc-chain-node.is-clickable:hover {
+  border-color: var(--ant-color-primary, #2563eb);
+  color: var(--ant-color-primary, #2563eb);
+}
+
+.doc-chain-node.is-pending {
+  border-style: dashed;
+  color: var(--ant-color-text-tertiary, #98a3b3);
+}
+
+.doc-chain-arrow {
+  color: var(--ant-color-text-quaternary, #b6bfcc);
+  font-size: 11px;
+}
+
+/* ---------- 空态引导 ---------- */
+
+/* 空列表不是错误，缺的是一个下一步动作。统一的空态块：一句话 + 一个按钮。 */
+.empty-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.empty-guide-title {
+  color: var(--ant-color-text, #1c2532);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.empty-guide-desc {
+  max-width: 460px;
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12.5px;
+  line-height: 1.7;
 }
 
 /* ---------- 登录页 ---------- */
@@ -181,7 +533,7 @@ body {
   background:
     radial-gradient(900px 480px at 15% 0%, #e6eeff 0%, transparent 62%),
     radial-gradient(700px 420px at 100% 100%, #eef2ff 0%, transparent 58%),
-    #f4f6fa;
+    var(--ant-color-bg-layout, #f4f6fa);
 }
 
 .login-card {
@@ -207,7 +559,7 @@ body {
 
 .login-hint {
   margin-top: 18px;
-  color: #8a94a6;
+  color: var(--ant-color-text-tertiary, #98a3b3);
   font-size: 12.5px;
   text-align: center;
 }

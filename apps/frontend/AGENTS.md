@@ -309,7 +309,7 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | `useSelect` 解构 `selectProps` 得到 undefined | v5 移除了 `selectProps`，直接返回 `options` | 自己接 `options` + `loading` + `filterOption` |
 | 下拉里永远只有十几条选项 | `useSelect` 没配 `pagination: { mode: 'off' }`，或 dataProvider 没把 off 翻译成一次取满 | 见 `dataProvider.buildListQuery`：off → `page_size=200` |
 | 筛选条件填了但结果没变 | filter 的 field 不在 dataProvider 白名单里，被丢弃 | 后端加参数时同步 `PASSTHROUGH_FILTERS` |
-| 侧边栏菜单文字在深色底上看不清 | 只设了 `Menu.itemSelectedBg`，没设 `darkItem*` | 深色 sider 必须配 `Menu.darkItemBg/darkItemColor/darkItemSelectedBg` |
+| 配了 `Menu.darkItem*` 却一点变化都没有 | `@refinedev/antd` 的 `ThemedSider` 把 `backgroundColor: token.colorBgElevated` 内联写进 `Layout.Sider`，`Menu` 也没传 `theme="dark"`，所以侧栏实际是白底 | 侧栏定为**浅色**（token 见 `theme.ts`）；真要深色得自己实现 Sider 组件，不要在 token 里配 `darkItem*` 骗自己 |
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；检查后端 `cache.memory.persist` |
 | 续期在生产不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 暴露 | 见后端 `AGENTS.md`「令牌续期」；开发期同源复现不出来 |
 | 每个页面跳转都多一次 `/auth/profile` | `authProvider.check` 里的 identity 缓存被清掉了 | 检查 `login` / `check` / `onError` 三处对 `identity` 的赋值 |
