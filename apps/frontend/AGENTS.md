@@ -199,10 +199,13 @@ api/client.ts
 
 | 位置 | 关键点 | 改动注意 |
 |---|---|---|
-| `theme.ts` | 颜色、圆角、组件级 token 的唯一来源 | 不要在组件里写死颜色；新增色先加进 `brand` |
+| `theme.ts` | 颜色、圆角、组件级 token 的唯一来源 | 不要在组件里写死颜色；新增色先加进 `brand`。改色号前按 WCAG 正文 4.5:1 校一遍——口径说明、未填占位都是 12.5px 的正文，"次要"不等于"看不清" |
+| `index.css` 的 `--gap-*` / `--pad-block` | 结构性间距的密度标尺 | 新加结构间距引用这些别名，不要再写一条 `[data-density='compact']` 覆写；表单项下边距归 `theme.ts` 的 `formItemGap`，不要两边都写 |
 | `providers/dataProvider.ts` | 分页与筛选翻译、白名单 | 后端加查询参数时同步 `PASSTHROUGH_FILTERS` |
 | `providers/authProvider.ts` | 登录/登出/check/onError/identity | `check` 里别再直接打接口，先看 identity 缓存 |
 | `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render |
+| `components/page/page-list.tsx` | 列表页外壳：筛选条 + 表格 + 分页 + 空态，**窄屏自动降级成卡片** | 页面只给「哪些筛选项、哪些列」；`scrollX` 不传按内容自适应，别各页手写宽度 |
+| `components/page/record-cards.tsx` | 窄屏的通用卡片视图 + 从 `<Table.Column>` 读列定义（`collectCardColumns`） | 卡片内容由列定义推导，不要为某个模块再写一套卡片；推导不出来会退回表格，不会白屏 |
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
 | `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
@@ -272,6 +275,10 @@ pages/xxx/
   所以筛选、排序、页码天然保留。各自建一套 `useTable` 会变成"切一次重新请求一次"。
 - **视图存在两处**：URL 的 `?view=card` 优先（发链接能看到同一屏），其次是
   `localStorage`（个人习惯），都没有才用默认。优先级写在 hook 里，页面不要自己读。
+
+  **窄屏（< 768px）强制卡片**，压过上面三个来源。hook 额外返回 `narrow`，
+  页面用它把 `Segmented` 藏起来 —— 一个点了没反应的开关比没有开关更让人困惑。
+  强制只在渲染层生效，不改 URL 也不改 localStorage，窗口拉宽后原来选的视图还在。
 - **卡片视图要自己渲染分页**：`Table` 自带的分页条在卡片模式下根本不存在，
   用 `tableProps.pagination` 转成 `<Pagination>`。滚动位置由 hook 在切换后按新的
   文档高度夹一次，不这么做会停在空白处（卡片比表格矮的时候）。
