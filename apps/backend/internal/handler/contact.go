@@ -76,6 +76,20 @@ func (h *ContactHandler) Update(c *gin.Context) {
 	response.OK(c, m)
 }
 
+// Restore PUT /api/v1/contacts/:id/restore
+func (h *ContactHandler) Restore(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	m, err := h.contacts.Restore(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, m)
+}
+
 // Delete DELETE /api/v1/contacts/:id
 func (h *ContactHandler) Delete(c *gin.Context) {
 	id, ok := parseID(c)

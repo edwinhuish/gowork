@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"gorm.io/gorm"
@@ -155,5 +156,61 @@ func TestContactDeleteLeavesNoImplicitPrimary(t *testing.T) {
 	}
 	if got := f.primaries(t, partnerID); len(got) != 0 {
 		t.Errorf("不该自动把「乙」提为主联系人，得到 %v", got)
+	}
+}
+
+// 删除不是终点：恢复回来的人带着原来的主联系人身份，
+// 谁是对接人始终由业务决定，增删两边都不替它改选。
+func TestContactRestoreKeepsPrimaryFlag(t *testing.T) {
+	f := newContactFixture(t)
+	ctx := context.Background()
+	partnerID := f.addPartner(t, "CUS001")
+
+	yes := true
+	primary, err := f.svc.Create(ctx, dto.ContactInput{
+		PartnerID: partnerID, Name: "甲", IsPrimary: &yes,
+	})
+	if err != nil {
+		t.Fatalf("建联系人失败: %v", err)
+	}
+	if err := f.svc.Delete(ctx, primary.ID); err != nil {
+		t.Fatalf("删除联系人失败: %v", err)
+	}
+	if _, err := f.svc.Get(ctx, primary.ID); !errors.Is(err, errs.ErrNotFound) {
+		t.Errorf("删掉的联系人 Get 应 404，得到 %v", err)
+	}
+
+	restored, err := f.svc.Restore(ctx, primary.ID)
+	if err != nil {
+		t.Fatalf("恢复联系人失败: %v", err)
+	}
+	if !restored.IsPrimary {
+		t.Error("恢复之后仍是主联系人：删时不改选，回来也不该改")
+	}
+
+	// 恢复一条没删过的要报错——否则这个接口就成了"点了没反应"。
+	page, err := f.svc.List(ctx, dto.ContactQuery{PartnerID: &partnerID})
+	if err != nil {
+		t.Fatalf("列表失败: %v", err)
+	}
+	if len(page.List) != 1 {
+		t.Errorf("恢复后应只剩这一条，得到 %d 条", len(page.List))
+	}
+	if _, err := f.svc.Restore(ctx, primary.ID); err == nil {
+		t.Error("恢复未被删除的联系人应报错")
+	}
+
+	// 已删除的行要能在「含已删除」里查出来，否则界面上无从点恢复。
+	if err := f.svc.Delete(ctx, primary.ID); err != nil {
+		t.Fatalf("再次删除失败: %v", err)
+	}
+	withDeleted, err := f.svc.List(ctx, dto.ContactQuery{
+		PartnerID: &partnerID, IncludeDeleted: true,
+	})
+	if err != nil {
+		t.Fatalf("含已删除列表失败: %v", err)
+	}
+	if len(withDeleted.List) != 1 {
+		t.Errorf("含已删除时应查得到这条，得到 %d 条", len(withDeleted.List))
 	}
 }

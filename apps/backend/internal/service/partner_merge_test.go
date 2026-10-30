@@ -91,7 +91,7 @@ func TestPartnerMerge(t *testing.T) {
 	// 这里要验的只是"合并有没有漏表"。
 	contact := &model.Contact{
 		PartnerID: source.ID, Name: "Carlos",
-		IsPrimary: true, Status: model.EnableStatusOn,
+		IsPrimary: true,
 	}
 	mustCreate(t, f.db, contact)
 	activity := &model.Activity{
@@ -207,9 +207,9 @@ func TestPartnerMergeDemotesPrimaryContact(t *testing.T) {
 		t.Fatalf("新建失败: %v", err)
 	}
 
-	keep := &model.Contact{PartnerID: survivor.ID, Name: "老板", IsPrimary: true, Status: model.EnableStatusOn}
+	keep := &model.Contact{PartnerID: survivor.ID, Name: "老板", IsPrimary: true}
 	mustCreate(t, f.db, keep)
-	demoted := &model.Contact{PartnerID: source.ID, Name: "采购", IsPrimary: true, Status: model.EnableStatusOn}
+	demoted := &model.Contact{PartnerID: source.ID, Name: "采购", IsPrimary: true}
 	mustCreate(t, f.db, demoted)
 
 	if _, err := f.svc.Merge(ctx, survivor.ID, dto.PartnerMergeInput{SourceID: source.ID}); err != nil {

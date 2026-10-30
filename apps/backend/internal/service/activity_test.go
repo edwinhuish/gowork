@@ -47,7 +47,7 @@ func (f activityFixture) addPartner(t *testing.T, code string) uint {
 
 func (f activityFixture) addContact(t *testing.T, partnerID uint, name string) uint {
 	t.Helper()
-	c := &model.Contact{PartnerID: partnerID, Name: name, Status: model.EnableStatusOn}
+	c := &model.Contact{PartnerID: partnerID, Name: name}
 	if err := f.db.Create(c).Error; err != nil {
 		t.Fatalf("建联系人失败: %v", err)
 	}

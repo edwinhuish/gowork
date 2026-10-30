@@ -15,11 +15,15 @@ import (
 type ContactFilter struct {
 	Keyword   string
 	PartnerID *uint
-	Status    *model.EnableStatus
+	// IncludeDeleted 把已软删的联系人也查出来：恢复的第一步是先能看见它。
+	IncludeDeleted bool
 }
 
 func (f ContactFilter) scopes() []Scope {
 	scopes := make([]Scope, 0, 3)
+	if f.IncludeDeleted {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
+	}
 	if f.Keyword != "" {
 		scopes = append(scopes, likeAny(f.Keyword, "name", "phone", "email", "title"))
 	}
@@ -29,12 +33,6 @@ func (f ContactFilter) scopes() []Scope {
 			return db.Where("partner_id = ?", pid)
 		})
 	}
-	if f.Status != nil {
-		st := *f.Status
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", st)
-		})
-	}
 	return scopes
 }
 
@@ -42,7 +40,10 @@ type ContactRepository interface {
 	Create(ctx context.Context, m *model.Contact) error
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) error
 	FindByID(ctx context.Context, id uint) (*model.Contact, error)
+	// FindByIDIncludingDeleted 是恢复路径专用：常规查询看不见已删除的行。
+	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.Contact, error)
 	List(ctx context.Context, f ContactFilter, p Pagination) ([]model.Contact, int64, error)
 	CountByPartnerID(ctx context.Context, partnerID uint) (int64, error)
 	// SetPrimary 在事务里把某个联系人设为主联系人：先清掉同主体下的旧主联系人。
@@ -69,6 +70,16 @@ func (r *contactRepo) Delete(ctx context.Context, id uint) error {
 	return r.Base.DeleteByID(ctx, id)
 }
 
+func (r *contactRepo) Restore(ctx context.Context, id uint) error {
+	err := r.conn(ctx).Unscoped().Model(&model.Contact{}).
+		Where("id = ?", id).
+		Update("deleted_at", 0).Error
+	if err != nil {
+		return fmt.Errorf("恢复联系人 id=%d: %w", id, err)
+	}
+	return nil
+}
+
 // FindByID 带出主体，详情页与列表都要显示"这个人是哪家的"。
 func (r *contactRepo) FindByID(ctx context.Context, id uint) (*model.Contact, error) {
 	var m model.Contact
@@ -78,6 +89,20 @@ func (r *contactRepo) FindByID(ctx context.Context, id uint) (*model.Contact, er
 	}
 	if err != nil {
 		return nil, fmt.Errorf("查询联系人 id=%d: %w", id, err)
+	}
+	return &m, nil
+}
+
+func (r *contactRepo) FindByIDIncludingDeleted(
+	ctx context.Context, id uint,
+) (*model.Contact, error) {
+	var m model.Contact
+	err := r.conn(ctx).Unscoped().Preload("Partner").First(&m, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询联系人 id=%d（含已删除）: %w", id, err)
 	}
 	return &m, nil
 }

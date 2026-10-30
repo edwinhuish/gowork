@@ -21,10 +21,8 @@ type Contact struct {
 	// Channel 偏好联系渠道（WhatsApp / 微信 / 邮件 / 电话）。发错渠道等于没联系。
 	Channel string `gorm:"size:32" json:"channel"`
 	// IsPrimary 主联系人，一个主体最多一个，由 service 在事务里保证。
-	IsPrimary bool `gorm:"not null;default:false;index" json:"is_primary"`
-	// Status 同其它主数据：不写 default tag，避免"显式停用"被静默存成启用。
-	Status EnableStatus `gorm:"not null;index" json:"status"`
-	Remark string       `gorm:"size:255" json:"remark"`
+	IsPrimary bool   `gorm:"not null;default:false;index" json:"is_primary"`
+	Remark    string `gorm:"size:255" json:"remark"`
 
 	Partner *Partner `gorm:"foreignKey:PartnerID" json:"partner,omitempty"`
 }

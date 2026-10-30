@@ -218,8 +218,9 @@ export interface Contact {
   /** 偏好联系渠道：发错渠道等于没联系。 */
   channel: string
   is_primary: boolean
-  status: number
   remark: string
+  /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
+  deleted_at?: number
   partner?: Partner | null
   created_at: string
   updated_at: string

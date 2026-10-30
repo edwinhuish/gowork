@@ -269,6 +269,7 @@ func New(
 		contacts.GET("/:id", h.Contact.Get)
 		contacts.PUT("/:id", h.Contact.Update)
 		contacts.DELETE("/:id", h.Contact.Delete)
+		contacts.PUT("/:id/restore", h.Contact.Restore)
 
 		// 跟进记录：时间线按 occurred_at 倒序，?due=1 查已到期未跟进。
 		activities := secured.Group("/activities")

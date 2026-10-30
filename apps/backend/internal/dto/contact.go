@@ -7,7 +7,8 @@ package dto
 type ContactQuery struct {
 	PageQuery
 	PartnerID *uint `form:"partner_id"`
-	Status    *int8 `form:"status"`
+	// IncludeDeleted 把已软删的联系人一并列出，这些行只能做一件事：恢复。
+	IncludeDeleted bool `form:"include_deleted"`
 }
 
 // ContactInput 新建与编辑共用。
@@ -24,7 +25,6 @@ type ContactInput struct {
 	Language  string `json:"language" binding:"max=32"`
 	Channel   string `json:"channel" binding:"max=32"`
 	// IsPrimary 用指针：nil 表示"这次不改主联系人身份"，与主体上的 role 同一套规则。
-	IsPrimary *bool             `json:"is_primary"`
-	Status    EnableStatusInput `json:"status"`
-	Remark    string            `json:"remark" binding:"max=255"`
+	IsPrimary *bool  `json:"is_primary"`
+	Remark    string `json:"remark" binding:"max=255"`
 }

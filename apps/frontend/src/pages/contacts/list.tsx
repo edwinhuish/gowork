@@ -1,17 +1,18 @@
-import type { CrudFilters } from '@refinedev/core'
-import { useSelect } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
-import { Form, Input, Select, Space, Table, Tag } from 'antd'
+import { useEffect, useState } from 'react'
 
-import { Empty, Mono, StatusTag } from '@/components/fields'
+import type { CrudFilters, BaseRecord } from '@refinedev/core'
+import { useInvalidate, useSelect } from '@refinedev/core'
+import { useTable } from '@refinedev/antd'
+import { Button, Checkbox, Form, Input, message, Select, Space, Table, Tag } from 'antd'
+
+import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
+import { http } from '@/api/client'
 import type { Contact, Partner } from '@/types'
 
 interface ContactSearch {
   keyword?: string
   partner_id?: number
-  status?: number
 }
 
 /**
@@ -28,7 +29,8 @@ export function ContactList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<Contact>({
+  const [showDeleted, setShowDeleted] = useState(false)
+  const { tableProps, searchFormProps, setFilters } = useTable<Contact>({
     resource: 'contacts',
     syncWithLocation: true,
     onSearch: (values): CrudFilters => {
@@ -40,12 +42,28 @@ export function ContactList() {
       if (v.partner_id !== undefined && v.partner_id !== null) {
         filters.push({ field: 'partner_id', operator: 'eq', value: v.partner_id })
       }
-      if (v.status !== undefined && v.status !== null) {
-        filters.push({ field: 'status', operator: 'eq', value: v.status })
-      }
       return filters
     },
   })
+
+  // 「含已删除」不走 searchForm：它不是一个要手填的条件，
+  // 开了就总能看见已删除的行，关了就一定看不见。
+  useEffect(() => {
+    setFilters(
+      showDeleted ? [{ field: 'include_deleted', operator: 'eq', value: true }] : [],
+      'replace',
+    )
+  }, [showDeleted, setFilters])
+
+  const invalidate = useInvalidate()
+  const restore = async (id: number) => {
+    try {
+      await http.put<BaseRecord>(`/contacts/${id}/restore`)
+      await invalidate({ resource: 'contacts', invalidates: ['list'] })
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '恢复失败')
+    }
+  }
 
   const resetFilters = () => {
     searchFormProps.form?.resetFields()
@@ -78,10 +96,15 @@ export function ContactList() {
           <Form.Item name="keyword">
             <Input placeholder="搜索姓名 / 电话 / 邮箱" allowClear />
           </Form.Item>
-          <Form.Item name="status">
-            <Select placeholder="全部状态" allowClear options={ENABLE_STATUS_OPTIONS} />
-          </Form.Item>
         </>
+      }
+      extra={
+        <Checkbox
+          checked={showDeleted}
+          onChange={(e) => setShowDeleted(e.target.checked)}
+        >
+          含已删除
+        </Checkbox>
       }
     >
       <Table.Column
@@ -116,10 +139,17 @@ export function ContactList() {
       <Table.Column dataIndex="language" title="语言" width={110} render={(v: string) => v || <Empty />} />
       <Table.Column dataIndex="channel" title="偏好渠道" width={110} render={(v: string) => v || <Empty />} />
       <Table.Column
-        dataIndex="status"
-        title="状态"
+        title="操作"
         width={90}
-        render={(value: number) => <StatusTag value={value} />}
+        render={(_, record: Contact) =>
+          // 软删是唯一的状态：没删的人在这里没有额外动作，
+          // 删掉的只能恢复，所以这一列平时是空的。
+          record.deleted_at ? (
+            <Button size="small" type="link" onClick={() => restore(record.id)}>
+              恢复
+            </Button>
+          ) : null
+        }
       />
     </PageList>
   )

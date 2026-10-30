@@ -16,6 +16,7 @@ type ContactService interface {
 	Create(ctx context.Context, in dto.ContactInput) (*model.Contact, error)
 	Update(ctx context.Context, id uint, in dto.ContactInput) (*model.Contact, error)
 	Delete(ctx context.Context, id uint) error
+	Restore(ctx context.Context, id uint) (*model.Contact, error)
 	Get(ctx context.Context, id uint) (*model.Contact, error)
 	List(ctx context.Context, q dto.ContactQuery) (*dto.PageResult[model.Contact], error)
 }
@@ -45,10 +46,6 @@ func NewContactService(
 }
 
 func (s *contactService) Create(ctx context.Context, in dto.ContactInput) (*model.Contact, error) {
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
 	// 校验主体存在：联系人不挂主体就是一张通讯录，
 	// 而 CRM 的整个价值在于"这个人属于哪家、跟到哪一步"。
 	if _, err := s.partners.FindByID(ctx, in.PartnerID); err != nil {
@@ -66,7 +63,6 @@ func (s *contactService) Create(ctx context.Context, in dto.ContactInput) (*mode
 		Email:     in.Email,
 		Language:  in.Language,
 		Channel:   in.Channel,
-		Status:    status,
 		Remark:    in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
@@ -92,12 +88,7 @@ func (s *contactService) Update(ctx context.Context, id uint, in dto.ContactInpu
 	}
 	if in.PartnerID != 0 && in.PartnerID != existing.PartnerID {
 		// 挪主体会让这个人的历史跟进挂到别人名下，而跟进记录本身不知情。
-		return nil, errs.BadRequest("联系人不能转移到另一个往来单位，请新建联系人并停用旧的")
-	}
-
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
+		return nil, errs.BadRequest("联系人不能转移到另一个往来单位，请新建联系人并删掉旧的")
 	}
 
 	fields := map[string]any{
@@ -107,7 +98,6 @@ func (s *contactService) Update(ctx context.Context, id uint, in dto.ContactInpu
 		"email":    in.Email,
 		"language": in.Language,
 		"channel":  in.Channel,
-		"status":   status,
 		"remark":   in.Remark,
 	}
 
@@ -138,6 +128,23 @@ func (s *contactService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
+func (s *contactService) Restore(ctx context.Context, id uint) (*model.Contact, error) {
+	m, err := s.repo.FindByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if m.DeletedAt == 0 {
+		return nil, errs.BadRequest("该联系人未被删除，无需恢复")
+	}
+	// 恢复之后不改它的主联系人身份：删掉时没有自动改选别人，
+	// 回来时也该保持原样，谁是主联系人交给业务自己决定。
+	if err := s.repo.Restore(ctx, id); err != nil {
+		return nil, err
+	}
+	s.log.Info("恢复联系人", "id", id, "partner_id", m.PartnerID)
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *contactService) Get(ctx context.Context, id uint) (*model.Contact, error) {
 	return s.repo.FindByID(ctx, id)
 }
@@ -146,9 +153,9 @@ func (s *contactService) List(ctx context.Context, q dto.ContactQuery) (*dto.Pag
 	q.PageQuery.Normalize()
 
 	filter := repository.ContactFilter{
-		Keyword:   q.Keyword,
-		PartnerID: q.PartnerID,
-		Status:    enableStatusPtr(q.Status),
+		Keyword:        q.Keyword,
+		PartnerID:      q.PartnerID,
+		IncludeDeleted: q.IncludeDeleted,
 	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 
