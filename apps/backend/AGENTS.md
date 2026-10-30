@@ -555,4 +555,5 @@ Code      string    `gorm:"size:32;not null;uniqueIndex:uni_xxx_code,priority:1"
 | 出货单里的"来源订单"列全是空 | 只 Preload 了 `Allocations.SalesOrderItem`，没再 `Preload("Allocations.SalesOrderItem.SalesOrder")`，或没走 `annotateDocNo` 摊平 | 仓储三处 Preload 要齐；返回前调 `annotateDocNo`（`sales_order_doc_no` 是 `gorm:"-"` 投影） |
 | 新记录提交"停用"，存进去却是"启用" | 字段带 `gorm:"default:1"` 且值恰为零值，gorm 会省略该列让数据库填默认值 | 新表不要再给 `EnableStatus` 加 `default` tag；老表改状态走 `UpdateFields(map)`（map 显式指定列，不受影响） |
 | 迁移后少了若干条旧数据 | 读旧表时漏了 `Unscoped`，软删除条件由目标 struct 的 schema 决定，`Table()` 指定表名也绕不过去 | `tx.Table("md_xxx").Unscoped().Find(&rows)`，`internal/migrate/legacy_merge_test.go` 有对应用例 |
+| 库越大，服务启动越慢；PG 日志里每次启动都有同一句 DDL | 启动期迁移被写成了无条件执行：`DROP INDEX` + `CREATE`、`UPDATE ... WHERE 某列 = 0` 一条到底 | 判据是**空转成本为零**：改索引列先读列（`repository/index_migrate.go` 的 `ensureIndexColumns`）、一次性回填先查 `sys_migration`、大表回填按 id 游标分批（`repository/stock_migrate.go` 的 `backfillWarehouse`）。这些函数在 `bootstrap.New` 里，每次启动都跑 |
 | 接口整批 500，`/auth/login` 却正常 | 跑着的是改表名前编译的旧二进制，仍按 `md_party` 查询已被改名的 `md_partner`；登录只碰 `sys_user` 所以不受影响 | 重启 dev 即可，不是代码缺陷。判断版本：`/partners` 404 + `/parties` 401 就是旧二进制。`response.Fail` 已把真实原因写进日志，先看日志再猜 |
