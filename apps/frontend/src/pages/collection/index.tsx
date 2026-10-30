@@ -154,9 +154,10 @@ export function CollectionPage() {
       <Row gutter={[16, 16]}>
         <Col xs={12} sm={8} xl={4}>
           <StatCard
-            title={`期间到期（${data?.from || '不限'} 起）`}
+            title="期间到期"
             value={Number(data?.due_amount_base ?? 0)}
             precision={2}
+            hint={`${data?.from || '不限'} 起，按到期日`}
           />
         </Col>
         <Col xs={12} sm={8} xl={4}>

@@ -109,6 +109,7 @@ import { SalesDashboardPage } from '@/pages/sales-dashboard'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
+import { i18nProvider } from '@/providers/i18nProvider'
 import { useUiPrefs } from '@/providers/uiPrefs'
 import { buildThemeConfig } from '@/theme'
 
@@ -135,6 +136,7 @@ export default function App() {
           <Refine
             dataProvider={dataProvider}
             authProvider={authProvider}
+            i18nProvider={i18nProvider}
             routerProvider={routerProvider}
             resources={[
               // 概览与待办不归组：它们是每天进来的第一屏，藏在分组里要多点一次。
