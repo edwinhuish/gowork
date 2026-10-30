@@ -189,7 +189,7 @@ body {
 /* 副标题标出双域定位，字号压到能看清但不抢主标题。 */
 .brand-sub {
   margin-top: 3px;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 10px;
   font-style: normal;
   font-weight: 500;
@@ -205,7 +205,7 @@ body {
 
 /* 分组标题（SubMenu 的一级标题）比可点的子项弱一档：它只是分隔，不是入口。 */
 .ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title {
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.4px;
@@ -311,7 +311,7 @@ body {
 
 .page-head-desc {
   margin: 0;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -328,7 +328,7 @@ body {
 /* 一句口径说明：这页的数是怎么算的、包含哪些状态。可选，写了才占位。 */
 .list-caption {
   margin-bottom: var(--gap-inline);
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12.5px;
   line-height: 1.7;
 }
@@ -442,7 +442,7 @@ body {
 }
 
 .cell-sub {
-  color: var(--ant-color-text-secondary, #6b7788);
+  color: var(--ant-color-text-secondary, #52606f);
   font-size: 12.5px;
 }
 
@@ -472,7 +472,7 @@ body {
 }
 
 .cell-empty {
-  color: var(--ant-color-text-quaternary, #b6bfcc);
+  color: var(--ant-color-text-quaternary, #626d7f);
 }
 
 /* 表格里的可点实体（单号、客户名）：默认是文字色，hover 才变主色，
@@ -587,7 +587,7 @@ body {
   border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
   border-radius: 999px;
   background: var(--ant-color-bg-container, #fff);
-  color: var(--ant-color-text-secondary, #6b7788);
+  color: var(--ant-color-text-secondary, #52606f);
   font-size: 12.5px;
   line-height: 1.6;
   transition:
@@ -618,11 +618,11 @@ body {
 
 .doc-chain-node.is-pending {
   border-style: dashed;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
 }
 
 .doc-chain-arrow {
-  color: var(--ant-color-text-quaternary, #b6bfcc);
+  color: var(--ant-color-text-quaternary, #626d7f);
   font-size: 11px;
 }
 
@@ -646,7 +646,7 @@ body {
 
 .empty-guide-desc {
   max-width: 460px;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12.5px;
   line-height: 1.7;
 }
@@ -716,7 +716,7 @@ body {
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: var(--ant-color-text-quaternary, #c3ccd9);
+  color: var(--ant-color-text-quaternary, #626d7f);
   font-size: 26px;
 }
 
@@ -757,7 +757,7 @@ body {
 .product-card-sub {
   overflow: hidden;
   margin: 0;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -948,7 +948,7 @@ body {
 .record-card-fact-label {
   flex: none;
   width: 76px;
-  color: var(--ant-color-text-quaternary, #98a3b3);
+  color: var(--ant-color-text-quaternary, #626d7f);
 }
 
 /* 值允许换行：金额、单号、备注都是"必须看到完整内容"的，截断等于没给。 */
@@ -1141,7 +1141,7 @@ body {
 .partner-card-fact-label {
   flex: none;
   width: 60px;
-  color: var(--ant-color-text-quaternary, #98a3b3);
+  color: var(--ant-color-text-quaternary, #626d7f);
 }
 
 .partner-card-fact-value {
@@ -1162,7 +1162,7 @@ body {
 .partner-card-owner {
   min-width: 0;
   overflow: hidden;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1257,7 +1257,7 @@ body {
 
 .login-hint {
   margin-top: 18px;
-  color: var(--ant-color-text-tertiary, #98a3b3);
+  color: var(--ant-color-text-tertiary, #626d7f);
   font-size: 12.5px;
   text-align: center;
 }
