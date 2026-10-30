@@ -1,7 +1,12 @@
 import { useList } from '@refinedev/core'
 import { Space, Tag } from 'antd'
 
-import { categoryLabel, PARTNER_ROLE } from '@/constants/catalog'
+import {
+  categoryLabel,
+  ENABLE_STATUS_OPTIONS,
+  PARTNER_ROLE,
+} from '@/constants/catalog'
+import type { StatusTone } from '@/constants/catalog'
 import type { Currency } from '@/types'
 
 /**
@@ -14,8 +19,31 @@ import type { Currency } from '@/types'
 
 /** 启用/停用。用柔和的 success/default 而不是红绿，停用不等于出错。 */
 export function StatusTag({ value }: { value?: number | null }) {
-  const enabled = value === 1
-  return <Tag color={enabled ? 'success' : 'default'}>{enabled ? '启用' : '停用'}</Tag>
+  return <OptionTag value={value} options={ENABLE_STATUS_OPTIONS} />
+}
+
+/**
+ * 字典状态标签。
+ *
+ * 色调写在 `constants/catalog.ts` 的选项表里，页面只传「值 + 用哪本字典」——
+ * 改造前每个单据页各写一份 statusColor()，同一个值在不同页上颜色不同。
+ * `bordered={false}` 让标签融进一行，不额外加一圈边框抢注意力。
+ */
+export function OptionTag({
+  value,
+  options,
+}: {
+  value?: string | number | null
+  options: readonly { value: string | number; label: string; tone?: StatusTone }[]
+}) {
+  if (value === null || value === undefined || value === '') return <Empty />
+  const item = options.find((option) => option.value === value)
+  if (!item) return <Tag bordered={false}>{String(value)}</Tag>
+  return (
+    <Tag bordered={false} color={item.tone ?? 'default'}>
+      {item.label}
+    </Tag>
+  )
 }
 
 /**

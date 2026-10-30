@@ -1,19 +1,25 @@
 import {
   BellOutlined,
+  CompressOutlined,
+  ExpandOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MoonOutlined,
+  SunOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { ThemedLayout, ThemedSider, useThemedLayoutContext } from '@refinedev/antd'
 import { useGetIdentity, useLogout } from '@refinedev/core'
 import { useQuery } from '@tanstack/react-query'
-import { Avatar, Badge, Button, Dropdown, Layout, Tooltip } from 'antd'
+import { Avatar, Badge, Button, Dropdown, Layout, Space, Tooltip } from 'antd'
+import type { MenuProps } from 'antd'
 import type { FC } from 'react'
 import { useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 
 import { reportApi } from '@/api/reports'
+import { useUiPrefs } from '@/providers/uiPrefs'
 import type { UserInfo } from '@/types'
 import { ModuleSearch } from './module-search'
 
@@ -56,12 +62,15 @@ function AppSider({ Title }: { Title?: SiderTitle }) {
  * 折叠按钮用 useThemedLayoutContext 控制侧栏 —— 窄屏下 ThemedLayout 会自动把
  * 侧栏变成抽屉，这个按钮就是抽屉的开关，所以必须自己渲染而不是依赖默认头部。
  *
- * 三类信息放在这一条上：先找（模块搜索），再看（待办条目数），最后是自己。
+ * 四类信息放在这一条上：先找（模块搜索），再看（待办条目数），
+ * 然后是观感（明暗）与自己（密度、退出）。全部用 antd 的 text 按钮，
+ * 不再手写 `<button>` + 自定义 hover 样式。
  */
 function AppHeader() {
   const { siderCollapsed, setSiderCollapsed } = useThemedLayoutContext()
   const { data: identity } = useGetIdentity<UserInfo>()
   const { mutate: logout } = useLogout()
+  const { mode, toggleMode, compact, toggleCompact } = useUiPrefs()
   const navigate = useNavigate()
 
   // 与概览页用同一个 query key：两处共用一次请求，徽标不会比页面慢一拍。
@@ -78,6 +87,24 @@ function AppHeader() {
     (todos?.contract_term_count ?? 0) +
     (todos?.missing_rates.length ?? 0)
 
+  const userMenu: MenuProps = {
+    items: [
+      {
+        key: 'density',
+        icon: compact ? <ExpandOutlined /> : <CompressOutlined />,
+        label: compact ? '切换为标准密度' : '切换为紧凑密度',
+        onClick: () => toggleCompact(),
+      },
+      { type: 'divider' },
+      {
+        key: 'logout',
+        icon: <LogoutOutlined />,
+        label: '退出登录',
+        onClick: () => logout(),
+      },
+    ],
+  }
+
   return (
     <Layout.Header className="app-header">
       <Button
@@ -91,37 +118,34 @@ function AppHeader() {
 
       <div className="app-header-spacer" />
 
-      <Tooltip title={pending > 0 ? `${pending} 件到期的事` : '没有到期的事'}>
-        <button
-          type="button"
-          className="app-header-action"
-          aria-label="待办"
-          onClick={() => navigate('/todos')}
-        >
+      <Space size={4} align="center">
+        <Tooltip title={pending > 0 ? `${pending} 件到期的事` : '没有到期的事'}>
           <Badge count={pending} size="small" offset={[2, -2]}>
-            <BellOutlined style={{ fontSize: 17 }} />
+            <Button
+              type="text"
+              aria-label="待办"
+              icon={<BellOutlined />}
+              onClick={() => navigate('/todos')}
+            />
           </Badge>
-        </button>
-      </Tooltip>
+        </Tooltip>
 
-      <Dropdown
-        trigger={['click']}
-        menu={{
-          items: [
-            {
-              key: 'logout',
-              icon: <LogoutOutlined />,
-              label: '退出登录',
-              onClick: () => logout(),
-            },
-          ],
-        }}
-      >
-        <button type="button" className="app-user">
-          <Avatar size={26} icon={<UserOutlined />} />
-          <span>{identity?.nickname || identity?.username || '未登录'}</span>
-        </button>
-      </Dropdown>
+        <Tooltip title={mode === 'dark' ? '切换到浅色' : '切换到深色'}>
+          <Button
+            type="text"
+            aria-label="切换主题"
+            icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+            onClick={toggleMode}
+          />
+        </Tooltip>
+
+        <Dropdown trigger={['click']} menu={userMenu}>
+          <Button type="text" className="app-user">
+            <Avatar size={26} icon={<UserOutlined />} />
+            <span>{identity?.nickname || identity?.username || '未登录'}</span>
+          </Button>
+        </Dropdown>
+      </Space>
     </Layout.Header>
   )
 }

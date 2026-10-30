@@ -46,6 +46,7 @@ import routerProvider, {
 } from '@refinedev/react-router'
 import { App as AntApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import { useMemo } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -108,7 +109,8 @@ import { SalesDashboardPage } from '@/pages/sales-dashboard'
 import { SupplierCreate, SupplierEdit, SupplierList, SupplierShow } from '@/pages/suppliers'
 import { authProvider } from '@/providers/authProvider'
 import { dataProvider } from '@/providers/dataProvider'
-import { themeConfig } from '@/theme'
+import { useUiPrefs } from '@/providers/uiPrefs'
+import { buildThemeConfig } from '@/theme'
 
 /**
  * 应用根。
@@ -122,6 +124,10 @@ import { themeConfig } from '@/theme'
  * 侧边栏菜单、页面标题、返回链接都会跟着变。
  */
 export default function App() {
+  // 亮暗与密度只影响观感，改一次就整棵组件树重算一次主题，代价可以忽略。
+  const { mode, compact } = useUiPrefs()
+  const themeConfig = useMemo(() => buildThemeConfig({ mode, compact }), [mode, compact])
+
   return (
     <BrowserRouter>
       <ConfigProvider locale={zhCN} theme={themeConfig}>

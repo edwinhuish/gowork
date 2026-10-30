@@ -17,14 +17,22 @@ body {
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: var(--ant-color-bg-layout);
 }
 
 /* ---------- 卡片与层级 ---------- */
 
 /* antd 的 borderless 卡片本身既无边框也无阴影，铺在浅灰底上会"糊"进背景。
-   统一给一层极浅浮起，列表页与详情页才有一致的层次。 */
+   统一给一层极浅浮起，列表页与详情页才有一致的层次。
+   暗底上阴影几乎不可见，改用一圈边框分层次 —— 两种手段换着用，比在一个主题里
+   硬塞另一套阴影值更稳。 */
 .ant-card:not(.ant-card-inner) {
   box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
+}
+
+[data-theme='dark'] .ant-card:not(.ant-card-inner) {
+  border: 1px solid var(--ant-color-border-secondary);
+  box-shadow: none;
 }
 
 /* 侧栏品牌 ---------- */
@@ -45,12 +53,12 @@ body {
   height: 28px;
   flex: 0 0 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--ant-color-primary, #2563eb), #4f7cf7);
+  background: linear-gradient(135deg, var(--ant-color-primary), var(--ant-color-primary-hover));
   color: #fff;
   font-weight: 700;
   font-size: 15px;
   line-height: 1;
-  box-shadow: 0 2px 6px rgb(37 99 235 / 35%);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ant-color-primary) 35%, transparent);
 }
 
 .brand-text {
@@ -99,7 +107,7 @@ body {
 /* 菜单项多（30 条），细滚动条比默认的宽滚动条更不抢位置。 */
 .ant-layout-sider .ant-menu {
   scrollbar-width: thin;
-  scrollbar-color: rgb(28 37 50 / 14%) transparent;
+  scrollbar-color: color-mix(in srgb, var(--ant-color-text) 16%, transparent) transparent;
 }
 
 .ant-layout-sider .ant-menu::-webkit-scrollbar {
@@ -108,7 +116,7 @@ body {
 
 .ant-layout-sider .ant-menu::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background: rgb(28 37 50 / 14%);
+  background: color-mix(in srgb, var(--ant-color-text) 16%, transparent);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -118,6 +126,16 @@ body {
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+}
+
+/* 顶栏图标按钮统一走 antd 的 text 按钮，只调色：默认的次级文字色在浅底上
+   比主文字柔和，hover 才变主色，不与内容区的链接抢注意力。 */
+.app-header .ant-btn-text {
+  color: var(--ant-color-text-secondary);
+}
+
+.app-header .ant-btn-text:hover {
+  color: var(--ant-color-primary) !important;
 }
 
 .app-header-spacer {
@@ -132,45 +150,19 @@ body {
 }
 
 .app-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ant-color-text, #1c2532);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.app-user:hover {
-  background: var(--ant-color-fill-tertiary, #f4f6fa);
-}
-
-/* 顶栏上的待办入口：有到期事项时才有数字，没数字时只是一个图标。 */
-.app-header-action {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ant-color-text-secondary, #6b7788);
-  font-size: 16px;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
+  gap: 8px;
+  padding-inline: 8px;
+  color: var(--ant-color-text);
+  font-size: 13.5px;
 }
 
-.app-header-action:hover {
-  background: var(--ant-color-fill-tertiary, #f4f6fa);
-  color: var(--ant-color-primary, #2563eb);
+/* 折叠后顶栏只剩图标，用户名不能再占位置。 */
+@media (max-width: 720px) {
+  .app-user > span:last-child {
+    display: none;
+  }
 }
 
 /* ---------- 页头 ---------- */
@@ -193,7 +185,8 @@ body {
   min-width: 0;
 }
 
-.page-head-title {
+/* Typography.Title 自带 0.5em 下边距，页头是一行组合，必须清掉。 */
+.page-head-title.ant-typography {
   margin: 0;
   color: var(--ant-color-text, #1c2532);
   font-weight: 600;
@@ -215,9 +208,28 @@ body {
   gap: 8px;
 }
 
-/* ---------- 列表页筛选条 ---------- */
+/* ---------- 列表页：说明与筛选条 ---------- */
 
+/* 一句口径说明：这页的数是怎么算的、包含哪些状态。可选，写了才占位。 */
+.list-caption {
+  margin-bottom: 12px;
+  color: var(--ant-color-text-tertiary, #98a3b3);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/*
+ * 筛选条。
+ *
+ * 改造前宽度由每个页面内联写（200/240/130…），窄屏只能靠换行硬挤。
+ * 现在容器统一 flex + gap，控件按 180~280px 弹性分配、宽度 100%，
+ * 页面不再需要写任何一个 width。
+ */
 .list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
   margin-bottom: 16px;
   padding: 14px 16px;
   border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
@@ -226,19 +238,50 @@ body {
 }
 
 .list-filters .ant-form-item {
-  margin-bottom: 0;
-  margin-inline-end: 12px;
+  flex: 1 1 180px;
+  max-width: 280px;
+  margin: 0;
 }
 
-/* 筛选条在小屏上会挤成一条横线，改成逐项换行。 */
-@media (max-width: 960px) {
-  .list-filters {
-    row-gap: 10px;
-  }
+.list-filters .ant-form-item-control,
+.list-filters .ant-form-item-control-input {
+  min-width: 0;
+  width: 100%;
+}
 
-  .list-filters .ant-form-item {
-    margin-bottom: 8px;
-  }
+.list-filters .ant-input,
+.list-filters .ant-input-affix-wrapper,
+.list-filters .ant-input-number,
+.list-filters .ant-select,
+.list-filters .ant-picker {
+  width: 100%;
+}
+
+/* 查询/重置靠右收口：它们是这一条的终点，不该和筛选项一起被拉伸。 */
+.list-filters .list-filters-actions {
+  flex: 0 0 auto;
+  max-width: none;
+  margin-left: auto;
+}
+
+/* 窄屏：一项一行，按钮组回到左对齐。 */
+.list-filters.is-narrow .ant-form-item {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.list-filters.is-narrow .list-filters-actions {
+  margin-left: 0;
+}
+
+/* 密度切到紧凑时，容器内距与间距同步收一档，否则控件小了、留白还是大的。 */
+[data-density='compact'] .list-filters {
+  gap: 8px 10px;
+  padding: 10px 12px;
+}
+
+[data-density='compact'] .list-caption {
+  margin-bottom: 8px;
 }
 
 /* ---------- 表单 ---------- */
@@ -259,8 +302,17 @@ body {
   margin-bottom: 20px;
 }
 
+/* 带明细编辑器的单据表单：两列网格里放明细行会横向挤成一团，放宽到 1180。 */
+.entity-form--wide {
+  max-width: 1180px;
+}
+
 .form-item-full {
   grid-column: 1 / -1;
+}
+
+[data-density='compact'] .entity-form .ant-form-item {
+  margin-bottom: 14px;
 }
 
 @media (max-width: 720px) {
@@ -414,7 +466,7 @@ body {
 
 .quick-card:hover {
   border-color: var(--ant-color-primary, #2563eb);
-  box-shadow: 0 4px 14px rgb(37 99 235 / 12%);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ant-color-primary) 18%, transparent);
   transform: translateY(-1px);
 }
 
@@ -572,7 +624,7 @@ body {
 .product-card:hover,
 .product-card:focus-visible {
   border-color: var(--ant-color-primary-border, #a9c8ff);
-  box-shadow: 0 10px 24px rgb(16 24 40 / 10%);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ant-color-text) 14%, transparent);
   outline: none;
   transform: translateY(-2px);
 }
@@ -607,10 +659,11 @@ body {
   gap: 4px;
 }
 
-/* 徽标压在图上：图有深有浅，只有白底能保证在哪张上都读得清。 */
+/* 徽标压在图上：图有深有浅，只有实心底能保证在哪张上都读得清。
+   用弹层底色而不是写死白色，暗色模式下才不会出现一块白斑。 */
 .product-card-badges .ant-tag {
   margin: 0;
-  background: rgb(255 255 255 / 92%);
+  background: color-mix(in srgb, var(--ant-color-bg-elevated) 92%, transparent);
 }
 
 .product-card-body {
@@ -745,21 +798,31 @@ body {
 
 /* ---------- 登录页 ---------- */
 
+/* 两团极浅的主色光晕：只为了让人一眼看出这是入口页，不承载信息。
+   用 color-mix 而不是写死淡蓝，暗色下会自己变成深底上的微光。 */
 .login-page {
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: 24px;
   background:
-    radial-gradient(900px 480px at 15% 0%, #e6eeff 0%, transparent 62%),
-    radial-gradient(700px 420px at 100% 100%, #eef2ff 0%, transparent 58%),
+    radial-gradient(
+      900px 480px at 15% 0%,
+      color-mix(in srgb, var(--ant-color-primary) 10%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      700px 420px at 100% 100%,
+      color-mix(in srgb, var(--ant-color-primary) 8%, transparent) 0%,
+      transparent 58%
+    ),
     var(--ant-color-bg-layout, #f4f6fa);
 }
 
 .login-card {
   width: min(400px, 100%);
   border-radius: 14px;
-  box-shadow: 0 16px 40px rgb(28 37 50 / 9%);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--ant-color-text) 12%, transparent);
 }
 
 .login-brand {

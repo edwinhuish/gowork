@@ -1,4 +1,13 @@
 /**
+ * 状态色调。
+ *
+ * 与 antd Tag 的预设状态色一一对应，全站单据状态只用这五档 ——
+ * 改造前 6 个模块各写一份 `statusColor()`，同一个「已取消」在订单页是 error、
+ * 在结算页是 default，列表并排看就是对不齐。色调跟着字典走，页面不再自己判颜色。
+ */
+export type StatusTone = 'default' | 'processing' | 'success' | 'warning' | 'error'
+
+/**
  * 产品类别字典。
  *
  * 与后端 model.Product.SKUCode 的大类约定保持一致（SKU 前两位即类别码）。
@@ -62,10 +71,10 @@ export function shipmentChargeLabel(value?: number | null): string | undefined {
  * 而「已退单」是海关退回要求修改，改完还要重新申报，不是作废。
  */
 export const CUSTOMS_STATUS_OPTIONS = [
-  { value: 10, label: '待申报' },
-  { value: 20, label: '已申报' },
-  { value: 30, label: '已放行' },
-  { value: 90, label: '已退单' },
+  { value: 10, label: '待申报', tone: 'warning' as StatusTone },
+  { value: 20, label: '已申报', tone: 'processing' as StatusTone },
+  { value: 30, label: '已放行', tone: 'success' as StatusTone },
+  { value: 90, label: '已退单', tone: 'error' as StatusTone },
 ] as const
 
 const CUSTOMS_STATUS_MAP = new Map<number, string>(
@@ -104,10 +113,10 @@ export const SUPERVISION_MODE_OPTIONS = [
  * 开过票的钱作废要留痕，不能像草稿一样删。
  */
 export const SETTLEMENT_STATUS_OPTIONS = [
-  { value: 10, label: '未结清' },
-  { value: 20, label: '部分结清' },
-  { value: 30, label: '已结清' },
-  { value: 90, label: '已作废' },
+  { value: 10, label: '未结清', tone: 'processing' as StatusTone },
+  { value: 20, label: '部分结清', tone: 'warning' as StatusTone },
+  { value: 30, label: '已结清', tone: 'success' as StatusTone },
+  { value: 90, label: '已作废', tone: 'default' as StatusTone },
 ] as const
 
 const SETTLEMENT_STATUS_MAP = new Map<number, string>(
@@ -154,8 +163,8 @@ export function settlementSourceLabel(value?: number | null): string | undefined
  * 由后端校验。一旦写反，账龄报表会把付出去的钱算成收回来。
  */
 export const PAYMENT_DIRECTION_OPTIONS = [
-  { value: 10, label: '收款' },
-  { value: 20, label: '付款' },
+  { value: 10, label: '收款', tone: 'success' as StatusTone },
+  { value: 20, label: '付款', tone: 'warning' as StatusTone },
 ] as const
 
 const PAYMENT_DIRECTION_MAP = new Map<number, string>(
@@ -188,8 +197,8 @@ export function paymentTargetLabel(value?: number | null): string | undefined {
 
 /** 启用状态下拉选项。取值与后端 model.EnableStatus 对齐：1 启用 / 0 停用。 */
 export const ENABLE_STATUS_OPTIONS = [
-  { value: 1, label: '启用' },
-  { value: 0, label: '停用' },
+  { value: 1, label: '启用', tone: 'success' as StatusTone },
+  { value: 0, label: '停用', tone: 'default' as StatusTone },
 ]
 
 /**
@@ -332,12 +341,12 @@ export function activityTypeLabel(value?: string | null): string {
  * 按阶段反推概率会把这两种情况算成一个数。
  */
 export const OPPORTUNITY_STAGE_OPTIONS = [
-  { value: 10, label: '初步接洽', probability: 10 },
-  { value: 20, label: '需求确认', probability: 30 },
-  { value: 30, label: '已报价', probability: 50 },
-  { value: 40, label: '谈判中', probability: 70 },
-  { value: 50, label: '赢单', probability: 100 },
-  { value: 60, label: '输单', probability: 0 },
+  { value: 10, label: '初步接洽', probability: 10, tone: 'default' as StatusTone },
+  { value: 20, label: '需求确认', probability: 30, tone: 'processing' as StatusTone },
+  { value: 30, label: '已报价', probability: 50, tone: 'processing' as StatusTone },
+  { value: 40, label: '谈判中', probability: 70, tone: 'warning' as StatusTone },
+  { value: 50, label: '赢单', probability: 100, tone: 'success' as StatusTone },
+  { value: 60, label: '输单', probability: 0, tone: 'error' as StatusTone },
 ]
 
 export function opportunityStageLabel(value?: number | null): string {
@@ -352,10 +361,10 @@ export function isOpenStage(value?: number | null): boolean {
 
 /** 线索状态。取值与后端 model.LeadStatus 一致；30 是硬终态。 */
 export const LEAD_STATUS_OPTIONS = [
-  { value: 10, label: '新建' },
-  { value: 20, label: '跟进中' },
-  { value: 30, label: '已转化' },
-  { value: 40, label: '已废弃' },
+  { value: 10, label: '新建', tone: 'processing' as StatusTone },
+  { value: 20, label: '跟进中', tone: 'processing' as StatusTone },
+  { value: 30, label: '已转化', tone: 'success' as StatusTone },
+  { value: 40, label: '已废弃', tone: 'default' as StatusTone },
 ]
 
 export const LEAD_SOURCE_OPTIONS = [
@@ -381,9 +390,9 @@ export function leadSourceLabel(value?: string | null): string {
  * 备货中 / 已出货属于订单，报价单永远不该出现（后端也会拒绝）。
  */
 export const QUOTATION_STATUS_OPTIONS = [
-  { value: 10, label: '草稿' },
-  { value: 20, label: '已确认' },
-  { value: 90, label: '已取消' },
+  { value: 10, label: '草稿', tone: 'default' as StatusTone },
+  { value: 20, label: '已确认', tone: 'success' as StatusTone },
+  { value: 90, label: '已取消', tone: 'error' as StatusTone },
 ]
 
 export function quotationStatusLabel(value?: number | null): string {
@@ -425,9 +434,9 @@ export function contractSourceTypeLabel(value?: number | null): string {
  * 没有"货在哪"这个维度，多给阶段只会让下拉框被误用。
  */
 export const CONTRACT_STATUS_OPTIONS = [
-  { value: 10, label: '草稿' },
-  { value: 20, label: '已确认' },
-  { value: 90, label: '已取消' },
+  { value: 10, label: '草稿', tone: 'default' as StatusTone },
+  { value: 20, label: '已确认', tone: 'success' as StatusTone },
+  { value: 90, label: '已取消', tone: 'error' as StatusTone },
 ]
 
 export function contractStatusLabel(value?: number | null): string {
@@ -440,12 +449,12 @@ export function contractStatusLabel(value?: number | null): string {
  * 跳步（草稿直接到已出货）与往回退都由后端拒绝，前端只在详情页给出当前可走的下一步。
  */
 export const ORDER_STATUS_OPTIONS = [
-  { value: 10, label: '草稿' },
-  { value: 20, label: '已确认' },
-  { value: 30, label: '备货中' },
-  { value: 40, label: '已出货' },
-  { value: 50, label: '已完成' },
-  { value: 90, label: '已取消' },
+  { value: 10, label: '草稿', tone: 'default' as StatusTone },
+  { value: 20, label: '已确认', tone: 'success' as StatusTone },
+  { value: 30, label: '备货中', tone: 'processing' as StatusTone },
+  { value: 40, label: '已出货', tone: 'warning' as StatusTone },
+  { value: 50, label: '已完成', tone: 'default' as StatusTone },
+  { value: 90, label: '已取消', tone: 'error' as StatusTone },
 ]
 
 export function orderStatusLabel(value?: number | null): string {
