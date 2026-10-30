@@ -38,7 +38,9 @@ type productService struct {
 	// txs 让「清编号 + 删产品」落在同一个事务里：只删产品会留下孤儿编号，
 	// 它仍会被「新 SKU 不得等于别人用过的编号」算进去。
 	txs repository.TxManager
-	log *slog.Logger
+	// images 只在列表与详情回填主图。可缺省：不装图片模块的测试不该被它绑住。
+	images repository.ProductImageRepository
+	log    *slog.Logger
 }
 
 // ProductOption 用于注入可选依赖，保持构造函数签名稳定。
@@ -46,6 +48,14 @@ type ProductOption func(*productService)
 
 func WithProductLogger(l *slog.Logger) ProductOption {
 	return func(s *productService) { s.log = l }
+}
+
+// WithProductImages 注入图片仓储，让列表与详情带出主图。
+//
+// 用可选依赖而不是加构造参数：主图是展示增强，缺了它产品照样能建能改；
+// 而加参数会让所有既有测试一起改，它们本来看的也不是图片。
+func WithProductImages(repo repository.ProductImageRepository) ProductOption {
+	return func(s *productService) { s.images = repo }
 }
 
 func NewProductService(
@@ -248,6 +258,10 @@ func (s *productService) Get(ctx context.Context, id uint) (*model.Product, erro
 	if err != nil {
 		return nil, err
 	}
+	// 详情页的相册要单独拉；这里只带主图，供标题区与「从列表点进来」时的首屏。
+	if err := s.fillPrimaryImages(ctx, []*model.Product{m}); err != nil {
+		return nil, err
+	}
 	// T-36：成本价对业务员不可见（列表与详情同一口径）。
 	redactProductCost(ctx, m)
 	return m, nil
@@ -322,11 +336,48 @@ func (s *productService) List(ctx context.Context, q dto.ProductQuery) (*dto.Pag
 			list[i].MatchedCodes = mergeCodes(hits[list[i].ID], sourceHits[list[i].ID])
 		}
 	}
+	// 列表缩略图：一页产品只查一次主图，绝不能在产品行上逐条查。
+	ptrs := make([]*model.Product, len(list))
+	for i := range list {
+		ptrs[i] = &list[i]
+	}
+	if err := s.fillPrimaryImages(ctx, ptrs); err != nil {
+		return nil, err
+	}
 	// T-36：成本价对业务员不可见，清在服务端而不是靠前端不渲染。
 	for i := range list {
 		redactProductCost(ctx, &list[i])
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// fillPrimaryImages 给一批产品回填主图。
+//
+// 一次 IN 查询取回整页的主图（每个产品按顺序取第一张），而不是每条产品
+// 发一次请求：20 行的列表多 19 次往返，翻页时会明显卡。
+func (s *productService) fillPrimaryImages(
+	ctx context.Context, list []*model.Product,
+) error {
+	if s.images == nil || len(list) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(list))
+	for _, p := range list {
+		ids = append(ids, p.ID)
+	}
+	primaries, err := s.images.PrimaryByProducts(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, p := range list {
+		img, ok := primaries[p.ID]
+		if !ok {
+			continue
+		}
+		decorateProductImage(&img, true)
+		p.PrimaryImage = &img
+	}
+	return nil
 }
 
 // checkSKUNotUsedAsCode 拦住「新 SKU 等于某个产品用过的编号」。

@@ -193,7 +193,8 @@ func New(cfg *config.Config) (*App, error) {
 		service.WithAuthLogger(log),
 	)
 	productSvc := service.NewProductService(
-		productRepo, partnerRepo, sourceRepo, productCodeRepo, txs, service.WithProductLogger(log))
+		productRepo, partnerRepo, sourceRepo, productCodeRepo, txs,
+		service.WithProductLogger(log), service.WithProductImages(productImageRepo))
 	// 图片是产品的子表：列表与详情靠仓储批量回填主图，不经过图片服务，
 	// 免得两个服务互相依赖。
 	productImageSvc := service.NewProductImageService(

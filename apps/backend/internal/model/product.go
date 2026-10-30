@@ -80,6 +80,13 @@ type Product struct {
 
 	Supplier *Partner `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 
+	// PrimaryImage 是主图（顺序第一张），由服务端批量回填。
+	//
+	// 不落库：主图是图片表里的顺序推导出来的，存进产品表就有了第二份真相。
+	// 只带一张：列表页每行只显示缩略图，把整组图片塞进来会让产品列表
+	// 变成"每次都把一页产品的图全查一遍"。
+	PrimaryImage *ProductImage `gorm:"-" json:"primary_image,omitempty"`
+
 	// MatchedCodes 回填「这次搜索命中了哪些编号」，供列表提示用。
 	//
 	// 不落库也不进详情：它是某一次查询的结果，不是产品的一个字段。

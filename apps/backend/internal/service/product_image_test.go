@@ -54,7 +54,8 @@ func newProductImageFixture(t *testing.T) productImageFixture {
 	return productImageFixture{
 		images:     NewProductImageService(imageRepo, productRepo, txs),
 		imageRepo:  imageRepo,
-		productSvc: NewProductService(productRepo, partnerRepo, sourceRepo, codeRepo, txs),
+		productSvc: NewProductService(productRepo, partnerRepo, sourceRepo, codeRepo, txs,
+			WithProductImages(imageRepo)),
 		productA:   a.ID,
 		productB:   b.ID,
 	}
@@ -328,6 +329,69 @@ func TestProductImageReplaceKeepsPosition(t *testing.T) {
 	}
 	if !primary.IsPrimary || primary.SortOrder != 0 {
 		t.Fatalf("替换后仍应为主图，实际 %+v", primary)
+	}
+}
+
+// 产品列表与详情带出主图：列表页的缩略图靠这个字段，前端不必为每行再请求一次。
+func TestProductListCarriesPrimaryImage(t *testing.T) {
+	f := newProductImageFixture(t)
+	ctx := context.Background()
+
+	list, err := f.images.Upload(ctx, f.productA, []dto.ProductImageFile{
+		{FileName: "正面.png", Content: testPNG(t, 8, 8, color.White)},
+		{FileName: "背面.png", Content: testPNG(t, 8, 8, color.White)},
+	})
+	if err != nil {
+		t.Fatalf("上传失败: %v", err)
+	}
+
+	page, err := f.productSvc.List(ctx, dto.ProductQuery{})
+	if err != nil {
+		t.Fatalf("查询产品列表失败: %v", err)
+	}
+	var found *model.Product
+	for i := range page.List {
+		if page.List[i].ID == f.productA {
+			found = &page.List[i]
+		}
+	}
+	if found == nil {
+		t.Fatal("列表里应有这个产品")
+	}
+	if found.PrimaryImage == nil || found.PrimaryImage.ID != list[0].ID ||
+		!found.PrimaryImage.IsPrimary || found.PrimaryImage.ThumbURL == "" {
+		t.Fatalf("列表应带第一张为主图，实际 %+v", found.PrimaryImage)
+	}
+
+	// 详情同口径。
+	detail, err := f.productSvc.Get(ctx, f.productA)
+	if err != nil {
+		t.Fatalf("查询产品详情失败: %v", err)
+	}
+	if detail.PrimaryImage == nil || detail.PrimaryImage.ID != list[0].ID {
+		t.Fatalf("详情应带主图，实际 %+v", detail.PrimaryImage)
+	}
+
+	// 换了主图之后，列表与详情必须跟着换——它们共用一个「顺序第一张」的判定。
+	if _, err := f.images.Reorder(ctx, f.productA,
+		[]uint{list[1].ID, list[0].ID}); err != nil {
+		t.Fatalf("调整顺序失败: %v", err)
+	}
+	detail, err = f.productSvc.Get(ctx, f.productA)
+	if err != nil {
+		t.Fatalf("查询产品详情失败: %v", err)
+	}
+	if detail.PrimaryImage == nil || detail.PrimaryImage.ID != list[1].ID {
+		t.Fatalf("主图应换成第二张，实际 %+v", detail.PrimaryImage)
+	}
+
+	// 没有图片的产品不该带空主图对象。
+	empty, err := f.productSvc.Get(ctx, f.productB)
+	if err != nil {
+		t.Fatalf("查询无图产品失败: %v", err)
+	}
+	if empty.PrimaryImage != nil {
+		t.Fatalf("无图产品不该有主图，实际 %+v", empty.PrimaryImage)
 	}
 }
 
