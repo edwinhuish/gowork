@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Card, Input, Radio, Space, Table, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Input, Modal, Radio, Space, Table, Tag, Typography, message } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
@@ -40,6 +40,36 @@ export function AgingPage() {
   const rows = data?.rows ?? []
   const total = data?.total_base
   const isPayable = direction === 20
+
+  // 对账单的账期单独存：它是"要发给客户的那张纸"的参数，
+  // 与上面那个"看账龄的截止日"不是同一件事，混用会让人以为改了其中一个另一个也变。
+  const [stmt, setStmt] = useState<{ row: AgingRow; from: string; to: string; currency: string } | null>(
+    null,
+  )
+  const [downloading, setDownloading] = useState(false)
+
+  const openStatement = (row: AgingRow) => {
+    // 截止日跟当前账龄对齐：屏幕上看到多少，纸上就该是多少。
+    setStmt({ row, from: '', to: asOf || (data?.as_of ?? ''), currency: row.currency_code })
+  }
+
+  const downloadStatement = async () => {
+    if (!stmt) return
+    setDownloading(true)
+    try {
+      await reportApi.statementPdf({
+        partner_id: stmt.row.partner_id,
+        currency_code: stmt.currency.trim() || undefined,
+        from: stmt.from.trim() || undefined,
+        to: stmt.to.trim() || undefined,
+      })
+      setStmt(null)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '生成对账单失败')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <Space direction="vertical" size={16} style={{ display: 'flex' }}>
@@ -190,6 +220,21 @@ export function AgingPage() {
             width={120}
             render={(value: string) => (value ? value.slice(0, 10) : <Empty />)}
           />
+          <Table.Column
+            title="对账单"
+            width={96}
+            render={(_, row: AgingRow) =>
+              // 应付侧的对账单还没做（后端只有客户对账单）。摆一个点了才知道
+              // 没有的按钮，比不摆更烦人。
+              isPayable ? (
+                <Empty />
+              ) : (
+                <Button size="small" type="link" onClick={() => openStatement(row)}>
+                  对账单
+                </Button>
+              )
+            }
+          />
         </Table>
 
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -197,6 +242,46 @@ export function AgingPage() {
           原币金额按「主体 + 币种」拆行，合计只给本币——跨币种的原币相加没有意义。
         </Typography.Paragraph>
       </Card>
+
+      <Modal
+        open={!!stmt}
+        title={stmt ? `${stmt.row.partner_name} · 客户对账单` : '客户对账单'}
+        okText="下载 PDF"
+        confirmLoading={downloading}
+        onOk={downloadStatement}
+        onCancel={() => setStmt(null)}
+        destroyOnHidden
+      >
+        <Space direction="vertical" size={12} style={{ display: 'flex' }}>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            期初 + 本期开票 − 本期收款 = 期末，每行都带余额，客户可以照着单子自己验算。
+          </Typography.Paragraph>
+          <Space size={8}>
+            <Typography.Text>币种</Typography.Text>
+            <Input
+              value={stmt?.currency ?? ''}
+              onChange={(e) => setStmt((prev) => (prev ? { ...prev, currency: e.target.value } : prev))}
+              placeholder="留空取第一个币种"
+              style={{ width: 140 }}
+            />
+          </Space>
+          <Space size={8}>
+            <Typography.Text>账期</Typography.Text>
+            <Input
+              value={stmt?.from ?? ''}
+              onChange={(e) => setStmt((prev) => (prev ? { ...prev, from: e.target.value } : prev))}
+              placeholder="起 YYYY-MM-DD（留空不限）"
+              style={{ width: 200 }}
+            />
+            <Input
+              value={stmt?.to ?? ''}
+              onChange={(e) => setStmt((prev) => (prev ? { ...prev, to: e.target.value } : prev))}
+              placeholder="止 YYYY-MM-DD（留空不限）"
+              style={{ width: 200 }}
+            />
+          </Space>
+        </Space>
+      </Modal>
     </Space>
   )
 }

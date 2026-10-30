@@ -88,6 +88,16 @@ export interface SalesDashboardParams {
   limit?: number
 }
 
+export interface StatementParams {
+  /** 必填：对账单是「跟某一家对」，没有全量对账单。 */
+  partner_id: number
+  /** 留空取该客户出现过的第一个币种；跨币种的客户要按币种分别对。 */
+  currency_code?: string
+  /** 账期区间，YYYY-MM-DD，左闭右闭；留空表示不限。 */
+  from?: string
+  to?: string
+}
+
 export const reportApi = {
   aging: (params: AgingParams = {}) =>
     http.get<AgingReport>(`/reports/aging${toQuery({ ...params })}`),
@@ -114,6 +124,15 @@ export const reportApi = {
   /** 产品毛利下钻：某个产品逐票的收入 / 成本 / 运杂费 / 毛利（按出货日倒序）。 */
   productProfit: (params: ProductProfitParams) =>
     http.get<ProductProfitReport>(`/reports/product-profit${toQuery({ ...params })}`),
+
+  /**
+   * 客户对账单（T-53）：按主体 + 币种 + 账期出一张能直接发给客户的 PDF。
+   *
+   * 走 PDF 而不是页面表格：对账单是对方签回来存档的东西，屏幕上看的最终也要
+   * 导出成文件；数字与 JSON 版同源，不会出现两套口径。
+   */
+  statementPdf: (params: StatementParams) =>
+    http.download(`/reports/receivable-statement/pdf${toQuery({ ...params })}`, 'STATEMENT.pdf'),
 
   /** 待办清单：待跟进、应收待催、缺当日汇率（T-34）。 */
   todos: (params: TodoParams = {}) =>
