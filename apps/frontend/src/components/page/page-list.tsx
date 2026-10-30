@@ -1,14 +1,12 @@
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { CreateButton, List } from '@refinedev/antd'
-import { Button, Empty, Form, Grid, Space, Table } from 'antd'
+import { Button, Empty, Form, Grid, Space } from 'antd'
 import type { FormProps, TableProps } from 'antd'
-import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
 import { toCardPager } from '@/components/partner-cards'
 import { useUiPrefs } from '@/providers/uiPrefs'
-import type { CardColumn } from './record-cards'
-import { collectCardColumns, RecordCards } from './record-cards'
+import { ResponsiveTable } from './responsive-table'
 
 /**
  * 列表页外壳。
@@ -22,8 +20,9 @@ import { collectCardColumns, RecordCards } from './record-cards'
  *
  * 窄屏（< 768px）在没有自定义 `table` 时自动降级成卡片：列定义从
  * `<Table.Column>` 的 children 读出来（见 record-cards.tsx），
- * 页面不需要为手机再写一套视图。给了 `table` 的页面（产品与三张往来单位表）
- * 自己有双视图，由 useListView 在窄屏把默认视图改成卡片。
+ * 页面不需要为手机再写一套视图。降级判断在 ResponsiveTable 里，
+ * 报表页（不走 PageList）用的是同一份。给了 `table` 的页面
+ * （产品与三张往来单位表）自己有双视图，由 useListView 在窄屏把默认视图改成卡片。
  */
 
 export interface PageListProps<T> {
@@ -75,16 +74,7 @@ export function PageList<T extends object>({
   children,
 }: PageListProps<T>) {
   const { compact } = useUiPrefs()
-  const screens = Grid.useBreakpoint()
-  const narrow = screens.md === false
-
-  // 列定义只依赖 children 的引用；页面每次渲染都新建这些元素，
-  // 但推导本身很便宜，且 children 变化时必须重算，所以只按 children 记忆。
-  const cardColumns = useMemo(
-    () => collectCardColumns(children) as CardColumn<T>[],
-    [children],
-  )
-  const degradeToCards = narrow && !table && cardColumns.length > 0
+  const narrow = Grid.useBreakpoint().md === false
 
   const headerButtons =
     extra || createLabel ? (
@@ -142,28 +132,20 @@ export function PageList<T extends object>({
         </Form>
       ) : null}
 
-      {degradeToCards ? (
-        <RecordCards<T>
+      {table ?? (
+        <ResponsiveTable<T>
+          tableProps={tableProps}
           rows={(tableProps.dataSource ?? []) as T[]}
-          columns={cardColumns}
           rowKey={rowKey}
           loading={tableProps.loading === true}
+          size={compact ? 'small' : 'middle'}
+          pagination={pagination}
           pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`, pageSizeOptions)}
+          scrollX={scrollX}
           empty={empty}
-        />
-      ) : (
-        (table ?? (
-          <Table<T>
-            {...tableProps}
-            rowKey={rowKey}
-            size={compact ? 'small' : 'middle'}
-            pagination={pagination}
-            scroll={{ x: scrollX ?? 'max-content' }}
-            locale={{ emptyText: empty, ...tableProps.locale }}
-          >
-            {children}
-          </Table>
-        ))
+        >
+          {children}
+        </ResponsiveTable>
       )}
 
       {footer}

@@ -31,6 +31,20 @@ export interface CardColumn<T> {
   render?: (value: unknown, record: T, index: number) => ReactNode
   /** 操作列：落到卡片底部，不进「标签：值」列表。 */
   actions?: boolean
+  /** 收集过程中的中间特征：无 dataIndex 的 render 列，可能是按钮组。 */
+  buttonish?: boolean
+}
+
+/**
+ * 卡片视图里的「合计」。
+ *
+ * 宽屏它是一行 `Table.Summary`（每格对齐自己的列），窄屏没有列可对齐，
+ * 就排成一张「标签：值」的卡 —— 形状不同，数是同一份，所以由页面各给一次，
+ * 不做推导：合计来自 `data.total` 之类的聚合值，从列定义里算不出来。
+ */
+export interface CardSummary {
+  title: ReactNode
+  facts: { key: string; label: ReactNode; value: ReactNode }[]
 }
 
 interface ColumnLikeProps {
@@ -66,18 +80,24 @@ export function collectCardColumns(children: ReactNode): CardColumn<never>[] {
       return
     }
 
-    // 操作列的共同长相：没有 dataIndex，只有一个 render（按钮组）。
-    const isActions = props.title === '操作' || (props.dataIndex === undefined && typeof props.render === 'function')
     columns.push({
       key: String(props.dataIndex ?? props.key ?? index),
       title: props.title,
       dataIndex: props.dataIndex,
       render: props.render as CardColumn<never>['render'],
-      actions: isActions,
+      actions: false,
+      // 先记下"像操作列"的特征，最后再定：操作列是**最后一列**且没有 dataIndex，
+      // 只有 render（按钮组）。像「已核销 / 未核销」这种也是"无 dataIndex + render"，
+      // 但它们在中间，是数据不是按钮 —— 只凭这两个特征会把它们挪到卡片底部、
+      // 连标签一起弄丢。
+      buttonish: props.dataIndex === undefined && typeof props.render === 'function',
     })
   })
 
-  return columns
+  return columns.map((column, index) => ({
+    ...column,
+    actions: column.title === '操作' || (!!column.buttonish && index === columns.length - 1),
+  }))
 }
 
 /** 按 dataIndex 取值。支持 `a.b` 与数组路径，够覆盖现有列。 */
@@ -95,11 +115,18 @@ function readValue(record: object, dataIndex: string | readonly (string | number
 export interface RecordCardsProps<T> {
   rows: T[]
   columns: CardColumn<T>[]
-  rowKey: string
+  /** 表格那份 rowKey 原样传：字符串取字段，函数直接用（报表页的键是拼出来的）。 */
+  rowKey: string | ((row: T) => string)
   loading?: boolean
   pager?: PaginationProps
   /** 空态：一般是「没有符合条件的记录」那一句。 */
   empty?: ReactNode
+  /** 合计卡：放在列表**上方** —— 下面可能有几十张卡甚至分页，
+      放在末尾等于要滑到底才看得到合计。 */
+  summary?: CardSummary
+  /** 指定哪一列当标题（默认是第一列）：第一列不是"这条是谁"时用，
+      比如汇兑损益的第一列是到账日，卡上该写单号。 */
+  titleKey?: string
 }
 
 export function RecordCards<T extends object>({
@@ -109,6 +136,8 @@ export function RecordCards<T extends object>({
   loading,
   pager,
   empty,
+  summary,
+  titleKey,
 }: RecordCardsProps<T>) {
   // 骨架屏的结构与真实卡片一致（标题 + 三行「标签：值」），数据到了不跳版。
   if (loading && rows.length === 0) {
@@ -125,18 +154,32 @@ export function RecordCards<T extends object>({
 
   if (rows.length === 0) return <>{empty ?? null}</>
 
-  const titleColumn = columns.find((column) => !column.actions)
-  const factColumns = columns.filter((column) => !column.actions && column !== titleColumn)
+  const plain = columns.filter((column) => !column.actions)
+  const titleColumn = (titleKey && plain.find((column) => column.key === titleKey)) || plain[0]
+  const factColumns = plain.filter((column) => column !== titleColumn)
   const actionColumns = columns.filter((column) => column.actions)
+  const keyOf = (record: T, index: number) =>
+    typeof rowKey === 'function' ? rowKey(record) : String((record as Record<string, unknown>)[rowKey] ?? index)
 
   return (
     <>
+      {summary ? (
+        <article className="record-card record-card--total">
+          <div className="record-card-title">{summary.title}</div>
+          <div className="record-card-facts">
+            {summary.facts.map((fact) => (
+              <div className="record-card-fact" key={fact.key}>
+                <span className="record-card-fact-label">{fact.label}</span>
+                <span className="record-card-fact-value">{fact.value}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
       <div className="record-grid">
         {rows.map((record, index) => (
-          <article
-            className="record-card"
-            key={String((record as Record<string, unknown>)[rowKey] ?? index)}
-          >
+          <article className="record-card" key={keyOf(record, index)}>
             {titleColumn ? (
               <div className="record-card-title">{renderCell(titleColumn, record, index)}</div>
             ) : null}
