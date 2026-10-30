@@ -1,15 +1,14 @@
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions, Tag, Typography } from 'antd'
+import { Descriptions, Typography } from 'antd'
 import { useNavigate } from 'react-router'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono, Money } from '@/components/fields'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import {
+  SETTLEMENT_STATUS_OPTIONS,
   settlementSourceLabel,
-  settlementStatusColor,
-  settlementStatusLabel,
 } from '@/constants/catalog'
 import type { Settlement } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
@@ -90,9 +89,7 @@ export function SettlementShow({
             key: 'status',
             label: '状态',
             children: (
-              <Tag color={settlementStatusColor(result?.status)}>
-                {settlementStatusLabel(result?.status)}
-              </Tag>
+              <OptionTag value={result?.status} options={SETTLEMENT_STATUS_OPTIONS} />
             ),
           },
           {

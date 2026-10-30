@@ -5,26 +5,14 @@ import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag, Typ
 
 import { stockDocApi } from '@/api/stock-documents'
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { Empty, Mono } from '@/components/fields'
+import { Empty, Mono, OptionTag } from '@/components/fields'
 import {
+  ORDER_STATUS_OPTIONS,
   STOCK_DOC_COUNT,
-  orderStatusLabel,
-  stockDocTypeLabel,
+  STOCK_DOC_TYPE_OPTIONS,
 } from '@/constants/catalog'
 import type { StockDocument, StockDocumentItem } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
-
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 90) return 'error'
-  return 'default'
-}
-
-function typeColor(value: number): string {
-  if (value === 10) return 'blue'
-  if (value === 20) return 'orange'
-  return 'purple'
-}
 
 export function StockDocumentShow() {
   const { result, query } = useShow<StockDocument>({ resource: 'stock-documents' })
@@ -126,13 +114,14 @@ export function StockDocumentShow() {
           {
             key: 'type',
             label: '类型',
-            children: d ? <Tag color={typeColor(d.type)}>{stockDocTypeLabel(d.type)}</Tag> : <Empty />,
+            // 出入库类型是身份（方向不同），不是状态，所以字典里没有 tone。
+            children: d ? <OptionTag value={d.type} options={STOCK_DOC_TYPE_OPTIONS} /> : <Empty />,
           },
           {
             key: 'status',
             label: '状态',
             children: d ? (
-              <Tag color={statusColor(d.status)}>{orderStatusLabel(d.status)}</Tag>
+              <OptionTag value={d.status} options={ORDER_STATUS_OPTIONS} />
             ) : (
               <Empty />
             ),

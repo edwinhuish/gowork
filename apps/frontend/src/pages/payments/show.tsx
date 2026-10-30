@@ -5,10 +5,9 @@ import { Button, Descriptions, Popconfirm, Table, Tag, Typography, message } fro
 import { paymentApi } from '@/api/payments'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono, Money } from '@/components/fields'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import {
-  paymentDirectionColor,
-  paymentDirectionLabel,
+  PAYMENT_DIRECTION_OPTIONS,
   paymentTargetLabel,
   settlementMethodLabel,
 } from '@/constants/catalog'
@@ -81,9 +80,7 @@ export function PaymentShow() {
             key: 'direction',
             label: '方向',
             children: (
-              <Tag color={paymentDirectionColor(result?.direction)}>
-                {paymentDirectionLabel(result?.direction)}
-              </Tag>
+              <OptionTag value={result?.direction} options={PAYMENT_DIRECTION_OPTIONS} />
             ),
           },
           {

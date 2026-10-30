@@ -170,6 +170,19 @@ export function buildThemeConfig({
     token: {
       colorPrimary: c.primary,
       colorLink: c.primary,
+      /*
+       * 悬停色也要显式给：antd 派生的是**比主色更浅**的一档（默认主色
+       * #1677ff → 悬停 #4096ff），浅一档的蓝压在主色淡底上只有 3.46，
+       * 而强调标记（「默认地址 / 本币 / 主联系人」）正是这个组合。
+       * 色板里的 primaryHover 在亮色是压深一档、暗色是提亮一档，正好够。
+       */
+      colorPrimaryHover: c.primaryHover,
+      /*
+       * 主色淡底。antd 派生的那个在暗色下是 #253858（配主色只有 2.82），
+       * 而 primarySoft 在暗色是带透明度的主色，压在容器底上 5.48 ——
+       * 与 Menu 选中项、Select 选中项、表格行悬停同源，别再派生第二份。
+       */
+      colorPrimaryBg: c.primarySoft,
       colorSuccess: c.success,
       colorWarning: c.warning,
       colorError: c.danger,

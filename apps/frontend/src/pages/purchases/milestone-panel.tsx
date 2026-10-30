@@ -133,11 +133,11 @@ export function PurchaseMilestonePanel({ order }: { order: PurchaseOrder }) {
                       <Space direction="vertical" size={0}>
                         <span className="cell-sub">计划 {m?.plan_date ?? '—'}</span>
                         {m?.done_date ? (
-                          <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                          <Tag color="success" style={{ marginInlineEnd: 0 }}>
                             {m.done_date}
                           </Tag>
                         ) : overdue ? (
-                          <Tag color="red" style={{ marginInlineEnd: 0 }}>
+                          <Tag color="error" style={{ marginInlineEnd: 0 }}>
                             逾期
                           </Tag>
                         ) : (

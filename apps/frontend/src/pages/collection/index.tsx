@@ -17,7 +17,7 @@ import {
 } from 'antd'
 
 import { reportApi } from '@/api/reports'
-import { Empty, Mono, Money } from '@/components/fields'
+import { Empty, HeatTag, Mono, Money } from '@/components/fields'
 import { FilterBar, PageHeader, StatCard } from '@/components/page'
 import type { CollectionRow } from '@/types'
 
@@ -205,18 +205,20 @@ export function CollectionPage() {
         title={isPayable ? '超期未付明细' : '超期未收明细'}
         extra={
           <Space size={12}>
-            <Tag bordered={false} color="gold">
+            {/* 四个桶是同一个量在变大（逾期天数），不是四种状态：
+                同一色相由浅到深，越久越红。 */}
+            <HeatTag level={0}>
               1-30 天 <Money value={data?.overdue_buckets.days_1_30} />
-            </Tag>
-            <Tag bordered={false} color="orange">
+            </HeatTag>
+            <HeatTag level={1}>
               31-60 天 <Money value={data?.overdue_buckets.days_31_60} />
-            </Tag>
-            <Tag bordered={false} color="volcano">
+            </HeatTag>
+            <HeatTag level={2}>
               61-90 天 <Money value={data?.overdue_buckets.days_61_90} />
-            </Tag>
-            <Tag bordered={false} color="red">
+            </HeatTag>
+            <HeatTag level={3}>
               90 天以上 <Money value={data?.overdue_buckets.days_over_90} />
-            </Tag>
+            </HeatTag>
           </Space>
         }
       >

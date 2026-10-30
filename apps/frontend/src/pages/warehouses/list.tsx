@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useList } from '@refinedev/core'
-import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag, message } from 'antd'
+import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, message } from 'antd'
 
 import { http } from '@/api/client'
-import { Empty } from '@/components/fields'
+import { AccentTag, Empty } from '@/components/fields'
 import { PageList } from '@/components/page'
 import type { Warehouse } from '@/types'
 
@@ -182,7 +182,7 @@ export function WarehouseList() {
         dataIndex="is_default"
         title="默认"
         width={90}
-        render={(v: boolean) => (v ? <Tag color="blue">默认</Tag> : <Empty />)}
+        render={(v: boolean) => (v ? <AccentTag>默认</AccentTag> : <Empty />)}
       />
       <Table.Column
         title="操作"

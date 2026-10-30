@@ -8,13 +8,13 @@ import {
   Modal,
   Popconfirm,
   Space,
-  Tag,
   Typography,
   message,
 } from 'antd'
 
 import { productImageApi } from '@/api/product-images'
 import { AuthedImage } from '@/components/authed-image'
+import { AccentTag } from '@/components/fields'
 import type { ProductImage } from '@/types'
 import { formatBytes } from '@/utils/format'
 
@@ -288,13 +288,11 @@ export function ProductImagesPanel({ productId }: { productId: number }) {
                   }}
                   onClick={() => setPreview(image)}
                 />
+                {/*「主图」是"这一张是特殊的那张"，不是状态，所以走强调标记。 */}
                 {index === 0 ? (
-                  <Tag
-                    color="blue"
-                    style={{ position: 'absolute', top: 8, left: 8, marginInlineEnd: 0 }}
-                  >
+                  <AccentTag style={{ position: 'absolute', top: 8, left: 8, marginInlineEnd: 0 }}>
                     主图
-                  </Tag>
+                  </AccentTag>
                 ) : null}
               </div>
 

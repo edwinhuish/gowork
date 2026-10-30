@@ -6,8 +6,8 @@ import { Button, Card, Descriptions, message, Popconfirm, Space, Table, Tag } fr
 import { download } from '@/api/client'
 import { purchaseOrderApi } from '@/api/purchase-orders'
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { Empty, Mono, Money } from '@/components/fields'
-import { orderStatusLabel, tradeTermLabel } from '@/constants/catalog'
+import { AccentTag, Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { orderStatusLabel, ORDER_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
@@ -45,15 +45,6 @@ function nextActions(status: number): StatusAction[] {
     default:
       return []
   }
-}
-
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 30) return 'processing'
-  if (value === 40) return 'warning'
-  if (value === 50) return 'default'
-  if (value === 90) return 'error'
-  return 'default'
 }
 
 export function PurchaseShow() {
@@ -141,7 +132,7 @@ export function PurchaseShow() {
             key: 'status',
             label: '状态',
             children: o ? (
-              <Tag color={statusColor(o.status)}>{orderStatusLabel(o.status)}</Tag>
+              <OptionTag value={o.status} options={ORDER_STATUS_OPTIONS} />
             ) : (
               <Empty />
             ),
@@ -250,7 +241,7 @@ export function PurchaseShow() {
             title="关联"
             width={110}
             render={(value: number | null) =>
-              value ? <Tag color="blue">以销定采</Tag> : <Empty />
+              value ? <AccentTag>以销定采</AccentTag> : <Empty />
             }
           />
         </Table>

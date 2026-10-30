@@ -21,13 +21,8 @@ import {
 
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
 import { AttachmentPanel } from '@/components/attachment-panel'
-import { Empty } from '@/components/fields'
-import {
-  CUSTOMS_STATUS_OPTIONS,
-  SUPERVISION_MODE_OPTIONS,
-  customsStatusColor,
-  customsStatusLabel,
-} from '@/constants/catalog'
+import { Empty, OptionTag } from '@/components/fields'
+import { CUSTOMS_STATUS_OPTIONS, SUPERVISION_MODE_OPTIONS } from '@/constants/catalog'
 import type { CustomsDeclaration } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -150,9 +145,7 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
           dataIndex="status"
           title="状态"
           width={100}
-          render={(value: number) => (
-            <Tag color={customsStatusColor(value)}>{customsStatusLabel(value)}</Tag>
-          )}
+          render={(value: number) => <OptionTag value={value} options={CUSTOMS_STATUS_OPTIONS} />}
         />
         <Table.Column
           dataIndex="decl_no"

@@ -164,7 +164,7 @@ export function PurchaseReceiptPanel({
             dataIndex: 'status',
             width: 100,
             render: (v: number) =>
-              v === 20 ? <Tag color="green">已确认</Tag> : <Tag color="default">草稿</Tag>,
+              v === 20 ? <Tag color="success">已确认</Tag> : <Tag>草稿</Tag>,
           },
           {
             title: '收货数量',

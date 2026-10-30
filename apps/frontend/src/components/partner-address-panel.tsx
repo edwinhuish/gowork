@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, message } from 'antd'
 
 import { partnerApi, type PartnerAddressInput } from '@/api/partners'
+import { AccentTag } from '@/components/fields'
 import { PARTNER_ADDRESS_TYPE_OPTIONS } from '@/constants/catalog'
 import type { PartnerAddress } from '@/types'
 
@@ -155,7 +156,7 @@ export function PartnerAddressPanel({ partnerId }: { partnerId: number }) {
             width: 70,
             // 只读展示：切换默认请用编辑弹窗，后端要在同一事务里降级原默认。
             render: (value: boolean) =>
-              value ? <Tag color="blue">默认</Tag> : <span className="cell-sub">—</span>,
+              value ? <AccentTag>默认</AccentTag> : <span className="cell-sub">—</span>,
           },
           {
             title: '操作',

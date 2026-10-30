@@ -1,5 +1,6 @@
 import { useList } from '@refinedev/core'
-import { Space, Tag } from 'antd'
+import { Space, Tag, theme } from 'antd'
+import type { CSSProperties, ReactNode } from 'react'
 
 import {
   categoryLabel,
@@ -8,6 +9,7 @@ import {
 } from '@/constants/catalog'
 import type { StatusTone } from '@/constants/catalog'
 import type { Currency } from '@/types'
+import { mixHex } from '@/utils/color'
 
 /**
  * 业务字段的统一展示件。
@@ -119,6 +121,10 @@ export function Mono({ children }: { children?: string | null }) {
  *
  * 必须按位判断，不能写 role === 1：一个主体可以同时是客户和供应商（值为 3），
  * 用等号判断会让它在两个列表里都显示成"未知角色"。
+ *
+ * 三个角色都是中性标签，不再各给一种蓝：角色是**身份**而不是状态，
+ * 三个蓝（blue / geekblue / cyan）并排还几乎分不出来，读的人只会以为
+ * "客户 / 供应商 / 货代"是三种需要不同处理的状态。灰底 + 文字已经够区分了。
  */
 export function RoleTag({ value }: { value?: number | null }) {
   const role = value ?? 0
@@ -129,9 +135,9 @@ export function RoleTag({ value }: { value?: number | null }) {
   if (!customer && !supplier && !forwarder) return <Empty />
   return (
     <Space size={4}>
-      {customer && <Tag color="blue">客户</Tag>}
-      {supplier && <Tag color="geekblue">供应商</Tag>}
-      {forwarder && <Tag color="cyan">货代</Tag>}
+      {customer && <Tag>客户</Tag>}
+      {supplier && <Tag>供应商</Tag>}
+      {forwarder && <Tag>货代</Tag>}
     </Space>
   )
 }
@@ -139,10 +145,50 @@ export function RoleTag({ value }: { value?: number | null }) {
 /**
  * 主体类型。
  *
- * 公司是常态，用中性样式不抢注意力；个人要显眼一些 ——
+ * 公司是常态，用中性标签；个人用强调色 ——
  * 它意味着报关资料、发票抬头都跟公司主体不同，不是纯粹的标签差异。
  */
 export function EntityTypeTag({ value }: { value?: number | null }) {
-  if (value === 1) return <Tag color="gold">个人</Tag>
+  if (value === 1) return <AccentTag>个人</AccentTag>
   return <Tag>公司</Tag>
+}
+
+/**
+ * 强调标记：「默认地址 / 默认仓库 / 本币 / 主联系人 / 以销定采 / 个人主体」这一类。
+ *
+ * 它们不是状态——没有"进行中 / 已完成"可言，只是"这一条是特殊的那一个"。
+ * 塞进五档语义色会被读成状态（橙 = 要处理、红 = 出错），所以另开一档：
+ * 主色淡底 + 主色字，与 Menu 选中项、Select 选中项同源，
+ * 一眼是"被挑出来的那个"。亮色 6.08、暗色 5.48，都过正文标准。
+ */
+export function AccentTag({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  const { token } = theme.useToken()
+  return (
+    <Tag
+      bordered={false}
+      style={{ color: token.colorPrimaryHover, background: token.colorPrimaryBg, ...style }}
+    >
+      {children}
+    </Tag>
+  )
+}
+
+/**
+ * 有序量的梯度标签：`level` 0 最轻（橙），3 最重（红），中间两档在二者之间插值。
+ *
+ * 逾期天数分桶这类数字是**同一个量在变大**，四个色相（gold / orange /
+ * volcano / red）会读成四种状态。中间档不新增色号：在 warning 与 error 之间
+ * 插值，底色是字色压进容器底 14%，四档深浅齐平（亮色 5.08~5.88、暗色 4.77~4.87）。
+ */
+export function HeatTag({ level, children }: { level: 0 | 1 | 2 | 3; children: ReactNode }) {
+  const { token } = theme.useToken()
+  const fg = mixHex(token.colorError, token.colorWarning, level / 3)
+  return (
+    <Tag
+      bordered={false}
+      style={{ color: fg, background: mixHex(fg, token.colorBgContainer, 0.14) }}
+    >
+      {children}
+    </Tag>
+  )
 }

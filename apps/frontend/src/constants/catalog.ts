@@ -86,14 +86,6 @@ export function customsStatusLabel(value?: number | null): string | undefined {
   return CUSTOMS_STATUS_MAP.get(value) ?? `未知状态(${value})`
 }
 
-/** 「已退单」要用告警色，其余是进度色。 */
-export function customsStatusColor(value?: number | null): string {
-  if (value === 90) return 'red'
-  if (value === 30) return 'green'
-  if (value === 20) return 'blue'
-  return 'default'
-}
-
 /**
  * 常用监管方式。做成可自由输入的候选而不是封闭枚举：
  * 海关的监管方式有几十种且会调整，封闭下拉会把人挡在门外。
@@ -126,13 +118,6 @@ const SETTLEMENT_STATUS_MAP = new Map<number, string>(
 export function settlementStatusLabel(value?: number | null): string | undefined {
   if (value === null || value === undefined) return undefined
   return SETTLEMENT_STATUS_MAP.get(value) ?? `未知状态(${value})`
-}
-
-export function settlementStatusColor(value?: number | null): string {
-  if (value === 90) return 'default'
-  if (value === 30) return 'green'
-  if (value === 20) return 'orange'
-  return 'blue'
 }
 
 /**
@@ -174,10 +159,6 @@ const PAYMENT_DIRECTION_MAP = new Map<number, string>(
 export function paymentDirectionLabel(value?: number | null): string | undefined {
   if (value === null || value === undefined) return undefined
   return PAYMENT_DIRECTION_MAP.get(value) ?? `未知方向(${value})`
-}
-
-export function paymentDirectionColor(value?: number | null): string {
-  return value === 20 ? 'orange' : 'green'
 }
 
 /** 核销对象类型。取值与后端 model.SettlementTarget 一致。 */

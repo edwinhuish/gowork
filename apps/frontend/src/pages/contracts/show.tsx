@@ -18,24 +18,15 @@ import { download } from '@/api/client'
 import { contractApi } from '@/api/contracts'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono, Money } from '@/components/fields'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import {
+  CONTRACT_STATUS_OPTIONS,
+  CONTRACT_TYPE_OPTIONS,
   contractSourceTypeLabel,
-  contractStatusLabel,
   contractTypeLabel,
 } from '@/constants/catalog'
 import type { Contract, ContractClause, ContractTerm } from '@/types'
 import { formatDate } from '@/utils/format'
-
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 90) return 'default'
-  return 'processing'
-}
-
-function typeColor(value: number): string {
-  return value === 10 ? 'blue' : 'geekblue'
-}
 
 /**
  * 合同详情。
@@ -165,10 +156,11 @@ export function ContractShow() {
 
       <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} bordered size="small">
         <Descriptions.Item label="合同类型">
-          <Tag color={c ? typeColor(c.type) : undefined}>{contractTypeLabel(c?.type)}</Tag>
+          {/* 类型没有"好 / 坏"，是身份，所以中性；状态走字典自带的 tone。 */}
+          <OptionTag value={c?.type} options={CONTRACT_TYPE_OPTIONS} />
         </Descriptions.Item>
         <Descriptions.Item label="状态">
-          <Tag color={c ? statusColor(c.status) : undefined}>{contractStatusLabel(c?.status)}</Tag>
+          <OptionTag value={c?.status} options={CONTRACT_STATUS_OPTIONS} />
         </Descriptions.Item>
         <Descriptions.Item label="客户">{c?.partner?.name || <Empty />}</Descriptions.Item>
         <Descriptions.Item label="来源单据">

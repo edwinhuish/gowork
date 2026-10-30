@@ -1,5 +1,6 @@
-import { Button, Col, Form, Input, InputNumber, Row, Tag, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 
+import { AccentTag } from '@/components/fields'
 import { ProductSelect, type ProductHint } from '@/components/product-select'
 import { SourceSelect } from '@/components/product-source-select'
 
@@ -125,9 +126,9 @@ export function LineItemsEditor({
                       <Input />
                     </Form.Item>
                     {row.sales_order_item_id ? (
-                      <Tag color="blue" style={{ marginTop: -18 }}>
+                      <AccentTag style={{ marginTop: -18 }}>
                         以销定采
-                      </Tag>
+                      </AccentTag>
                     ) : null}
                   </Col>
                   <Col span={spans.qty}>

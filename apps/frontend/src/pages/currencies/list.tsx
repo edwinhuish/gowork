@@ -5,7 +5,7 @@ import { useInvalidate } from '@refinedev/core'
 import { useTable } from '@refinedev/antd'
 import { Button, Checkbox, Form, Input, message, Select, Table, Tag } from 'antd'
 
-import { Empty, Mono } from '@/components/fields'
+import { AccentTag, Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { CURRENCY_STATUS_OPTIONS } from '@/constants/catalog'
 import { http } from '@/api/client'
@@ -105,7 +105,7 @@ export function CurrencyList() {
         dataIndex="is_base"
         title="本币"
         width={90}
-        render={(value: boolean) => (value ? <Tag color="gold">本币</Tag> : <Empty />)}
+        render={(value: boolean) => (value ? <AccentTag>本币</AccentTag> : <Empty />)}
       />
       <Table.Column
         dataIndex="status"

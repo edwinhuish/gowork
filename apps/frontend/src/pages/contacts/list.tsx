@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate, useSelect } from '@refinedev/core'
 import { useTable } from '@refinedev/antd'
-import { Button, Checkbox, Form, Input, message, Select, Space, Table, Tag } from 'antd'
+import { Button, Checkbox, Form, Input, message, Select, Space, Table } from 'antd'
 
-import { Empty, Mono } from '@/components/fields'
+import { AccentTag, Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { http } from '@/api/client'
 import type { Contact, Partner } from '@/types'
@@ -114,7 +114,7 @@ export function ContactList() {
         render={(value: string, record: Contact) => (
           <Space size={6}>
             <span className="cell-strong">{value}</span>
-            {record.is_primary && <Tag color="gold">主</Tag>}
+            {record.is_primary && <AccentTag>主</AccentTag>}
           </Space>
         )}
       />

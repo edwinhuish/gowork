@@ -157,7 +157,7 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   title="逾期"
                   width={90}
                   render={(value: number) =>
-                    value > 0 ? <Tag color="red">{value} 天</Tag> : <Tag>未到期</Tag>
+                    value > 0 ? <Tag color="error">{value} 天</Tag> : <Tag>未到期</Tag>
                   }
                 />
                 <Table.Column

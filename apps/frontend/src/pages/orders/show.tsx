@@ -20,8 +20,14 @@ import { download } from '@/api/client'
 import { salesOrderApi } from '@/api/sales-orders'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
-import { Empty, Mono, Money } from '@/components/fields'
-import { orderStatusLabel, settlementStatusLabel, tradeTermLabel } from '@/constants/catalog'
+import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import {
+  ORDER_STATUS_OPTIONS,
+  SETTLEMENT_STATUS_OPTIONS,
+  orderStatusLabel,
+  tradeTermLabel,
+} from '@/constants/catalog'
+import type { StatusTone } from '@/constants/catalog'
 import type {
   SalesOrder,
   SalesOrderChange,
@@ -73,13 +79,10 @@ function nextActions(status: number): StatusAction[] {
   }
 }
 
-function statusColor(value: number): string {
-  if (value === 20) return 'success'
-  if (value === 30) return 'processing'
-  if (value === 40) return 'warning'
-  if (value === 50) return 'default'
-  if (value === 90) return 'error'
-  return 'default'
+/** 底部「关联单据」表的行：出货与应收用的是两本不同的状态字典，所以字典跟着行走。 */
+interface LinkedDocRow {
+  status: number
+  statusOptions: readonly { value: string | number; label: string; tone?: StatusTone }[]
 }
 
 /**
@@ -316,7 +319,7 @@ export function OrderShow() {
             key: 'status',
             label: '状态',
             children: o ? (
-              <Tag color={statusColor(o.status)}>{orderStatusLabel(o.status)}</Tag>
+              <OptionTag value={o.status} options={ORDER_STATUS_OPTIONS} />
             ) : (
               <Empty />
             ),
@@ -461,23 +464,21 @@ export function OrderShow() {
             ...linkedShipments.map((row) => ({
               key: `s-${row.id}`,
               kind: '出货',
-              color: 'blue',
               docNo: row.doc_no,
               date: row.ship_date,
               amount: '',
-              statusLabel: orderStatusLabel(row.status),
-              statusColor: row.status === 10 ? 'processing' : 'success',
+              status: row.status,
+              statusOptions: ORDER_STATUS_OPTIONS,
               href: `/shipments/show/${row.id}`,
             })),
             ...linkedReceivables.map((row) => ({
               key: `r-${row.id}`,
               kind: '应收',
-              color: 'gold',
               docNo: row.doc_no,
               date: row.due_date,
               amount: row.amount_base,
-              statusLabel: settlementStatusLabel(row.status),
-              statusColor: row.status === 30 ? 'success' : row.status === 90 ? 'default' : 'warning',
+              status: row.status,
+              statusOptions: SETTLEMENT_STATUS_OPTIONS,
               href: `/receivables/show/${row.id}`,
             })),
           ]}
@@ -487,11 +488,8 @@ export function OrderShow() {
             dataIndex="kind"
             title="类型"
             width={80}
-            render={(value: string, row: { color: string }) => (
-              <Tag color={row.color} bordered={false}>
-                {value}
-              </Tag>
-            )}
+            // 「出货 / 应收」是这张单关联了什么，不是状态，所以中性标签。
+            render={(value: string) => <Tag bordered={false}>{value}</Tag>}
           />
           <Table.Column
             dataIndex="docNo"
@@ -512,10 +510,12 @@ export function OrderShow() {
             render={(value: string) => (value ? <Money value={value} /> : <Empty />)}
           />
           <Table.Column
-            dataIndex="statusLabel"
+            dataIndex="status"
             title="状态"
             width={100}
-            render={(value: string, row: { statusColor: string }) => <Tag color={row.statusColor}>{value}</Tag>}
+            render={(_: unknown, row: LinkedDocRow) => (
+              <OptionTag value={row.status} options={row.statusOptions} />
+            )}
           />
         </Table>
       </Card>

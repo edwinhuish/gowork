@@ -14,8 +14,12 @@ import {
 } from 'antd'
 
 import { opportunityApi } from '@/api/opportunities'
-import { Empty, Money } from '@/components/fields'
-import { ACTIVITY_TYPE_OPTIONS, opportunityStageLabel } from '@/constants/catalog'
+import { Empty, Money, OptionTag } from '@/components/fields'
+import {
+  ACTIVITY_TYPE_OPTIONS,
+  OPPORTUNITY_STAGE_OPTIONS,
+  opportunityStageLabel,
+} from '@/constants/catalog'
 import type { Activity, Opportunity, OpportunityStageLog } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
@@ -164,10 +168,10 @@ export function OpportunityShow() {
                       {l.from_stage === 0 ? (
                         <Tag bordered={false}>新建</Tag>
                       ) : (
-                        <Tag bordered={false}>{opportunityStageLabel(l.from_stage)}</Tag>
+                        <OptionTag value={l.from_stage} options={OPPORTUNITY_STAGE_OPTIONS} />
                       )}
                       <span>→</span>
-                      <Tag color="blue">{opportunityStageLabel(l.to_stage)}</Tag>
+                      <OptionTag value={l.to_stage} options={OPPORTUNITY_STAGE_OPTIONS} />
                       <Typography.Text type="secondary">赢率 {l.probability}%</Typography.Text>
                     </Space>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
