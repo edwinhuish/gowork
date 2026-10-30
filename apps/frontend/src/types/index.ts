@@ -377,6 +377,37 @@ export interface ExchangeRate {
   updated_at: string
 }
 
+/**
+ * 产品图片。
+ *
+ * 没有 is_primary 落库字段：**顺序第一张就是主图**，is_primary 由服务端按顺序算好。
+ * 「设为主图」等价于把它移到第一位——不另设标记，就不会出现「标记在这张、
+ * 顺序却在第三位」的状态。
+ *
+ * url / thumb_url 带 v=updated_at 的版本号：替换内容后路径变化，
+ * 浏览器与前端的 blob 缓存都不会继续拿旧图。
+ */
+export interface ProductImage {
+  id: number
+  product_id: number
+  sort_order: number
+  is_primary: boolean
+  file_name: string
+  /** 服务端嗅探出来的类型，不是上传时声明的。 */
+  mime_type: string
+  size: number
+  width: number
+  height: number
+  sha256: string
+  uploaded_by: number
+  /** 原图取图路径（相对 /api/v1），需要带令牌请求。 */
+  url: string
+  /** 缩略图路径：最长边 400px 的 JPEG，列表与卡片只用它。 */
+  thumb_url: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Product {
   id: number
   sku_code: string
@@ -424,6 +455,11 @@ export interface Product {
    * 详情接口不返回：它是某一次查询的结果，不是产品的一个字段。
    */
   matched_codes?: string[]
+  /**
+   * 主图（顺序第一张）。列表与详情都带，整页只查一次；
+   * 没有图片时字段不出现，而非空对象。
+   */
+  primary_image?: ProductImage | null
   /**
    * 已软删时才有值（Unix 毫秒）。后端用 omitempty 序列化，
    * 未删除的行不会出现这个字段——「含已删除」的列表靠它标记行与显示「恢复」。

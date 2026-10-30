@@ -194,6 +194,14 @@ export const http = {
    */
   postForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: 'POST', body: form }),
+  /**
+   * PUT 一个 multipart。用于「替换文件内容但保留记录 id」这类操作。
+   *
+   * 不能复用 put：它会把 FormData JSON.stringify 成 {}，服务端只看到空对象，
+   * 表现是「上传成功但文件没变」——比报错更难查。
+   */
+  putForm: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: 'PUT', body: form }),
 }
 
 // toQuery 把对象拼成查询串，自动跳过空值。

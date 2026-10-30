@@ -8,6 +8,7 @@ import type { Product } from '@/types'
 import { formatTime } from '@/utils/format'
 
 import { CodePanel } from './code-panel'
+import { ProductImagesPanel } from './image-panel'
 import { SourcesPanel } from './source-panel'
 
 /**
@@ -23,6 +24,10 @@ export function ProductShow() {
 
   return (
     <Show isLoading={query.isLoading} title={result?.name_cn ?? '产品详情'}>
+      {/* 图片放在最前：客户来问「这件货长什么样」时，先看的不是 HS 编码。
+          与货源/编号一致做成子表面板，产品表单不参与图片。 */}
+      {result?.id ? <ProductImagesPanel productId={result.id} /> : null}
+
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered
