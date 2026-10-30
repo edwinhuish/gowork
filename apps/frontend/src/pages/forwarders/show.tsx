@@ -3,6 +3,7 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Button, Descriptions, Space } from 'antd'
 
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, RoleTag, StatusTag } from '@/components/fields'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
@@ -55,6 +56,12 @@ export function ForwarderShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 货代是往来单位的另一个角色，附件同样落在 partner 上：
+          代理协议、订舱确认、对账用的运费清单都是长期有效的文件。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="partner" entityId={result.id} title="代理协议与订舱确认" />
+      ) : null}
 
       {result && (
         <PartnerMergeModal

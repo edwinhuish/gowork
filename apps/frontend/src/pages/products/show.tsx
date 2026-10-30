@@ -2,6 +2,7 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Descriptions } from 'antd'
 
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { CategoryTag, Empty, Money, StatusTag } from '@/components/fields'
 import type { Product } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -94,6 +95,12 @@ export function ProductShow() {
 
       {/* 货源是产品的子表：报价成本从这里取，产品页上没有它就等于成本只能手填。 */}
       {result?.id ? <SourcesPanel productId={result.id} /> : null}
+
+      {/* 图纸、规格书、检测报告这类跟着产品走的文件：它们多年不变，
+          挂在产品上比挂在某张订单上更容易找到——找的是"这件货长什么样"。 */}
+      {result?.id ? (
+        <AttachmentPanel entityType="product" entityId={result.id} title="图纸与检测报告" />
+      ) : null}
     </Show>
   )
 }

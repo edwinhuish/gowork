@@ -20,6 +20,7 @@ import {
 } from 'antd'
 
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty } from '@/components/fields'
 import {
   CUSTOMS_STATUS_OPTIONS,
@@ -50,6 +51,9 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<CustomsDeclaration | null>(null)
+  // 附件按「一张报关单」挂，不并到票级的「单证附件」里：
+  // 分票申报时两张报关单各自有放行通知书，混在一处就分不清哪份是哪张的。
+  const [attach, setAttach] = useState<CustomsDeclaration | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm<DeclForm>()
   const invalidate = useInvalidate()
@@ -171,9 +175,12 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
         <Table.Column dataIndex="remark" title="备注" render={(value: string) => value || <Empty />} />
         <Table.Column
           title="操作"
-          width={140}
+          width={200}
           render={(_, record: CustomsDeclaration) => (
             <Space size={4}>
+              <Button size="small" type="link" onClick={() => setAttach(record)}>
+                附件
+              </Button>
               <Button size="small" type="link" onClick={() => openEdit(record)}>
                 编辑
               </Button>
@@ -269,6 +276,23 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      <Modal
+        open={!!attach}
+        title={attach?.decl_no ? `报关单 ${attach.decl_no} · 附件` : '报关单附件'}
+        width={860}
+        footer={null}
+        onCancel={() => setAttach(null)}
+        forceRender
+      >
+        {attach ? (
+          <AttachmentPanel
+            entityType="customs_declaration"
+            entityId={attach.id}
+            title="报关资料与放行通知书"
+          />
+        ) : null}
       </Modal>
     </Card>
   )

@@ -2,6 +2,7 @@ import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Descriptions, Tag } from 'antd'
 
+import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, Money } from '@/components/fields'
 import {
   settlementSourceLabel,
@@ -105,6 +106,17 @@ export function SettlementShow({
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 对账单与发票是"这笔账凭什么这么算"的证据，对账时双方各执一份。
+          应收挂客户回签的对账单与开给客户的发票，应付挂供应商开来的发票——
+          两侧的单据根本不是同一批文件，所以标题随方向走。 */}
+      {result?.id ? (
+        <AttachmentPanel
+          entityType={isReceivable ? 'receivable' : 'payable'}
+          entityId={result.id}
+          title={isReceivable ? '对账单与发票' : '供应商发票与对账单'}
+        />
+      ) : null}
     </Show>
   )
 }
