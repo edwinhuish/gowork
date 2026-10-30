@@ -13,7 +13,6 @@ import (
 type ClauseFilter struct {
 	Keyword  string
 	Category string
-	Status   *model.EnableStatus
 	// IncludeDeleted 把已软删的条款也列出来，供恢复与"这个模板还在被谁引用"的排查。
 	IncludeDeleted bool
 }
@@ -104,12 +103,6 @@ func (r *clauseRepo) List(
 		category := f.Category
 		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
 			return db.Where("category = ?", category)
-		})
-	}
-	if f.Status != nil {
-		status := *f.Status
-		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", status)
 		})
 	}
 	return r.Paginate(ctx, p, scopes...)

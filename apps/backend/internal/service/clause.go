@@ -52,10 +52,6 @@ func (s *clauseService) List(
 		Category:       q.Category,
 		IncludeDeleted: q.IncludeDeleted,
 	}
-	if q.Status != nil {
-		status := model.EnableStatus(*q.Status)
-		filter.Status = &status
-	}
 
 	list, total, err := s.repo.List(ctx, filter,
 		repository.Pagination{Page: q.Page, PageSize: q.PageSize})
@@ -81,15 +77,10 @@ func (s *clauseService) Create(ctx context.Context, in dto.ClauseInput) (*model.
 		return nil, errs.ErrConflict.WithMsg("条款编码已存在：" + code)
 	}
 
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
-
 	m := &model.Clause{
 		Code: code, Title: title, Body: body,
 		Category: strings.TrimSpace(in.Category),
-		Status:   status, Remark: in.Remark,
+		Remark:   in.Remark,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, err
@@ -120,16 +111,11 @@ func (s *clauseService) Update(
 		return nil, errs.ErrConflict.WithMsg("条款编码已存在：" + code)
 	}
 
-	status, err := normEnableStatus(in.Status, model.EnableStatusOn)
-	if err != nil {
-		return nil, err
-	}
-
 	// 改模板只影响之后生成的合同：已经生成的合同存的是快照。
 	if err := s.repo.Update(ctx, id, map[string]any{
 		"code": code, "title": title, "body": body,
 		"category": strings.TrimSpace(in.Category),
-		"status":   status, "remark": in.Remark,
+		"remark":   in.Remark,
 	}); err != nil {
 		return nil, err
 	}

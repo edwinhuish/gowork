@@ -11,7 +11,7 @@ import (
 	"github.com/edwinhuish/gowork/internal/pkg/money"
 )
 
-// 条款模板是主数据：编码唯一、能停用、能恢复。
+// 条款模板是主数据：编码唯一、能删除、能恢复。
 func TestClauseTemplateCRUD(t *testing.T) {
 	fx := newContractFixture(t, time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local))
 	ctx := context.Background()
@@ -23,8 +23,8 @@ func TestClauseTemplateCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("新增条款失败: %v", err)
 	}
-	if created.Status != model.EnableStatusOn {
-		t.Errorf("不填状态应默认启用，得到 %v", created.Status)
+	if created.Code != "PAY-30" || created.Category != "付款" || created.Remark != "" {
+		t.Errorf("落库内容不符：%+v", created)
 	}
 
 	t.Run("编码不能重复", func(t *testing.T) {
@@ -39,23 +39,27 @@ func TestClauseTemplateCRUD(t *testing.T) {
 		wantCode(t, err, errs.CodeInvalidParam, "空正文")
 	})
 
-	t.Run("停用与恢复", func(t *testing.T) {
-		off := int8(model.EnableStatusOff)
-		updated, err := fx.clauseSvc.Update(ctx, created.ID, dto.ClauseInput{
-			Code: "PAY-30", Title: "付款条件", Body: created.Body, Status: &off,
-		})
-		if err != nil {
-			t.Fatalf("停用失败: %v", err)
-		}
-		if updated.Status != model.EnableStatusOff {
-			t.Errorf("状态应为停用，得到 %v", updated.Status)
-		}
-
+	t.Run("删除后可恢复", func(t *testing.T) {
 		if err := fx.clauseSvc.Delete(ctx, created.ID); err != nil {
 			t.Fatalf("删除失败: %v", err)
 		}
+		page, err := fx.clauseSvc.List(ctx, dto.ClauseQuery{Keyword: "PAY-30"})
+		if err != nil {
+			t.Fatalf("列表失败: %v", err)
+		}
+		if len(page.List) != 0 {
+			t.Errorf("删掉的条款不该出现在列表里，得到 %d 条", len(page.List))
+		}
+
 		if _, err := fx.clauseSvc.Restore(ctx, created.ID); err != nil {
 			t.Fatalf("恢复失败: %v", err)
+		}
+		page, err = fx.clauseSvc.List(ctx, dto.ClauseQuery{Keyword: "PAY-30"})
+		if err != nil {
+			t.Fatalf("恢复后列表失败: %v", err)
+		}
+		if len(page.List) != 1 {
+			t.Errorf("恢复后应查得到这一条，得到 %d 条", len(page.List))
 		}
 	})
 }
@@ -127,12 +131,9 @@ func TestContractClauseSnapshot(t *testing.T) {
 		t.Errorf("改模板不该影响已生成的合同：\n改前 %q\n改后 %q", before, again.Clauses[1].Body)
 	}
 
-	t.Run("停用的模板不能再用来生成合同", func(t *testing.T) {
-		off := int8(model.EnableStatusOff)
-		if _, err := fx.clauseSvc.Update(ctx, pay.ID, dto.ClauseInput{
-			Code: "PAY-30", Title: "付款条件", Body: "x", Status: &off,
-		}); err != nil {
-			t.Fatalf("停用模板失败: %v", err)
+	t.Run("已删除的模板不能再用来生成合同", func(t *testing.T) {
+		if err := fx.clauseSvc.Delete(ctx, pay.ID); err != nil {
+			t.Fatalf("删除模板失败: %v", err)
 		}
 
 		q2 := fx.confirmedQuotation(t)
@@ -146,7 +147,7 @@ func TestContractClauseSnapshot(t *testing.T) {
 			},
 			ClauseIDs: []uint{pay.ID},
 		})
-		wantCode(t, err, errs.CodeInvalidParam, "已停用的模板")
+		wantCode(t, err, errs.CodeInvalidParam, "不存在或已删除")
 	})
 
 	t.Run("选中不存在的模板要报出是哪一条", func(t *testing.T) {

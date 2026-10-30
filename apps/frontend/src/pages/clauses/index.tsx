@@ -17,9 +17,8 @@ import {
 
 import { clauseApi, type ClauseInput } from '@/api/clauses'
 import { http } from '@/api/client'
-import { Empty, Mono, StatusTag } from '@/components/fields'
+import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
-import { ENABLE_STATUS_OPTIONS } from '@/constants/catalog'
 import type { Clause, PageResult } from '@/types'
 import { formatTime } from '@/utils/format'
 
@@ -61,7 +60,6 @@ export function ClauseList() {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ status: 1 })
     setFormOpen(true)
   }
 
@@ -72,7 +70,6 @@ export function ClauseList() {
       title: row.title,
       body: row.body,
       category: row.category,
-      status: row.status,
       remark: row.remark,
     })
     setFormOpen(true)
@@ -217,9 +214,6 @@ export function ClauseList() {
             >
               <Input.TextArea rows={6} placeholder="按合同上的措辞写清楚" />
             </Form.Item>
-            <Form.Item name="status" label="状态">
-              <Select options={[...ENABLE_STATUS_OPTIONS]} />
-            </Form.Item>
             <Form.Item name="remark" label="备注">
               <Input placeholder="内部说明，不会印到合同上" />
             </Form.Item>
@@ -253,12 +247,6 @@ export function ClauseList() {
             {v}
           </Typography.Text>
         )}
-      />
-      <Table.Column
-        dataIndex="status"
-        title="状态"
-        width={90}
-        render={(v: number) => <StatusTag value={v} />}
       />
       <Table.Column
         dataIndex="updated_at"

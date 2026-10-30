@@ -701,7 +701,6 @@ export interface Clause {
   body: string
   /** 付款 / 质量 / 违约 …… 自由文本，不做枚举。 */
   category: string
-  status: number
   remark: string
   /** 已软删时才有值（Unix 毫秒），未删时后端不返回这个字段。 */
   deleted_at?: number

@@ -16,7 +16,7 @@ export function ContractClausePicker() {
   const { data, isLoading } = useQuery({
     // 只取启用的模板：停用的模板后端也会拒（400），这里不把它们摆出来。
     queryKey: ['clauses', 'active'],
-    queryFn: () => http.get<PageResult<Clause>>('/clauses?status=1&page_size=100'),
+    queryFn: () => http.get<PageResult<Clause>>('/clauses?page_size=100'),
   })
 
   return (

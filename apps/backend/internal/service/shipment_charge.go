@@ -232,8 +232,7 @@ func (s *shipmentChargeService) buildTerms(
 
 // checkPayee 确认收款方是货代或供应商。
 //
-// 不校验启用状态：已经停用的货代，手里的旧账单仍要能补录。
-// 停用的主体在新建下拉里已经选不到，新引用进不来，这就够了。
+// 不额外校验：已经删除的主体，手里的旧账单仍要能补录，FindByID 查它就够。
 func (s *shipmentChargeService) checkPayee(ctx context.Context, id *uint) error {
 	if id == nil || *id == 0 {
 		return nil

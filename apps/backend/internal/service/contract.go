@@ -419,7 +419,7 @@ type contractSource struct {
 // loadSource 读来源单据并校验它此刻能不能出合同。
 // buildClauses 把选中的模板抄成合同上的条款快照。
 //
-// 抄而不是引用：模板改了、停用了、甚至删了，已经签出去的合同都写着当时那几句话。
+// 抄而不是引用：模板改了、甚至删了，已经签出去的合同都写着当时那几句话。
 // 这也是"改动不影响已确认的合同"这条验收的结构性保证——不是靠校验，是靠没有引用。
 //
 // 顺序按提交顺序（不是按 id、也不是按模板的排序）：条款顺序是谈出来的，
@@ -458,9 +458,8 @@ func (s *contractService) buildClauses(
 			// 选了不存在的模板：报具体哪一条，而不是"参数错误"。
 			return nil, errs.BadRequest(fmt.Sprintf("条款模板不存在或已删除：id=%d", id))
 		}
-		if t.Status != model.EnableStatusOn {
-			return nil, errs.BadRequest("条款模板已停用，不能再用它生成合同：" + t.Code)
-		}
+		// 软删的拦截在上面这个分支：FindByIDs 走的是常规查询，
+		// 已删除的模板查不出来，自然落到"不存在或已删除"。
 		clauseID := t.ID
 		out = append(out, model.ContractClause{
 			ClauseID: &clauseID,

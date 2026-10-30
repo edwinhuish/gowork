@@ -628,7 +628,7 @@ func (s *shipmentService) buildAllocations(
 			Measurement:      strings.TrimSpace(row.Measurement),
 		}
 		// 产品维护了箱规就补全这一行的装箱数据（T-50）。
-		// 查不到产品不是错误：产品可能刚被停用，装箱数据留空即可。
+		// 查不到产品不是错误：产品可能刚被删除，装箱数据留空即可。
 		if s.products != nil {
 			if p, err := s.products.FindByID(ctx, item.ProductID); err == nil {
 				fillPackingFromProduct(&alloc, p)

@@ -18,9 +18,8 @@ type Clause struct {
 	Body string `gorm:"type:text;not null" json:"body"`
 	// Category 只用来分类（付款 / 质量 / 违约 / 其他），不做枚举校验：
 	// 条款的类别是业务自己长出来的，写死一组值迟早不够用。
-	Category string       `gorm:"size:32;index" json:"category"`
-	Status   EnableStatus `gorm:"not null;index" json:"status"`
-	Remark   string       `gorm:"size:255" json:"remark"`
+	Category string `gorm:"size:32;index" json:"category"`
+	Remark   string `gorm:"size:255" json:"remark"`
 }
 
 func (Clause) TableName() string { return "md_clause" }
