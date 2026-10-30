@@ -679,10 +679,13 @@ CREATE UNIQUE INDEX uni_stock_snapshot_product
 `DECIMAL`，浮点只存在于 Go 侧的读写与计算，库里从来没有存过二进制浮点值，没有迁移前后可比的数据。
 改用等效且更严的断言：`storage_test` 在 SQLite / PostgreSQL / MySQL 上写 0.1 与 0.2，
 SQL 里 `SUM` 出来必须正好 0.3，读回单行也必须逐位相等。
-：`sys_attachment` + `sys_attachment_content` 两张表，
+**T-26 已完成**：`sys_attachment` + `sys_attachment_content` 两张表，
 `GET/POST /attachments`、`GET /attachments/:id/download`、`DELETE /attachments/:id`；
-前端 `components/attachment-panel.tsx` 挂在出货详情（单证附件）与客户 / 供应商详情（资质与证件），
-其它页面挂一行即可。
+前端 `components/attachment-panel.tsx` 已挂满后端 `attachTargets` 允许的 13 类对象——
+报价 / 合同 / 销售单 / 采购单（对方发来与回签的文件）、出货（单证附件）、
+报关单（行内入口，一票多张各挂各的）、验货（照片与报告）、收付款（银行回单）、
+应收应付（对账单与发票）、出入库单（随单凭据）、产品（图纸与检测报告）、
+往来单位（资质与证件，客户 / 供应商 / 货代三个入口）。
 
 **T-26 的三条口径**：一是**内容与元数据分表**——只要字节和元数据在同一个结构体里，
 迟早有人 `Select("*")`，打开一票货就等于把它的所有扫描件从库里拖一遍；
