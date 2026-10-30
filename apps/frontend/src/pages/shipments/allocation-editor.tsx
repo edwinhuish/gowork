@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Col, Form, Input, InputNumber, Row, Select, Typography } from 'antd'
+import { DeleteOutlined } from '@ant-design/icons'
+import { Button, Col, Form, Input, InputNumber, Row, Select, Tooltip, Typography } from 'antd'
 
 import { shipmentApi } from '@/api/shipments'
 import type { ShipmentAllocation, ShipmentCandidate } from '@/types'
@@ -125,7 +126,9 @@ export function AllocationEditor({
       label: `${c.sales_order_doc_no} · ${c.sku_code} ${c.name_cn}（还能出 ${c.unshipped_qty}）`,
     }))
 
-  const spans = { item: 9, remain: 4, qty: 4, remark: 5, action: 2 }
+  // 五列原本铺满 24 格（9+4+4+5+2），「删除」两个字的按钮 60px 挤不进 2 格
+  // （375 下只有 29px），实测把整页撑出 9px 横向滚动。产品让出 1 格给操作列。
+  const spans = { item: 8, remain: 4, qty: 4, remark: 5, action: 3 }
 
   return (
     <div>
@@ -238,9 +241,17 @@ export function AllocationEditor({
                     </Col>
 
                     <Col span={spans.action}>
-                      <Button type="link" danger onClick={() => remove(field.name)}>
-                        删除
-                      </Button>
+                      {/* 只放图标：格子在窄屏只有 40px 上下，文字按钮放不下
+                          （同合同条款编辑器）。提示用 aria-label + Tooltip 补。 */}
+                      <Tooltip title="删除这一行">
+                        <Button
+                          type="link"
+                          danger
+                          icon={<DeleteOutlined />}
+                          aria-label="删除这一行"
+                          onClick={() => remove(field.name)}
+                        />
+                      </Tooltip>
                     </Col>
                   </Row>
 

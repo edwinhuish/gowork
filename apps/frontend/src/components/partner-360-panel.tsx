@@ -1,6 +1,6 @@
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigation } from '@refinedev/core'
-import { Alert, Card, Col, Row, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import { Alert, Card, Col, Row, Space, Statistic, Table, Tabs, Tag } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
@@ -24,7 +24,6 @@ import type {
  * 不受每块 10 条的截断影响——截断只影响"最近几条"。
  */
 export function Partner360Panel({ partnerId }: { partnerId: number }) {
-  const { show, edit } = useNavigation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['report-partner-360', partnerId],
     queryFn: () => reportApi.partner360({ partner_id: partnerId }),
@@ -104,9 +103,9 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   title="单号"
                   width={160}
                   render={(value: string, row: Partner360Order) => (
-                    <Typography.Link onClick={() => show('sales-orders', row.id)}>
+                    <Link to={`/sales-orders/show/${row.id}`}>
                       {value}
-                    </Typography.Link>
+                    </Link>
                   )}
                 />
                 <Table.Column dataIndex="order_date" title="下单日" width={110} />
@@ -147,9 +146,9 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   title="单号"
                   width={160}
                   render={(value: string, row: Partner360Receivable) => (
-                    <Typography.Link onClick={() => show('receivables', row.id)}>
+                    <Link to={`/receivables/show/${row.id}`}>
                       {value}
-                    </Typography.Link>
+                    </Link>
                   )}
                 />
                 <Table.Column dataIndex="due_date" title="到期日" width={110} />
@@ -211,9 +210,9 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   dataIndex="subject"
                   title="主题"
                   render={(value: string, row: Partner360Activity) => (
-                    <Typography.Link onClick={() => edit('activities', row.id)}>
+                    <Link to={`/activities/edit/${row.id}`}>
                       {value || <Empty />}
-                    </Typography.Link>
+                    </Link>
                   )}
                 />
                 <Table.Column
@@ -241,9 +240,9 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   dataIndex="subject"
                   title="商机"
                   render={(value: string, row: Partner360Opportunity) => (
-                    <Typography.Link onClick={() => edit('opportunities', row.id)}>
+                    <Link to={`/opportunities/edit/${row.id}`}>
                       {value || <Empty />}
-                    </Typography.Link>
+                    </Link>
                   )}
                 />
                 <Table.Column
@@ -289,9 +288,9 @@ export function Partner360Panel({ partnerId }: { partnerId: number }) {
                   width={180}
                   render={(value: string, row: Partner360Shipment) => (
                     <Space size={4}>
-                      <Typography.Link onClick={() => show('shipments', row.id)}>
+                      <Link to={`/shipments/show/${row.id}`}>
                         <Mono>{value}</Mono>
-                      </Typography.Link>
+                      </Link>
                     </Space>
                   )}
                 />

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { PartnerImportModal } from './import-modal'
@@ -15,7 +16,6 @@ import {
   Table,
   Tag,
   Tooltip,
-  Typography,
 } from 'antd'
 
 import { exportApi } from '@/api/exports'
@@ -223,9 +223,11 @@ export function CustomerList() {
         render={(value: string, record: Partner) => (
           <div className="cell-avatar">
             <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
-            <Typography.Link onClick={() => show('customers', record.id)}>
+            {/* 用 Link 而不是 onClick 导航：<a> 没有 href 就不是链接 ——
+                中键 / 右键「在新标签打开」失效，键盘 Tab 不到，读屏也不当它是链接。 */}
+            <Link to={`/customers/show/${record.id}`}>
               <span className="cell-strong">{value}</span>
-            </Typography.Link>
+            </Link>
           </div>
         )}
       />

@@ -5,7 +5,8 @@ import { OPPORTUNITY_STAGE_OPTIONS } from '@/constants/catalog'
 import type { Currency, Partner } from '@/types'
 
 /** 今天的 YYYY-MM-DD。 */
-function today(): string {
+// 导出给新建页用：默认值放在新建页（见 create.tsx），编辑页不需要。
+export function today(): string {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -68,7 +69,6 @@ export function OpportunityFormFields({ partnerReadOnly = false }: { partnerRead
       <Form.Item
         name="stage"
         label="阶段"
-        initialValue={10}
         rules={[{ required: true, message: '请选择阶段' }]}
         extra="非终态之间可来回调整；赢单与输单是终态，之后不能再改"
       >
@@ -76,7 +76,7 @@ export function OpportunityFormFields({ partnerReadOnly = false }: { partnerRead
       </Form.Item>
 
       {/* stringMode：金额以字符串收发，走一遍 JS number 就等于把后端的定点精度丢了。 */}
-      <Form.Item name="amount" label="预计金额" initialValue="0">
+      <Form.Item name="amount" label="预计金额">
         <InputNumber
           style={{ width: '100%' }}
           min={0}
@@ -117,7 +117,6 @@ export function OpportunityFormFields({ partnerReadOnly = false }: { partnerRead
       <Form.Item
         name="expected_close_date"
         label="预计成交日"
-        initialValue={today()}
         rules={[
           { required: true, message: '请填写预计成交日' },
           { pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' },

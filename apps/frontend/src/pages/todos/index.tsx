@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigation } from '@refinedev/core'
 import {
@@ -32,7 +33,7 @@ import { formatTime } from '@/utils/format'
  * 每行都能点进源单据——提醒点不进去，就还得再搜一遍单号。
  */
 export function TodoPage() {
-  const { show, edit, create } = useNavigation()
+  const { create } = useNavigation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['report-todos'],
     queryFn: () => reportApi.todos({ limit: 20 }),
@@ -100,9 +101,9 @@ export function TodoPage() {
             dataIndex="subject"
             title="跟进主题"
             render={(value: string, row: TodoFollowup) => (
-              <Typography.Link onClick={() => edit('activities', row.id)}>
+              <Link to={`/activities/edit/${row.id}`}>
                 {value || <Empty />}
-              </Typography.Link>
+              </Link>
             )}
           />
           <Table.Column dataIndex="next_follow_at" title="约定日期" width={120} />
@@ -142,9 +143,9 @@ export function TodoPage() {
             title="单号"
             width={160}
             render={(value: string, row: TodoReceivable) => (
-              <Typography.Link onClick={() => show('receivables', row.id)}>
+              <Link to={`/receivables/show/${row.id}`}>
                 <Mono>{value}</Mono>
-              </Typography.Link>
+              </Link>
             )}
           />
           <Table.Column
@@ -203,9 +204,9 @@ export function TodoPage() {
             title="采购单"
             width={160}
             render={(value: string, row: TodoInspection) => (
-              <Typography.Link onClick={() => show('purchase-orders', row.purchase_order_id)}>
+              <Link to={`/purchase-orders/show/${row.purchase_order_id}`}>
                 <Mono>{value}</Mono>
-              </Typography.Link>
+              </Link>
             )}
           />
           <Table.Column dataIndex="sku_code" title="SKU" width={140} />
@@ -255,9 +256,9 @@ export function TodoPage() {
             title="合同"
             width={160}
             render={(value: string, row: TodoContractTerm) => (
-              <Typography.Link onClick={() => show('contracts', row.contract_id)}>
+              <Link to={`/contracts/show/${row.contract_id}`}>
                 <Mono>{value}</Mono>
-              </Typography.Link>
+              </Link>
             )}
           />
           <Table.Column

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card, Space, Table, Tag, Typography } from 'antd'
-import { useNavigate } from 'react-router'
+import { Link } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
@@ -18,7 +18,6 @@ import type { ProductProfitRow } from '@/types'
  * 被 T-36 隐藏成本时显示「—」而不是 0——0 会被读成"没赚钱"。
  */
 export function ProfitPanel({ productId }: { productId: number }) {
-  const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['product-profit', productId],
     queryFn: () => reportApi.productProfit({ product_id: productId }),
@@ -64,9 +63,9 @@ export function ProfitPanel({ productId }: { productId: number }) {
               title="出货单"
               width={170}
               render={(value: string, row: ProductProfitRow) => (
-                <Typography.Link onClick={() => navigate(`/shipments/show/${row.shipment_id}`)}>
+                <Link to={`/shipments/show/${row.shipment_id}`}>
                   <Mono>{value}</Mono>
-                </Typography.Link>
+                </Link>
               )}
             />
             <Table.Column
@@ -74,9 +73,9 @@ export function ProfitPanel({ productId }: { productId: number }) {
               title="客户"
               render={(value: string, row: ProductProfitRow) =>
                 value ? (
-                  <Typography.Link onClick={() => navigate(`/customers/show/${row.partner_id}`)}>
+                  <Link to={`/customers/show/${row.partner_id}`}>
                     {value}
-                  </Typography.Link>
+                  </Link>
                 ) : (
                   <Empty />
                 )

@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { CreateButton, useTable } from '@refinedev/antd'
@@ -11,7 +12,6 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
 } from 'antd'
 
 import { partnerApi } from '@/api/partners'
@@ -160,9 +160,10 @@ export function SupplierList() {
         render={(value: string, record: Partner) => (
           <div className="cell-avatar">
             <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
-            <Typography.Link onClick={() => show('suppliers', record.id)}>
+            {/* 见客户列表：真链接，中键 / 右键「在新标签打开」才可用。 */}
+            <Link to={`/suppliers/show/${record.id}`}>
               <span className="cell-strong">{value}</span>
-            </Typography.Link>
+            </Link>
           </div>
         )}
       />

@@ -57,7 +57,6 @@ export function LeadFormFields({ statusReadOnly = false }: { statusReadOnly?: bo
       <Form.Item
         name="status"
         label="状态"
-        initialValue={10}
         rules={[{ required: true, message: '请选择状态' }]}
         extra="要生成客户请用列表里的「转化」；这里直接选已转化会被拒绝"
       >

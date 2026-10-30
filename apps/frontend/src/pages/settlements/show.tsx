@@ -1,7 +1,7 @@
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions, Typography } from 'antd'
-import { useNavigate } from 'react-router'
+import { Descriptions } from 'antd'
+import { Link } from 'react-router'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
@@ -51,7 +51,6 @@ export function SettlementShow({
 }) {
   const isReceivable = direction === 'receivable'
   const { result, query } = useShow<Settlement>({ resource })
-  const navigate = useNavigate()
 
   // 金额是定点字符串，这里的差额只用于显示；服务端按末位精确算。
   const outstanding = result ? Number(result.amount) - Number(result.settled_amount) : 0
@@ -97,10 +96,10 @@ export function SettlementShow({
             label: '来源单据',
             children: result ? (
               href ? (
-                <Typography.Link onClick={() => navigate(href)}>
+                <Link to={href}>
                   {settlementSourceLabel(result.source_type)}{' '}
                   <Mono>{result.source_doc_no}</Mono>
-                </Typography.Link>
+                </Link>
               ) : (
                 `${settlementSourceLabel(result.source_type) ?? ''} ${result.source_doc_no}`.trim()
               )

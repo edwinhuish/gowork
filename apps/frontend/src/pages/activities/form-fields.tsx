@@ -5,7 +5,8 @@ import { ACTIVITY_TYPE_OPTIONS } from '@/constants/catalog'
 import type { Contact, Opportunity, Partner } from '@/types'
 
 /** 今天的 YYYY-MM-DD。跟进九成是"记今天发生的"，给个默认值少三次点击。 */
-function today(): string {
+// 导出给新建页用：默认值放在新建页（见 create.tsx），编辑页不需要。
+export function today(): string {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -84,7 +85,6 @@ export function ActivityFormFields({ partnerReadOnly = false }: { partnerReadOnl
       <Form.Item
         name="type"
         label="跟进方式"
-        initialValue="CALL"
         rules={[{ required: true, message: '请选择跟进方式' }]}
       >
         <Select options={ACTIVITY_TYPE_OPTIONS} />
@@ -93,7 +93,6 @@ export function ActivityFormFields({ partnerReadOnly = false }: { partnerReadOnl
       <Form.Item
         name="occurred_at"
         label="发生日期"
-        initialValue={today()}
         rules={[
           { required: true, message: '请填写发生日期' },
           { pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' },

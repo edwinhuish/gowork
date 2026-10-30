@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigation } from '@refinedev/core'
 import {
@@ -400,10 +401,10 @@ export function DashboardPage() {
                 render={(value: string, row: SalesDashboardRow) =>
                   row.key === 'unknown' ? (
                     <span className="cell-sub">未指定客户</span>
+                  // 真链接而不是 onClick 导航：<a> 没有 href 就不是链接 ——
+                  // 中键 / 右键「在新标签打开」失效，键盘 Tab 不到。
                   ) : (
-                    <Typography.Link onClick={() => show('customers', Number(row.key))}>
-                      {value}
-                    </Typography.Link>
+                    <Link to={`/customers/show/${row.key}`}>{value}</Link>
                   )
                 }
               />

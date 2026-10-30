@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { useGetIdentity, useInvalidate, useList, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
 import {
@@ -13,7 +13,6 @@ import {
   Table,
   Tag,
   Tooltip,
-  Typography,
 } from 'antd'
 
 import { download } from '@/api/client'
@@ -137,7 +136,6 @@ export function OrderShow() {
   const o = result
   const actions = o ? nextActions(o.status) : []
   const orderId = o?.id
-  const navigate = useNavigate()
 
   /*
    * 这张订单的上下游各查一次：后端早就支持按 sales_order_id 查出货、
@@ -502,9 +500,9 @@ export function OrderShow() {
             title="单号"
             width={180}
             render={(value: string, row: { href: string }) => (
-              <Typography.Link onClick={() => navigate(row.href)}>
+              <Link to={row.href}>
                 <Mono>{value}</Mono>
-              </Typography.Link>
+              </Link>
             )}
           />
           <Table.Column dataIndex="date" title="日期" width={120} />
