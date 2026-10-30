@@ -3,10 +3,12 @@
  *
  * 改造前这里有 525 行：布局、侧栏、按钮、表格、表单、分页、弹窗全部手写。
  * 引入 antd 后这些都由组件库 + theme.ts 的设计 token 统一接管，
- * 本文件只保留三类东西：
+ * 本文件只保留四类东西：
  *   1 antd 覆盖不到的结构性布局（品牌块、页头、工作台网格、单据链、登录页背景）
  *   2 表格单元格里的排版语义（等宽、次要说明、空值）
  *   3 少量响应式断点
+ *   4 结构性距离与动效时长的标尺（--space-* / --motion-*，见 :root 注释）
+ *     颜色仍然一律引用 --ant-*，不在这里另起一套。
  * 颜色引用 --ant-* 变量（theme.ts 开了 cssVar），只有极少数深色侧栏的淡色值留了
  * 字面量兜底 —— 新加颜色请先加到 theme.ts 的 brand，不要在这里再造一套。
  */
@@ -17,7 +19,74 @@ body {
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background: var(--ant-color-bg-layout);
+}
+
+/*
+ * 间距标尺与动效时长。
+ *
+ * antd 的 cssVar 会下发 --ant-* 的颜色与尺寸，但"这一块和上一块之间留多少"
+ * 这类结构性距离它没有对应 token，之前散落成 12/14/16/20 四个近似值。
+ * 标尺按 4 递进（与 sizeStep 同基准）：页面上任何两块的间距都应该是其中之一，
+ * 出现第五个值时，先想能不能归到最近的一档。
+ *
+ * 动效三档与 theme.ts 的 motionDurationFast/Mid/Slow 对齐：
+ * 同一处动画在 CSS 里写的时长必须和 JS 里的一致，否则组件自身的过渡
+ * 与外层容器的过渡会拉出两段速度。
+ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --motion-fast: 0.1s;
+  --motion-mid: 0.18s;
+  --motion-slow: 0.26s;
+}
+
+/*
+ * 焦点环。
+ *
+ * antd 自带的 focus 反馈按组件给（输入框是外发光、按钮是变深），
+ * 键盘走到自定义卡片、单据链节点、可点行上时就没有落点了——
+ * 这些是 div/span，没有表单控件的外发光。
+ * 统一一条 2px 主色环 + 2px 偏移：颜色跟着主题走，暗色下同样看得见。
+ *
+ * 用 :focus-visible 而不是 :focus：鼠标点击不会触发，
+ * 只有键盘 Tab 过来才显示，避免一屏二十行因为点一下就满屏蓝框。
+ */
+.ant-card:focus-visible,
+.cell-link:focus-visible,
+.doc-chain-node:focus-visible,
+.todo-row:focus-visible,
+.product-card:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+/*
+ * 尊重系统的「减少动效」。
+ *
+ * 前庭功能敏感的用户在系统里关掉动画后，CSS 里的过渡不会自己停；
+ * 这里一律压到接近零而不是删掉 transition——保留 0.01ms 才不会让
+ * 依赖 transitionend 的逻辑失效，同时视觉上等于瞬变。
+ * product-grid-in 这类进场动画直接停掉：卡片淡入是最容易引起不适的一种。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---------- 卡片与层级 ---------- */
@@ -173,25 +242,25 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 12px 16px;
-  margin-bottom: 16px;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .page-head-text {
   display: flex;
   flex: 1 1 320px;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-/* Typography.Title 自带 0.5em 下边距，页头是一行组合，必须清掉。 */
+/* Typography.Title 自带 0.5em 下边距，页头是一行组合，必须清掉。
+   字号不再本地写死：由 theme.ts 的 fontSizeHeading4 统一定，
+   免得同一套 h4 在页头 17px、在别处 18px。 */
 .page-head-title.ant-typography {
   margin: 0;
   color: var(--ant-color-text, #1c2532);
   font-weight: 600;
-  font-size: 17px;
-  line-height: 1.4;
 }
 
 .page-head-desc {
@@ -205,14 +274,14 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* ---------- 列表页：说明与筛选条 ---------- */
 
 /* 一句口径说明：这页的数是怎么算的、包含哪些状态。可选，写了才占位。 */
 .list-caption {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
   color: var(--ant-color-text-tertiary, #98a3b3);
   font-size: 12.5px;
   line-height: 1.7;
@@ -220,11 +289,11 @@ body {
 
 /* 汇总指标卡：与筛选条之间留一口气，不要贴在一起。 */
 .list-summary {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 [data-density='compact'] .list-summary {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 /*
@@ -238,9 +307,9 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 12px;
-  margin-bottom: 16px;
-  padding: 14px 16px;
+  gap: var(--space-3) var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--ant-color-border-secondary, #e3e8f0);
   border-radius: 10px;
   background: var(--ant-color-bg-container, #fff);
@@ -285,12 +354,12 @@ body {
 
 /* 密度切到紧凑时，容器内距与间距同步收一档，否则控件小了、留白还是大的。 */
 [data-density='compact'] .list-filters {
-  gap: 8px 10px;
-  padding: 10px 12px;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
 }
 
 [data-density='compact'] .list-caption {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 /* ---------- 表单 ---------- */
@@ -353,10 +422,29 @@ body {
   font-size: 12.5px;
 }
 
+/*
+ * 等宽 + 等宽数字。
+ *
+ * 单号、编码这类字符串强调"能对着抄"，等宽字体让每位对齐；而真正让它可读的是
+ * tabular-nums：比例数字下同一列的 1 和 8 宽度不同，竖着扫一列金额时，
+ * 个位对不齐就是必错的——金额列看错一位比什么都贵。
+ */
 .cell-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   letter-spacing: -0.2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表格里的数字。
+ *
+ * 只有成列的数字需要等宽数字，全表开会让中文正文也走等宽、显得死板。
+ * 这里只管两类确定装数字的容器：Descriptions 的值与 Statistic 的数字。
+ * 金额另有 Money 组件自带 tabular-nums，两者不重叠。
+ */
+.ant-descriptions-item-content,
+.ant-statistic-content {
+  font-variant-numeric: tabular-nums;
 }
 
 .cell-empty {
@@ -368,7 +456,7 @@ body {
 .cell-link {
   color: var(--ant-color-text, #1c2532);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--motion-mid);
 }
 
 .cell-link:hover {
@@ -434,7 +522,7 @@ body {
 .todo-row.ant-list-item {
   padding-inline: 4px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--motion-mid);
 }
 
 .todo-row.ant-list-item:hover {
@@ -482,8 +570,8 @@ body {
   font-size: 12.5px;
   line-height: 1.6;
   transition:
-    border-color 0.15s,
-    color 0.15s;
+    border-color var(--motion-mid),
+    color var(--motion-mid);
 }
 
 .doc-chain-node.is-done {
@@ -550,7 +638,7 @@ body {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  animation: product-grid-in 0.18s ease-out;
+  animation: product-grid-in var(--motion-mid) ease-out;
 }
 
 @keyframes product-grid-in {
@@ -575,9 +663,9 @@ body {
   box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+    transform var(--motion-mid) ease,
+    box-shadow var(--motion-mid) ease,
+    border-color var(--motion-mid) ease;
 }
 
 .product-card:hover,
@@ -806,7 +894,7 @@ body {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  animation: product-grid-in 0.18s ease-out;
+  animation: product-grid-in var(--motion-mid) ease-out;
 }
 
 .partner-grid-pager {
@@ -827,9 +915,9 @@ body {
   box-shadow: var(--ant-box-shadow-tertiary, 0 1px 2px rgb(16 24 40 / 5%));
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+    transform var(--motion-mid) ease,
+    box-shadow var(--motion-mid) ease,
+    border-color var(--motion-mid) ease;
 }
 
 .partner-card:hover,
@@ -1027,4 +1115,25 @@ body {
   color: var(--ant-color-text-tertiary, #98a3b3);
   font-size: 12.5px;
   text-align: center;
+}
+
+/* ---------- 响应式：宽表格 ---------- */
+
+/*
+ * 列表常见 8–12 列（编码、名称、联系人、电话、邮箱、负责人…），
+ * 平板上会被压成一团：antd 只有在显式传 scroll.x 时才给横向滚动，
+ * 而让每个页面各自传一遍，值必然不一致（有的 1200、有的 max-content）。
+ * 统一在容器层补给没传的那一部分：表不再被挤，整体横向滚动。
+ *
+ * 已经传了 scroll.x 的页面走的是 .ant-table-header / .ant-table-body 两套结构，
+ * 这里的 > table 选择器对它们不生效，不会被改第二次。
+ */
+@media (max-width: 991px) {
+  .ant-table-content {
+    overflow-x: auto;
+  }
+
+  .ant-table-content > table {
+    min-width: 900px;
+  }
 }

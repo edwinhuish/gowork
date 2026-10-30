@@ -134,6 +134,32 @@ export function buildThemeConfig({
       fontFamily:
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
       fontSize: 14,
+      /*
+       * 字阶。
+       *
+       * 只有 h4 / h5 真正出现在界面上（页头标题与区块标题），h1–h3 是给
+       * Result / Drawer 这类偶尔用一次的组件兜底的，所以这里只对前两级做细调：
+       * 页头 18px、区块 15px，都比 antd 默认小一档——一眼要能同时读到
+       * "这是哪页"和"这一屏有什么数据"，标题占掉太多行距会压迫数据区。
+       *
+       * 正文行高给到 1.6 而不是默认的 1.571：界面里中英混排，中文方块字在
+       * 密排行距下会显脏。西文的 -apple-system 与 PingFang 度量不同，
+       * 这个值对两边都不难看。
+       */
+      lineHeight: 1.6,
+      fontSizeHeading1: 32,
+      fontSizeHeading2: 24,
+      fontSizeHeading3: 20,
+      fontSizeHeading4: 18,
+      fontSizeHeading5: 15,
+      lineHeightHeading1: 1.25,
+      lineHeightHeading2: 1.28,
+      lineHeightHeading3: 1.32,
+      lineHeightHeading4: 1.35,
+      lineHeightHeading5: 1.4,
+      // 间距基准 4：sizeStep / sizeUnit 一起收，Grid gutter、Flex gap 才有同一个点。
+      sizeStep: 4,
+      sizeUnit: 4,
       controlHeight: 34,
       wireframe: false,
       boxShadow: c.shadow,
