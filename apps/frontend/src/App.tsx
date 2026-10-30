@@ -1,5 +1,6 @@
 import {
   AccountBookOutlined,
+  BankOutlined,
   BookOutlined,
   AlertOutlined,
   AppstoreOutlined,
@@ -11,6 +12,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   DollarOutlined,
+  FileDoneOutlined,
   FileProtectOutlined,
   FileSearchOutlined,
   FileTextOutlined,
@@ -18,11 +20,16 @@ import {
   GlobalOutlined,
   HistoryOutlined,
   ImportOutlined,
+  InboxOutlined,
+  MoneyCollectOutlined,
   PieChartOutlined,
   ProfileOutlined,
   SendOutlined,
+  SettingOutlined,
   ShoppingCartOutlined,
+  ShoppingOutlined,
   ShopOutlined,
+  SolutionOutlined,
   UserAddOutlined,
   UserOutlined,
   SwapOutlined,
@@ -124,6 +131,7 @@ export default function App() {
             authProvider={authProvider}
             routerProvider={routerProvider}
             resources={[
+              // 概览与待办不归组：它们是每天进来的第一屏，藏在分组里要多点一次。
               {
                 name: 'dashboard',
                 list: '/',
@@ -135,13 +143,24 @@ export default function App() {
                 list: '/todos',
                 meta: { label: '待办', icon: <BellOutlined /> },
               },
+
+              /*
+               * 分组标题是「没有 list 路径的资源」：useMenu 按 meta.parent 把子项挂到
+               * 父资源下，ThemedSider 见到 children 就渲染成 SubMenu，选中项的父组自动展开。
+               * 所以加模块仍然只是加一条资源再写上 meta.parent —— 不另维护导航映射表。
+               * 分组的顺序由它在下面数组里的位置决定，组内顺序同理。
+               */
+              {
+                name: 'master-data',
+                meta: { label: '主数据', icon: <DatabaseOutlined /> },
+              },
               {
                 name: 'products',
                 list: '/products',
                 create: '/products/create',
                 edit: '/products/edit/:id',
                 show: '/products/show/:id',
-                meta: { label: '产品', icon: <AppstoreOutlined /> },
+                meta: { label: '产品', icon: <AppstoreOutlined />, parent: 'master-data' },
               },
               {
                 name: 'suppliers',
@@ -149,7 +168,7 @@ export default function App() {
                 create: '/suppliers/create',
                 edit: '/suppliers/edit/:id',
                 show: '/suppliers/show/:id',
-                meta: { label: '供应商', icon: <ShopOutlined /> },
+                meta: { label: '供应商', icon: <ShopOutlined />, parent: 'master-data' },
               },
               {
                 name: 'customers',
@@ -157,7 +176,7 @@ export default function App() {
                 create: '/customers/create',
                 edit: '/customers/edit/:id',
                 show: '/customers/show/:id',
-                meta: { label: '客户', icon: <TeamOutlined /> },
+                meta: { label: '客户', icon: <TeamOutlined />, parent: 'master-data' },
               },
               {
                 name: 'forwarders',
@@ -165,28 +184,45 @@ export default function App() {
                 create: '/forwarders/create',
                 edit: '/forwarders/edit/:id',
                 show: '/forwarders/show/:id',
-                meta: { label: '货代', icon: <GlobalOutlined /> },
+                meta: { label: '货代', icon: <GlobalOutlined />, parent: 'master-data' },
               },
               {
-                name: 'contacts',
-                list: '/contacts',
-                create: '/contacts/create',
-                edit: '/contacts/edit/:id',
-                meta: { label: '联系人', icon: <ContactsOutlined /> },
+                name: 'currencies',
+                list: '/currencies',
+                create: '/currencies/create',
+                edit: '/currencies/edit/:id',
+                meta: { label: '币种', icon: <DollarOutlined />, parent: 'master-data' },
               },
               {
-                name: 'activities',
-                list: '/activities',
-                create: '/activities/create',
-                edit: '/activities/edit/:id',
-                meta: { label: '跟进记录', icon: <CommentOutlined /> },
+                // 汇率没有 edit：历史汇率不可改，所以 resources 里也不声明编辑路径。
+                name: 'exchange-rates',
+                list: '/exchange-rates',
+                create: '/exchange-rates/create',
+                meta: { label: '汇率', icon: <SwapOutlined />, parent: 'master-data' },
+              },
+              {
+                // 条款模板库（T-27）：主数据，合同生成时抄成快照。
+                name: 'clauses',
+                list: '/clauses',
+                meta: { label: '条款库', icon: <BookOutlined />, parent: 'master-data' },
+              },
+              {
+                // 仓库（T-56）：主数据维护，建仓与设默认。
+                name: 'warehouses',
+                list: '/warehouses',
+                meta: { label: '仓库', icon: <BankOutlined />, parent: 'master-data' },
+              },
+
+              {
+                name: 'crm',
+                meta: { label: '客户与商机', icon: <SolutionOutlined /> },
               },
               {
                 name: 'leads',
                 list: '/leads',
                 create: '/leads/create',
                 edit: '/leads/edit/:id',
-                meta: { label: '线索', icon: <UserAddOutlined /> },
+                meta: { label: '线索', icon: <UserAddOutlined />, parent: 'crm' },
               },
               {
                 name: 'opportunities',
@@ -194,7 +230,26 @@ export default function App() {
                 create: '/opportunities/create',
                 edit: '/opportunities/edit/:id',
                 show: '/opportunities/show/:id',
-                meta: { label: '商机', icon: <FundOutlined /> },
+                meta: { label: '商机', icon: <FundOutlined />, parent: 'crm' },
+              },
+              {
+                name: 'contacts',
+                list: '/contacts',
+                create: '/contacts/create',
+                edit: '/contacts/edit/:id',
+                meta: { label: '联系人', icon: <ContactsOutlined />, parent: 'crm' },
+              },
+              {
+                name: 'activities',
+                list: '/activities',
+                create: '/activities/create',
+                edit: '/activities/edit/:id',
+                meta: { label: '跟进记录', icon: <CommentOutlined />, parent: 'crm' },
+              },
+
+              {
+                name: 'sales',
+                meta: { label: '销售', icon: <FileDoneOutlined /> },
               },
               {
                 // 报价单是 ERP 侧第一张单据：单号、状态机、成本快照都从它开始。
@@ -203,7 +258,7 @@ export default function App() {
                 create: '/quotations/create',
                 edit: '/quotations/edit/:id',
                 show: '/quotations/show/:id',
-                meta: { label: '报价单', icon: <FileTextOutlined /> },
+                meta: { label: '报价单', icon: <FileTextOutlined />, parent: 'sales' },
               },
               {
                 // 合同：PI 与销售合同共用一张表。没有空白新建，
@@ -213,13 +268,7 @@ export default function App() {
                 create: '/contracts/create',
                 edit: '/contracts/edit/:id',
                 show: '/contracts/show/:id',
-                meta: { label: '合同', icon: <FileProtectOutlined /> },
-              },
-              {
-                // 条款模板库（T-27）：主数据，合同生成时抄成快照。
-                name: 'clauses',
-                list: '/clauses',
-                meta: { label: '条款库', icon: <BookOutlined /> },
+                meta: { label: '合同', icon: <FileProtectOutlined />, parent: 'sales' },
               },
               {
                 // 订单：报价谈成之后要出货的那张凭证，状态走完整状态机。
@@ -228,7 +277,18 @@ export default function App() {
                 create: '/sales-orders/create',
                 edit: '/sales-orders/edit/:id',
                 show: '/sales-orders/show/:id',
-                meta: { label: '销售订单', icon: <ProfileOutlined /> },
+                meta: { label: '销售订单', icon: <ProfileOutlined />, parent: 'sales' },
+              },
+              {
+                // 销售看板：按客户 / 产品 / 国家 / 月汇总，口径与单票毛利同源。
+                name: 'sales-dashboard',
+                list: '/sales-dashboard',
+                meta: { label: '销售看板', icon: <PieChartOutlined />, parent: 'sales' },
+              },
+
+              {
+                name: 'sourcing',
+                meta: { label: '采购与出货', icon: <ShoppingOutlined /> },
               },
               {
                 // 采购订单：销售订单的镜像，明细可挂销售单行做「以销定采」。
@@ -237,7 +297,7 @@ export default function App() {
                 create: '/purchase-orders/create',
                 edit: '/purchase-orders/edit/:id',
                 show: '/purchase-orders/show/:id',
-                meta: { label: '采购订单', icon: <ShoppingCartOutlined /> },
+                meta: { label: '采购订单', icon: <ShoppingCartOutlined />, parent: 'sourcing' },
               },
               {
                 // 出货批次：一票装哪些销售订单行。与订单是多对多（分批出、拼柜出）。
@@ -246,13 +306,18 @@ export default function App() {
                 create: '/shipments/create',
                 edit: '/shipments/edit/:id',
                 show: '/shipments/show/:id',
-                meta: { label: '出货单', icon: <SendOutlined /> },
+                meta: { label: '出货单', icon: <SendOutlined />, parent: 'sourcing' },
+              },
+
+              {
+                name: 'inventory',
+                meta: { label: '库存', icon: <InboxOutlined /> },
               },
               {
                 // 库存只有读与重算：能改库存的只有流水，所以这里没有 create / edit。
                 name: 'stock-snapshots',
                 list: '/stock',
-                meta: { label: '库存', icon: <DatabaseOutlined /> },
+                meta: { label: '当前库存', icon: <DatabaseOutlined />, parent: 'inventory' },
               },
               {
                 // 出入库单：草稿不动库存，确认那一刻才生成流水。
@@ -261,13 +326,18 @@ export default function App() {
                 create: '/stock-documents/create',
                 edit: '/stock-documents/edit/:id',
                 show: '/stock-documents/show/:id',
-                meta: { label: '出入库单', icon: <ImportOutlined /> },
+                meta: { label: '出入库单', icon: <ImportOutlined />, parent: 'inventory' },
               },
               {
                 name: 'stock-movements',
                 list: '/stock-movements',
                 create: '/stock-movements/create',
-                meta: { label: '库存流水', icon: <HistoryOutlined /> },
+                meta: { label: '库存流水', icon: <HistoryOutlined />, parent: 'inventory' },
+              },
+
+              {
+                name: 'finance',
+                meta: { label: '财务', icon: <MoneyCollectOutlined /> },
               },
               {
                 name: 'receivables',
@@ -275,7 +345,7 @@ export default function App() {
                 create: '/receivables/create',
                 edit: '/receivables/edit/:id',
                 show: '/receivables/show/:id',
-                meta: { label: '应收', icon: <AccountBookOutlined /> },
+                meta: { label: '应收', icon: <AccountBookOutlined />, parent: 'finance' },
               },
               {
                 name: 'payables',
@@ -283,7 +353,7 @@ export default function App() {
                 create: '/payables/create',
                 edit: '/payables/edit/:id',
                 show: '/payables/show/:id',
-                meta: { label: '应付', icon: <WalletOutlined /> },
+                meta: { label: '应付', icon: <WalletOutlined />, parent: 'finance' },
               },
               {
                 name: 'payments',
@@ -291,62 +361,41 @@ export default function App() {
                 create: '/payments/create',
                 edit: '/payments/edit/:id',
                 show: '/payments/show/:id',
-                meta: { label: '收付款', icon: <TransactionOutlined /> },
+                meta: { label: '收付款', icon: <TransactionOutlined />, parent: 'finance' },
               },
               {
                 // 账龄是只读聚合：没有 create / edit，只有一页报表。
                 name: 'aging',
                 list: '/aging',
-                meta: { label: '账龄', icon: <BarChartOutlined /> },
+                meta: { label: '账龄', icon: <BarChartOutlined />, parent: 'finance' },
               },
               {
                 name: 'exchange-gains',
                 list: '/exchange-gains',
-                meta: { label: '汇兑损益', icon: <LineChartOutlined /> },
+                meta: { label: '汇兑损益', icon: <LineChartOutlined />, parent: 'finance' },
               },
               {
                 // 回款与超期：期间回款率是流量，超期明细是存量，两者不互相校验。
                 name: 'collection',
                 list: '/collection',
-                meta: { label: '回款与超期', icon: <AlertOutlined /> },
+                meta: { label: '回款与超期', icon: <AlertOutlined />, parent: 'finance' },
               },
+
               {
-                // 销售看板：按客户 / 产品 / 国家 / 月汇总，口径与单票毛利同源。
-                name: 'sales-dashboard',
-                list: '/sales-dashboard',
-                meta: { label: '销售看板', icon: <PieChartOutlined /> },
-              },
-              {
-                name: 'currencies',
-                list: '/currencies',
-                create: '/currencies/create',
-                edit: '/currencies/edit/:id',
-                meta: { label: '币种', icon: <DollarOutlined /> },
-              },
-              {
-                // 汇率没有 edit：历史汇率不可改，所以 resources 里也不声明编辑路径。
-                name: 'exchange-rates',
-                list: '/exchange-rates',
-                create: '/exchange-rates/create',
-                meta: { label: '汇率', icon: <SwapOutlined /> },
-              },
-              {
-                // 仓库（T-56）：主数据维护，建仓与设默认。
-                name: 'warehouses',
-                list: '/warehouses',
-                meta: { label: '仓库', icon: <ShopOutlined /> },
+                name: 'system',
+                meta: { label: '系统', icon: <SettingOutlined /> },
               },
               {
                 // 账号维护同样只有管理员能用；菜单对所有人可见，权限由接口兜底。
                 name: 'user-accounts',
                 list: '/user-accounts',
-                meta: { label: '账号', icon: <UserOutlined /> },
+                meta: { label: '账号', icon: <UserOutlined />, parent: 'system' },
               },
               {
                 // 操作日志只读、且只有管理员能查：里面装着全公司单据的提交内容。
                 name: 'audit-logs',
                 list: '/audit-logs',
-                meta: { label: '操作日志', icon: <FileSearchOutlined /> },
+                meta: { label: '操作日志', icon: <FileSearchOutlined />, parent: 'system' },
               },
             ]}
             options={{

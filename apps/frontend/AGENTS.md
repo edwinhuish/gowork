@@ -117,6 +117,11 @@ apps/frontend/
 **resources 是导航的唯一来源**：侧边栏菜单、面包屑、页面标题、编辑/详情的返回链接都由它推导。
 加一个模块只需要在 `resources` 加一条 + 在 `Routes` 加一组路由，不需要再维护 `navItems` 之类的映射表。
 
+**侧栏分组同样走 resources**：`meta.parent` 指向一条只有 `name` + `meta.label/icon` 的资源
+（如 `master-data`、`finance`），`useMenu` 会把它变成 `Menu.SubMenu`，选中项的父组自动展开，
+面包屑也多一层组名。加模块时写清 `meta.parent` 就自动落到对应分组，**不要**为分组再写一份配置。
+组与组内顺序都由 `resources` 数组顺序决定。
+
 三段式路由：
 
 | 段 | 作用 |
