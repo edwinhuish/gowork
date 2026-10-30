@@ -83,7 +83,7 @@ export function SupplierList() {
     <PartnerCards
       rows={rows}
       loading={tableProps.loading}
-      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个供应商`)}
+      pager={toCardPager(tableProps, (total) => `共 ${total} 个供应商`)}
       onShow={(record) => show('suppliers', record.id)}
       renderActions={(record) => (
         <PartnerRowActions

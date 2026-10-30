@@ -188,7 +188,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
         tableProps={tableProps}
         rows={(tableProps.dataSource ?? []) as ProductSource[]}
         loading={tableProps.loading === true}
-        pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`)}
+        pager={toCardPager(tableProps, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
         scrollX={980}

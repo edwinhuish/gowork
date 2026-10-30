@@ -86,7 +86,7 @@ export function ForwarderList() {
     <PartnerCards
       rows={rows}
       loading={tableProps.loading}
-      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个货代`)}
+      pager={toCardPager(tableProps, (total) => `共 ${total} 个货代`)}
       onShow={(record) => show('forwarders', record.id)}
       renderActions={(record) => (
         <PartnerRowActions

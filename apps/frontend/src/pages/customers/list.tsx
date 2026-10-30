@@ -117,7 +117,7 @@ export function CustomerList() {
       rows={rows}
       loading={tableProps.loading}
       showCustomerFacts
-      pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 个客户`)}
+      pager={toCardPager(tableProps, (total) => `共 ${total} 个客户`)}
       onShow={(record) => show('customers', record.id)}
       renderActions={(record) => (
         <PartnerRowActions

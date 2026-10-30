@@ -140,7 +140,7 @@ export function PageList<T extends object>({
           loading={tableProps.loading === true}
           size={compact ? 'small' : 'middle'}
           pagination={pagination}
-          pager={toCardPager(tableProps.pagination, (total) => `共 ${total} 条`, pageSizeOptions)}
+          pager={toCardPager(tableProps, (total) => `共 ${total} 条`, pageSizeOptions)}
           scrollX={scrollX}
           empty={empty}
         >

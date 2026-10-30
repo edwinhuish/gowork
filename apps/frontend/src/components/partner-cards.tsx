@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { DeleteButton } from '@refinedev/antd'
 import { Button, Pagination, Popconfirm, Skeleton, Tag, Typography } from 'antd'
-import type { PaginationProps, TablePaginationConfig, TableProps } from 'antd'
+import type { PaginationProps, TableProps } from 'antd'
 
 import { EntityTypeTag, Mono, RoleTag } from './fields'
 import { PartnerAvatar } from './partner-avatar'
@@ -39,17 +39,34 @@ export interface PartnerCardsProps {
 }
 
 /**
- * 把 useTable 的分页状态转成 antd Pagination 的 props。
+ * 把 useTable 的 tableProps 转成 antd Pagination 的 props（卡片视图用）。
  *
- * 抽出来而不是让每个列表各写一遍：要复制六个字段，
- * 漏掉 `pageSizeOptions` 就会变成列表视图能改页大小、卡片视图不能。
+ * 抽出来而不是让每个列表各写一遍：要复制六个字段，漏掉 `pageSizeOptions`
+ * 就会变成列表视图能改页大小、卡片视图不能。
+ *
+ * 为什么接整个 tableProps 而不是只接 pagination：**refine 的
+ * tableProps.pagination 里没有 onChange**（只有 current / pageSize / total 与
+ * itemRender），翻页是挂在 tableProps.onChange（Table 的 onChange）上的。
+ * 卡片视图画的是裸 Pagination，转发 pagination.onChange 拿到的是 undefined ——
+ * 窄屏翻页点了完全没反应。所以这里自己按 antd 的签名转一手。
  */
-export function toCardPager(
-  pager: TablePaginationConfig | false | undefined,
+export function toCardPager<T = unknown>(
+  tableProps: Pick<TableProps<T>, 'pagination' | 'onChange'> | undefined,
   showTotal: (total: number) => string,
   pageSizeOptions: string[] = PARTNER_CARD_PAGE_SIZES,
 ): PaginationProps | undefined {
+  const pager = tableProps?.pagination
   if (!pager || typeof pager !== 'object') return undefined
+  const onChange = tableProps?.onChange
+  // 与表格视图同一条路径：走 Table.onChange，筛选与排序传空对象表示没变。
+  const go = (page: number, pageSize: number) => {
+    onChange?.({ current: page, pageSize }, {}, {}, { currentDataSource: [], action: 'paginate' })
+    // 页码条在列表**下方**：从底部翻页，翻完还停在底部，新一页的内容在上面，
+    // 等于翻了个寂寞。把列表顶部带回视野。
+    document
+      .querySelector('.record-grid, .partner-grid')
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
   return {
     current: pager.current ?? 1,
     pageSize: pager.pageSize ?? Number(pageSizeOptions[0]),
@@ -57,7 +74,9 @@ export function toCardPager(
     showSizeChanger: true,
     pageSizeOptions,
     showTotal,
-    onChange: pager.onChange as (page: number, pageSize: number) => void,
+    onChange: go,
+    // 改页大小一律回第一页：原来的页码在新页大小下可能已经超出范围。
+    onShowSizeChange: (_current, size) => go(1, size),
   }
 }
 
