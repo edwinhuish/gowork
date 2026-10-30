@@ -17,9 +17,14 @@ export interface PageFormProps {
   action: 'create' | 'edit'
   title?: ReactNode
   formProps: FormProps
-  saveButtonProps?: { disabled?: boolean } & Record<string, unknown>
+  /** refine useForm 返回的 saveButtonProps（含 disabled/onClick）。 */
+  saveButtonProps?: object
   /** 表头额外动作，排在保存按钮左侧。 */
   extra?: ReactNode
+  /** 表单上方的提示条（如"这张单已锁定，不能再改"），在 Form 之外。 */
+  notice?: ReactNode
+  /** 详情数据加载中：refine 外壳的卡片骨架。 */
+  loading?: boolean
   /** 内容更宽（单据明细类表单）。 */
   wide?: boolean
   children: ReactNode
@@ -31,21 +36,25 @@ export function PageForm({
   formProps,
   saveButtonProps,
   extra,
+  notice,
+  loading,
   wide,
   children,
 }: PageFormProps) {
   const Shell = action === 'create' ? Create : Edit
   // 保存按钮统一带一个对勾图标：refine 的默认按钮只有文字，单据页上的「提交」
   // 与「打印」挨在一起时不好一眼分辨。
-  const saveProps = { icon: <CheckCircleOutlined />, ...saveButtonProps } as never
+  const saveProps = { icon: <CheckCircleOutlined />, ...(saveButtonProps ?? {}) } as never
 
   return (
     <Shell
       title={title}
       goBack={null}
+      isLoading={loading}
       saveButtonProps={saveProps}
       headerButtons={extra ? <Space wrap>{extra}</Space> : undefined}
     >
+      {notice}
       <Form
         {...formProps}
         layout="vertical"

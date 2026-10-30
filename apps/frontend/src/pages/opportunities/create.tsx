@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Opportunity } from '@/types'
 
 import { OpportunityFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function OpportunityCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建商机" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <OpportunityFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建商机" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <OpportunityFormFields />
+    </PageForm>
   )
 }

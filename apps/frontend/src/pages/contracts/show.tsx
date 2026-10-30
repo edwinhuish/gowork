@@ -163,7 +163,7 @@ export function ContractShow() {
         }}
       />
 
-      <Descriptions column={2} bordered size="small">
+      <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} bordered size="small">
         <Descriptions.Item label="合同类型">
           <Tag color={c ? typeColor(c.type) : undefined}>{contractTypeLabel(c?.type)}</Tag>
         </Descriptions.Item>

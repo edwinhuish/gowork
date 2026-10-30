@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Currency } from '@/types'
 
 import { CurrencyFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function CurrencyCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建币种" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <CurrencyFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建币种" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <CurrencyFormFields />
+    </PageForm>
   )
 }

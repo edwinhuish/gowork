@@ -1,9 +1,10 @@
 import { useList, useSelect } from '@refinedev/core'
-import { Create, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Button, Divider, Form, InputNumber, Radio, Select, Space, Typography } from 'antd'
 
 import type { PaymentInput } from '@/api/payments'
 import type { HttpError } from '@refinedev/core'
+import { PageForm } from '@/components/page'
 import { PAYMENT_DIRECTION_OPTIONS } from '@/constants/catalog'
 import type { Currency, Partner, Payment, Settlement } from '@/types'
 
@@ -141,16 +142,19 @@ export function PaymentCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title={isPayable ? '登记付款' : '登记收款'} goBack={null}>
-      <Form
-        {...formProps}
-        layout="vertical"
-        className="entity-form"
-        initialValues={{ direction: 10 }}
+    <PageForm
+      action="create"
+      title={isPayable ? '登记付款' : '登记收款'}
+      formProps={{
+        ...formProps,
+        initialValues: { direction: 10 },
         // formProps.onFinish 的取值类型是 API 入参，而表单的核销行还少一个
         // target_type（由方向推出来），所以先补一次再交给 refine 的 mutation。
-        onFinish={(values) => onFinish(toPaymentInput(values as unknown as PaymentFormValues))}
-      >
+        onFinish: (values) => onFinish(toPaymentInput(values as unknown as PaymentFormValues)),
+      }}
+      saveButtonProps={saveButtonProps}
+      wide
+    >
         <Form.Item
           name="direction"
           label="方向"
@@ -221,7 +225,6 @@ export function PaymentCreate() {
 
         {/* key 绑方向：换方向时整个编辑器重挂载，下拉里不会残留另一侧的候选单据。 */}
         <AllocationsEditor key={direction} direction={direction} partnerId={partnerId} />
-      </Form>
-    </Create>
+    </PageForm>
   )
 }

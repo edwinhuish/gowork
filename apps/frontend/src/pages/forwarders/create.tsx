@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Partner } from '@/types'
 
 import { ForwarderFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function ForwarderCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建货代" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <ForwarderFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建货代" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <ForwarderFormFields />
+    </PageForm>
   )
 }

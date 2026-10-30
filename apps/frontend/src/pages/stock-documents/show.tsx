@@ -116,7 +116,7 @@ export function StockDocumentShow() {
       <Descriptions
         column={{ xs: 1, sm: 2, lg: 3 }}
         bordered
-        size="middle"
+        size="small"
         items={[
           {
             key: 'doc_no',

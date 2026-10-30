@@ -1,6 +1,6 @@
-import { Edit, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Partner } from '@/types'
 
 import { ForwarderFormFields } from './form-fields'
@@ -12,15 +12,18 @@ export function ForwarderEdit() {
     redirect: 'list',
   })
 
+  // 单号只用于标题，读一次就够：formProps.initialValues 在数据到达后才填上。
+  const code = formProps.initialValues?.code as string | undefined
+
   return (
-    <Edit
+    <PageForm
+      action="edit"
+      title={`编辑货代${code ? ` · ${code}` : ''}`}
+      formProps={formProps}
       saveButtonProps={saveButtonProps}
-      isLoading={query?.isLoading}
-      title={`编辑货代${formProps.initialValues?.code ? ` · ${formProps.initialValues.code}` : ''}`}
+      notice={query?.isLoading ? null : undefined}
     >
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <ForwarderFormFields />
-      </Form>
-    </Edit>
+      <ForwarderFormFields />
+    </PageForm>
   )
 }

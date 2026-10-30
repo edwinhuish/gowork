@@ -1,6 +1,7 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Divider, Form } from 'antd'
+import { useForm } from '@refinedev/antd'
+import { Divider } from 'antd'
 
+import { PageForm } from '@/components/page'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { Shipment } from '@/types'
 
@@ -19,21 +20,23 @@ export function ShipmentCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建出货单" goBack={null}>
-      <Form
-        {...formProps}
-        layout="vertical"
-        className="entity-form"
-        initialValues={{ allocations: [] }}
-      >
-        <ShipmentFormFields />
+    <PageForm
+      action="create"
+      title="新建出货单"
+      formProps={{
+        ...formProps,
+        initialValues: { allocations: [] },
+      }}
+      saveButtonProps={saveButtonProps}
+      wide
+    >
+      <ShipmentFormFields />
 
-        <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
-          出货明细
-        </Divider>
+      <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
+        出货明细
+      </Divider>
 
-        <AllocationEditor />
-      </Form>
-    </Create>
+      <AllocationEditor />
+    </PageForm>
   )
 }

@@ -1,6 +1,7 @@
-import { Create, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Divider, Form } from 'antd'
 
+import { PageForm } from '@/components/page'
 import { LineItemsEditor } from '@/components/line-items-editor'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { SalesOrder } from '@/types'
@@ -20,27 +21,29 @@ export function OrderCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建销售订单" goBack={null}>
-      <Form
-        {...formProps}
-        layout="vertical"
-        className="entity-form"
-        initialValues={{
-          trade_term: 'FOB',
-          items: [{ qty: '1', unit_price: '0' }],
-        }}
-      >
-        <OrderFormFields />
+    <PageForm
+      action="create"
+      title="新建销售订单"
+      formProps={{
+        ...formProps,
+        initialValues: {
+        trade_term: 'FOB',
+        items: [{ qty: '1', unit_price: '0' }],
+        },
+      }}
+      saveButtonProps={saveButtonProps}
+      wide
+    >
+      <OrderFormFields />
 
-        {/* 选中客户就把额度摊开：超额不会在这里拦，但可以先看见差多少。 */}
-        <CreditHint partnerId={Form.useWatch<number | undefined>('partner_id', form)} />
+      {/* 选中客户就把额度摊开：超额不会在这里拦，但可以先看见差多少。 */}
+      <CreditHint partnerId={Form.useWatch<number | undefined>('partner_id', form)} />
 
-        <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
-          明细
-        </Divider>
+      <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
+        明细
+      </Divider>
 
-        <LineItemsEditor currencyCode={Form.useWatch<string | undefined>('currency_code', form)} />
-      </Form>
-    </Create>
+      <LineItemsEditor currencyCode={Form.useWatch<string | undefined>('currency_code', form)} />
+    </PageForm>
   )
 }

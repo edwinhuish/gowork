@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useOne, useSelect } from '@refinedev/core'
-import { Create, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Alert, Divider, Form, Input, Select, Tag } from 'antd'
 
 import {
@@ -9,6 +9,7 @@ import {
   orderStatusLabel,
   quotationStatusLabel,
 } from '@/constants/catalog'
+import { PageForm } from '@/components/page'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { Contract, Quotation, SalesOrder } from '@/types'
 
@@ -75,128 +76,130 @@ export function ContractCreate() {
   }, [source, prefilled, form])
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="生成合同" goBack={null}>
-      <Form
-        {...formProps}
-        layout="vertical"
-        className="entity-form"
-        initialValues={{
-          type: 10,
-          source_type: 10,
-          sign_date: today(),
-          terms: [{ name: '全额', amount: 0 }],
-        }}
+    <PageForm
+      action="create"
+      title="生成合同"
+      formProps={{
+        ...formProps,
+        initialValues: {
+        type: 10,
+        source_type: 10,
+        sign_date: today(),
+        terms: [{ name: '全额', amount: 0 }],
+        },
+      }}
+      saveButtonProps={saveButtonProps}
+      wide
+    >
+      <Form.Item
+        name="type"
+        label="合同类型"
+        rules={[{ required: true, message: '请选择合同类型' }]}
+        tooltip="PI 常先于订单成立（客户凭它付订金或开信用证）；销售合同是双方签字的正式合同"
       >
-        <Form.Item
-          name="type"
-          label="合同类型"
-          rules={[{ required: true, message: '请选择合同类型' }]}
-          tooltip="PI 常先于订单成立（客户凭它付订金或开信用证）；销售合同是双方签字的正式合同"
-        >
-          <Select options={CONTRACT_TYPE_OPTIONS} />
-        </Form.Item>
+        <Select options={CONTRACT_TYPE_OPTIONS} />
+      </Form.Item>
 
-        <Form.Item
-          name="source_type"
-          label="来源单据类型"
-          rules={[{ required: true, message: '请选择来源类型' }]}
-        >
-          <Select
-            options={CONTRACT_SOURCE_TYPE_OPTIONS}
-            onChange={() => {
-              // 换了来源类型，上一张单的来源与金额都不再适用。
-              form.setFieldValue('source_id', undefined)
-              form.setFieldValue('terms', [{ name: '全额', amount: 0 }])
-              setPrefilled(undefined)
-            }}
-          />
-        </Form.Item>
+      <Form.Item
+        name="source_type"
+        label="来源单据类型"
+        rules={[{ required: true, message: '请选择来源类型' }]}
+      >
+        <Select
+          options={CONTRACT_SOURCE_TYPE_OPTIONS}
+          onChange={() => {
+            // 换了来源类型，上一张单的来源与金额都不再适用。
+            form.setFieldValue('source_id', undefined)
+            form.setFieldValue('terms', [{ name: '全额', amount: 0 }])
+            setPrefilled(undefined)
+          }}
+        />
+      </Form.Item>
 
-        <Form.Item
-          name="source_id"
-          label={isOrder ? '来源销售订单' : '来源报价单'}
-          className="form-item-full"
-          rules={[{ required: true, message: '请选择来源单据' }]}
-          extra="合同不存货物明细：客户、币种、汇率与总额照抄这张单据，保存后不可改"
-        >
-          <Select
-            placeholder={isOrder ? '选择已确认的销售订单' : '选择已确认的报价单'}
-            showSearch
-            options={sourceOptions}
-            loading={sourceListQuery.isLoading}
-            filterOption={(input, option) =>
-              String(option?.label ?? '')
-                .toLowerCase()
-                .includes(input.toLowerCase())
-            }
-          />
-        </Form.Item>
+      <Form.Item
+        name="source_id"
+        label={isOrder ? '来源销售订单' : '来源报价单'}
+        className="form-item-full"
+        rules={[{ required: true, message: '请选择来源单据' }]}
+        extra="合同不存货物明细：客户、币种、汇率与总额照抄这张单据，保存后不可改"
+      >
+        <Select
+          placeholder={isOrder ? '选择已确认的销售订单' : '选择已确认的报价单'}
+          showSearch
+          options={sourceOptions}
+          loading={sourceListQuery.isLoading}
+          filterOption={(input, option) =>
+            String(option?.label ?? '')
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
+        />
+      </Form.Item>
 
-        {source && (
-          <div className="form-item-full">
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 20 }}
-              message={
-                <span>
-                  来源 <Tag>{source.doc_no}</Tag> 客户{' '}
-                  {source.partner?.name ?? '—'}，总额{' '}
-                  <strong>
-                    {/* 来源总额是定点的字符串，这里只为显示转一次 number。 */}
-                    {Number(source.amount_total).toLocaleString('zh-CN', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    {source.currency_code}
-                  </strong>
-                  ，汇率 {source.exchange_rate}
-                </span>
-              }
-              description="换算本币用的是来源单据锁定那一刻的汇率，不取今天的汇率。"
-            />
-          </div>
-        )}
-
-        <Form.Item
-          name="sign_date"
-          label="签订日"
-          rules={[{ pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' }]}
-          tooltip="单号年月按它取；留空取今天"
-        >
-          <Input placeholder="2026-10-28" />
-        </Form.Item>
-
-        <Form.Item
-          name="delivery_date"
-          label="约定交期"
-          rules={[{ pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' }]}
-          extra="留空沿用来源单据的交期"
-        >
-          <Input placeholder="可留空" />
-        </Form.Item>
-
-        <Form.Item name="remark" label="备注" className="form-item-full">
-          <Input.TextArea rows={2} maxLength={255} showCount placeholder="包装、唛头、特殊条款等" />
-        </Form.Item>
-
-        <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
-          付款分期
-        </Divider>
-
+      {source && (
         <div className="form-item-full">
-          <ContractTermsEditor
-            total={source?.amount_total}
-            currencyCode={source?.currency_code}
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 20 }}
+            message={
+              <span>
+                来源 <Tag>{source.doc_no}</Tag> 客户{' '}
+                {source.partner?.name ?? '—'}，总额{' '}
+                <strong>
+                  {/* 来源总额是定点的字符串，这里只为显示转一次 number。 */}
+                  {Number(source.amount_total).toLocaleString('zh-CN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  {source.currency_code}
+                </strong>
+                ，汇率 {source.exchange_rate}
+              </span>
+            }
+            description="换算本币用的是来源单据锁定那一刻的汇率，不取今天的汇率。"
           />
         </div>
+      )}
 
-        <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
-          合同条款
-        </Divider>
+      <Form.Item
+        name="sign_date"
+        label="签订日"
+        rules={[{ pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' }]}
+        tooltip="单号年月按它取；留空取今天"
+      >
+        <Input placeholder="2026-10-28" />
+      </Form.Item>
 
-        <ContractClausePicker />
-      </Form>
-    </Create>
+      <Form.Item
+        name="delivery_date"
+        label="约定交期"
+        rules={[{ pattern: /^\d{4}-\d{2}-\d{2}$/, message: '格式应为 YYYY-MM-DD' }]}
+        extra="留空沿用来源单据的交期"
+      >
+        <Input placeholder="可留空" />
+      </Form.Item>
+
+      <Form.Item name="remark" label="备注" className="form-item-full">
+        <Input.TextArea rows={2} maxLength={255} showCount placeholder="包装、唛头、特殊条款等" />
+      </Form.Item>
+
+      <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
+        付款分期
+      </Divider>
+
+      <div className="form-item-full">
+        <ContractTermsEditor
+          total={source?.amount_total}
+          currencyCode={source?.currency_code}
+        />
+      </div>
+
+      <Divider orientation="left" className="form-item-full" style={{ margin: '8px 0 16px' }}>
+        合同条款
+      </Divider>
+
+      <ContractClausePicker />
+    </PageForm>
   )
 }

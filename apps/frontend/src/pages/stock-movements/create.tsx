@@ -1,6 +1,7 @@
-import { Create, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Form, Input, InputNumber, Radio, Select, Typography } from 'antd'
 
+import { PageForm } from '@/components/page'
 import { ProductSelect } from '@/components/product-select'
 import { MANUAL_STOCK_MOVEMENT_OPTIONS, STOCK_DIRECTION_OPTIONS } from '@/constants/catalog'
 import { todayString } from '@/pages/orders/form-fields'
@@ -21,12 +22,17 @@ export function StockMovementCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="手工录入库存流水" goBack={null}>
-      <Typography.Paragraph type="secondary">
-        每一次库存变化都要有一条流水。录错了就删掉那条（库存会跟着回滚），不要直接调数。
-      </Typography.Paragraph>
-
-      <Form {...formProps} layout="vertical" className="entity-form" initialValues={{ type: 10, direction: 1 }}>
+    <PageForm
+      action="create"
+      title="手工录入库存流水"
+      formProps={{ ...formProps, initialValues: { type: 10, direction: 1 } }}
+      saveButtonProps={saveButtonProps}
+      notice={
+        <Typography.Paragraph type="secondary">
+          每一次库存变化都要有一条流水。录错了就删掉那条（库存会跟着回滚），不要直接调数。
+        </Typography.Paragraph>
+      }
+    >
         <Form.Item
           name="product_id"
           label="产品"
@@ -80,7 +86,6 @@ export function StockMovementCreate() {
         <Form.Item name="remark" label="备注" className="form-item-full">
           <Input.TextArea rows={2} maxLength={255} showCount placeholder="盘点表编号、样品用途等" />
         </Form.Item>
-      </Form>
-    </Create>
+    </PageForm>
   )
 }

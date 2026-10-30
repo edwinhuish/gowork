@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Partner } from '@/types'
 
 import { CustomerFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function CustomerCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建客户" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <CustomerFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建客户" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <CustomerFormFields />
+    </PageForm>
   )
 }

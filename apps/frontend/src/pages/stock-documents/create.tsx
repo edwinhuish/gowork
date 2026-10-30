@@ -1,6 +1,7 @@
-import { Create, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Divider, Form } from 'antd'
 
+import { PageForm } from '@/components/page'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import type { StockDocument } from '@/types'
 
@@ -21,21 +22,23 @@ export function StockDocumentCreate() {
   const type = Form.useWatch<number | undefined>('type', form)
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建出入库单" goBack={null}>
-      <Form
-        {...formProps}
-        layout="vertical"
-        className="entity-form"
-        initialValues={{ type: 10, items: [{ qty: '1' }] }}
-      >
-        <StockDocFormFields />
+    <PageForm
+      action="create"
+      title="新建出入库单"
+      formProps={{
+        ...formProps,
+        initialValues: { type: 10, items: [{ qty: '1' }] },
+      }}
+      saveButtonProps={saveButtonProps}
+      wide
+    >
+      <StockDocFormFields />
 
-        <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
-          明细
-        </Divider>
+      <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
+        明细
+      </Divider>
 
-        <StockDocItemsEditor docType={type} />
-      </Form>
-    </Create>
+      <StockDocItemsEditor docType={type} />
+    </PageForm>
   )
 }

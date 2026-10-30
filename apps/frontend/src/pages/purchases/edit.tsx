@@ -1,7 +1,8 @@
-import { Edit, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Alert, Divider, Form, Input } from 'antd'
 
 import { LineItemsEditor } from '@/components/line-items-editor'
+import { PageForm } from '@/components/page'
 import type { PurchaseOrder } from '@/types'
 
 import { PurchaseFormFields } from './form-fields'
@@ -22,22 +23,24 @@ export function PurchaseEdit() {
   const locked = status !== undefined && status !== 10
 
   return (
-    <Edit
-      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+    <PageForm
+      action="edit"
       title="编辑采购订单"
-      goBack={null}
+      formProps={formProps}
+      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+      notice={
+        locked ? (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="这张采购单不是草稿，不能再改"
+            description="已确认的采购单是对供应商的承诺。要调整请走变更单（T-24）；不要了可以改为已取消。"
+          />
+        ) : null
+      }
+      wide
     >
-      {locked && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="这张采购单不是草稿，不能再改"
-          description="已确认的采购单是对供应商的承诺。要调整请走变更单（T-24）；不要了可以改为已取消。"
-        />
-      )}
-
-      <Form {...formProps} layout="vertical" className="entity-form">
         {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。
             必须是注册过的字段——antd 只提交已注册的项，光靠 initialValues
             带着 updated_at 是不够的，它会在提交时被丢掉。 */}
@@ -53,7 +56,6 @@ export function PurchaseEdit() {
         {!locked && <SalesOrderImport form={form} />}
 
         <LineItemsEditor currencyCode={Form.useWatch<string | undefined>('currency_code', form)} />
-      </Form>
-    </Edit>
+    </PageForm>
   )
 }

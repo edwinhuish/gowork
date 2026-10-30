@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key'
 import { SettlementFormFields } from '@/pages/settlements/form-fields'
 import type { Payable } from '@/types'
@@ -17,10 +17,8 @@ export function PayableCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建应付" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <SettlementFormFields direction="payable" />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建应付" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <SettlementFormFields direction="payable" />
+    </PageForm>
   )
 }

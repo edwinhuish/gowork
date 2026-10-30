@@ -1,6 +1,6 @@
-import { Edit, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Opportunity } from '@/types'
 
 import { OpportunityFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function OpportunityEdit() {
   })
 
   return (
-    <Edit saveButtonProps={saveButtonProps} title="编辑商机">
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <OpportunityFormFields partnerReadOnly />
-      </Form>
-    </Edit>
+    <PageForm action="edit" title="编辑商机" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <OpportunityFormFields partnerReadOnly />
+    </PageForm>
   )
 }

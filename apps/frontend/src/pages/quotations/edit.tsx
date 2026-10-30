@@ -1,6 +1,7 @@
-import { Edit, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Alert, Button, Divider, Form, Input, Space } from 'antd'
 
+import { PageForm } from '@/components/page'
 import { LineItemsEditor } from '@/components/line-items-editor'
 import type { Quotation } from '@/types'
 
@@ -27,46 +28,47 @@ export function QuotationEdit() {
   const locked = status !== undefined && status !== 10
 
   return (
-    <Edit
-      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+    <PageForm
+      action="edit"
       title="编辑报价单"
-      goBack={null}
+      formProps={formProps}
+      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+      notice={
+        locked ? (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="这张报价单不是草稿，不能再改"
+            description="已确认的报价单是发给客户的承诺。要改请回详情页「另存新版本」，新版从草稿开始改。"
+          />
+        ) : null
+      }
+      wide
     >
-      {locked && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="这张报价单不是草稿，不能再改"
-          description="已确认的报价单是发给客户的承诺。要改请回详情页「另存新版本」，新版从草稿开始改。"
-        />
-      )}
+      {/* 乐观锁：把打开页面时读到的版本原样带回服务端。
+          必须是注册过的字段——antd 只提交已注册的项，光靠 initialValues 里带着
+          updated_at 是不够的，它会在提交时被丢掉。 */}
+      <Form.Item name="updated_at" hidden>
+        <Input />
+      </Form.Item>
+      <QuotationFormFields partnerReadOnly />
 
-      <Form {...formProps} layout="vertical" className="entity-form">
-        {/* 乐观锁：把打开页面时读到的版本原样带回服务端。
-            必须是注册过的字段——antd 只提交已注册的项，光靠 initialValues 里带着
-            updated_at 是不够的，它会在提交时被丢掉。 */}
-        <Form.Item name="updated_at" hidden>
-          <Input />
-        </Form.Item>
-        <QuotationFormFields partnerReadOnly />
+      <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
+        明细
+      </Divider>
 
-        <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
-          明细
-        </Divider>
+      <LineItemsEditor
+        showSource
+        currencyCode={Form.useWatch<string | undefined>('currency_code', form)}
+      />
 
-        <LineItemsEditor
-          showSource
-          currencyCode={Form.useWatch<string | undefined>('currency_code', form)}
-        />
-
-        <Space style={{ marginTop: 12 }}>
-          <Button onClick={run} loading={loading} htmlType="button" disabled={locked}>
-            试算毛利
-          </Button>
-        </Space>
-        <QuotationPreviewAlert preview={preview} />
-      </Form>
-    </Edit>
+      <Space style={{ marginTop: 12 }}>
+        <Button onClick={run} loading={loading} htmlType="button" disabled={locked}>
+          试算毛利
+        </Button>
+      </Space>
+      <QuotationPreviewAlert preview={preview} />
+    </PageForm>
   )
 }

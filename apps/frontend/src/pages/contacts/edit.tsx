@@ -1,6 +1,6 @@
-import { Edit, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Contact } from '@/types'
 
 import { ContactFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function ContactEdit() {
   })
 
   return (
-    <Edit saveButtonProps={saveButtonProps} title="编辑联系人">
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <ContactFormFields partnerReadOnly />
-      </Form>
-    </Edit>
+    <PageForm action="edit" title="编辑联系人" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <ContactFormFields partnerReadOnly />
+    </PageForm>
   )
 }

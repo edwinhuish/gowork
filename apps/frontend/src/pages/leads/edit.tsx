@@ -1,6 +1,6 @@
-import { Edit, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Lead } from '@/types'
 
 import { LeadFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function LeadEdit() {
   })
 
   return (
-    <Edit saveButtonProps={saveButtonProps} title="编辑线索">
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <LeadFormFields />
-      </Form>
-    </Edit>
+    <PageForm action="edit" title="编辑线索" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <LeadFormFields />
+    </PageForm>
   )
 }

@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Activity } from '@/types'
 
 import { ActivityFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function ActivityCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="记录跟进" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <ActivityFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="记录跟进" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <ActivityFormFields />
+    </PageForm>
   )
 }

@@ -1,7 +1,8 @@
 import type { HttpError } from '@refinedev/core'
-import { Edit, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { Alert, Form, Input } from 'antd'
 
+import { PageForm } from '@/components/page'
 import type { PaymentUpdateInput } from '@/api/payments'
 import type { Payment } from '@/types'
 
@@ -21,29 +22,31 @@ export function PaymentEdit() {
   })
 
   return (
-    <Edit
-      saveButtonProps={saveButtonProps}
-      isLoading={query?.isLoading}
+    <PageForm
+      action="edit"
       title={`编辑收付款${formProps.initialValues?.doc_no ? ` · ${formProps.initialValues.doc_no}` : ''}`}
+      formProps={formProps}
+      saveButtonProps={saveButtonProps}
+      loading={query?.isLoading}
+      notice={
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="金额与核销明细不能在这里改"
+          description="录错了请删除整张单重录：删单会把目标单据的已核销金额与状态一起回滚。"
+        />
+      }
+      wide
     >
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="金额与核销明细不能在这里改"
-        description="录错了请删除整张单重录：删单会把目标单据的已核销金额与状态一起回滚。"
-      />
 
-      <Form {...formProps} layout="vertical" className="entity-form">
+      {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
 
-        {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
+      <Form.Item name="updated_at" hidden>
+        <Input />
 
-        <Form.Item name="updated_at" hidden>
-          <Input />
-
-        </Form.Item>
-        <PaymentMetaFields />
-      </Form>
-    </Edit>
+      </Form.Item>
+      <PaymentMetaFields />
+    </PageForm>
   )
 }

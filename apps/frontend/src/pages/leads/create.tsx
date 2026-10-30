@@ -1,6 +1,6 @@
-import { Create, useForm } from '@refinedev/antd'
-import { Form } from 'antd'
+import { useForm } from '@refinedev/antd'
 
+import { PageForm } from '@/components/page'
 import type { Lead } from '@/types'
 
 import { LeadFormFields } from './form-fields'
@@ -13,10 +13,8 @@ export function LeadCreate() {
   })
 
   return (
-    <Create saveButtonProps={saveButtonProps} title="新建线索" goBack={null}>
-      <Form {...formProps} layout="vertical" className="entity-form">
-        <LeadFormFields />
-      </Form>
-    </Create>
+    <PageForm action="create" title="新建线索" formProps={formProps} saveButtonProps={saveButtonProps}>
+      <LeadFormFields />
+    </PageForm>
   )
 }

@@ -1,8 +1,9 @@
 import { Alert, Divider, Form, Input } from 'antd'
 import { useOne } from '@refinedev/core'
-import { Edit, useForm } from '@refinedev/antd'
+import { useForm } from '@refinedev/antd'
 import { useParams } from 'react-router'
 
+import { PageForm } from '@/components/page'
 import type { Shipment } from '@/types'
 
 import { AllocationEditor } from './allocation-editor'
@@ -28,40 +29,41 @@ export function ShipmentEdit() {
   const shipmentId = Number(id)
 
   return (
-    <Edit
-      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+    <PageForm
+      action="edit"
       title="编辑出货单"
-      goBack={null}
+      formProps={formProps}
+      saveButtonProps={{ ...saveButtonProps, disabled: locked }}
+      notice={
+        locked ? (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="这张出货单不是草稿，不能再改"
+            description="已确认的一票，仓库与货代已经在按它备货。要作废请改为已取消，数量会还给对应的订单行。"
+          />
+        ) : null
+      }
+      wide
     >
-      {locked && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="这张出货单不是草稿，不能再改"
-          description="已确认的一票，仓库与货代已经在按它备货。要作废请改为已取消，数量会还给对应的订单行。"
-        />
-      )}
 
-      <Form {...formProps} layout="vertical" className="entity-form">
+      {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
 
-        {/* 乐观锁：把打开页面时读到的版本原样带回服务端，别人先改过就会拿到 409。 */}
+      <Form.Item name="updated_at" hidden>
+        <Input />
 
-        <Form.Item name="updated_at" hidden>
-          <Input />
+      </Form.Item>
+      <ShipmentFormFields />
 
-        </Form.Item>
-        <ShipmentFormFields />
+      <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
+        出货明细
+      </Divider>
 
-        <Divider orientation="left" style={{ margin: '8px 0 16px' }}>
-          出货明细
-        </Divider>
-
-        <AllocationEditor
-          excludeShipmentId={Number.isFinite(shipmentId) ? shipmentId : undefined}
-          existing={shipment?.allocations}
-        />
-      </Form>
-    </Edit>
+      <AllocationEditor
+        excludeShipmentId={Number.isFinite(shipmentId) ? shipmentId : undefined}
+        existing={shipment?.allocations}
+      />
+    </PageForm>
   )
 }
