@@ -65,6 +65,11 @@ tasks:
     cmds:
       - task: backend:fmt
 
+  demo:reset:
+    desc: 清空开发库并重灌演示数据（演示数据只在空库时写入，所以要重建）
+    cmds:
+      - task: backend:demo:reset
+
   clean:
     desc: 清理构建产物（bin/ 与前端 dist/）
     cmds:

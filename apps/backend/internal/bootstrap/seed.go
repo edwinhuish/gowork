@@ -12,29 +12,70 @@ import (
 
 const defaultAdminPassword = "admin123"
 
-// seed 只在数据为空时写入，重复启动不会产生重复数据。
-func (a *App) seed(
-	ctx context.Context,
-	auth service.AuthService,
-	users repository.UserRepository,
-	partners repository.PartnerRepository,
-	products repository.ProductRepository,
-	currencies repository.CurrencyRepository,
-	rates repository.ExchangeRateRepository,
-) error {
-	if err := a.seedAdmin(ctx, auth, users); err != nil {
-		return err
-	}
-	if err := a.seedCurrencies(ctx, currencies, rates); err != nil {
-		return err
-	}
-	return a.seedDemoData(ctx, partners, products)
+// seedDeps 是灌演示数据要用到的仓储与服务。
+//
+// 收成一个结构体而不是一长串参数：演示场景从"主数据"扩到"整条业务链"之后，
+// 依赖已经有二十来个，逐个位置传参没人读得出哪个是哪个。
+type seedDeps struct {
+	Auth     service.AuthService
+	Users    repository.UserRepository
+	Partners repository.PartnerRepository
+	Products repository.ProductRepository
+	Sources  service.ProductSourceService
+
+	Currencies repository.CurrencyRepository
+	Rates      repository.ExchangeRateRepository
+
+	Contacts      service.ContactService
+	Activities    service.ActivityService
+	Leads         service.LeadService
+	Opportunities service.OpportunityService
+	Clauses       service.ClauseService
+
+	Quotations service.QuotationService
+	Contracts  service.ContractService
+	Orders     service.SalesOrderService
+	Purchases  service.PurchaseOrderService
+	Shipments  service.ShipmentService
+	Charges    service.ShipmentChargeService
+	Customs    service.CustomsDeclarationService
+
+	Receivables service.ReceivableService
+	Payables    service.PayableService
+	Payments    service.PaymentService
+	StockDocs   service.StockDocumentService
 }
 
-// seedCurrencies 写入本币与两种常用外币，并给它们各一条当日汇率。
+// seed 只在数据为空时写入，重复启动不会产生重复数据。
 //
-// 演示数据必须带汇率：没有汇率时任何折算都会报「缺少某日汇率」，
-// 而空表看起来只是"还没录"，容易让人以为折算功能坏了。
+// 分三段：账号 → 币种汇率 → 业务演示数据。后两段都要有汇率才能跑：
+// 报价、订单、收付款都要按某天的汇率折本币，缺一条就报"缺少某日汇率"。
+//
+// withDemo 为假时只写账号、汇率与主数据（单元测试要的就是这个：有账号能登录、
+// 有产品能开单，但没有预置单据去干扰它们自己造的合计）。
+func (a *App) seed(ctx context.Context, d seedDeps, withDemo bool) error {
+	admin, err := a.seedAdmin(ctx, d.Auth, d.Users)
+	if err != nil {
+		return err
+	}
+	if err := a.seedCurrencies(ctx, d.Currencies, d.Rates); err != nil {
+		return err
+	}
+	master, err := a.seedMasterData(ctx, d, admin)
+	if err != nil || master == nil {
+		// master 为 nil 表示库里已经有主数据（此前灌过），演示单据也就不再补。
+		return err
+	}
+	if !withDemo {
+		return nil
+	}
+	return a.seedBusiness(ctx, d, master)
+}
+
+// seedCurrencies 写入本币与两种常用外币，并铺一段历史汇率。
+//
+// 历史汇率不是"多给点数据"：报价与订单会锁当天的汇率，收付款取**到账日**的汇率，
+// 两者的差就是汇兑损益。只留今天一条，汇兑损益报表永远是空的。
 func (a *App) seedCurrencies(
 	ctx context.Context,
 	currencies repository.CurrencyRepository,
@@ -59,10 +100,35 @@ func (a *App) seedCurrencies(
 		return err
 	}
 
-	today := model.DateOnly(time.Now())
-	demoRates := []model.ExchangeRate{
-		{CurrencyCode: "USD", BaseCode: "CNY", Rate: money.MustParse("7.10"), EffectiveDate: today, Source: "演示数据"},
-		{CurrencyCode: "EUR", BaseCode: "CNY", Rate: money.MustParse("7.75"), EffectiveDate: today, Source: "演示数据"},
+	// 今天的汇率必须齐：缺当天汇率时报价与开单都过不去。
+	type rateSpec struct {
+		code  string
+		day   int
+		value string
+	}
+	specs := []rateSpec{
+		{"USD", 0, "7.10"},
+		{"EUR", 0, "7.75"},
+		{"USD", -3, "7.09"},
+		{"USD", -8, "7.06"},
+		{"USD", -30, "7.12"},
+		{"USD", -45, "7.08"},
+		{"USD", -60, "7.05"},
+		{"USD", -90, "7.02"},
+		{"EUR", -45, "7.72"},
+		{"EUR", -90, "7.68"},
+	}
+
+	demoRates := make([]model.ExchangeRate, 0, len(specs))
+	for _, spec := range specs {
+		demoRates = append(demoRates, model.ExchangeRate{
+			CurrencyCode:  spec.code,
+			BaseCode:      "CNY",
+			Rate:          money.MustParse(spec.value),
+			RateType:      "middle",
+			EffectiveDate: model.DateOnly(time.Now().AddDate(0, 0, spec.day)),
+			Source:        "演示数据",
+		})
 	}
 	for i := range demoRates {
 		if err := rates.Create(ctx, &demoRates[i]); err != nil {
@@ -74,104 +140,40 @@ func (a *App) seedCurrencies(
 	return nil
 }
 
-func (a *App) seedAdmin(ctx context.Context, auth service.AuthService, users repository.UserRepository) error {
+func (a *App) seedAdmin(
+	ctx context.Context,
+	auth service.AuthService,
+	users repository.UserRepository,
+) (*model.User, error) {
 	n, err := users.Count(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if n > 0 {
-		return nil
+		// 已有账号：取回 admin 当演示数据的负责人。
+		existing, err := users.FindByUsername(ctx, "admin")
+		if err != nil {
+			return nil, nil
+		}
+		return existing, nil
 	}
 
 	hash, err := auth.HashPassword(defaultAdminPassword)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := users.Create(ctx, &model.User{
+	admin := &model.User{
 		Username: "admin",
 		Password: hash,
 		Nickname: "管理员",
 		Role:     model.RoleAdmin,
 		Status:   model.EnableStatusOn,
-	}); err != nil {
-		return err
+	}
+	if err := users.Create(ctx, admin); err != nil {
+		return nil, err
 	}
 
 	a.Log.Warn("已创建默认管理员账号，请尽快修改密码",
 		"username", "admin", "password", defaultAdminPassword)
-	return nil
-}
-
-// seedDemoData 写入演示用的往来单位与产品。
-//
-// 演示数据刻意包含两种"合并前无法表达"的记录：
-// 客供两用（role=3）与个人主体（entity_type=1），
-// 这样列表、筛选、概览计数一跑起来就能看出新模型是否真的生效。
-func (a *App) seedDemoData(
-	ctx context.Context,
-	partners repository.PartnerRepository,
-	products repository.ProductRepository,
-) error {
-	n, err := partners.Count(ctx)
-	if err != nil || n > 0 {
-		return err
-	}
-
-	demoPartners := []model.Partner{
-		{
-			Code: "SUP001", Name: "永康市华信五金厂",
-			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
-			ContactName: "陈先生", Phone: "13800000001",
-			Address: "浙江省金华市永康市", Status: model.EnableStatusOn,
-		},
-		{
-			Code: "SUP002", Name: "揭阳铭泰不锈钢制品",
-			Role: model.PartnerRoleSupplier, EntityType: model.PartnerEntityCompany,
-			ContactName: "林小姐", Phone: "13800000002",
-			Address: "广东省揭阳市", Status: model.EnableStatusOn,
-		},
-		{
-			Code: "CUS001", Name: "Ferreteria El Sol",
-			Role: model.PartnerRoleCustomer, EntityType: model.PartnerEntityCompany,
-			Country: "Ecuador", ContactName: "Carlos", Phone: "+593 9 0000 0001",
-			Address: "Guayaquil", Status: model.EnableStatusOn,
-		},
-		{
-			// 客供两用：既买成品，又把包装物料卖回给我们。
-			// 合并前这种主体必须在两张表各建一条、维护两套联系方式。
-			Code: "BOTH001", Name: "宁波华翔工贸",
-			Role:       model.PartnerRoleCustomer | model.PartnerRoleSupplier,
-			EntityType: model.PartnerEntityCompany,
-			Country:    "China", ContactName: "周经理", Phone: "13800000003",
-			Address: "浙江省宁波市", Status: model.EnableStatusOn,
-		},
-		{
-			// 个人主体：货代买手，报关资料与公司不同，所以单独标记类型。
-			Code: "PER001", Name: "王海（个人买手）",
-			Role: model.PartnerRoleCustomer, EntityType: model.PartnerEntityPerson,
-			Country: "Ecuador", ContactName: "王海", Phone: "+593 9 0000 0002",
-			Remark: "个人收款的买手，报关资料用个人身份", Status: model.EnableStatusOn,
-		},
-	}
-	for i := range demoPartners {
-		if err := partners.Create(ctx, &demoPartners[i]); err != nil {
-			return err
-		}
-	}
-
-	supplierID := demoPartners[0].ID
-	demoProducts := []model.Product{
-		{SKUCode: "BH01-0001-SS", NameCN: "304 不锈钢合页 4 寸", NameEN: "SS Hinge 4\"", Category: "BH", Spec: "100×75×3 mm", Unit: "PCS", SupplierID: &supplierID, CostPrice: money.MustParse("6.8"), SalePrice: money.MustParse("9.9"), Status: model.EnableStatusOn},
-		{SKUCode: "BH01-0002-CP", NameCN: "铁合页 4 寸 镀铬", NameEN: "Iron Hinge 4\" CP", Category: "BH", Spec: "100×75×2.5 mm", Unit: "PCS", SupplierID: &supplierID, CostPrice: money.MustParse("3.2"), SalePrice: money.MustParse("5.5"), Status: model.EnableStatusOn},
-		{SKUCode: "LK01-0001-BK", NameCN: "球形门锁 黑色", NameEN: "Round Knob Lock BK", Category: "LK", Spec: "60 mm", Unit: "SET", SupplierID: &supplierID, CostPrice: money.MustParse("12.5"), SalePrice: money.MustParse("18"), Status: model.EnableStatusOn},
-		{SKUCode: "FS01-0001", NameCN: "自攻螺丝 4×30 十字", NameEN: "Self Tapping Screw 4×30", Category: "FS", Spec: "4×30 mm / 1000pcs", Unit: "BOX", SupplierID: &supplierID, CostPrice: money.MustParse("8"), SalePrice: money.MustParse("12"), Status: model.EnableStatusOn},
-	}
-	for i := range demoProducts {
-		if err := products.Create(ctx, &demoProducts[i]); err != nil {
-			return err
-		}
-	}
-
-	a.Log.Info("已写入演示数据", "partners", len(demoPartners), "products", len(demoProducts))
-	return nil
+	return admin, nil
 }

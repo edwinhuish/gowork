@@ -103,6 +103,9 @@ func New(cfg *config.Config) (*App, error) {
 		&model.CreditNote{},
 		&model.DebitNote{},
 		&model.PurchaseOrderItem{},
+		// 跟单节点是独立的表（一行一节点，软删后按 (行, 节点) 唯一）：
+		// 漏在清单外面时，全新库里第一次写节点就会 "no such table"。
+		&model.PurchaseMilestone{},
 		&model.Shipment{},
 		&model.ShipmentAllocation{},
 		&model.ShipmentCharge{},
@@ -395,8 +398,19 @@ func New(cfg *config.Config) (*App, error) {
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
 
 	if cfg.Database.Seed {
-		if err := app.seed(context.Background(), authSvc,
-			userRepo, partnerRepo, productRepo, currencyRepo, rateRepo); err != nil {
+		deps := seedDeps{
+			Auth: authSvc, Users: userRepo, Partners: partnerRepo, Products: productRepo,
+			Sources:    sourceSvc,
+			Currencies: currencyRepo, Rates: rateRepo,
+			Contacts: contactSvc, Activities: activitySvc,
+			Leads: leadSvc, Opportunities: opptySvc, Clauses: clauseSvc,
+			Quotations: quotationSvc, Contracts: contractSvc, Orders: orderSvc,
+			Purchases: purchaseSvc, Shipments: shipmentSvc,
+			Charges: chargeSvc, Customs: customsSvc,
+			Receivables: receivableSvc, Payables: payableSvc, Payments: paymentSvc,
+			StockDocs: stockDocSvc,
+		}
+		if err := app.seed(context.Background(), deps, cfg.Database.DemoSeed); err != nil {
 			app.Close()
 			return nil, fmt.Errorf("初始化种子数据: %w", err)
 		}

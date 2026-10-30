@@ -26,6 +26,9 @@ database:
   log_level: warn
   auto_migrate: true
   seed: true
+  # 开发默认灌一整条业务演示链（12 个往来单位 / 16 个产品 / 报价 / 订单 /
+  # 出货 / 应收 / 收付款 / 期初库存）。生产与测试配置里保持 false。
+  demo_seed: true
 
 cache:
   driver: memory

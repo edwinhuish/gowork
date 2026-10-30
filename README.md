@@ -31,7 +31,18 @@ task dev                # 并行起后端 :8080（air 热重载）与前端 :517
 
 打开 <http://localhost:5173>，默认账号 **admin / admin123**。
 首次启动自动建表并写入演示数据（含一个客供两用主体与一个个人主体）。
-两个开关在配置里：`database.auto_migrate`（建表）与 `database.seed`（演示数据），**生产两者都应为 false**。
+三个开关在配置里：`database.auto_migrate`（建表）、`database.seed`（账号 / 汇率 / 主数据）、
+`database.demo_seed`（整条业务演示链：报价 → 合同 → 订单 → 出货 → 应收 → 收付款 → 库存），
+**生产三者都应为 false**。
+
+演示数据只在**空库**时写入，想重来一遍：
+
+```bash
+task demo:reset    # 删掉 apps/backend/data/gowork.db，重启后端即重新灌数
+```
+
+`demo_seed` 与 `seed` 分开是因为单元测试也开 `seed`（要那个 admin 账号与产品），
+但断言的是它们自己造的合计 —— 库里预置几十张单会让它们全部对不上。
 
 没有 `task` 时的等价操作：
 

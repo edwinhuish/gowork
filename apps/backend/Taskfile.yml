@@ -106,6 +106,13 @@ tasks:
     cmds:
       - gofmt -w .
 
+  demo:reset:
+    desc: 删掉开发 SQLite 库，下次启动自动建表并重灌演示数据（客户/产品/报价/订单/出货/应收/库存）
+    cmds:
+      # WAL 模式下库是三个文件（.db / -wal / -shm），只删 .db 会带着旧 WAL 一起回来。
+      - rm -f ./data/gowork.db ./data/gowork.db-wal ./data/gowork.db-shm
+      - echo "已清空 ./data/gowork.db：重启后端（task dev）后会重新建表并写入完整演示数据"
+
   clean:
     desc: 清理编译产物
     cmds:

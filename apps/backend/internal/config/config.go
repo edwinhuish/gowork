@@ -106,6 +106,13 @@ type Database struct {
 	MaxLifetime int  `yaml:"max_lifetime"` // 秒
 	AutoMigrate bool `yaml:"auto_migrate"`
 	Seed        bool `yaml:"seed"`
+	// DemoSeed 在 Seed 之上再灌一整条业务演示链（客户 / 产品 / 报价 / 订单 /
+	// 出货 / 应收 / 收付款 / 库存）。
+	//
+	// 与 Seed 分开是有原因的：单元测试也开 Seed（要那个 admin 账号），
+	// 但测试断言的是"自己造的数据"的合计，库里预置几十张单会让它们全部对不上。
+	// 所以默认关闭，只有本地开发配置打开。
+	DemoSeed bool `yaml:"demo_seed"`
 	// LogLevel: silent | error | warn | info，默认 warn（只打慢查询与错误）。
 	LogLevel string `yaml:"log_level"`
 }

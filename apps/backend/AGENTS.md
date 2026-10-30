@@ -395,8 +395,15 @@ task backend:test       # go test ./... -count=1
 `GOWORK_CACHE_DRIVER`、`GOWORK_REDIS_ADDR`、`GOWORK_JWT_SECRET`、`GOWORK_LOG_LEVEL`。
 生产环境的密码与密钥只走环境变量，不写进配置文件。
 
-启动顺序里有两个开关值得记住：`database.auto_migrate`（建表）与 `database.seed`（演示数据，
-账号 `admin / admin123`），生产两者都应为 false。
+启动顺序里有三个开关值得记住：`database.auto_migrate`（建表）、`database.seed`（账号
+`admin / admin123`、币种汇率、往来单位/产品/货源/条款）、`database.demo_seed`（在 seed 之上
+再灌 CRM 记录与整条交易链：报价 → 合同 → 订单 → 采购 → 出货 → 应收应付 → 收付款 → 期初库存）。
+生产三者都应为 false。
+
+种子只往**空表**里写（每段先 `Count()`），所以改动演示数据后要看效果，得
+`task demo:reset` 删掉 sqlite 文件再重启。`seed_demo_test.go` 用
+`demo_seed: true` 起一套真实装配，逐页断言列表非空、报表非零 —— 加演示数据或改口径时
+先跑它：演示数据写错在界面上不像报错，只像"这个功能没做"。
 
 ## 8. 开发约定
 
