@@ -765,6 +765,17 @@ export interface SalesOrder {
   remark: string
   partner?: Partner | null
   items?: SalesOrderItem[]
+  /**
+   * 履约量：订购总量 / 已出 / 未出。
+   *
+   * 只读投影，列表按页批量算、详情由明细汇总。存下来的话，出货作废、改量、
+   * 订单变更三处都要回写，漏一次就永久对不上——所以只在读的时候算。
+   */
+  order_qty?: string
+  shipped_qty?: string
+  unshipped_qty?: string
+  /** 交期已过且还没出完。含状态条件（草稿与终态不算），所以只认后端的判定。 */
+  overdue_unshipped?: boolean
   created_at: string
   updated_at: string
 }

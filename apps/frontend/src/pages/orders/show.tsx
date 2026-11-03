@@ -362,6 +362,29 @@ export function OrderShow() {
             children: o?.delivery_date ? formatDate(o.delivery_date) : <Empty />,
           },
           {
+            key: 'fulfillment',
+            label: '履约（已出 / 订购）',
+            // 抬头给合计，明细表给逐行：跟单先看"还欠多少"，再看欠在哪个 SKU。
+            children: Number(o?.order_qty ?? 0) > 0 ? (
+              <Space size={6}>
+                <span>
+                  {formatQty(o?.shipped_qty)} / {formatQty(o?.order_qty)}
+                </span>
+                {Number(o?.unshipped_qty ?? 0) > 0 ? (
+                  <Tag bordered={false} color={o?.overdue_unshipped ? 'error' : 'default'}>
+                    未出 {formatQty(o?.unshipped_qty)}
+                  </Tag>
+                ) : (
+                  <Tag bordered={false} color="success">
+                    已出完
+                  </Tag>
+                )}
+              </Space>
+            ) : (
+              <Empty />
+            ),
+          },
+          {
             key: 'currency_code',
             label: '成交币种 / 汇率',
             children: o ? (

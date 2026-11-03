@@ -262,7 +262,37 @@ func (s *salesOrderService) Get(ctx context.Context, id uint) (*model.SalesOrder
 		o.Items[i].ShippedQty = qty
 		o.Items[i].UnshippedQty = o.Items[i].Qty.Sub(qty).Round(3)
 	}
+	// 抬头也带上履约量：详情页第一屏就该看到"这单交到哪一步了"，
+	// 而不是让读的人把十几行的已出加一遍。数字来自同一份分配查询，不会再跑一次。
+	orderQty, shippedQty := money.Zero(), money.Zero()
+	for i := range o.Items {
+		orderQty = orderQty.Add(o.Items[i].Qty)
+		shippedQty = shippedQty.Add(o.Items[i].ShippedQty)
+	}
+	o.OrderQty = orderQty.Round(3)
+	o.ShippedQty = shippedQty.Round(3)
+	o.UnshippedQty = o.OrderQty.Sub(o.ShippedQty).Round(3)
+	o.OverdueUnshipped = overdueUnshipped(o, model.DateOnly(s.clock()))
 	return o, nil
+}
+
+// overdueUnshipped 报告这张单是不是「交期已过、还没出完」。
+//
+// 与列表筛选（repository.SalesOrderFilter.OverdueUnshipped）同一个口径：
+// 草稿还没对客户承诺，已完成与已取消是终态，这三种都不算；已出货仍然算——
+// 分批出货时，一票发走之后剩下的量还是欠客户的。判定里带状态条件，
+// 所以必须由服务端算：前端自己拼一遍，迟早在某个状态上分叉。
+func overdueUnshipped(o *model.SalesOrder, asOf time.Time) bool {
+	switch o.Status {
+	case model.DocumentStatusConfirmed, model.DocumentStatusPreparing, model.DocumentStatusShipped:
+	default:
+		return false
+	}
+	// 交期当天不算逾期：第 30 天还在承诺期内，第 31 天才叫逾期（与账龄同一套判定）。
+	if o.DeliveryDate == nil || !model.DateOnly(*o.DeliveryDate).Before(asOf) {
+		return false
+	}
+	return o.UnshippedQty.Cmp(money.Zero()) > 0
 }
 
 func (s *salesOrderService) List(
@@ -273,6 +303,8 @@ func (s *salesOrderService) List(
 	// 范围由身份决定：业务员只看自己（与未分配）客户的订单。
 	filter := repository.SalesOrderFilter{
 		Keyword: q.Keyword, PartnerID: q.PartnerID, OwnerID: ownerScope(ctx),
+		// 逾期筛选的截止日由服务端定：客户端传日期，跨时区时会各自算出不同的"今天"。
+		AsOf: model.DateOnly(s.clock()),
 	}
 	if q.Status != nil {
 		st := model.DocumentStatus(*q.Status)
@@ -281,13 +313,49 @@ func (s *salesOrderService) List(
 		}
 		filter.Status = &st
 	}
+	if q.OverdueUnshipped != nil && *q.OverdueUnshipped == 1 {
+		filter.OverdueUnshipped = true
+	}
 	page := repository.Pagination{Page: q.Page, PageSize: q.PageSize}
 
 	list, total, err := s.orders.List(ctx, filter, page)
 	if err != nil {
 		return nil, err
 	}
+	// 履约量是投影列：一次查完整页再填，不按单循环。
+	if err := s.attachFulfillment(ctx, list); err != nil {
+		return nil, err
+	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
+}
+
+// attachFulfillment 给这一页订单补上「订购 / 已出 / 未出」三个数。
+//
+// 装不上就报错而不是留零值：零值在界面上显示成「已出 0」，读的人会以为
+// 这些订单一件都没发，而事实是这次查询失败了。
+func (s *salesOrderService) attachFulfillment(
+	ctx context.Context, list []model.SalesOrder,
+) error {
+	if len(list) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(list))
+	for i := range list {
+		ids = append(ids, list[i].ID)
+	}
+	fulfilled, err := s.orders.FulfillmentByOrders(ctx, ids)
+	if err != nil {
+		return err
+	}
+	asOf := model.DateOnly(s.clock())
+	for i := range list {
+		f := fulfilled[list[i].ID]
+		list[i].OrderQty = f.OrderQty.Round(3)
+		list[i].ShippedQty = f.ShippedQty.Round(3)
+		list[i].UnshippedQty = list[i].OrderQty.Sub(list[i].ShippedQty).Round(3)
+		list[i].OverdueUnshipped = overdueUnshipped(&list[i], asOf)
+	}
+	return nil
 }
 
 // UpdateStatus 走完整状态机：草稿 → 已确认 → 备货中 → 已出货 → 已完成，

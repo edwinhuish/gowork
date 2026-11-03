@@ -11,6 +11,9 @@ type SalesOrderQuery struct {
 	PageQuery
 	PartnerID *uint `form:"partner_id"`
 	Status    *int8 `form:"status"`
+	// OverdueUnshipped=1 只看「交期已过、还没出完」的订单。
+	// 截止日由服务端取今天，客户端不带日期——跟单要的是"现在哪些单欠着货"。
+	OverdueUnshipped *int8 `form:"overdue_unshipped"`
 }
 
 // SalesOrderItemInput 是一条订单明细：只给数量与单价。

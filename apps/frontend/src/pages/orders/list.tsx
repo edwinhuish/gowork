@@ -12,12 +12,48 @@ import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { ORDER_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
 import type { Partner, SalesOrder } from '@/types'
-import { formatDate } from '@/utils/format'
+import { formatDate, formatQty } from '@/utils/format'
 
 interface OrderSearch {
   keyword?: string
   partner_id?: number
   status?: number
+  /** =1 只看交期已过、还没出完的单（跟单视角）。 */
+  overdue_unshipped?: number
+}
+
+/**
+ * 履约列：已出 / 订购 + 未出。
+ *
+ * 三个数都是后端算的投影（`gorm:"-"`），前端只做显示——把"未出 = 数量 − 已出"
+ * 在这里再算一遍，出货单作废或改量之后两边就会各说一个数。
+ */
+function FulfillmentCell({ record }: { record: SalesOrder }) {
+  const total = Number(record.order_qty ?? 0)
+  if (!total) return <Empty />
+  const shipped = Number(record.shipped_qty ?? 0)
+  const unshipped = Number(record.unshipped_qty ?? 0)
+  const percent = Math.min(100, Math.round((shipped / total) * 100))
+  return (
+    <div className="cell-stack">
+      <span>
+        {formatQty(shipped)} / {formatQty(total)}
+        <span className="cell-sub"> · {percent}%</span>
+      </span>
+      {/* 逾期由后端判（含状态条件），前端不自己拿交期拼一遍。 */}
+      {unshipped > 0 ? (
+        <Tag
+          bordered={false}
+          color={record.overdue_unshipped ? 'error' : 'default'}
+          style={{ marginInlineEnd: 0 }}
+        >
+          未出 {formatQty(unshipped)}
+        </Tag>
+      ) : (
+        <span className="cell-sub">已出完</span>
+      )}
+    </div>
+  )
 }
 
 export function OrderList() {
@@ -46,6 +82,9 @@ export function OrderList() {
       }
       if (v.status) {
         filters.push({ field: 'status', operator: 'eq', value: v.status })
+      }
+      if (v.overdue_unshipped) {
+        filters.push({ field: 'overdue_unshipped', operator: 'eq', value: 1 })
       }
       return filters
     },
@@ -85,6 +124,13 @@ export function OrderList() {
           <Form.Item name="status">
             <Select placeholder="全部状态" allowClear options={ORDER_STATUS_OPTIONS} />
           </Form.Item>
+          <Form.Item name="overdue_unshipped">
+            <Select
+              placeholder="履约情况"
+              allowClear
+              options={[{ value: 1, label: '只看逾期未出' }]}
+            />
+          </Form.Item>
         </>
       }
     >
@@ -123,6 +169,11 @@ export function OrderList() {
         title="交期"
         width={120}
         render={(value?: string | null) => (value ? formatDate(value) : <Empty />)}
+      />
+      <Table.Column
+        title="履约"
+        width={150}
+        render={(_, record: SalesOrder) => <FulfillmentCell record={record} />}
       />
       <Table.Column
         dataIndex="amount_total"

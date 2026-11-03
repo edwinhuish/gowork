@@ -42,6 +42,21 @@ type SalesOrder struct {
 
 	Remark string `gorm:"size:255" json:"remark"`
 
+	// 以下三项是履约投影，不落库（gorm:"-"）：数量由明细汇总，已出量由出货分配算出来。
+	//
+	// 存下来就要在出货单作废、改量、软删、订单变更四处回写，漏一次就永久对不上；
+	// 而它们只服务"这张单交到哪一步了"这一个问题，现算比存着便宜。
+	// 列表按页一次批量算出（repository.FulfillmentByOrders），详情由明细汇总。
+	OrderQty     money.Decimal `gorm:"-" json:"order_qty"`
+	ShippedQty   money.Decimal `gorm:"-" json:"shipped_qty"`
+	UnshippedQty money.Decimal `gorm:"-" json:"unshipped_qty"`
+	// OverdueUnshipped 报告「交期已过、还没出完」。
+	//
+	// 由服务层按今天算好下发，而不是让前端自己拿交期与未出量拼一遍：
+	// 判定里含状态条件（草稿与终态不算逾期），前后端各写一份必然分叉，
+	// 表现是"列表标红但筛不出来"。
+	OverdueUnshipped bool `gorm:"-" json:"overdue_unshipped"`
+
 	Partner *Partner         `gorm:"foreignKey:PartnerID" json:"partner,omitempty"`
 	Items   []SalesOrderItem `gorm:"foreignKey:SalesOrderID" json:"items,omitempty"`
 }

@@ -686,6 +686,115 @@ func TestSalesOrderChangeRespectsShippedQty(t *testing.T) {
 	}
 }
 
+// 列表的履约视角：跟单最常问的两件事——"这单交了没有""哪几单已经逾期还没出完"。
+// 前者是列表上的三个数（订购 / 已出 / 未出），后者是一个筛选条件。
+func TestSalesOrderListFulfillment(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 28, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+
+	create := func(deliveryDate string, qty float64) *model.SalesOrder {
+		t.Helper()
+		o, err := fx.orders.Create(ctx, dto.SalesOrderInput{
+			PartnerID:    fx.orderA.PartnerID,
+			TradeTerm:    "FOB",
+			OrderDate:    "2026-10-01",
+			DeliveryDate: deliveryDate,
+			CurrencyCode: "CNY",
+			Items: []dto.SalesOrderItemInput{
+				{ProductID: fx.orderA.Items[0].ProductID, Qty: qtyOf(qty), UnitPrice: money.MustParse("10")},
+			},
+		})
+		if err != nil {
+			t.Fatalf("建订单失败: %v", err)
+		}
+		return o
+	}
+	confirm := func(o *model.SalesOrder) *model.SalesOrder {
+		t.Helper()
+		confirmed, err := fx.orders.UpdateStatus(ctx, o.ID, dto.SalesOrderStatusInput{
+			Status: int8(model.DocumentStatusConfirmed),
+		})
+		if err != nil {
+			t.Fatalf("确认订单失败: %v", err)
+		}
+		return confirmed
+	}
+	ship := func(o *model.SalesOrder, qty float64) {
+		t.Helper()
+		if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+			ShipDate: "2026-10-27",
+			Allocations: []dto.ShipmentAllocationInput{
+				{SalesOrderItemID: o.Items[0].ID, Qty: qtyOf(qty)},
+			},
+		}); err != nil {
+			t.Fatalf("建出货单失败: %v", err)
+		}
+	}
+
+	// 交期已过、只出了 40 件：这就是要跟的那张。
+	overdue := confirm(create("2026-10-20", 100))
+	ship(overdue, 40)
+	// 交期是今天：当天还在承诺期内，不算逾期（与账龄同一套判定）。
+	confirm(create("2026-10-28", 10))
+	// 交期已过但出完了：不该再出现在催的单里。
+	done := confirm(create("2026-10-15", 10))
+	ship(done, 10)
+	// 交期已过但仍是草稿：还没对客户承诺过，不算逾期。
+	create("2026-10-15", 10)
+
+	one := int8(1)
+	page, err := fx.orders.List(ctx, dto.SalesOrderQuery{OverdueUnshipped: &one})
+	if err != nil {
+		t.Fatalf("查逾期未出失败: %v", err)
+	}
+	if page.Total != 1 || len(page.List) != 1 || page.List[0].ID != overdue.ID {
+		t.Fatalf("逾期未出应只剩 %d，实际 total=%d rows=%+v", overdue.ID, page.Total, page.List)
+	}
+	got := page.List[0]
+	if !approxQty(got.OrderQty, 100) || !approxQty(got.ShippedQty, 40) ||
+		!approxQty(got.UnshippedQty, 60) {
+		t.Errorf("履约量 = %v / %v / %v，期望 100 / 40 / 60",
+			got.OrderQty, got.ShippedQty, got.UnshippedQty)
+	}
+
+	// 不筛选时这三个数也要在：列表每行都要能看出交到哪一步。
+	all, err := fx.orders.List(ctx, dto.SalesOrderQuery{})
+	if err != nil {
+		t.Fatalf("查订单列表失败: %v", err)
+	}
+	var found bool
+	for _, o := range all.List {
+		// 投影出来的标记必须与筛选条件一致：两处各写一遍判定，
+		// 一旦分叉就会出现"列表标红却筛不出来"，那是两条互相矛盾的线索。
+		if o.OverdueUnshipped != (o.ID == overdue.ID) {
+			t.Errorf("订单 %s 的逾期标记 = %v，与筛选口径不一致",
+				o.DocNo, o.OverdueUnshipped)
+		}
+		if o.ID != overdue.ID {
+			continue
+		}
+		found = true
+		if !approxQty(o.ShippedQty, 40) || !approxQty(o.UnshippedQty, 60) {
+			t.Errorf("列表里的履约量 = %v / %v，期望 40 / 60", o.ShippedQty, o.UnshippedQty)
+		}
+	}
+	if !found {
+		t.Fatal("列表里没找到那张订单")
+	}
+
+	// 详情抬头的合计与明细一致：两处各算一遍，算法不同就会各说一个数。
+	detail, err := fx.orders.Get(ctx, overdue.ID)
+	if err != nil {
+		t.Fatalf("查订单详情失败: %v", err)
+	}
+	if !approxQty(detail.OrderQty, 100) || !approxQty(detail.ShippedQty, 40) ||
+		!approxQty(detail.UnshippedQty, 60) {
+		t.Errorf("详情履约量 = %v / %v / %v，期望 100 / 40 / 60",
+			detail.OrderQty, detail.ShippedQty, detail.UnshippedQty)
+	}
+}
+
 // stubSalesOut 给"不涉及出库"的用例用：一旦被调用，说明这条用例走到了不该走的分支。
 type stubSalesOut struct{ t *testing.T }
 

@@ -117,6 +117,8 @@ CRM 记的跟进对象与 ERP 开发票的对象是同一行 `md_partner` 记录
 | 产品图片 | `ProductImage` | `md_product_image`（内容 `md_product_image_content`） | 产品的外观照片。**顺序第一张即主图**：主图不落独立字段，「设为主图」等于把它移到第一位，因此不存在「标记与顺序打架」。`sort_order` 决定先后，重排提交**完整排列**（集合不一致 409，说明列表已被他人改动）。元数据与字节分表，缩略图（最长边 400px JPEG）随上传生成；替换保留位置，删除是元数据软删 + 字节物理删除——图片不是凭证，这一点与附件刻意不同 |
 | 报价单 | `Quotation` | `biz_quotation`（明细 `biz_quotation_item`） | 向客户发出的价格方案，含贸易术语、币种、有效期与多轮版本 |
 | 销售订单 | `SalesOrder` | `biz_sales_order`（明细 `biz_sales_order_item`） | 客户下达的订单，含明细行；金额由明细汇总 |
+| 履约量 | `OrderQty` / `ShippedQty` / `UnshippedQty` | **不落库**（`gorm:"-"` 投影） | 一张订单「订购多少 / 已出多少 / 还欠多少」，分别由明细数量与出货分配算出来：已出按**未取消出货**的分配行汇总，未出 = 订购 − 已出。订单行上也有一份同名字段（逐行）。**不存库**——存下来就要在出货作废、改量、变更单四处回写，漏一次就永久对不上 |
+| 逾期未出 | `OverdueUnshipped` | 同上，也是投影 | 交期已过且还有未出量的订单：`delivery_date < 今天` 且状态为已确认 / 备货中 / 已出货。草稿还没对客户承诺，已完成与已取消是终态，三种都不算；**交期当天不算逾期**（与账龄同一套判定）。判定含状态条件，所以由服务端算好下发，前端不自己拿交期拼一遍 |
 | 订单变更单 | `SalesOrderChange` | `biz_sales_order_change`（明细 `biz_sales_order_change_line`） | 已确认订单的改量 / 改价 / 改交期记录：原因、操作人、每行的前后值。**订单本身更新到新值**，变更单只留痕。单号由订单号派生（`{订单号}-CH{n}`），不单独发号。**不允许增删行**——出货分配与以销定采都按明细行 id 引用 |
 | 采购订单 | `PurchaseOrder` | `biz_purchase_order`（明细 `biz_purchase_order_item`） | 向供应商下达的订单，可挂到销售订单行上 |
 | 出货批次 | `Shipment` | `biz_shipment`（分配 `biz_shipment_allocation`） | 一次实际发运。与订单是多对多（分批出货、合并出货） |
