@@ -49,6 +49,7 @@ import zhCN from 'antd/locale/zh_CN'
 import { useMemo } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
+import { ApiError } from '@/api/client'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ActivityCreate, ActivityEdit, ActivityList } from '@/pages/activities'
 import { AgingPage } from '@/pages/aging'
@@ -410,6 +411,38 @@ export default function App() {
               syncWithLocation: true,
               warnWhenUnsavedChanges: true,
               title: { text: 'GoWork ERP · CRM' },
+              reactQuery: {
+                clientConfig: {
+                  defaultOptions: {
+                    queries: {
+                      /*
+                       * 4xx 不重试。
+                       *
+                       * react-query 默认对所有失败重试 3 次，可请求本身就是错的
+                       * （日期格式不对、越权、单据已作废），再试一万次还是同一个
+                       * 结果。更要紧的是重试退避的那十来秒里界面**什么都不显示**：
+                       * refine 的 QueryClient 默认 placeholderData 是
+                       * keepPreviousData，旧数据还摆在原处，而 isFetching 在退避
+                       * 间隙是 false，连 loading 都没有 —— 看着就像成功了。
+                       * 实测账龄页输个 "abc"，要等 9 秒才浮出「日期格式应为
+                       * YYYY-MM-DD」。5xx 与网络错误才值得重试。
+                       *
+                       * 只覆盖 retry：refine 把传进去的 queries 合并在自己的默认
+                       * （refetchOnWindowFocus / keepPreviousData）之后，不会顶掉。
+                       */
+                      retry: (count, error) => {
+                        if (error instanceof ApiError) {
+                          // 业务码是「HTTP 状态 × 100 + 序号」（40001 → 400），
+                          // 取不到报文时记的是裸状态码，网络层失败记 -1。
+                          const status = error.code > 1000 ? Math.floor(error.code / 100) : error.code
+                          if (status >= 400 && status < 500) return false
+                        }
+                        return count < 3
+                      },
+                    },
+                  },
+                },
+              },
             }}
           >
             <Routes>
