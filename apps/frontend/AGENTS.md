@@ -61,7 +61,8 @@ apps/frontend/
     │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / AccentTag / HeatTag /
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
-    │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，列表与卡片共用
+    │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，卡片与详情共用
+    │   ├── partner-contacts-cell.tsx  列表里的多联系人头像组：最多 3 个，其余 +N
     │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作 + 分页转换（三张角色表共用）
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
     │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
@@ -231,7 +232,8 @@ api/client.ts
 | `components/partner-merge-modal.tsx` | 主体详情页的「合并到其他主体」 | 方向固定为「当前这条被并走」，即接口的路径 id 是选中的那条、`source_id` 是当前这条——两个 id 是换位的；三道闸（说明、勾选确认、成功后跳到留下的那条）不要省，合并不逆 |
 | `components/partner-360-panel.tsx` | 客户详情页的「客户 360」（T-30） | 抬头数字是全量、五块明细各 10 条且每行都能点回源单据；只挂客户侧——供应商那侧这几块基本是空的。断言"有数据"不够，字段名与列名对不上时接口会静默给空串 |
 | `pages/customers/`、`pages/suppliers/`、`pages/forwarders/` 列表 | 三张列表都有「负责人」列 | 空值显示灰字「未分配」而不是空白——空白会被读成"接口没返回"，而未分配是一种正常状态（公共池） |
-| `components/partner-avatar.tsx` | 往来单位的头像 / Logo（列表的名称列、卡片头部、以及任何需要"认人"的位置） | 只有这一个实现，两个视图调用同一个组件、同一个默认尺寸（`PARTNER_AVATAR_SIZE`）——换个视图就换个长相，会被当成两条数据。降级顺序：`logo_url` 取到字节 → 名称占位标识（中文取首字、西文取前两个词首字母，配色按名称哈希）；有图但加载失败也降级，不要显示浏览器破图。真图走 `useAuthedUrl`，与公司 logo 同通道 |
+| `components/partner-avatar.tsx` | 往来单位的头像 / Logo（卡片头部、详情页，以及任何需要认 Logo 的位置） | 只有这一个实现，卡片与详情调用同一个组件、同一个默认尺寸（`PARTNER_AVATAR_SIZE`）——换个视图就换个长相，会被当成两条数据。降级顺序：`logo_url` 取到字节 → 名称占位标识（中文取首字、西文取前两个词首字母，配色按名称哈希）；有图但加载失败也降级，不要显示浏览器破图。真图走 `useAuthedUrl`，与公司 logo 同通道。三张主体列表的表格视图已**不再**显示主体 Logo，认人交给 `partner-contacts-cell` |
+| `components/partner-contacts-cell.tsx` | 三张主体列表的「联系人」列 | 只展示 `partner.contacts` 的前 3 个，其余收进 `+N`，主联系人带角标。顺序由后端保证（主联系人排第一），**前端不要重排**——列表只显示前三个，重排会把主联系人挤掉。收起而不是铺开：列宽固定，人多时排开会把「负责人 / 账期」挤出可见区；完整名单在详情页与 `/contacts` |
 | `components/partner-cards.tsx` | 三张主体列表的卡片视图 + 卡片里的删除 / 恢复（`PartnerRowActions`）+ 分页转换（`toCardPager`） | 卡片该显示什么只有一份实现，客户卡多的「分组 / 区域 / 结算 / 账期」由 `showCustomerFacts` 开关——货代表单原本就不给商务条件，这里是同一个结论。`PartnerRowActions` 同时用在表格操作列与卡片右下角，两边按钮必须一样 |
 | `pages/todos/` | 待办清单（T-34） | 每块副标题都写着判定口径（"早于今天（当天不算）"/"到期日 <= 今天（当天就算）"）——这类页面的争议永远在"为什么它算在这里"；口径里的 `<` 必须写成 `{'…'}`，JSX 文本里会被当成标签开头 |
 | `components/partner-owner-modal.tsx` | 三个主体详情页的「转移负责人」 | 选人列表来自 `GET /users`（只列启用账号），下拉第一项是「未分配（公共池）」——离职与暂时没人跟都要能把归属清掉；弹窗里必须写清"这个客户的单据会一起跟着走" |

@@ -193,8 +193,10 @@ type Partner struct {
 	// 分级规则（按成交额、毛利还是回款速度）未定，见 docs/roadmap.md 第五节；
 	// 一旦把它接到折扣或权限上，规则一改就要重算全部历史数据。
 	Grade PartnerGrade `gorm:"size:2;index" json:"grade"`
-	// ContactName 是主联系人姓名。完整的联系人（多个、各有电话邮箱）
-	// 在 CRM 里是独立实体，届时 contact 列的语义就是"主联系人"。
+	// ContactName 是主联系人姓名，只给导入导出、关键字搜索与单证这类
+	// "只要一个名字"的地方用。完整的联系人（多个、各有电话邮箱）在 CRM 里
+	// 是独立实体，主体列表与详情通过 Contacts 投影整页回填它们——
+	// 不要往这里加 phone2 / email2。
 	ContactName string `gorm:"size:64;column:contact" json:"contact"`
 	Phone       string `gorm:"size:32" json:"phone"`
 	Email       string `gorm:"size:128" json:"email"`
