@@ -15,9 +15,9 @@ import {
 } from 'antd'
 
 import { partnerApi } from '@/api/partners'
-import { Empty, EntityTypeTag, Mono, RoleTag } from '@/components/fields'
+import { EntityTypeTag, Mono, RoleTag } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
-import { PartnerAvatar } from '@/components/partner-avatar'
+import { PartnerContactsCell } from '@/components/partner-contacts-cell'
 import {
   PartnerCards,
   PartnerRowActions,
@@ -159,18 +159,15 @@ export function ForwarderList() {
           </Space>
         )}
       />
-      {/* 头像与卡片视图同组件同尺寸：换视图不能换长相。 */}
+      {/* 名称列不再带 Logo 头像：认人交给联系人头像组，这一列只放名称。 */}
       <Table.Column
         dataIndex="name"
         title="名称"
         render={(value: string, record: Partner) => (
-          <div className="cell-avatar">
-            <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
-            {/* 见客户列表：真链接，中键 / 右键「在新标签打开」才可用。 */}
-            <Link to={`/forwarders/show/${record.id}`}>
-              <span className="cell-strong">{value}</span>
-            </Link>
-          </div>
+          /* 见客户列表：真链接，中键 / 右键「在新标签打开」才可用。 */
+          <Link to={`/forwarders/show/${record.id}`}>
+            <span className="cell-strong">{value}</span>
+          </Link>
         )}
       />
       <Table.Column
@@ -191,9 +188,13 @@ export function ForwarderList() {
         width={110}
         render={(v: string) => v || <span className="cell-sub">未分配</span>}
       />
-      <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
-      <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
-      <Table.Column dataIndex="email" title="邮箱" width={200} render={(v: string) => v || <Empty />} />
+      {/* 联系人是一对多：平铺的「姓名 / 电话 / 邮箱」三列只能装下第一个人。
+          这里只给头像组（最多 3 个，其余 +N），详情与 /contacts 看完整名单。 */}
+      <Table.Column
+        title="联系人"
+        width={140}
+        render={(_, record: Partner) => <PartnerContactsCell contacts={record.contacts} />}
+      />
       <Table.Column
         title="操作"
         width={90}

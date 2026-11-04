@@ -22,7 +22,7 @@ import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'
 import { Empty, EntityTypeTag, Mono, RoleTag } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
-import { PartnerAvatar } from '@/components/partner-avatar'
+import { PartnerContactsCell } from '@/components/partner-contacts-cell'
 import {
   PartnerCards,
   PartnerRowActions,
@@ -220,19 +220,16 @@ export function CustomerList() {
       />
       {/* 名称是进详情页的入口：客户 360、附件、合并、转移负责人都在详情里，
           列表上不给这个链接，等于这些能力只能靠手敲 URL。
-          头像与卡片视图调用同一个组件、同一个默认尺寸，换视图不能换长相。 */}
+          名称列不再带 Logo 头像：这一列要留给名称本身，认人交给联系人头像组。 */}
       <Table.Column
         dataIndex="name"
         title="名称"
         render={(value: string, record: Partner) => (
-          <div className="cell-avatar">
-            <PartnerAvatar name={record.name} logoUrl={record.logo_url} />
-            {/* 用 Link 而不是 onClick 导航：<a> 没有 href 就不是链接 ——
-                中键 / 右键「在新标签打开」失效，键盘 Tab 不到，读屏也不当它是链接。 */}
-            <Link to={`/customers/show/${record.id}`}>
-              <span className="cell-strong">{value}</span>
-            </Link>
-          </div>
+          /* 用 Link 而不是 onClick 导航：<a> 没有 href 就不是链接 ——
+             中键 / 右键「在新标签打开」失效，键盘 Tab 不到，读屏也不当它是链接。 */
+          <Link to={`/customers/show/${record.id}`}>
+            <span className="cell-strong">{value}</span>
+          </Link>
         )}
       />
       {/* 客户列表里也会出现「客供两用」的主体，角色列让它不至于看起来像脏数据。 */}
@@ -266,8 +263,13 @@ export function CustomerList() {
         width={110}
         render={(v: string) => v || <span className="cell-sub">未分配</span>}
       />
-      <Table.Column dataIndex="contact" title="联系人" width={120} render={(v: string) => v || <Empty />} />
-      <Table.Column dataIndex="phone" title="电话" width={140} render={(v: string) => v || <Empty />} />
+      {/* 联系人是一对多：平铺的「姓名 / 电话」两列放不下第二个人。
+          这里只给头像组（最多 3 个，其余 +N），详情与 /contacts 看完整名单。 */}
+      <Table.Column
+        title="联系人"
+        width={140}
+        render={(_, record: Partner) => <PartnerContactsCell contacts={record.contacts} />}
+      />
       {/* 结算方式与账期直接影响"这单能不能赊"，放在列表里便于接单前先看一眼。 */}
       <Table.Column
         dataIndex="settlement_method"
