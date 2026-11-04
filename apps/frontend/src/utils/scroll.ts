@@ -5,15 +5,32 @@
  * 也就是说 `window.scrollY` 恒为 0、`window.scrollTo` 是空操作 ——
  * "回到顶部""记住滚动位置"这类需求必须打在内容区那个元素上。
  *
- * 用 DOM 查询而不是 Context：调用点只有路由切换与视图切换两处，
+ * 多标签页之后，滚动容器不是一个而是**每个标签页一个**：已打开的标签页都还在
+ * DOM 里（隐藏而非卸载，见 components/layout/tab-panes.tsx），所以 `[data-app-content]`
+ * 会同时匹配到好几个。下面一律取"可见的那一个"——用户能看见的才该跟着动。
+ *
+ * 用 DOM 查询而不是 Context：调用点只有视图切换与无限滚动两处，
  * 为了它加一层 Provider，要求所有页面都挂在下面，代价比收益大。
  * 选择器与 AppLayout 里的 `data-app-content` 是同一份约定。
  */
 const CONTENT_SELECTOR = '[data-app-content]'
 
-/** 内容区的滚动容器；登录页等外壳之外的地方返回 null。 */
+/**
+ * 当前可见的内容区滚动容器；登录页等外壳之外的地方返回 null。
+ *
+ * 全隐藏时（标签页切换的中间帧）退回最后一个：返回一个真实元素总比返回 null
+ * 让调用方去判空省事，而那种帧里本来也没人读它。
+ */
 export function getContentScroller(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(CONTENT_SELECTOR)
+  const nodes = document.querySelectorAll<HTMLElement>(CONTENT_SELECTOR)
+  let last: HTMLElement | null = null
+  for (const node of nodes) {
+    last = node
+    // display: none 的元素量不到任何矩形，用它判断可见比读 offsetParent 稳
+    // （后者对 position: fixed 也返回 null）。
+    if (node.getClientRects().length > 0) return node
+  }
+  return last
 }
 
 /** 内容区当前滚了多少；不在外壳里时按 0 处理，调用方不必判空。 */

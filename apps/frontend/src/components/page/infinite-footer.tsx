@@ -91,11 +91,17 @@ function useSentinel(enabled: boolean, onHit: () => void) {
     if (!node || !enabled) return
     if (typeof IntersectionObserver === 'undefined') return
 
+    // root 取哨兵自己所在的那个滚动容器，而不是 document 里"当前可见"的那个：
+    // 多标签页下每个标签页各有一个滚动容器，观察器一旦绑在别人的 pane 上，
+    // 切回来之后这个列表就再也不会自动加载了。
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) hitRef.current()
       },
-      { root: getContentScroller(), rootMargin: '0px 0px 480px 0px' },
+      {
+        root: node.closest<HTMLElement>('[data-app-content]') ?? getContentScroller(),
+        rootMargin: '0px 0px 480px 0px',
+      },
     )
     observer.observe(node)
     return () => observer.disconnect()

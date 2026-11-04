@@ -165,14 +165,32 @@ body {
 }
 
 /*
- * 内容区是唯一的滚动容器。
+ * 内容区本身不再滚：它只负责把标签页那一摞 pane 竖向排开。
  *
+ * 滚动下沉到 .app-tab-pane（每个标签页一份）之后，"切换标签页保留滚动位置"
+ * 才有可能 —— 一个容器装十页内容，位置就只能有一份。
+ */
+.app-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * 一个标签页的内容。
+ *
+ * 它是**每个标签页各自的滚动容器**：
  * scrollbar-gutter: stable —— 滚动条的有无不改变内容宽度。列表从 20 行筛到 3 行时
  * 会跨过"需不需要滚动"的边界，不预留这条沟，整页内容会横向抖 15px。
  * overscroll-behavior: contain —— 滚到底不再把滚动传给外层：外壳本来不滚，
  * 少了它 macOS 会把整页连着一起来回弹。
+ *
+ * [hidden] 必须显式写：上面的 display: block 会盖掉浏览器给 hidden 属性的默认值，
+ * 少了这一条，所有标签页的内容会一起堆在屏幕上。
  */
-.app-content {
+.app-tab-pane {
   flex: 1 1 auto;
   min-height: 0;
   padding: 24px;
@@ -182,9 +200,13 @@ body {
   scrollbar-gutter: stable;
 }
 
+.app-tab-pane[hidden] {
+  display: none;
+}
+
 /* 与 refine 的 ThemedLayout 同档：窄屏把内距收到 12px，一屏多放一行。 */
 @media (max-width: 575px) {
-  .app-content {
+  .app-tab-pane {
     padding: 12px;
   }
 }
@@ -431,14 +453,72 @@ body {
   flex: 1;
 }
 
-/* 窄屏顶栏只留导航按钮、待办与头像：220px 的搜索框会把它们挤成一团。
-   窄屏的导航开关也只有顶栏左侧那一个：侧栏这时是抽屉，没有"收起"这回事。 */
-@media (max-width: 768px) {
-  .app-header-search {
-    display: none;
+/* ---------- 标签条 ---------- */
+
+/*
+ * 顶栏与内容区之间的那一条，装着已打开的页面。
+ *
+ * 它不滚（标签多了由 antd Tabs 自己横向滚），也不占定高：
+ * 高度由 small 尺寸的标签撑出来，密度切换时跟着 antd 的 token 一起收。
+ * 底边那条线用 border 而不是 antd Tabs 自带的 ::before —— 后者只跟 tab 等宽，
+ * 标签少的时候会画到一半就断掉。
+ */
+.app-tabbar {
+  flex: none;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+}
+
+.app-tabbar .ant-tabs-nav {
+  margin: 0;
+  padding-top: 4px;
+}
+
+.app-tabbar .ant-tabs-nav::before {
+  border-bottom: none;
+}
+
+.app-tabbar .ant-tabs-tab {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.app-tabbar .ant-tabs-tab + .ant-tabs-tab {
+  margin-left: 6px;
+}
+
+/* 窄屏标签条内距收一档，与内容区的 12px 对齐。 */
+@media (max-width: 575px) {
+  .app-tabbar {
+    padding: 0 4px;
   }
 }
 
+/*
+ * 菜单里的「开关项」。
+ *
+ * 勾选位固定占一格：菜单里同时有"深色模式"这样的单选项与"侧栏配色"下的三个多选项，
+ * 不预留这一格，字就会一行行左右错开。
+ */
+.app-menu-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-menu-check {
+  visibility: hidden;
+  font-size: 12px;
+  color: var(--ant-color-primary);
+}
+
+.app-menu-check.is-on {
+  visibility: visible;
+}
+
+/* 窄屏顶栏只留导航按钮、待办与头像；导航开关也只有左侧那一个：
+   侧栏这时是抽屉，没有"收起"这回事。 */
 .app-user {
   display: inline-flex;
   align-items: center;

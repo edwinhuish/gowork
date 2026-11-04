@@ -45,20 +45,27 @@ apps/frontend/
 ├── pnpm-workspace.yaml     # pnpm 设置（allowBuilds 放行 esbuild），不是工作区划分
 └── src/
     ├── main.tsx            挂载；先引 antd reset.css 再引 index.css
-    ├── App.tsx             Refine 装配 + 三段式路由 + resources 声明
+    ├── App.tsx             Refine 装配 + 鉴权三段式路由（页面路由不在这）
+    ├── config/resources.tsx  资源清单：导航、面包屑、标签标题的唯一来源
+    ├── router/routes.tsx   受保护区的页面路由表（每个标签页各匹配一次）
     ├── theme.ts            设计 token（颜色/圆角/组件级配置），全站唯一色彩来源
     ├── index.css           只放 antd 覆盖不到的结构样式
     ├── types/index.ts      与后端 dto 对齐的类型（snake_case）
     ├── providers/
     │   ├── dataProvider.ts REST 适配：{code,message,data} 拆包、分页与筛选翻译
-    │   └── authProvider.ts 登录/登出/身份缓存/401 处理
+    │   ├── authProvider.ts 登录/登出/身份缓存/401 处理
+    │   ├── uiPrefs.tsx     亮暗 / 密度 / 侧栏配色（存 localStorage）
+    │   └── tabs.tsx        多标签页：已打开页面清单、激活项、各页滚动位置
     ├── api/
     │   ├── client.ts       统一 fetch：令牌注入、拆包、ApiError、续期令牌替换
     │   └── auth / dashboard / leads / opportunities / product-sources /
     │       purchase-orders / quotations / sales-orders / shipments /
     │       stock / stock-documents   单个资源的非 CRUD 动作（转单、确认、重算…）
     ├── components/
-    │   ├── layout/AppLayout.tsx   应用外壳：固定顶栏 + 独立滚动的侧栏（自带配色）+ 内容区
+    │   ├── layout/AppLayout.tsx   应用外壳：顶栏 + 标签条 + 侧栏（自带配色）+ 内容区
+    │   ├── layout/app-tabs.tsx    标签条（antd Tabs，只管显隐与点击）
+    │   ├── layout/tab-panes.tsx   每个标签页一份内容，全部保持挂载（状态靠不卸载保留）
+    │   ├── layout/unsaved-tab-guard.tsx  未保存提醒：切到已打开的标签页不拦
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / AccentTag / HeatTag /
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
     │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，卡片与详情共用
@@ -74,7 +81,7 @@ apps/frontend/
     │   └── use-infinite-feed.ts    列表的无限滚动：三种数据源适配成同一个 feed
     ├── utils/
     │   ├── format.ts      时间格式化
-    │   └── scroll.ts      内容区的滚动位置（窗口不滚，见第 3 节「外壳」）
+    │   └── scroll.ts      可见标签页的滚动位置（窗口不滚，见第 3 节「外壳」）
     └── pages/
         ├── login/  dashboard/
         ├── products/         list / create / edit / show / form-fields / source-panel / code-panel / image-panel
@@ -123,50 +130,87 @@ apps/frontend/
 />
 ```
 
-**resources 是导航的唯一来源**：侧边栏菜单、面包屑、页面标题、编辑/详情的返回链接都由它推导。
-加一个模块只需要在 `resources` 加一条 + 在 `Routes` 加一组路由，不需要再维护 `navItems` 之类的映射表。
+**resources 是导航的唯一来源**（`config/resources.tsx`）：侧边栏菜单、面包屑、页面标题、
+编辑/详情的返回链接、**标签页标题**都由它推导。加一个模块只需要在它里面加一条 +
+在 `router/routes.tsx` 加一组路由，不需要再维护 `navItems` 或标签标题映射表。
 
 **侧栏分组同样走 resources**：`meta.parent` 指向一条只有 `name` + `meta.label/icon` 的资源
 （如 `master-data`、`finance`），`useMenu` 会把它变成 `Menu.SubMenu`，选中项的父组自动展开，
 面包屑也多一层组名。加模块时写清 `meta.parent` 就自动落到对应分组，**不要**为分组再写一份配置。
 组与组内顺序都由 `resources` 数组顺序决定。
 
-三段式路由：
+三段式路由（`App.tsx` 只剩鉴权骨架，页面路由在 `router/routes.tsx`）：
 
 | 段 | 作用 |
 |---|---|
-| 受保护段 | `<Authenticated fallback={<CatchAllNavigate to="/login" />}>`，未登录直接踢走 |
+| 受保护段 | `<Authenticated fallback={<CatchAllNavigate to="/login" />}>`，未登录直接踢走；里面的 `path="*"` 一律交给 `AppLayout` |
 | 登录段 | `<Authenticated fallback={<Outlet />}><NavigateToResource resource="dashboard" /></Authenticated>`，已登录访问 `/login` 会被送回首页 |
-| 兜底 | `path="*"` → `<Navigate to="/" replace />` |
+| 兜底 | 在 `router/routes.tsx` 末尾：`path="*"` → `<Navigate to="/" replace />` |
 
-### 外壳：一屏高，只有内容区在滚
+**页面路由为什么是一份数据而不是 JSX 树**：多标签页要求同一个页面同时存在多份实例
+（各带自己的 `:id` 与 query），而 `<Routes>` 一个地址只匹配一棵树。所以 `AppLayout` 不再用
+`<Outlet />`，而是给每个已打开的标签页各跑一次 `useRoutes(appRoutes, tab.location)`。
+
+### 外壳：一屏高，顶栏与标签条不动
 
 `components/layout/AppLayout.tsx` 自己搭外壳，**不用** refine 的 `ThemedLayout` ——
 它是"整页滚动"的形状（外层 `minHeight: 100vh`、内容区不给高度），要做出
-"顶栏不动、侧栏与内容各滚各的"只能层层覆写它的内联样式。现在的结构是四个盒子，
-滚动边界一眼能看出来：
+"顶栏不动、侧栏与内容各滚各的"只能层层覆写它的内联样式。现在的结构：
 
 ```
 .app-shell            一屏高 + overflow: hidden —— 窗口永远不滚
 ├── .app-sider            品牌块（定高）/ .app-sider-menu（自己滚）/ 折叠开关（定高）
 └── .app-main
     ├── .app-header       不在任何滚动容器里，所以永远不动
-    └── [data-app-content]  唯一的滚动容器
+    ├── .app-tabbar       同上；标签多了由 antd Tabs 自己横向滚
+    └── .app-content      只排版，不滚
+        └── .app-tab-pane × N   每个标签页一个滚动容器（隐藏的那些 display: none）
 ```
 
 三条硬约束：
 
 - **不要再对 `window` 做滚动**：`window.scrollY` 恒为 0，`window.scrollTo` 是空操作。
-  复位或记住滚动位置走 `utils/scroll.ts` 的 `getScrollTop` / `scrollContentTo`
-  （里面的选择器与外壳上的 `data-app-content` 是同一份约定）。
+  复位或记住滚动位置走 `utils/scroll.ts` 的 `getScrollTop` / `scrollContentTo` ——
+  它会挑**可见的那一个** `[data-app-content]`，所以调用方不用知道现在有几个标签页。
+  `IntersectionObserver` 这类需要长期持有 root 的地方（无限滚动），root 要取
+  `node.closest('[data-app-content]')` 而不是全局查询，否则切回来就绑在别人的 pane 上。
 - **`HEADER_HEIGHT` 只有一处**（`theme.ts`）：顶栏高度与侧栏品牌块都由它下发，
   改一个数两边一起变。各写一个数，两列之间就会露出一条错位接缝。
 - **`100dvh` 不是笔误**：移动端地址栏收起/展开时视口高度会变，`100vh` 会把底部顶出去；
   认不得 `dvh` 的浏览器保留上一行的 `100vh`。
 
+### 多标签页
+
+顶栏下面那条标签条，是"标题栏"的角色：每个已打开的页面一个标签，点过去就切回那一页。
+
+**状态靠"不卸载"保留。** 每个标签页在 `TabPanes` 里各占一个 pane，全部保持挂载、只切
+`hidden`。所以筛选、表单里打了一半的字、展开的分组、已加载的数据都还在原来的组件里，
+不需要序列化再恢复；唯一需要手动接的是滚动位置（`display: none` 会让元素丢掉 `scrollTop`），
+由 `providers/tabs.tsx` 的 `rememberScroll` / `restoreScroll` 负责。
+
+三条必须知道的：
+
+- **标签页的 key 是 `pathname`**：`/products?page=2` 与 `/products?page=3` 是同一页翻页，
+  算一个标签页；`/products/show/1` 与 `/products/show/2` 是两张单据，各占一个。
+  query 属于页面内部状态，pathname 属于页面身份。
+- **每个 pane 要独立匹配路由、独立读 location**：见 `tab-panes.tsx` 里
+  `useRoutes(appRoutes, tab.location)` 与那层 `UNSAFE_LocationContext`。
+  少了任何一个，两个详情页会读到同一个 `:id`，或者切走再切回就把筛选清空
+  （refine 的 `syncWithLocation` 正是按 `useLocation` 解析筛选的）。
+  这是全站唯一用 `UNSAFE_` 接口的地方，升级 react-router 先看这里。
+- **未保存提醒换成了 `unsaved-tab-guard.tsx`**：refine 自带的 `UnsavedChangesNotifier`
+  拦所有跳转，切标签页也会弹「确定离开」。现在目标路径已是打开的标签页就直接放行，
+  其余情况照旧确认。它包的是 `navigator.push` / `navigator.go`（和 refine 原版一样），
+  **不要**改用 `useBlocker` —— 本项目是 `<BrowserRouter>`，不是 data router，会直接抛错。
+
+新增页面时不需要额外登记：有 `resources` 条目 + `router/routes.tsx` 路由，
+标签标题就会由 `config/resources.tsx` 的 `describeRoute` 算出来
+（列表 → 资源名，create → 新建X，edit → 编辑X，show → X详情）。
+
 **侧栏有自己的一套主题**（`theme.ts` 的 `buildSiderThemeConfig` + `siderCssVars`）：
 侧栏子树外面套了第二个 `ConfigProvider`，配色由 `uiPrefs.siderMode` 决定
-（跟随页面 / 浅色 / 深色，顶栏右侧的调色板按钮切换，存 localStorage）。
+（跟随页面 / 浅色 / 深色，在右上角头像菜单的「侧栏配色」里切换，存 localStorage）。
+整页明暗与密度也在同一个菜单 —— 三个都是"设置一次就放着"的低频开关，不占顶栏。
 两条容易踩反：
 
 - 这一层**必须 `cssVar: false`**。antd 的 CSS 变量按类名注册成全局样式，两块主题
@@ -434,3 +478,8 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 新加的表单字段提交后没生效 | 后端 `PartnerInput` 里没有该字段，或字段名与 JSON tag 不一致 | 表单一律提交 `snake_case`，与后端 JSON tag 对齐；`role` / `entity_type` 为 `nil` 表示"不改"而不是"改成 0" |
 | 点了表头，箭头动了、顺序没变 | antd 给没写 `key` 的 `<Table.Column>` 生成的 `columnKey` 是列路径（`.2` `.7`），refine 映射 CrudSort 时优先取 `columnKey ?? field` | `useInfiniteList` 的 `onChange` 用 `withSortField` 以 `dataIndex` 覆盖掉它；自己接 `Table.onChange` 时要照做 |
 | 列表滚到底自动加载，但第 2 页内容与第 1 页一模一样 | refine 的 QueryClient 默认 `placeholderData: keepPreviousData`，翻页请求发出后 `data` 先返回上一页 | 累计逻辑先挡 `isPlaceholderData`（`use-infinite-feed.ts` 已处理） |
+| 切走再切回标签页，筛选被清空 / 表单被重置 | 那个标签页的 pane 被卸载重建了，或 pane 没有隔离 location | 保持挂载（`tab-panes.tsx`）；每个 pane 的 `useRoutes` 与 `UNSAFE_LocationContext` 都不能去掉 |
+| 所有标签页的内容堆在一起，或切了标签却看到两页 | `.app-tab-pane` 的 `display` 盖掉了 `hidden` 属性的 UA 默认值 | CSS 里必须写 `.app-tab-pane[hidden] { display: none }` |
+| 点一下标签页就弹「确定要离开吗」 | 还在用 refine 的 `UnsavedChangesNotifier`，它拦所有路由跳转 | 用 `unsaved-tab-guard.tsx`：目标已是打开的标签页就放行 |
+| 用 `useBlocker` 做未保存提示，报 `must be used within a data router` | 本项目是 `<BrowserRouter>`，不是 data router | 学 refine 原版包 `navigator.push` / `navigator.go` |
+| 切回标签页后无限滚动不触发了 | `IntersectionObserver` 的 root 绑在了别的 pane 上 | root 取 `node.closest('[data-app-content]')`，不要全局查 |
