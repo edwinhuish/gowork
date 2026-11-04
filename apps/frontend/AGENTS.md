@@ -11,7 +11,7 @@
 
 **负责**：登录、概览，以及全部业务模块的界面——共享主数据（产品 / 货源 / 往来单位 /
 币种汇率）、CRM（联系人 / 跟进 / 线索 / 商机）、ERP 交易（报价 / 合同 / 销售订单 / 采购订单）、
-供应链（出货 / 库存 / 出入库单）。列表分页与筛选、登录态维持、主题与布局也在这里。
+供应链（出货 / 库存 / 出入库单）。列表的无限滚动与筛选、登录态维持、主题与布局也在这里。
 
 **界面跟着后端模块走，不自己造概念。** 加一个模块不需要新建导航表——
 在 `resources` 里加一条就出现在侧栏（见第 3 节）。业务对象叫什么名、
@@ -63,14 +63,15 @@ apps/frontend/
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
     │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，卡片与详情共用
     │   ├── partner-contacts-cell.tsx  列表里的多联系人头像组：最多 3 个，其余 +N
-    │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作 + 分页转换（三张角色表共用）
+    │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作（三张角色表共用）
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
     │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
     │   ├── product-source-select.tsx  明细行的成本货源：按产品现查，不再全量取数
     │   └── authed-image.tsx      带令牌取图（fetch → blob → object URL），图片接口不能用 <img src>
     ├── constants/catalog.ts 产品类别字典、账号启用状态与币种归档状态、主体类型选项、角色位常量
     ├── hooks/
-    │   └── use-idempotency-key.ts  写操作的幂等键：同一次提交的重试复用，成功后轮换
+    │   ├── use-idempotency-key.ts  写操作的幂等键：同一次提交的重试复用，成功后轮换
+    │   └── use-infinite-feed.ts    列表的无限滚动：三种数据源适配成同一个 feed
     ├── utils/format.ts      时间格式化
     └── pages/
         ├── login/  dashboard/
@@ -140,7 +141,7 @@ apps/frontend/
 
 ```
 pages/products/list.tsx
-   │ 1  useTable({ resource: 'products', onSearch })
+   │ 1  useInfiniteList({ resource: 'products', onSearch })  ← 内部就是 useTable
    ▼
 @refinedev/antd 的 useTable
    │ 2  把分页/筛选/排序规范化成 CrudFilters
@@ -207,7 +208,8 @@ api/client.ts
 | `providers/authProvider.ts` | 登录/登出/check/onError/identity | `check` 里别再直接打接口，先看 identity 缓存 |
 | `components/fields.tsx` | 业务字段的统一展示件 | 新的通用展示（如 CurrencyTag）加这里，不要各页复制 render；标签别自己挑颜色，按"标签的三档用法"选件 |
 | `utils/color.ts` | `mixHex`：两个颜色之间插值 | 只有有序量（逾期分桶那种梯度）用得到；不要拿它给新模块造色号，色号归 `theme.ts` |
-| `components/page/page-list.tsx` | 列表页外壳：筛选条 + 表格 + 分页 + 空态，**窄屏自动降级成卡片** | 页面只给「哪些筛选项、哪些列」；`scrollX` 不传按内容自适应，别各页手写宽度 |
+| `components/page/page-list.tsx` | 列表页外壳：筛选条 + 表格 + 无限滚动的状态条 + 空态，**窄屏自动降级成卡片** | 页面只给「哪些筛选项、哪些列」；`scrollX` 不传按内容自适应，别各页手写宽度。走 `useInfiniteList` 的页面把 `feed` 传进 `infinite`，数据一次取满的页面（`pagination: false`）由外壳自己分批揭示 —— 两种都不再渲染分页条 |
+| `hooks/use-infinite-feed.ts` | 无限滚动的数据源：`useInfiniteList`（refine 分页逐页累计）、`useClientFeed`（全量分批揭示）、`usePagedFeed`（手写分页接口） | 三者产出同一个 `InfiniteFeed`，底部那一条 `components/page/infinite-footer.tsx` 只认它。换筛选 / 排序一律回第一批；`placeholderData` 是 refine 默认开的，写累计逻辑时必须先挡掉 `isPlaceholderData`，否则第 2 页会被写成第 1 页的副本 |
 | `components/page/record-cards.tsx` | 窄屏的通用卡片视图 + 从 `<Table.Column>` 读列定义（`collectCardColumns`） | 卡片内容由列定义推导，不要为某个模块再写一套卡片；推导不出来会退回表格，不会白屏 |
 | `components/page/responsive-table.tsx` | 「宽屏表格 / 窄屏卡片」的同一个开关 | 列表页走 `PageList`；**报表页、详情页、面板与弹窗、以及不走 PageList 的列表页**（待办、首页看板）直接用它 —— 判据是列数：**≥ 4 列就降级**，3 列以内的横滑一屏看得完、卡片化反而更啰嗦，保留表格（客户 360 的出货、导入失败清单）。列定义两种写法都能推导：`<Table.Column>` children 与 `columns={[...]}`。合计要给两份：`summary`（`Table.Summary`）与 `cardSummary`（合计卡），形状不同、数是同一份。操作列是猜的（最后一列 + 无 dataIndex + 只有 render），猜错了用 `cardActionKeys` 覆盖，`[]` 表示没有操作列 |
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
@@ -234,7 +236,7 @@ api/client.ts
 | `pages/customers/`、`pages/suppliers/`、`pages/forwarders/` 列表 | 三张列表都有「负责人」列 | 空值显示灰字「未分配」而不是空白——空白会被读成"接口没返回"，而未分配是一种正常状态（公共池） |
 | `components/partner-avatar.tsx` | 往来单位的头像 / Logo（卡片头部、详情页，以及任何需要认 Logo 的位置） | 只有这一个实现，卡片与详情调用同一个组件、同一个默认尺寸（`PARTNER_AVATAR_SIZE`）——换个视图就换个长相，会被当成两条数据。降级顺序：`logo_url` 取到字节 → 名称占位标识（中文取首字、西文取前两个词首字母，配色按名称哈希）；有图但加载失败也降级，不要显示浏览器破图。真图走 `useAuthedUrl`，与公司 logo 同通道。三张主体列表的表格视图已**不再**显示主体 Logo，认人交给 `partner-contacts-cell` |
 | `components/partner-contacts-cell.tsx` | 三张主体列表的「联系人」列 | 只展示 `partner.contacts` 的前 3 个，其余收进 `+N`，主联系人带角标。顺序由后端保证（主联系人排第一），**前端不要重排**——列表只显示前三个，重排会把主联系人挤掉。收起而不是铺开：列宽固定，人多时排开会把「负责人 / 账期」挤出可见区；完整名单在详情页与 `/contacts` |
-| `components/partner-cards.tsx` | 三张主体列表的卡片视图 + 卡片里的删除 / 恢复（`PartnerRowActions`）+ 分页转换（`toCardPager`） | 卡片该显示什么只有一份实现，客户卡多的「分组 / 区域 / 结算 / 账期」由 `showCustomerFacts` 开关——货代表单原本就不给商务条件，这里是同一个结论。`PartnerRowActions` 同时用在表格操作列与卡片右下角，两边按钮必须一样 |
+| `components/partner-cards.tsx` | 三张主体列表的卡片视图 + 卡片里的删除 / 恢复（`PartnerRowActions`） | 卡片该显示什么只有一份实现，客户卡多的「分组 / 区域 / 结算 / 账期」由 `showCustomerFacts` 开关——货代表单原本就不给商务条件，这里是同一个结论。`PartnerRowActions` 同时用在表格操作列与卡片右下角，两边按钮必须一样。卡片区不画分页条：滚到底由外层 `InfiniteFooter` 追加 |
 | `pages/todos/` | 待办清单（T-34） | 每块副标题都写着判定口径（"早于今天（当天不算）"/"到期日 <= 今天（当天就算）"）——这类页面的争议永远在"为什么它算在这里"；口径里的 `<` 必须写成 `{'…'}`，JSX 文本里会被当成标签开头 |
 | `components/partner-owner-modal.tsx` | 三个主体详情页的「转移负责人」 | 选人列表来自 `GET /users`（只列启用账号），下拉第一项是「未分配（公共池）」——离职与暂时没人跟都要能把归属清掉；弹窗里必须写清"这个客户的单据会一起跟着走" |
 | `pages/clauses/`、`pages/contracts/clause-picker.tsx` | 条款模板库（T-27）+ 合同新建时的条款多选 | 模板是**主数据**，合同上存的是快照：改模板不影响已生成的合同（页面文案要写这句）。选择器只提交 `clause_ids`，**不要连正文一起传**——传了就没有"快照"这回事了；多选顺序即合同上的顺序 |
@@ -281,17 +283,17 @@ pages/xxx/
 
 要点只有三条，其余都是排版：
 
-- **两种视图共用同一个 `useTable`**。切换只换渲染方式，不换数据源；组件不卸载，
-  所以筛选、排序、页码天然保留。各自建一套 `useTable` 会变成"切一次重新请求一次"。
+- **两种视图共用同一个 `useInfiniteList`**。切换只换渲染方式，不换数据源；组件不卸载，
+  所以筛选与排序天然保留，已经滚出来的那几批也不会丢。各自建一套取数会变成"切一次重新请求一次"。
 - **视图存在两处**：URL 的 `?view=card` 优先（发链接能看到同一屏），其次是
   `localStorage`（个人习惯），都没有才用默认。优先级写在 hook 里，页面不要自己读。
 
   **窄屏（< 768px）强制卡片**，压过上面三个来源。hook 额外返回 `narrow`，
   页面用它把 `Segmented` 藏起来 —— 一个点了没反应的开关比没有开关更让人困惑。
   强制只在渲染层生效，不改 URL 也不改 localStorage，窗口拉宽后原来选的视图还在。
-- **卡片视图要自己渲染分页**：`Table` 自带的分页条在卡片模式下根本不存在，
-  用 `tableProps.pagination` 转成 `<Pagination>`。滚动位置由 hook 在切换后按新的
-  文档高度夹一次，不这么做会停在空白处（卡片比表格矮的时候）。
+- **卡片视图不画分页条**：全站列表都是无限滚动，行由外层 `InfiniteFooter` 一批批追加，
+  两种视图看到的是同一份行。滚动位置由 hook 在切换后按新的文档高度夹一次，
+  不这么做会停在空白处（卡片比表格矮的时候）。
 
 卡片栅格用 `auto-fill + minmax(…, 1fr)`，不为每个断点写列数；断点只调间距。
 最小宽度按卡片内容定：产品卡一张图加两行字用 200px，往来单位卡有六到九行
@@ -330,7 +332,7 @@ pages/xxx/
 - **跨目录导入用 `@/` 前缀，同目录用 `./`**。别名在 `tsconfig.json` 的 `paths` 与
   `vite.config.ts` 的 `resolve.alias` **两处**同时声明：tsc 只读前者，vite/rollup 只读后者，
   缺一边就是「typecheck 过、build 报 Could not resolve」。改完必须跑 `pnpm run build`。
-- **不要手写基础控件**：按钮、表格、表单、分页、弹窗、下拉一律用 antd；
+- **不要手写基础控件**：按钮、表格、表单、弹窗、下拉一律用 antd；
   refine 的 `List` / `Create` / `Edit` / `Show` 负责页面骨架、面包屑、返回与保存按钮。
 - **表单校验只做必填与格式**，业务校验（唯一编码等）交给后端，按 `ApiError` 的文案展示。
 - **加依赖用 `pnpm add`**，锁文件一起提交；不要手改 `pnpm-lock.yaml`。
@@ -389,3 +391,5 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 改了 `pnpm-workspace.yaml` 不生效 | pnpm 设置只能放这里 | 见根 `README.md`「前端只认 pnpm」 |
 | 客供两用的主体在列表里显示成"未知角色" | 写了 `role === 1` / `role === 2` | `Partner.role` 是位掩码，必须按位与：`(role & PARTNER_ROLE.supplier) !== 0`，展示统一用 `RoleTag` |
 | 新加的表单字段提交后没生效 | 后端 `PartnerInput` 里没有该字段，或字段名与 JSON tag 不一致 | 表单一律提交 `snake_case`，与后端 JSON tag 对齐；`role` / `entity_type` 为 `nil` 表示"不改"而不是"改成 0" |
+| 点了表头，箭头动了、顺序没变 | antd 给没写 `key` 的 `<Table.Column>` 生成的 `columnKey` 是列路径（`.2` `.7`），refine 映射 CrudSort 时优先取 `columnKey ?? field` | `useInfiniteList` 的 `onChange` 用 `withSortField` 以 `dataIndex` 覆盖掉它；自己接 `Table.onChange` 时要照做 |
+| 列表滚到底自动加载，但第 2 页内容与第 1 页一模一样 | refine 的 QueryClient 默认 `placeholderData: keepPreviousData`，翻页请求发出后 `data` 先返回上一页 | 累计逻辑先挡 `isPlaceholderData`（`use-infinite-feed.ts` 已处理） |

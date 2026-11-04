@@ -848,12 +848,6 @@ body {
   padding: 12px;
 }
 
-.product-grid-pager {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
 @media (max-width: 575px) {
   .product-grid {
     gap: 12px;
@@ -867,10 +861,6 @@ body {
 
   .product-card-prices {
     gap: 10px;
-  }
-
-  .product-grid-pager {
-    justify-content: center;
   }
 }
 
@@ -975,20 +965,41 @@ body {
   gap: var(--space-1);
 }
 
-.record-grid-pager {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-3);
-}
-
 @media (max-width: 575px) {
   .record-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .record-grid-pager {
-    justify-content: center;
-  }
+/* ---------- 无限滚动的底部状态条 ---------- */
+
+/* 列表 / 表格 / 卡片三种视图共用这一条：分页条退场之后，
+   "还有没有下一批"只有这一个出口，样式也就只有这一份。 */
+.infinite-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: var(--space-3) 0 var(--space-1);
+  /* 居中的一行字 + 可能出现的重试按钮，窄屏不要被挤成两行。 */
+  text-align: center;
+}
+
+/* 哨兵本身看不见：它只负责"滚到附近了"这个信号，
+   高度给 1px 而不是 0 —— 0 尺寸的元素在部分浏览器里不会触发观察。 */
+.infinite-sentinel {
+  width: 100%;
+  height: 1px;
+}
+
+.infinite-footer-text {
+  color: var(--ant-color-text-secondary, #52606f);
+  font-size: 12.5px;
+}
+
+.infinite-footer-text.is-error {
+  color: var(--ant-color-error, #b42318);
 }
 
 [data-density='compact'] .record-grid {
@@ -1146,12 +1157,6 @@ body {
   animation: product-grid-in var(--motion-mid) ease-out;
 }
 
-.partner-grid-pager {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
 .partner-card {
   display: flex;
   flex-direction: column;
@@ -1306,10 +1311,6 @@ body {
   .partner-grid {
     gap: 12px;
     grid-template-columns: 1fr;
-  }
-
-  .partner-grid-pager {
-    justify-content: center;
   }
 }
 
