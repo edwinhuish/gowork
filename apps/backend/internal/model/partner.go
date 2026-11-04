@@ -235,6 +235,17 @@ type Partner struct {
 	// 由 PartnerService 用一次 IN 查询整页回填（见 service.fillPartnerLogos），
 	// 列表与详情共用同一口径。没有图片时不出现这个字段（omitempty）。
 	LogoURL string `gorm:"->;-:migration" json:"logo_url,omitempty"`
+
+	// Contacts 是这个主体名下的全部联系人（一对多），供列表与详情整页回填。
+	//
+	// 关系本身早就是一对多：外键 partner_id 在 crm_partner_contact 一侧，
+	// 一个主体可以有多行。这里只是把那些行投影到主体响应上，让调用方一次拿全，
+	// 不必为了列表里的一列再逐行请求 /contacts?partner_id=。
+	//
+	// 用 `-:all` 而不是 has-many 关联：写入永远走 ContactRepository，
+	// 主体这边只读；交给 gorm 当关联会让 AutoMigrate 与 Preload 多出一层
+	// 隐式行为，而回填口径（主联系人排前、整页一次 IN）在 service 里明写着。
+	Contacts []Contact `gorm:"-:all" json:"contacts"`
 }
 
 func (Partner) TableName() string { return "md_partner" }

@@ -45,6 +45,9 @@ type ContactRepository interface {
 	// FindByIDIncludingDeleted 是恢复路径专用：常规查询看不见已删除的行。
 	FindByIDIncludingDeleted(ctx context.Context, id uint) (*model.Contact, error)
 	List(ctx context.Context, f ContactFilter, p Pagination) ([]model.Contact, int64, error)
+	// ListByPartnerIDs 一次取回一批主体下的联系人，按主体分组。
+	// 往来单位列表整页回填用：一行一次查询就是 N+1，翻页时肉眼可见地慢。
+	ListByPartnerIDs(ctx context.Context, partnerIDs []uint) (map[uint][]model.Contact, error)
 	CountByPartnerID(ctx context.Context, partnerID uint) (int64, error)
 	// SetPrimary 在事务里把某个联系人设为主联系人：先清掉同主体下的旧主联系人。
 	SetPrimary(ctx context.Context, partnerID, id uint) error
@@ -112,6 +115,32 @@ func (r *contactRepo) List(ctx context.Context, f ContactFilter, p Pagination) (
 		return db.Preload("Partner")
 	})
 	return r.Paginate(ctx, p, scopes...)
+}
+
+// ListByPartnerIDs 一次 IN 查询取回整页联系人，按主体分组。
+//
+// 排序口径与联系人列表一致：**主联系人排前，其余按录入顺序（id ASC）**。
+// 前端头像组只展示前三个，主联系人不能因为录入得晚就被挤出可见范围。
+func (r *contactRepo) ListByPartnerIDs(
+	ctx context.Context, partnerIDs []uint,
+) (map[uint][]model.Contact, error) {
+	out := make(map[uint][]model.Contact, len(partnerIDs))
+	if len(partnerIDs) == 0 {
+		return out, nil
+	}
+	var rows []model.Contact
+	err := r.conn(ctx).
+		Where("partner_id IN ?", partnerIDs).
+		Order("is_primary DESC").
+		Order("id ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("按主体批量查询联系人: %w", err)
+	}
+	for _, m := range rows {
+		out[m.PartnerID] = append(out[m.PartnerID], m)
+	}
+	return out, nil
 }
 
 func (r *contactRepo) CountByPartnerID(ctx context.Context, partnerID uint) (int64, error) {

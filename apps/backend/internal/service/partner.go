@@ -65,7 +65,13 @@ type partnerService struct {
 	// 注入的是仓储而不是附件服务：这里只查元数据拿 id 拼路径，不上传也不下载，
 	// 没必要把两个服务缠在一起。nil 表示这个功能没装配，回填直接跳过。
 	attachments repository.AttachmentRepository
-	log         *slog.Logger
+	// contacts 只读地给列表与详情回填这个主体名下的联系人（一对多）。
+	//
+	// 注入仓储而不是联系人服务：这里只按一批主体 id 查行，不需要任何业务规则，
+	// 也不希望 PartnerService → ContactService 的方向上多一条依赖。
+	// nil 表示功能没装配，回填直接跳过。
+	contacts repository.ContactRepository
+	log      *slog.Logger
 }
 
 type PartnerOption func(*partnerService)
@@ -77,6 +83,11 @@ func WithPartnerLogger(l *slog.Logger) PartnerOption {
 // WithPartnerAttachments 打开 Logo 回填。没调它时 partnerService 照常工作。
 func WithPartnerAttachments(repo repository.AttachmentRepository) PartnerOption {
 	return func(s *partnerService) { s.attachments = repo }
+}
+
+// WithPartnerContacts 打开联系人数组回填。没调它时 partnerService 照常工作。
+func WithPartnerContacts(repo repository.ContactRepository) PartnerOption {
+	return func(s *partnerService) { s.contacts = repo }
 }
 
 func NewPartnerService(
@@ -302,6 +313,10 @@ func (s *partnerService) Get(ctx context.Context, id uint) (*model.Partner, erro
 	if err := s.fillPartnerLogos(ctx, []*model.Partner{m}); err != nil {
 		return nil, err
 	}
+	// 联系人跟 Logo 一样是列表与详情共用的投影，不能只在详情里有。
+	if err := s.fillPartnerContacts(ctx, []*model.Partner{m}); err != nil {
+		return nil, err
+	}
 	return m, nil
 }
 
@@ -338,6 +353,36 @@ func (s *partnerService) fillPartnerLogos(
 			continue
 		}
 		p.LogoURL = fmt.Sprintf("/attachments/%d/download", a.ID)
+	}
+	return nil
+}
+
+// fillPartnerContacts 给一批主体回填联系人数组（一对多）。
+//
+// 与 Logo 同一套路：整页一次 IN 查询，绝不按行去查 /contacts?partner_id=。
+// 顺序由仓储保证（主联系人排前），这里不再排一次——两处各排一遍迟早会不一致。
+// 没有联系人的主体给空数组而不是 null：前端拿到的形状固定，少一层判空；
+// 详情与列表也共用这一个口径，避免"列表有、详情没有"。
+func (s *partnerService) fillPartnerContacts(
+	ctx context.Context, list []*model.Partner,
+) error {
+	if s.contacts == nil || len(list) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(list))
+	for _, p := range list {
+		ids = append(ids, p.ID)
+	}
+	byPartner, err := s.contacts.ListByPartnerIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, p := range list {
+		if rows, ok := byPartner[p.ID]; ok {
+			p.Contacts = rows
+		} else {
+			p.Contacts = []model.Contact{}
+		}
 	}
 	return nil
 }
@@ -620,6 +665,11 @@ func (s *partnerService) List(ctx context.Context, q dto.PartnerQuery) (*dto.Pag
 		ptrs[i] = &list[i]
 	}
 	if err := s.fillPartnerLogos(ctx, ptrs); err != nil {
+		return nil, err
+	}
+	// 联系人与 Logo 同一次整页回填：列表上要按行内头像展示多个联系人，
+	// 各自逐行请求会把一页 20 行变成 20 次往返。
+	if err := s.fillPartnerContacts(ctx, ptrs); err != nil {
 		return nil, err
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
