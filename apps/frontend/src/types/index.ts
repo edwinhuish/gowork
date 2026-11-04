@@ -142,6 +142,14 @@ export interface Partner {
    * 传图取到的是 PDF 也不算图片（`<img>` 显示不了 PDF）。
    */
   logo_url?: string
+  /**
+   * 这个主体名下的全部联系人（一对多），后端按整页 IN 查询回填。
+   *
+   * 顺序由后端定：**主联系人排第一**，其余按录入顺序。列表只展示前三个，
+   * 所以不要在前端重排——重排会让主联系人被录入晚的联系人挤掉。
+   * 没有联系人时是空数组（不是 undefined / null）。
+   */
+  contacts?: Contact[]
   created_at: string
   updated_at: string
 }

@@ -1071,6 +1071,70 @@ body {
   object-fit: contain;
 }
 
+/* ---------- 列表里的多联系人头像组 ---------- */
+
+/* 负外边距把头像叠成一串：从第二个起压在前一个身上，比并排更省横向空间，
+   也一眼看出「这家不止一个人对接」。padding-left 抵消首个的负外边距，
+   否则整组会贴住单元格左边线。 */
+.partner-contacts {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+}
+
+.partner-contacts-item,
+.partner-contacts-more {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: -8px;
+  border-radius: 50%;
+  /* 用外描边而不是 border：border 会占掉 2px 内容宽度，头像被压成椭圆。 */
+  box-shadow: 0 0 0 2px var(--ant-color-bg-container, #fff);
+}
+
+.partner-contacts-item:first-child {
+  margin-left: 0;
+}
+
+/* 主联系人角标：右下角一个小圆点。不写成头像里的星标——
+   28px 的圆里再塞图标，远看就只剩一团白点。 */
+.partner-contacts-primary {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ant-color-primary, #2563eb);
+  box-shadow: 0 0 0 1.5px var(--ant-color-bg-container, #fff);
+}
+
+/* 溢出计数与头像同尺寸同形状，读起来是同一组里的最后一个。 */
+.partner-contacts-more {
+  width: 28px;
+  height: 28px;
+  background: var(--ant-color-fill-secondary, #eef2f7);
+  color: var(--ant-color-text-secondary, #52606f);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 悬浮提示：一人一块，字段各占一行，避免电话与邮箱挤在同一行读串。 */
+.partner-contacts-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.partner-contacts-tip-tag {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
 /* ---------- 往来单位卡片视图 ---------- */
 
 /* 比产品卡的 200px 宽一些：这里每张卡是六到九行文字而不是一张图加两行，
