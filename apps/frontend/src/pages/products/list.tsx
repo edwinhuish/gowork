@@ -1,15 +1,13 @@
 import { AppstoreOutlined, BarsOutlined, PictureOutlined } from '@ant-design/icons'
 import { Link } from 'react-router'
 import { useInvalidate, useNavigation, type CrudFilters, type CrudSort } from '@refinedev/core'
-import { toCardPager } from '@/components/partner-cards'
-import { CreateButton, DeleteButton, useTable } from '@refinedev/antd'
+import { CreateButton, DeleteButton } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
   Form,
   Input,
   message,
-  Pagination,
   Popconfirm,
   Segmented,
   Select,
@@ -26,6 +24,7 @@ import { AuthedImage } from '@/components/authed-image'
 import { CategoryTag, Empty as EmptyValue, Mono, Money } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
 import { CATEGORY_OPTIONS } from '@/constants/catalog'
+import { CARD_PAGE_SIZE, useInfiniteList } from '@/hooks/use-infinite-feed'
 import { useListView } from '@/hooks/use-list-view'
 import type { Product } from '@/types'
 
@@ -52,7 +51,7 @@ const SORT_OPTIONS = [
   { value: 'sale_price:asc', label: '售价 低 → 高' },
 ]
 
-const PAGE_SIZE_OPTIONS = ['12', '24', '48']
+
 
 /** 导出产品（成本价按 T-36 的权限留空）。失败时给一句人话。 */
 async function exportProducts() {
@@ -81,14 +80,15 @@ export function ProductList() {
   const { show } = useNavigation()
   const invalidate = useInvalidate()
 
-  const { tableProps, searchFormProps, sorters, setSorters } = useTable<Product>({
+  const { tableProps, searchFormProps, sorters, setSorters, feed } = useInfiniteList<Product>({
     resource: 'products',
     syncWithLocation: true,
     // 用 replace：筛选表单表达的是「这一次的完整条件」，而 refine 默认 merge
     // 会把上一次的条件留着 —— 清空关键字再点查询，keyword=A 仍旧跟着请求走，
     // 表现是「条件清不掉，列表也不动」（连请求都不会发）。永久筛选仍会保留。
     filters: { defaultBehavior: 'replace' },
-    pagination: { pageSize: 12 },
+    // 一批 12 条：卡片一行 4~6 张，凑得满一行。
+    pagination: { pageSize: CARD_PAGE_SIZE },
     onSearch: (values): CrudFilters => {
       const v = values as ProductSearch
       const filters: CrudFilters = []
@@ -140,13 +140,8 @@ export function ProductList() {
     searchFormProps.form?.submit()
   }
 
-  // 卡片视图没有表格自带的分页条，要自己渲染；数据仍来自同一个 useTable。
-  //
-  // 走 toCardPager 而不是自己拼：refine 的 pagination 里**没有 onChange**
-  // （翻页挂在 tableProps.onChange 上），直接转发会拿到 undefined ——
-  // 页码点了没反应，antd 还会告警。toCardPager 内部按 antd 的签名转一手。
-  const cardPager = toCardPager(tableProps, (total) => `共 ${total} 个产品`, PAGE_SIZE_OPTIONS)
-
+  // 卡片视图与表格视图共用同一份数据：换的都是渲染方式，
+  // 「滚到底继续加载」由列表底部的 InfiniteFooter 统一负责。
   const cardView = (
     <>
       {tableProps.loading && rows.length === 0 ? (
@@ -250,11 +245,6 @@ export function ProductList() {
               </article>
             ))}
           </div>
-          {cardPager && (
-            <div className="product-grid-pager">
-              <Pagination {...cardPager} />
-            </div>
-          )}
         </>
       )}
     </>
@@ -266,9 +256,10 @@ export function ProductList() {
       searchFormProps={searchFormProps}
       onReset={resetFilters}
       tableProps={tableProps}
+      infinite={feed}
+      noun="个产品"
       rowKey="id"
       scrollX={1150}
-      pageSizeOptions={PAGE_SIZE_OPTIONS}
       table={view === 'card' ? cardView : undefined}
       extra={
         <>

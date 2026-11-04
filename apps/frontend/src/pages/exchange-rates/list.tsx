@@ -1,10 +1,11 @@
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
-import { DeleteButton, useTable } from '@refinedev/antd'
+import { DeleteButton } from '@refinedev/antd'
 import { Form, Select, Table } from 'antd'
 
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, ExchangeRate } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -27,7 +28,7 @@ export function ExchangeRateList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<ExchangeRate>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<ExchangeRate>({
     resource: 'exchange-rates',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -51,6 +52,7 @@ export function ExchangeRateList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="登记汇率"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

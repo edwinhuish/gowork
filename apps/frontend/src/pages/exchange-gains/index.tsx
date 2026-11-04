@@ -5,8 +5,9 @@ import { Alert, Card, Flex, Input, Select, Space, Table, Tag, Typography, theme 
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
-import { FilterBar, PageHeader, ResponsiveTable } from '@/components/page'
+import { FilterBar, InfiniteFooter, PageHeader, ResponsiveTable } from '@/components/page'
 import { PAYMENT_TARGET_OPTIONS, paymentDirectionLabel } from '@/constants/catalog'
+import { useClientFeed } from '@/hooks/use-infinite-feed'
 import type { Currency, ExchangeGainLine, Partner } from '@/types'
 
 /**
@@ -77,11 +78,9 @@ export function ExchangeGainsPage() {
   const lines = data?.lines ?? []
   const applyRange = () => setRange({ from: fromInput.trim(), to: toInput.trim() })
 
-  // 页码自己存：表格与卡片是两种布局，分页状态不共用（antd 那份在 Table 内部）。
-  // 不存的话，在卡片视图翻到第 3 页再切回表格，会莫名回到第 1 页。
-  const [page, setPage] = useState(1)
-  const pageSize = 50
-  const paged = { current: page, pageSize, hideOnSinglePage: true, onChange: setPage }
+  // 明细是全量的，一次铺出来最多几百行 —— 分批揭示：先给一批，
+  // 滚到底再放下一批。两种布局（表格 / 卡片）看到的是同一份行。
+  const feed = useClientFeed(lines, 50)
 
   return (
     <Flex vertical gap={16}>
@@ -143,13 +142,9 @@ export function ExchangeGainsPage() {
 
       <Card variant="borderless" title="汇兑损益明细">
         <ResponsiveTable<ExchangeGainLine>
-          rows={lines}
+          rows={feed.rows}
           rowKey={(row) => `${row.payment_id}-${row.target_doc_no}-${row.amount}`}
           loading={isLoading}
-          pagination={paged}
-          // lines 是全量，两种布局各自切页（表格那份由 antd 在内部切）。
-          pager={{ ...paged, total: lines.length }}
-          clientPaged
           scrollX={1300}
           empty="这段时间没有产生汇兑差额的核销"
           // 第一列是到账日，卡上该写单号：认一笔损益靠的是"哪张收付款单"。
@@ -258,6 +253,8 @@ export function ExchangeGainsPage() {
             render={(value: string) => <GainValue value={value} strong />}
           />
         </ResponsiveTable>
+
+        <InfiniteFooter feed={feed} />
 
         {data && data.subtotals.length > 0 && (
           <Space wrap size={8} style={{ marginTop: 12 }}>

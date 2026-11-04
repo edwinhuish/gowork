@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
-import { DeleteButton, EditButton, useTable } from '@refinedev/antd'
+import { DeleteButton, EditButton } from '@refinedev/antd'
 import { Button, Form, Input, message, Modal, Select, Space, Table, Tag } from 'antd'
 
 import { leadApi } from '@/api/leads'
@@ -12,6 +12,7 @@ import {
   LEAD_STATUS_OPTIONS,
   leadSourceLabel,
 } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Lead } from '@/types'
 
 interface LeadSearch {
@@ -38,7 +39,7 @@ export function LeadList() {
   const [form] = Form.useForm<ConvertForm>()
   const invalidate = useInvalidate()
 
-  const { tableProps, searchFormProps } = useTable<Lead>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Lead>({
     resource: 'leads',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -90,6 +91,7 @@ export function LeadList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建线索"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

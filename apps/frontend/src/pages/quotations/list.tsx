@@ -4,13 +4,13 @@ import {
   DeleteButton,
   EditButton,
   ShowButton,
-  useTable,
 } from '@refinedev/antd'
 import { Form, Input, Select, Space, Table, Tag, theme } from 'antd'
 
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { QUOTATION_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Partner, Quotation } from '@/types'
 import { formatDate, formatPercent } from '@/utils/format'
 
@@ -35,7 +35,7 @@ export function QuotationList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<Quotation>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Quotation>({
     resource: 'quotations',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -65,6 +65,7 @@ export function QuotationList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建报价单"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

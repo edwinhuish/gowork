@@ -1,5 +1,5 @@
 import type { CrudFilters } from '@refinedev/core'
-import { DeleteButton, useTable } from '@refinedev/antd'
+import { DeleteButton } from '@refinedev/antd'
 import { Form, Input, Select, Table, Tag } from 'antd'
 
 import { Empty, Mono } from '@/components/fields'
@@ -9,6 +9,7 @@ import {
   STOCK_MOVEMENT_OPTIONS,
   stockMovementLabel,
 } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { StockMovement } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
 
@@ -26,7 +27,7 @@ function isManual(type: number): boolean {
 }
 
 export function StockMovementList() {
-  const { tableProps, searchFormProps } = useTable<StockMovement>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<StockMovement>({
     resource: 'stock-movements',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -60,6 +61,7 @@ export function StockMovementList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="手工录入"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

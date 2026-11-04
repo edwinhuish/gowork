@@ -1,5 +1,4 @@
-import { Pagination, Skeleton } from 'antd'
-import type { PaginationProps } from 'antd'
+import { Skeleton } from 'antd'
 import { Children, Fragment, isValidElement } from 'react'
 import type { ReactNode } from 'react'
 
@@ -21,6 +20,9 @@ import type { ReactNode } from 'react'
  *
  * 产品与三张往来单位表不走这里：它们本来就有双视图（useListView），
  * 卡片是设计过的（产品有图、主体有 Logo），窄屏只是把默认视图改成卡片。
+ *
+ * 卡片区不画分页条：翻页这件事已经退场，行的数量由列表底部的
+ * `InfiniteFooter` 表达（滚到底自动追加下一批）。
  */
 
 /** 列定义只需要这几个字段，够渲染一张卡即可。 */
@@ -183,7 +185,6 @@ export interface RecordCardsProps<T> {
   /** 表格那份 rowKey 原样传：字符串取字段，函数直接用（报表页的键是拼出来的）。 */
   rowKey: string | ((row: T) => string)
   loading?: boolean
-  pager?: PaginationProps
   /** 空态：一般是「没有符合条件的记录」那一句。 */
   empty?: ReactNode
   /** 合计卡：放在列表**上方** —— 下面可能有几十张卡甚至分页，
@@ -199,7 +200,6 @@ export function RecordCards<T extends object>({
   columns,
   rowKey,
   loading,
-  pager,
   empty,
   summary,
   titleKey,
@@ -272,11 +272,6 @@ export function RecordCards<T extends object>({
           </article>
         ))}
       </div>
-      {pager ? (
-        <div className="record-grid-pager">
-          <Pagination {...pager} />
-        </div>
-      ) : null}
     </>
   )
 }

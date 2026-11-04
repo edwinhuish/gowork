@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { DeleteButton } from '@refinedev/antd'
-import { Button, Pagination, Popconfirm, Skeleton, Tag, Typography } from 'antd'
-import type { PaginationProps, TableProps } from 'antd'
+import { Button, Popconfirm, Skeleton, Tag, Typography } from 'antd'
+import type { TableProps } from 'antd'
 
 import { EntityTypeTag, Mono, RoleTag } from './fields'
 import { PartnerAvatar } from './partner-avatar'
@@ -15,19 +15,14 @@ import type { Partner } from '@/types'
  * 差异收敛成一个开关 `showCustomerFacts`：货代没有商务条件与分组，
  * 这与货代表单不给那几项是同一个结论。
  *
- * 分页要自己渲染：`<Table>` 自带分页条，换成 grid 之后那条不见了，
- * 但当前页 / 页大小 / 总数仍由 useTable 持有 —— 这里只是换了个出口。
+ * 卡片区不画分页条：滚到底自动追加下一批，由列表底部的 `InfiniteFooter`
+ * 表达"还有没有、正在加载、已经到底"（见 hooks/use-infinite-feed.ts）。
  */
-
-/** 卡片按行数排布，12 的倍数能让常见宽度下最后一行排满，不留半排孤儿卡。 */
-export const PARTNER_CARD_PAGE_SIZES = ['12', '24', '48']
 
 export interface PartnerCardsProps {
   rows: Partner[]
   /** 直接透传 useTable 的 loading：它可能是 boolean 也可能是一组 SpinProps。 */
   loading?: TableProps<Partner>['loading']
-  /** 由 useTable 的分页状态转出来的 props，见 `toCardPager`。 */
-  pager?: PaginationProps
   /** 卡片右下角的动作；货代列表没有操作列，不传即可。 */
   renderActions?: (record: Partner) => ReactNode
   /** 展示客户侧的分组 / 区域 / 商务条件。 */
@@ -38,52 +33,9 @@ export interface PartnerCardsProps {
   empty?: ReactNode
 }
 
-/**
- * 把 useTable 的 tableProps 转成 antd Pagination 的 props（卡片视图用）。
- *
- * 抽出来而不是让每个列表各写一遍：要复制六个字段，漏掉 `pageSizeOptions`
- * 就会变成列表视图能改页大小、卡片视图不能。
- *
- * 为什么接整个 tableProps 而不是只接 pagination：**refine 的
- * tableProps.pagination 里没有 onChange**（只有 current / pageSize / total 与
- * itemRender），翻页是挂在 tableProps.onChange（Table 的 onChange）上的。
- * 卡片视图画的是裸 Pagination，转发 pagination.onChange 拿到的是 undefined ——
- * 窄屏翻页点了完全没反应。所以这里自己按 antd 的签名转一手。
- */
-export function toCardPager<T = unknown>(
-  tableProps: Pick<TableProps<T>, 'pagination' | 'onChange'> | undefined,
-  showTotal: (total: number) => string,
-  pageSizeOptions: string[] = PARTNER_CARD_PAGE_SIZES,
-): PaginationProps | undefined {
-  const pager = tableProps?.pagination
-  if (!pager || typeof pager !== 'object') return undefined
-  const onChange = tableProps?.onChange
-  // 与表格视图同一条路径：走 Table.onChange，筛选与排序传空对象表示没变。
-  const go = (page: number, pageSize: number) => {
-    onChange?.({ current: page, pageSize }, {}, {}, { currentDataSource: [], action: 'paginate' })
-    // 页码条在列表**下方**：从底部翻页，翻完还停在底部，新一页的内容在上面，
-    // 等于翻了个寂寞。把列表顶部带回视野。
-    document
-      .querySelector('.record-grid, .partner-grid')
-      ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  }
-  return {
-    current: pager.current ?? 1,
-    pageSize: pager.pageSize ?? Number(pageSizeOptions[0]),
-    total: pager.total ?? 0,
-    showSizeChanger: true,
-    pageSizeOptions,
-    showTotal,
-    onChange: go,
-    // 改页大小一律回第一页：原来的页码在新页大小下可能已经超出范围。
-    onShowSizeChange: (_current, size) => go(1, size),
-  }
-}
-
 export function PartnerCards({
   rows,
   loading,
-  pager,
   renderActions,
   showCustomerFacts = false,
   onShow,
@@ -185,11 +137,6 @@ export function PartnerCards({
           </article>
         ))}
       </div>
-      {pager ? (
-        <div className="partner-grid-pager">
-          <Pagination {...pager} />
-        </div>
-      ) : null}
     </>
   )
 }

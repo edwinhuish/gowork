@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { FundOutlined, PercentageOutlined, TeamOutlined } from '@ant-design/icons'
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
-import { DeleteButton, EditButton, useTable } from '@refinedev/antd'
+import { DeleteButton, EditButton } from '@refinedev/antd'
 import { Col, Form, Input, Row, Select, Space, Table } from 'antd'
 
 import { opportunityApi } from '@/api/opportunities'
 import { Empty, Money, OptionTag } from '@/components/fields'
 import { PageList, StatCard } from '@/components/page'
 import { OPPORTUNITY_STAGE_OPTIONS } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Opportunity, OpportunitySummary, Partner } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -50,7 +51,7 @@ export function OpportunityList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<Opportunity>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Opportunity>({
     resource: 'opportunities',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -83,6 +84,7 @@ export function OpportunityList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建商机"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

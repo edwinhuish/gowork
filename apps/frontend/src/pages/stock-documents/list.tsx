@@ -3,7 +3,6 @@ import {
   DeleteButton,
   EditButton,
   ShowButton,
-  useTable,
 } from '@refinedev/antd'
 import { Form, Input, Select, Space, Table } from 'antd'
 
@@ -14,6 +13,7 @@ import {
   STOCK_DOC_COUNT,
   STOCK_DOC_TYPE_OPTIONS,
 } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { StockDocument } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
 
@@ -24,7 +24,7 @@ interface DocSearch {
 }
 
 export function StockDocumentList() {
-  const { tableProps, searchFormProps } = useTable<StockDocument>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<StockDocument>({
     resource: 'stock-documents',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -54,6 +54,7 @@ export function StockDocumentList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建出入库单"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

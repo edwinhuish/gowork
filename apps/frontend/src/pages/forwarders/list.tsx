@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
-import { CreateButton, useTable } from '@refinedev/antd'
+import { CreateButton } from '@refinedev/antd'
 import {
   Button,
   Checkbox,
@@ -18,12 +18,8 @@ import { partnerApi } from '@/api/partners'
 import { EntityTypeTag, Mono, RoleTag } from '@/components/fields'
 import { EmptyGuide, PageList } from '@/components/page'
 import { PartnerContactsCell } from '@/components/partner-contacts-cell'
-import {
-  PartnerCards,
-  PartnerRowActions,
-  PARTNER_CARD_PAGE_SIZES,
-  toCardPager,
-} from '@/components/partner-cards'
+import { PartnerCards, PartnerRowActions } from '@/components/partner-cards'
+import { CARD_PAGE_SIZE, useInfiniteList } from '@/hooks/use-infinite-feed'
 import { useListView } from '@/hooks/use-list-view'
 import type { Partner } from '@/types'
 
@@ -47,14 +43,15 @@ export function ForwarderList() {
   const { show } = useNavigation()
   // 窄屏强制卡片视图（表格在这个宽度上只能横滑），切换控件随之隐藏。
   const { view, setView, narrow } = useListView('gowork:forwarders:view')
-  const { tableProps, searchFormProps } = useTable<Partner>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Partner>({
     resource: 'forwarders',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
     // 会把上一次的条件留着 —— 清空关键字再点查询，keyword 仍旧跟着请求走，
     // 表现是「条件清不掉、列表也不动」。永久筛选仍会保留（见 PageList 的说明）。
     filters: { defaultBehavior: 'replace' },
-    pagination: { pageSize: Number(PARTNER_CARD_PAGE_SIZES[0]) },
+    // 一批 12 条：卡片在常见宽度下一行 3~4 张，凑得满一行。
+    pagination: { pageSize: CARD_PAGE_SIZE },
     onSearch: (values): CrudFilters => {
       const v = values as ForwarderSearch
       const filters: CrudFilters = []
@@ -90,7 +87,6 @@ export function ForwarderList() {
     <PartnerCards
       rows={rows}
       loading={tableProps.loading}
-      pager={toCardPager(tableProps, (total) => `共 ${total} 个货代`)}
       onShow={(record) => show('forwarders', record.id)}
       renderActions={(record) => (
         <PartnerRowActions
@@ -121,8 +117,9 @@ export function ForwarderList() {
       searchFormProps={searchFormProps}
       onReset={resetFilters}
       tableProps={tableProps}
+      infinite={feed}
+      noun="个货代"
       rowKey="id"
-      pageSizeOptions={PARTNER_CARD_PAGE_SIZES}
       table={view === 'card' ? cardView : undefined}
       extra={
         narrow ? null : (

@@ -1,11 +1,12 @@
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
-import { DeleteButton, EditButton, useTable } from '@refinedev/antd'
+import { DeleteButton, EditButton } from '@refinedev/antd'
 import { Checkbox, Form, Input, Select, Space, Table, Tag } from 'antd'
 
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { ACTIVITY_TYPE_OPTIONS, activityTypeLabel } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Activity, Partner } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -30,7 +31,7 @@ export function ActivityList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<Activity>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Activity>({
     resource: 'activities',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -65,6 +66,7 @@ export function ActivityList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="记录跟进"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

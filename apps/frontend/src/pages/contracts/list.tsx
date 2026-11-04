@@ -4,7 +4,6 @@ import {
   DeleteButton,
   EditButton,
   ShowButton,
-  useTable,
 } from '@refinedev/antd'
 import { Form, Input, Select, Space, Table, Tag } from 'antd'
 
@@ -15,6 +14,7 @@ import {
   CONTRACT_TYPE_OPTIONS,
   contractTypeLabel,
 } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Contract, Partner } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -39,7 +39,7 @@ export function ContractList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<Contract>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Contract>({
     resource: 'contracts',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -72,6 +72,7 @@ export function ContractList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="生成合同"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

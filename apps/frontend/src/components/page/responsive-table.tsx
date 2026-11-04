@@ -1,5 +1,5 @@
 import { Grid, Table } from 'antd'
-import type { PaginationProps, TablePaginationConfig, TableProps } from 'antd'
+import type { TablePaginationConfig, TableProps } from 'antd'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
@@ -10,22 +10,14 @@ export interface ResponsiveTableProps<T> {
   rows: T[]
   rowKey: string | ((row: T) => string)
   loading?: boolean
-  /** 宽屏的分页配置，原样交给 Table。 */
-  pagination?: TablePaginationConfig | false
   /**
-   * 窄屏卡片的分页。宽屏由 Table 自己管，两种布局的分页状态不是同一个：
-   * 表格那份是 antd 的内部状态（客户端分页）或 useTable 的 current（服务端分页），
-   * 卡片这份要自己接，所以两个 props 分开传，不要互相猜。
-   */
-  pager?: PaginationProps
-  /**
-   * `rows` 是**全部**数据、由两种布局各自切页（客户端分页）。
+   * 宽屏的分页配置，原样交给 Table。
    *
-   * 不传时表示 rows 已经是当前页（服务端分页的 useTable 就是这样，
-   * 卡片只负责画页码条）。两者的区别必须显式说：靠"有没有 current"去猜，
-   * 服务端分页在首屏 current 为空时就会被切成空列表。
+   * 默认 `false`：全站的列表都改成了无限滚动，分页条只会在"这一批已经攒好、
+   * 不该再切页"的地方造成误解。要保留分页的地方（详情页里的小表）显式传 false
+   * 也不会有任何变化 —— 这两者本来就是一回事。
    */
-  clientPaged?: boolean
+  pagination?: TablePaginationConfig | false
   scrollX?: number | string
   /** 空态文案。 */
   empty?: ReactNode
@@ -45,7 +37,7 @@ export interface ResponsiveTableProps<T> {
   size?: 'small' | 'middle'
   /**
    * 原样铺进 Table 的那份 props（服务端分页的 useTable 把 dataSource / loading /
-   * 分页回调都放在里面）。先铺再覆盖上面的显式项，所以行键、尺寸、分页、横向滚动
+   * 排序回调都放在里面）。先铺再覆盖上面的显式项，所以行键、尺寸、分页、横向滚动
    * 由这里统一管，页面不会各写一套。
    */
   tableProps?: TableProps<T>
@@ -68,14 +60,15 @@ export interface ResponsiveTableProps<T> {
  * 判断散在四个页面里，改一次断点就要改四处。
  *
  * 卡片内容仍然从列定义推导（见 record-cards.tsx），页面不用为窄屏再写一套视图。
+ *
+ * 两种布局都不带分页条：行的数量与"还有没有下一批"由外面的
+ * `InfiniteFooter` 统一表达（见 hooks/use-infinite-feed.ts）。
  */
 export function ResponsiveTable<T extends object>({
   rows,
   rowKey,
   loading,
   pagination,
-  pager,
-  clientPaged,
   scrollX,
   empty,
   summary,
@@ -99,17 +92,12 @@ export function ResponsiveTable<T extends object>({
   // 推导不出列（条件渲染、包了不认识的节点）就退回表格：
   // 最坏情况是没有降级，不会白屏。
   if (narrow && columns.length > 0) {
-    const start = ((pager?.current ?? 1) - 1) * (pager?.pageSize ?? rows.length)
-    const pageRows =
-      clientPaged && pager?.pageSize ? rows.slice(start, start + pager.pageSize) : rows
-
     return (
       <RecordCards<T>
-        rows={pageRows}
+        rows={rows}
         columns={columns}
         rowKey={rowKey}
         loading={loading}
-        pager={pager}
         empty={empty}
         summary={cardSummary}
         titleKey={cardTitleKey}
@@ -125,7 +113,8 @@ export function ResponsiveTable<T extends object>({
       rowKey={rowKey as string}
       loading={loading}
       size={size}
-      pagination={pagination}
+      // 分页条默认不出现：行是攒出来的，切页会把它切成半截。
+      pagination={pagination ?? false}
       scroll={{ x: scrollX ?? 'max-content' }}
       locale={{ emptyText: empty, ...tableProps?.locale }}
       summary={summary}

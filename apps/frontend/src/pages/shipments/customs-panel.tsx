@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useInvalidate } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import {
   AutoComplete,
   Button,
@@ -22,9 +21,9 @@ import {
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, OptionTag } from '@/components/fields'
-import { ResponsiveTable } from '@/components/page'
-import { toCardPager } from '@/components/partner-cards'
+import { InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { CUSTOMS_STATUS_OPTIONS, SUPERVISION_MODE_OPTIONS } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { CustomsDeclaration } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -55,7 +54,7 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
   const [form] = Form.useForm<DeclForm>()
   const invalidate = useInvalidate()
 
-  const { tableProps } = useTable<CustomsDeclaration>({
+  const { tableProps, feed } = useInfiniteList<CustomsDeclaration>({
     resource: 'customs-declarations',
     filters: {
       permanent: [{ field: 'shipment_id', operator: 'eq', value: shipmentId }],
@@ -140,7 +139,6 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
         tableProps={tableProps}
         rows={(tableProps.dataSource ?? []) as CustomsDeclaration[]}
         loading={tableProps.loading === true}
-        pager={toCardPager(tableProps, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
         scrollX={900}
@@ -200,6 +198,8 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
           )}
         />
       </ResponsiveTable>
+
+      <InfiniteFooter feed={feed} />
 
       <Modal
         open={modalOpen}

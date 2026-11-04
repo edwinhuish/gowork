@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import { Button, Form, Input, Table, Typography, message } from 'antd'
 
 import { stockApi } from '@/api/stock'
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { StockSnapshotRow } from '@/types'
 import { formatDate, formatQty, formatTime } from '@/utils/format'
 
@@ -20,7 +20,7 @@ export function StockList() {
   const invalidate = useInvalidate()
   const [busy, setBusy] = useState(false)
 
-  const { tableProps, searchFormProps } = useTable<StockSnapshotRow>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<StockSnapshotRow>({
     resource: 'stock-snapshots',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -61,6 +61,7 @@ export function StockList() {
 
   return (
     <PageList
+      infinite={feed}
       extra={
         <Button type="primary" loading={busy} onClick={() => recalc()}>
           按流水重算

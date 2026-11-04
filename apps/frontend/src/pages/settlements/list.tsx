@@ -1,5 +1,5 @@
 import { useInvalidate } from '@refinedev/core'
-import { EditButton, useTable } from '@refinedev/antd'
+import { EditButton } from '@refinedev/antd'
 import { Button, message, Popconfirm, Space, Table, Tag, theme } from 'antd'
 
 import { receivableApi } from '@/api/receivables'
@@ -7,6 +7,7 @@ import { payableApi } from '@/api/payables'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { SETTLEMENT_STATUS_OPTIONS } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Settlement } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -28,7 +29,7 @@ export function SettlementList({
   const isReceivable = direction === 'receivable'
   const invalidate = useInvalidate()
   const { token } = theme.useToken()
-  const { tableProps } = useTable<Settlement>({ resource, syncWithLocation: true })
+  const { tableProps, feed } = useInfiniteList<Settlement>({ resource, syncWithLocation: true })
 
   const api = isReceivable ? receivableApi : payableApi
 
@@ -62,6 +63,7 @@ export function SettlementList({
 
   return (
     <PageList
+      infinite={feed}
       createLabel={isReceivable ? '新建应收' : '新建应付'}
       tableProps={tableProps}
       rowKey="id"

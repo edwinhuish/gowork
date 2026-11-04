@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import {
   Button,
   Card,
@@ -22,8 +21,8 @@ import {
 
 import { productSourceApi, type ProductSourceInput } from '@/api/product-sources'
 import { Empty, Mono, Money } from '@/components/fields'
-import { ResponsiveTable } from '@/components/page'
-import { toCardPager } from '@/components/partner-cards'
+import { InfiniteFooter, ResponsiveTable } from '@/components/page'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ProductSource } from '@/types'
 
 interface SourceForm {
@@ -53,7 +52,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
   const invalidate = useInvalidate()
 
   const [showDeleted, setShowDeleted] = useState(false)
-  const { tableProps, setFilters } = useTable<ProductSource>({
+  const { tableProps, setFilters, feed } = useInfiniteList<ProductSource>({
     resource: 'product-sources',
     filters: {
       permanent: [{ field: 'product_id', operator: 'eq', value: productId }],
@@ -195,7 +194,6 @@ export function SourcesPanel({ productId }: { productId: number }) {
         tableProps={tableProps}
         rows={(tableProps.dataSource ?? []) as ProductSource[]}
         loading={tableProps.loading === true}
-        pager={toCardPager(tableProps, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
         scrollX={980}
@@ -287,6 +285,8 @@ export function SourcesPanel({ productId }: { productId: number }) {
           )}
         />
       </ResponsiveTable>
+
+      <InfiniteFooter feed={feed} />
 
       <Modal
         open={modalOpen}

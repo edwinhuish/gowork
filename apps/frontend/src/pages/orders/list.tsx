@@ -4,13 +4,13 @@ import {
   DeleteButton,
   EditButton,
   ShowButton,
-  useTable,
 } from '@refinedev/antd'
 import { Form, Input, Select, Space, Table, Tag } from 'antd'
 
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { ORDER_STATUS_OPTIONS, tradeTermLabel } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Partner, SalesOrder } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
 
@@ -64,7 +64,7 @@ export function OrderList() {
     pagination: { mode: 'off' },
   })
 
-  const { tableProps, searchFormProps } = useTable<SalesOrder>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<SalesOrder>({
     resource: 'sales-orders',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -97,6 +97,7 @@ export function OrderList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建订单"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

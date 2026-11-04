@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import {
-  Alert,
   Button,
   Form,
   Input,
@@ -19,6 +18,7 @@ import { clauseApi, type ClauseInput } from '@/api/clauses'
 import { http } from '@/api/client'
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { usePagedFeed } from '@/hooks/use-infinite-feed'
 import type { Clause, PageResult } from '@/types'
 import { formatTime } from '@/utils/format'
 
@@ -38,16 +38,17 @@ export function ClauseList() {
   const [keywordInput, setKeywordInput] = useState('')
   const [keyword, setKeyword] = useState('')
   const [showDeleted, setShowDeleted] = useState(false)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
   const [editing, setEditing] = useState<Clause | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<ClauseInput>()
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['clauses', keyword, showDeleted, page, pageSize],
-    queryFn: () =>
+  // 条款正文是多行文本，一行占地方，一批 20 条正好一屏多。
+  const pageSize = 20
+  const feed = usePagedFeed<Clause>({
+    queryKey: ['clauses', keyword, showDeleted],
+    pageSize,
+    fetchPage: (page) =>
       http.get<PageResult<Clause>>(
         `/clauses?page=${page}&page_size=${pageSize}` +
           (keyword ? `&keyword=${encodeURIComponent(keyword)}` : '') +
@@ -124,18 +125,15 @@ export function ClauseList() {
           新建条款
         </Button>
       }
-      summary={error ? <Alert type="error" showIcon message={(error as Error).message} /> : null}
       searchFormProps={{
         onFinish: () => {
           setKeyword(keywordInput.trim())
-          setPage(1)
         },
       }}
       onReset={() => {
         setKeywordInput('')
         setKeyword('')
         setShowDeleted(false)
-        setPage(1)
       }}
       filters={
         <>
@@ -147,7 +145,6 @@ export function ClauseList() {
               onChange={(e) => setKeywordInput(e.target.value)}
               onSearch={(v) => {
                 setKeyword(v.trim())
-                setPage(1)
               }}
             />
           </Form.Item>
@@ -156,7 +153,6 @@ export function ClauseList() {
               value={showDeleted ? 1 : 0}
               onChange={(v) => {
                 setShowDeleted(v === 1)
-                setPage(1)
               }}
               options={[
                 { value: 0, label: '仅未删除' },
@@ -166,19 +162,8 @@ export function ClauseList() {
           </Form.Item>
         </>
       }
-      tableProps={{
-        dataSource: data?.list ?? [],
-        loading: isLoading,
-        pagination: {
-          current: page,
-          pageSize,
-          total: data?.total ?? 0,
-          onChange: (nextPage, nextSize) => {
-            setPage(nextPage)
-            setPageSize(nextSize)
-          },
-        },
-      }}
+      tableProps={{ dataSource: feed.rows, loading: feed.isLoading, pagination: false }}
+      infinite={feed}
       rowKey="id"
       scrollX={1000}
       footer={

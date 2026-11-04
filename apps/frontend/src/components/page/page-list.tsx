@@ -5,8 +5,10 @@ import type { FormProps, TableProps } from 'antd'
 import { Children, cloneElement, isValidElement } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 
-import { toCardPager } from '@/components/partner-cards'
+import { LIST_PAGE_SIZE, useClientFeed } from '@/hooks/use-infinite-feed'
+import type { InfiniteFeed } from '@/hooks/use-infinite-feed'
 import { useUiPrefs } from '@/providers/uiPrefs'
+import { InfiniteFooter } from './infinite-footer'
 import { ResponsiveTable } from './responsive-table'
 
 /**
@@ -17,7 +19,7 @@ import { ResponsiveTable } from './responsive-table'
  * 有的裸放有的包 Space。统一到这里之后，页面只剩「哪些筛选项、哪些列」。
  *
  * 不吞掉 refine 的能力：`tableProps` / `searchFormProps` 原样透传，
- * 页面仍然能用 useTable 的排序、筛选、分页与 URL 同步。
+ * 页面仍然能用 useTable 的排序、筛选与 URL 同步。
  *
  * 窄屏（< 768px）在没有自定义 `table` 时自动降级成卡片：列定义从
  * `<Table.Column>` 的 children 读出来（见 record-cards.tsx），
@@ -30,6 +32,11 @@ import { ResponsiveTable } from './responsive-table'
  * 「清空关键字再查询」等于什么都没提交 —— 请求都不发，列表纹丝不动。
  * 所以各列表的 useTable 都配了 `filters: { defaultBehavior: 'replace' }`：
  * 筛选表单给的是这一次的完整条件，不是补丁。永久筛选 replace 也会保留。
+ *
+ * **分页条不在这里了。** 列表只有两种取数方式，两种都由外壳收口成同一套
+ * "滚到底继续追加"：走 `useInfiniteList` 的页面把 `feed` 传进来，行已经是
+ * 攒好的；数据一次取满的页面（`pagination: false`）由外壳按批揭示。
+ * 底部那条 `InfiniteFooter` 负责加载中 / 失败重试 / 已加载全部的三种提示。
  */
 
 export interface PageListProps<T> {
@@ -51,14 +58,21 @@ export interface PageListProps<T> {
   rowKey: string
   /** 表格最小宽度。不传按内容自适应（max-content），不再让各页手写数值。 */
   scrollX?: number | string
-  /** 每页条数候选。产品卡片按 12 的倍数翻，默认是 10/20/50/100。 */
-  pageSizeOptions?: string[]
+  /**
+   * 无限滚动的取数状态，由 `useInfiniteList` 给出。
+   *
+   * 不传时按「数据已经全在 rows 里」处理：只要页面把 `pagination` 关掉，
+   * 外壳就自己分批揭示，底部同样有加载与结束提示。
+   */
+  infinite?: InfiniteFeed<T>
   /** 自定义空态文案：默认按「还没数据」与「筛选后没有结果」区分。 */
   emptyText?: ReactNode
   /** 完全自定义表格区域（如产品卡片视图）。给了就不渲染内置 Table。 */
   table?: ReactNode
   /** 表格之后的内容：导入弹窗、汇总行等。不放这里会被当成表格列。 */
   footer?: ReactNode
+  /** 底部提示里的量词：客户 / 张 / 条。 */
+  noun?: string
   children?: ReactNode
 }
 
@@ -97,10 +111,11 @@ export function PageList<T extends object>({
   tableProps,
   rowKey,
   scrollX,
-  pageSizeOptions = ['10', '20', '50', '100'],
+  infinite,
   emptyText,
   table,
   footer,
+  noun,
   children,
 }: PageListProps<T>) {
   const { compact } = useUiPrefs()
@@ -114,18 +129,13 @@ export function PageList<T extends object>({
       </Space>
     ) : undefined
 
-  // 分页统一：页大小可选、总数按「当前区间 / 总数」显示。
-  // 页面显式传 pagination={false} 时保留 false，不要偷偷加回分页条。
-  const pagination =
-    tableProps.pagination === false
-      ? (false as const)
-      : {
-          showSizeChanger: true,
-          pageSizeOptions,
-          showTotal: (total: number, range: [number, number]) =>
-            total > 0 ? `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条` : '',
-          ...(typeof tableProps.pagination === 'object' ? tableProps.pagination : {}),
-        }
+  const rows = (tableProps.dataSource ?? []) as T[]
+  // 数据一次取满时由外壳分批揭示：`pagination` 为 false 说明这一页没有"下一页"
+  // 可取，全部行都在手里，只是不该一次铺出两三百行。
+  const clientFeed = useClientFeed(rows, LIST_PAGE_SIZE, !infinite && tableProps.pagination === false)
+  const feed: InfiniteFeed<T> | undefined =
+    infinite ?? (tableProps.pagination === false ? clientFeed : undefined)
+  const visibleRows = infinite ? rows : clientFeed.rows
 
   const empty = emptyText ?? (
     <Empty
@@ -165,12 +175,11 @@ export function PageList<T extends object>({
       {table ?? (
         <ResponsiveTable<T>
           tableProps={tableProps}
-          rows={(tableProps.dataSource ?? []) as T[]}
+          rows={visibleRows}
           rowKey={rowKey}
           loading={tableProps.loading === true}
           size={compact ? 'small' : 'middle'}
-          pagination={pagination}
-          pager={toCardPager(tableProps, (total) => `共 ${total} 条`, pageSizeOptions)}
+          pagination={false}
           scrollX={scrollX}
           empty={empty}
         >
@@ -178,9 +187,9 @@ export function PageList<T extends object>({
         </ResponsiveTable>
       )}
 
+      {feed ? <InfiniteFooter feed={feed} noun={noun} /> : null}
+
       {footer}
     </List>
   )
 }
-
-

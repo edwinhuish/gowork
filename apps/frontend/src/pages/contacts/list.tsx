@@ -3,11 +3,11 @@ import { Link } from 'react-router'
 
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate, useSelect } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import { Button, Checkbox, Form, Input, message, Select, Space, Table } from 'antd'
 
 import { AccentTag, Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import { http } from '@/api/client'
 import type { Contact, Partner } from '@/types'
 
@@ -31,7 +31,7 @@ export function ContactList() {
   })
 
   const [showDeleted, setShowDeleted] = useState(false)
-  const { tableProps, searchFormProps, setFilters } = useTable<Contact>({
+  const { tableProps, searchFormProps, setFilters, feed } = useInfiniteList<Contact>({
     resource: 'contacts',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -83,6 +83,7 @@ export function ContactList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建联系人"
       searchFormProps={searchFormProps}
       onReset={resetFilters}

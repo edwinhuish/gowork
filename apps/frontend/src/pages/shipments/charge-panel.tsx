@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import {
   Button,
   Card,
@@ -21,9 +20,9 @@ import {
 
 import { shipmentChargeApi, type ShipmentChargeInput } from '@/api/shipment-charges'
 import { Empty, Money } from '@/components/fields'
-import { ResponsiveTable } from '@/components/page'
-import { toCardPager } from '@/components/partner-cards'
+import { InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { SHIPMENT_CHARGE_OPTIONS, shipmentChargeLabel } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ShipmentCharge } from '@/types'
 
 interface ChargeForm {
@@ -52,7 +51,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
   const [form] = Form.useForm<ChargeForm>()
   const invalidate = useInvalidate()
 
-  const { tableProps } = useTable<ShipmentCharge>({
+  const { tableProps, feed } = useInfiniteList<ShipmentCharge>({
     resource: 'shipment-charges',
     filters: {
       permanent: [{ field: 'shipment_id', operator: 'eq', value: shipmentId }],
@@ -184,7 +183,6 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
         tableProps={tableProps}
         rows={(tableProps.dataSource ?? []) as ShipmentCharge[]}
         loading={tableProps.loading === true}
-        pager={toCardPager(tableProps, (total) => `共 ${total} 条`)}
         rowKey="id"
         size="small"
         scrollX={960}
@@ -263,6 +261,8 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
           )}
         />
       </ResponsiveTable>
+
+      <InfiniteFooter feed={feed} />
 
       <Modal
         open={modalOpen}

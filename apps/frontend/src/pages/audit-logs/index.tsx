@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Alert, Form, Input, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import { Form, Input, Space, Table, Tag, Tooltip, Typography } from 'antd'
 
 import { auditLogApi } from '@/api/audit-logs'
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { usePagedFeed } from '@/hooks/use-infinite-feed'
 import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
 
@@ -52,13 +52,14 @@ export function AuditLogList() {
   const [keywordInput, setKeywordInput] = useState('')
   const [fromInput, setFromInput] = useState('')
   const [toInput, setToInput] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
   const [filters, setFilters] = useState(EMPTY_FILTERS)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['audit-logs', filters, page, pageSize],
-    queryFn: () =>
+  // 一批 20 条：日志的行高很小，一屏能看七八条，两屏刚好一批。
+  const pageSize = 20
+  const feed = usePagedFeed<AuditLog>({
+    queryKey: ['audit-logs', filters],
+    pageSize,
+    fetchPage: (page) =>
       auditLogApi.list({
         page,
         page_size: pageSize,
@@ -70,7 +71,8 @@ export function AuditLogList() {
       }),
   })
 
-  // 改筛选条件必须回到第一页：停在第 5 页看新条件只会看到空表。
+  // 换条件即换一批页：`filters` 是 queryKey 的一部分，页序自己从头开始，
+  // 不需要再手写「回到第一页」。
   const apply = () => {
     setFilters({
       entity: entityInput.trim(),
@@ -79,7 +81,6 @@ export function AuditLogList() {
       from: fromInput.trim(),
       to: toInput.trim(),
     })
-    setPage(1)
   }
 
   const reset = () => {
@@ -89,16 +90,14 @@ export function AuditLogList() {
     setFromInput('')
     setToInput('')
     setFilters(EMPTY_FILTERS)
-    setPage(1)
   }
 
-  const rows = data?.list ?? []
+  const rows = feed.rows
 
   return (
     <PageList
       title="操作日志"
       description="记录当时提交的内容（已脱敏、超长截断），不是数据库前后 diff；失败的操作同样留痕"
-      summary={error ? <Alert type="error" showIcon message={(error as Error).message} /> : null}
       searchFormProps={{ onFinish: apply }}
       onReset={reset}
       filters={
@@ -114,7 +113,6 @@ export function AuditLogList() {
               onClear={() => {
                 setEntityInput('')
                 setFilters((prev) => ({ ...prev, entity: '' }))
-                setPage(1)
               }}
             />
           </Form.Item>
@@ -129,7 +127,6 @@ export function AuditLogList() {
               onClear={() => {
                 setActionInput('')
                 setFilters((prev) => ({ ...prev, action: '' }))
-                setPage(1)
               }}
             />
           </Form.Item>
@@ -144,7 +141,6 @@ export function AuditLogList() {
               onClear={() => {
                 setKeywordInput('')
                 setFilters((prev) => ({ ...prev, keyword: '' }))
-                setPage(1)
               }}
             />
           </Form.Item>
@@ -159,7 +155,6 @@ export function AuditLogList() {
               onClear={() => {
                 setFromInput('')
                 setFilters((prev) => ({ ...prev, from: '' }))
-                setPage(1)
               }}
             />
           </Form.Item>
@@ -174,25 +169,13 @@ export function AuditLogList() {
               onClear={() => {
                 setToInput('')
                 setFilters((prev) => ({ ...prev, to: '' }))
-                setPage(1)
               }}
             />
           </Form.Item>
         </>
       }
-      tableProps={{
-        dataSource: rows,
-        loading: isLoading,
-        pagination: {
-          current: page,
-          pageSize,
-          total: data?.total ?? 0,
-          onChange: (nextPage, nextSize) => {
-            setPage(nextPage)
-            setPageSize(nextSize)
-          },
-        },
-      }}
+      tableProps={{ dataSource: rows, loading: feed.isLoading, pagination: false }}
+      infinite={feed}
       rowKey="id"
       scrollX={1300}
       footer={

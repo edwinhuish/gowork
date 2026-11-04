@@ -1,11 +1,12 @@
 import { useInvalidate } from '@refinedev/core'
-import { EditButton, ShowButton, useTable } from '@refinedev/antd'
+import { EditButton, ShowButton } from '@refinedev/antd'
 import { Button, message, Popconfirm, Space, Table, Tag } from 'antd'
 
 import { paymentApi } from '@/api/payments'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { PAYMENT_DIRECTION_OPTIONS } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Payment } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -20,7 +21,7 @@ import { formatDate } from '@/utils/format'
  */
 export function PaymentList() {
   const invalidate = useInvalidate()
-  const { tableProps } = useTable<Payment>({ resource: 'payments', syncWithLocation: true })
+  const { tableProps, feed } = useInfiniteList<Payment>({ resource: 'payments', syncWithLocation: true })
 
   const remove = async (record: Payment) => {
     try {
@@ -34,6 +35,7 @@ export function PaymentList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="登记收付款"
       tableProps={tableProps}
       rowKey="id"

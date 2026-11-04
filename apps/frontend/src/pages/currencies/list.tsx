@@ -3,12 +3,12 @@ import { Link } from 'react-router'
 
 import type { CrudFilters, BaseRecord } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
-import { useTable } from '@refinedev/antd'
 import { Button, Checkbox, Form, Input, message, Select, Table, Tag } from 'antd'
 
 import { AccentTag, Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
 import { CURRENCY_STATUS_OPTIONS } from '@/constants/catalog'
+import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import { http } from '@/api/client'
 import type { Currency } from '@/types'
 
@@ -25,7 +25,7 @@ interface CurrencySearch {
  */
 export function CurrencyList() {
   const [showDeleted, setShowDeleted] = useState(false)
-  const { tableProps, searchFormProps, setFilters } = useTable<Currency>({
+  const { tableProps, searchFormProps, setFilters, feed } = useInfiniteList<Currency>({
     resource: 'currencies',
     syncWithLocation: true,
     // 筛选表单给的是「这一次的完整条件」，所以用 replace：refine 默认 merge
@@ -77,6 +77,7 @@ export function CurrencyList() {
 
   return (
     <PageList
+      infinite={feed}
       createLabel="新建币种"
       searchFormProps={searchFormProps}
       onReset={resetFilters}
