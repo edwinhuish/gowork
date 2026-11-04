@@ -4,13 +4,17 @@
  * 改造前这里有 525 行：布局、侧栏、按钮、表格、表单、分页、弹窗全部手写。
  * 引入 antd 后这些都由组件库 + theme.ts 的设计 token 统一接管，
  * 本文件只保留四类东西：
- *   1 antd 覆盖不到的结构性布局（品牌块、页头、工作台网格、单据链、登录页背景）
+ *   1 antd 覆盖不到的结构性布局（外壳、侧栏、品牌块、页头、工作台网格、单据链、登录页背景）
  *   2 表格单元格里的排版语义（等宽、次要说明、空值）
  *   3 少量响应式断点
  *   4 结构性距离与动效时长的标尺（--space-* / --motion-*，见 :root 注释）
- *     颜色仍然一律引用 --ant-*，不在这里另起一套。
- * 颜色引用 --ant-* 变量（theme.ts 开了 cssVar），只有极少数深色侧栏的淡色值留了
- * 字面量兜底 —— 新加颜色请先加到 theme.ts 的 brand，不要在这里再造一套。
+ *
+ * 颜色一律引用 theme.ts 下发的变量，不在这里写色号：
+ *   --ant-*   页面主题（ConfigProvider 开了 cssVar），绝大多数地方用它；
+ *   --sider-* 侧栏主题，只有侧栏内部的结构性样式用（见「侧栏」一节）——
+ *             侧栏可以和页面一深一浅，用 --ant-* 就不会跟着变。
+ * 极少数字面量只作为兜底（登录页等外壳之外的地方没有 --sider-*）。
+ * 新加颜色请先加到 theme.ts 的调色板，不要在这里再造一套。
  */
 
 body {
@@ -126,6 +130,65 @@ body {
   }
 }
 
+/* ---------- 应用外壳：顶栏不动，侧栏与内容各滚各的 ---------- */
+
+/*
+ * 外壳正好一屏高，窗口本身不再滚动。四个滚动边界的责任划分：
+ *
+ *   .app-shell    一屏高 + overflow: hidden —— 整页永远不滚
+ *   .app-main     右侧一列（顶栏 + 内容），纵向 flex
+ *   .app-header   在这一列的顶部，不在任何滚动容器里，所以永远不动
+ *   .app-content  唯一的滚动容器
+ *
+ * 100dvh 的第二行是有意的：移动端地址栏收起 / 展开时视口高度会变，
+ * 用 100vh 会把底部顶出去一截（iOS Safari、Chrome Android 都复现）。
+ * 不认 dvh 的浏览器保留上面那行 100vh，视觉上等价。
+ */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--ant-color-bg-layout);
+}
+
+/*
+ * min-width: 0 是必须的：右侧列里有宽表格，flex 子项默认 min-width: auto
+ * 会被表格撑得比视口还宽，整列顶出屏幕（横向滚动条就是这么来的）。
+ */
+.app-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+ * 内容区是唯一的滚动容器。
+ *
+ * scrollbar-gutter: stable —— 滚动条的有无不改变内容宽度。列表从 20 行筛到 3 行时
+ * 会跨过"需不需要滚动"的边界，不预留这条沟，整页内容会横向抖 15px。
+ * overscroll-behavior: contain —— 滚到底不再把滚动传给外层：外壳本来不滚，
+ * 少了它 macOS 会把整页连着一起来回弹。
+ */
+.app-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* 与 refine 的 ThemedLayout 同档：窄屏把内距收到 12px，一屏多放一行。 */
+@media (max-width: 575px) {
+  .app-content {
+    padding: 12px;
+  }
+}
+
 /* ---------- 卡片与层级 ---------- */
 
 /* antd 的 borderless 卡片本身既无边框也无阴影，铺在浅灰底上会"糊"进背景。
@@ -141,7 +204,123 @@ body {
   box-shadow: none;
 }
 
-/* 侧栏品牌 ---------- */
+/* ---------- 侧栏 ---------- */
+
+/*
+ * 侧栏是**独立的一套配色**（见 theme.ts 的 buildSiderThemeConfig）：
+ * 它内部的结构性样式一律引用 --sider-*，不碰 --ant-*。
+ * 后者属于页面主题，侧栏切成深色时不会跟着变 —— 深底上会留一条白分隔线。
+ *
+ * --sider-* 由 AppLayout 内联写在侧栏元素上（siderCssVars），
+ * 品牌块这类共用样式给了 --ant-* 兜底：登录页也用 .brand，那里没有侧栏。
+ */
+
+/* 一条与侧栏同色的分隔线。用 box-shadow 而不是 border：
+   侧栏宽度在 200 / 80 之间做过渡，border 会让内容宽度跟着跳 1px。 */
+.app-sider {
+  box-shadow: 1px 0 0 var(--sider-border, var(--ant-color-border-secondary));
+}
+
+/* Sider 的 children 容器默认只有 height: 100%，改成纵向 flex：
+   品牌块与底部开关定高，中间菜单占满剩余高度自己滚。
+   抽屉走同一套结构，只是它在 portal 里、没有外层 .app-sider 的底色，
+   所以自己画一层 —— 否则抽屉会显示 antd 的弹层底色，与侧栏差一档。 */
+.app-sider .ant-layout-sider-children,
+.app-sider-drawer-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-sider-drawer-body {
+  background: var(--sider-bg, var(--ant-color-bg-container));
+}
+
+/* 品牌块与顶栏同高，两列在一条水平线上（高度由 HEADER_HEIGHT 一处下发）。 */
+.app-sider-brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--app-header-height, 56px);
+  padding: 0 16px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--sider-border, var(--ant-color-border-secondary));
+}
+
+/* 收起态只剩 80px：居中，左右留内距会把标志挤歪。 */
+.ant-layout-sider-collapsed .app-sider-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+/*
+ * 菜单区：侧栏里唯一可滚的部分。
+ *
+ * scrollbar-gutter: stable 同样是防抖：展开 / 收起分组会跨过"需不需要滚动条"
+ * 的边界，不预留这条沟，菜单文字会左右跳 6px。
+ * 细滚动条比默认的宽滚动条更不抢位置（菜单 30 条，滚动条常驻）。
+ */
+.app-sider-menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sider-scroll-thumb, rgb(28 37 50 / 16%)) transparent;
+}
+
+.app-sider-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sider-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sider-menu::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--sider-scroll-thumb, rgb(28 37 50 / 16%));
+}
+
+/*
+ * 底部的展开 / 收起开关。
+ *
+ * 自己画一个，不用 antd Sider 自带的 trigger：那个是 position: fixed，
+ * 在外壳改成"一屏高、只有内容区滚"之后，它会钉在视口底部而不是侧栏底部。
+ */
+.app-sider-trigger {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  border: 0;
+  border-top: 1px solid var(--sider-border, var(--ant-color-border-secondary));
+  background: transparent;
+  color: var(--sider-text-muted, var(--ant-color-text-secondary));
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.app-sider-trigger:hover {
+  background: var(--sider-hover-bg, var(--ant-color-fill-tertiary));
+  color: var(--sider-text, var(--ant-color-text));
+}
+
+/* 焦点环取侧栏自己的主色：深色侧栏配页面的主色时对比度刚过 3:1。 */
+.app-sider-trigger:focus-visible {
+  outline: 2px solid var(--sider-primary, var(--ant-color-primary, #2563eb));
+  outline-offset: -2px;
+}
+
+/* 品牌块 ---------- */
 
 .brand {
   display: flex;
@@ -159,17 +338,23 @@ body {
   height: 28px;
   flex: 0 0 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--ant-color-primary), var(--ant-color-primary-hover));
+  background: linear-gradient(
+    135deg,
+    var(--sider-primary, var(--ant-color-primary)),
+    var(--sider-primary-hover, var(--ant-color-primary-hover))
+  );
   /*
-   * 字色取容器底色而不是写死白色。
+   * 字色取所在容器的底色而不是写死白色。
    *
    * 暗色下主色被提亮成 #4d8df7（它要当链接与文字用，必须亮），
    * 白字压在这个渐变上只有 2.57~3.25，等于"看得见方块、看不清字母"。
    * 容器底色恰好是这个问题的另一半：亮色下它是白（白字 5.9+），
-   * 暗色下它是 #161c25（深底上的深字 5.5+），两套主题各自达标，
-   * 不必为这块小方块再引入一个只有它用的色号。
+   * 暗色下它是 #161c25（深底上的深字 5.5+），两套主题各自达标。
+   *
+   * 侧栏里取 --sider-bg（侧栏自己的底色，不跟页面走），
+   * 登录页没有这套变量，回落到页面的容器底色。
    */
-  color: var(--ant-color-bg-container, #fff);
+  color: var(--sider-bg, var(--ant-color-bg-container, #fff));
   font-weight: 700;
   font-size: 15px;
   line-height: 1;
@@ -180,7 +365,7 @@ body {
   display: flex;
   flex-direction: column;
   line-height: 1.2;
-  color: var(--ant-color-text, #1c2532);
+  color: var(--sider-text, var(--ant-color-text, #1c2532));
   font-weight: 600;
   font-size: 15px;
   letter-spacing: 0.2px;
@@ -189,7 +374,7 @@ body {
 /* 副标题标出双域定位，字号压到能看清但不抢主标题。 */
 .brand-sub {
   margin-top: 3px;
-  color: var(--ant-color-text-tertiary, #626d7f);
+  color: var(--sider-text-faint, var(--ant-color-text-tertiary, #626d7f));
   font-size: 10px;
   font-style: normal;
   font-weight: 500;
@@ -197,48 +382,37 @@ body {
   text-transform: uppercase;
 }
 
-/* ThemedSider 用内联样式把侧栏右边框写成了 colorBgElevated（= 白），在白底上看不见。
-   box-shadow 不冲突内联样式，用它补一条与全站一致的分隔线。 */
-.ant-layout-sider {
-  box-shadow: 1px 0 0 var(--ant-color-border-secondary, #e3e8f0);
-}
-
 /* 分组标题（SubMenu 的一级标题）比可点的子项弱一档：它只是分隔，不是入口。 */
-.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title {
-  color: var(--ant-color-text-tertiary, #626d7f);
+.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title,
+.app-sider-drawer-body .ant-menu-submenu > .ant-menu-submenu-title {
+  color: var(--sider-text-faint, var(--ant-color-text-tertiary, #626d7f));
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.4px;
 }
 
-.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title .anticon {
+.ant-layout-sider .ant-menu-submenu > .ant-menu-submenu-title .anticon,
+.app-sider-drawer-body .ant-menu-submenu > .ant-menu-submenu-title .anticon {
   font-size: 14px;
 }
 
-.ant-layout-sider .ant-menu-sub .ant-menu-item {
+.ant-layout-sider .ant-menu-sub .ant-menu-item,
+.app-sider-drawer-body .ant-menu-sub .ant-menu-item {
   font-size: 13.5px;
-}
-
-/* 菜单项多（30 条），细滚动条比默认的宽滚动条更不抢位置。 */
-.ant-layout-sider .ant-menu {
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--ant-color-text) 16%, transparent) transparent;
-}
-
-.ant-layout-sider .ant-menu::-webkit-scrollbar {
-  width: 6px;
-}
-
-.ant-layout-sider .ant-menu::-webkit-scrollbar-thumb {
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--ant-color-text) 16%, transparent);
 }
 
 /* ---------- 顶栏 ---------- */
 
+/*
+ * 顶栏固定在这一列的顶部：它不在任何滚动容器里，所以"不动"是结构给的，
+ * 不靠 position: sticky（sticky 在滚动容器换人之后容易和内容的重叠层打架）。
+ * flex: none 防止它在高度被挤压时跟着缩。
+ */
 .app-header {
   display: flex;
+  flex: none;
   align-items: center;
+  height: var(--app-header-height, 56px);
   gap: 8px;
   border-bottom: 1px solid var(--ant-color-border-secondary, #e3e8f0);
 }
@@ -257,14 +431,12 @@ body {
   flex: 1;
 }
 
-/* 窄屏顶栏只留折叠按钮、待办与头像：220px 的搜索框会把它们挤成一团。 */
+/* 窄屏顶栏只留导航按钮、待办与头像：220px 的搜索框会把它们挤成一团。
+   窄屏的导航开关也只有顶栏左侧那一个：侧栏这时是抽屉，没有"收起"这回事。 */
 @media (max-width: 768px) {
   .app-header-search {
     display: none;
   }
-
-  /* 窄屏的导航开关只有顶栏左侧那一个（见 AppHeader / AppSider）：
-     侧栏自己不再渲染 refine 那个会压住页面标题的浮动开关。 */
 }
 
 .app-user {

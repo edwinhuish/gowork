@@ -1,5 +1,6 @@
 import { theme } from 'antd'
 import type { ThemeConfig } from 'antd'
+import type { CSSProperties } from 'react'
 
 /**
  * 设计 token。
@@ -155,6 +156,15 @@ export const brand = palette.light
 const RADIUS = 8
 
 /**
+ * 顶栏高度。
+ *
+ * 顶栏与侧栏品牌块共用这一个数：分处两列、却必须落在同一条水平线上。
+ * 各写一个值时，谁改了一边都会露出一条错位的接缝 —— 而那正是
+ * "这个界面没对齐"最直观的来源。
+ */
+export const HEADER_HEIGHT = 56
+
+/**
  * 表格与卡片的行高/内距，密度切换时按比例收一档。
  *
  * `formItemGap` 是表单项下边距的**唯一来源**：CSS 里那条
@@ -290,21 +300,15 @@ export function buildThemeConfig({
         siderBg: c.surface,
         headerBg: c.surface,
         bodyBg: c.background,
-        headerHeight: 56,
+        headerHeight: HEADER_HEIGHT,
         headerPadding: '0 20px',
       },
 
       /*
-       * 侧栏是浅色的。
+       * 菜单的通用配色（页面里的菜单，不是侧栏）。
        *
-       * 之前这里配的是 darkItem*，但它们从来没生效过：@refinedev/antd 的 ThemedSider
-       * 把 `backgroundColor: token.colorBgElevated` 内联写进 Layout.Sider，Menu 也没传
-       * theme="dark"，所以侧栏其实是白底 + 浅色菜单 —— 而品牌块的文字是近白色，
-       * 实际渲染出来是白底白字（只剩那个蓝色方块看得见）。
-       *
-       * 与其用 !important 去压内联样式改回深色，不如顺着它做成浅色侧栏：
-       * 选中项用主色的浅底 + 主色文字，层级比整块深色底更轻，也不会和内容区抢注意力。
-       * 暗色模式下 colorBgElevated 变深，侧栏自动跟着变深，不需要另开分支。
+       * 侧栏有自己的 ConfigProvider，读的是 buildSiderThemeConfig 里的那一份 ——
+       * 这里改了不会影响侧栏，反过来也一样。这正是"两层主题分离"的意思。
        */
       Menu: {
         itemBg: 'transparent',
@@ -473,6 +477,128 @@ export function buildThemeConfig({
 
       Message: {
         contentPadding: '10px 16px',
+      },
+    },
+  }
+}
+
+/* ---------- 侧栏主题：与页面主题分离 ---------- */
+
+/** 侧栏用哪套配色：follow 跟随页面明暗，light / dark 单独指定。 */
+export type SiderMode = 'follow' | 'light' | 'dark'
+
+/** 偏好 → 实际色板。只有 follow 才去看页面当前是亮还是暗。 */
+export function resolveSiderMode(siderMode: SiderMode, pageMode: ColorMode): ColorMode {
+  return siderMode === 'follow' ? pageMode : siderMode
+}
+
+/**
+ * 侧栏的 CSS 变量。
+ *
+ * 侧栏不再是"页面主题染出来的一块"，而是自己的一套配色。但 antd 的 cssVar
+ * 变量是**全局**的一套值，侧栏里的结构性样式（品牌块、分隔线、滚动条）
+ * 若引用 --ant-*，切侧栏配色时它们不会跟着变 —— 深色侧栏上会留一条浅色分隔线。
+ * 所以侧栏内部只认 --sider-*，值由这里按当前侧栏色板给出。
+ */
+export function siderCssVars(mode: ColorMode): CSSProperties {
+  const c = palette[mode]
+  return {
+    '--sider-bg': c.surface,
+    '--sider-border': c.border,
+    '--sider-text': c.text,
+    '--sider-text-muted': c.textMuted,
+    '--sider-text-faint': c.textFaint,
+    '--sider-hover-bg': mode === 'dark' ? c.fillSecondary : c.fillTertiary,
+    // 品牌标志的渐变也要跟着侧栏自己的主色走：深色侧栏配浅色页面的主色时，
+    // 那块小方块上的深色字母会掉到 3.4:1 以下（见 .brand-mark 的注释）。
+    '--sider-primary': c.primary,
+    '--sider-primary-hover': c.primaryHover,
+    '--sider-scroll-thumb': `color-mix(in srgb, ${c.text} 18%, transparent)`,
+  } as CSSProperties
+}
+
+/**
+ * 侧栏主题：套在侧栏子树外面的第二个 ConfigProvider。
+ *
+ * 三条都是踩过才写下来的：
+ *
+ * 1. **关掉 cssVar**。打开时 antd 把 token 以类名形式注册成全局样式
+ *    （`ant-menu-css-var` 这类），两层主题撞在同一批类名上、后注册的赢 ——
+ *    侧栏一换色内容区跟着变，"独立"就只剩开关的样子。关掉之后侧栏里的组件
+ *    用字面色值，与外层的 --ant-* 互不干扰。
+ * 2. **显式给 algorithm**。嵌套 ConfigProvider 的 token 是从 defaultSeedToken
+ *    重算的，不给暗色算法，深色侧栏的派生色（描边、填充、悬停底）会是一套浅色值。
+ * 3. **组件级 token 重给一遍**。Menu 的 itemColor / itemSelectedBg 属于页面主题，
+ *    深色侧栏照抄过去就是深底深字。
+ */
+export function buildSiderThemeConfig({
+  mode = 'light',
+  compact = false,
+}: {
+  mode?: ColorMode
+  compact?: boolean
+} = {}): ThemeConfig {
+  const c = palette[mode]
+
+  return {
+    cssVar: false,
+    algorithm: [
+      mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+      ...(compact ? [theme.compactAlgorithm] : []),
+    ],
+
+    token: {
+      colorPrimary: c.primary,
+      colorPrimaryHover: c.primaryHover,
+      colorPrimaryBg: c.primarySoft,
+      colorBgLayout: c.surface,
+      colorBgContainer: c.surface,
+      colorBgElevated: c.surfaceElevated,
+      colorBorder: c.border,
+      colorBorderSecondary: c.border,
+      colorText: c.text,
+      colorTextSecondary: c.textMuted,
+      colorTextTertiary: c.textFaint,
+      colorTextQuaternary: c.textFaint,
+      colorFillSecondary: c.fillSecondary,
+      colorFillTertiary: c.fillTertiary,
+      colorFillQuaternary: c.fillQuaternary,
+      borderRadius: RADIUS,
+      borderRadiusLG: RADIUS + 2,
+      borderRadiusSM: RADIUS - 2,
+      fontSize: 14,
+      sizeStep: 4,
+      sizeUnit: 4,
+      controlHeight: 34,
+      // 折叠动画与侧栏宽度过渡同一个节奏，展开时不会先慢后快。
+      motionDurationFast: '0.1s',
+      motionDurationMid: '0.18s',
+      motionDurationSlow: '0.26s',
+    },
+
+    components: {
+      Layout: {
+        // 侧栏底色只由这一个 token 决定：antd 的 -dark / -light 修饰类
+        // 现在只影响触发器，不参与背景，所以不必给 Sider 传 theme。
+        siderBg: c.surface,
+      },
+
+      Menu: {
+        itemBg: 'transparent',
+        subMenuItemBg: 'transparent',
+        itemColor: c.textMuted,
+        itemHoverColor: c.text,
+        // 深色下 fillTertiary 与侧栏底色几乎同值，悬停看不出来，往上取一档。
+        itemHoverBg: mode === 'dark' ? c.fillSecondary : c.fillTertiary,
+        itemSelectedBg: c.primarySoft,
+        itemSelectedColor: c.primary,
+        itemActiveBg: c.primarySoft,
+        groupTitleColor: c.textFaint,
+        groupTitleFontSize: 12.5,
+        itemHeight: compact ? 34 : 38,
+        itemMarginInline: 8,
+        itemBorderRadius: RADIUS - 2,
+        subMenuItemBorderRadius: RADIUS - 2,
       },
     },
   }

@@ -58,7 +58,7 @@ apps/frontend/
     │       purchase-orders / quotations / sales-orders / shipments /
     │       stock / stock-documents   单个资源的非 CRUD 动作（转单、确认、重算…）
     ├── components/
-    │   ├── layout/AppLayout.tsx   ThemedLayout + 品牌块（GoWork / ERP · CRM 两行）+ 顶栏
+    │   ├── layout/AppLayout.tsx   应用外壳：固定顶栏 + 独立滚动的侧栏（自带配色）+ 内容区
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / AccentTag / HeatTag /
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
     │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，卡片与详情共用
@@ -72,7 +72,9 @@ apps/frontend/
     ├── hooks/
     │   ├── use-idempotency-key.ts  写操作的幂等键：同一次提交的重试复用，成功后轮换
     │   └── use-infinite-feed.ts    列表的无限滚动：三种数据源适配成同一个 feed
-    ├── utils/format.ts      时间格式化
+    ├── utils/
+    │   ├── format.ts      时间格式化
+    │   └── scroll.ts      内容区的滚动位置（窗口不滚，见第 3 节「外壳」）
     └── pages/
         ├── login/  dashboard/
         ├── products/         list / create / edit / show / form-fields / source-panel / code-panel / image-panel
@@ -136,6 +138,44 @@ apps/frontend/
 | 受保护段 | `<Authenticated fallback={<CatchAllNavigate to="/login" />}>`，未登录直接踢走 |
 | 登录段 | `<Authenticated fallback={<Outlet />}><NavigateToResource resource="dashboard" /></Authenticated>`，已登录访问 `/login` 会被送回首页 |
 | 兜底 | `path="*"` → `<Navigate to="/" replace />` |
+
+### 外壳：一屏高，只有内容区在滚
+
+`components/layout/AppLayout.tsx` 自己搭外壳，**不用** refine 的 `ThemedLayout` ——
+它是"整页滚动"的形状（外层 `minHeight: 100vh`、内容区不给高度），要做出
+"顶栏不动、侧栏与内容各滚各的"只能层层覆写它的内联样式。现在的结构是四个盒子，
+滚动边界一眼能看出来：
+
+```
+.app-shell            一屏高 + overflow: hidden —— 窗口永远不滚
+├── .app-sider            品牌块（定高）/ .app-sider-menu（自己滚）/ 折叠开关（定高）
+└── .app-main
+    ├── .app-header       不在任何滚动容器里，所以永远不动
+    └── [data-app-content]  唯一的滚动容器
+```
+
+三条硬约束：
+
+- **不要再对 `window` 做滚动**：`window.scrollY` 恒为 0，`window.scrollTo` 是空操作。
+  复位或记住滚动位置走 `utils/scroll.ts` 的 `getScrollTop` / `scrollContentTo`
+  （里面的选择器与外壳上的 `data-app-content` 是同一份约定）。
+- **`HEADER_HEIGHT` 只有一处**（`theme.ts`）：顶栏高度与侧栏品牌块都由它下发，
+  改一个数两边一起变。各写一个数，两列之间就会露出一条错位接缝。
+- **`100dvh` 不是笔误**：移动端地址栏收起/展开时视口高度会变，`100vh` 会把底部顶出去；
+  认不得 `dvh` 的浏览器保留上一行的 `100vh`。
+
+**侧栏有自己的一套主题**（`theme.ts` 的 `buildSiderThemeConfig` + `siderCssVars`）：
+侧栏子树外面套了第二个 `ConfigProvider`，配色由 `uiPrefs.siderMode` 决定
+（跟随页面 / 浅色 / 深色，顶栏右侧的调色板按钮切换，存 localStorage）。
+两条容易踩反：
+
+- 这一层**必须 `cssVar: false`**。antd 的 CSS 变量按类名注册成全局样式，两块主题
+  撞在同一批类名上、后注册的赢 —— 侧栏一换色内容区跟着变，"独立"就只剩开关的样子。
+- 侧栏里的结构性样式一律引用 `--sider-*`，**不要**引用 `--ant-*`：后者属于页面主题，
+  侧栏切成深色时不会跟着变，深底上会留一条白分隔线。
+
+窄屏（< lg）侧栏换成 `Drawer`，结构与宽屏一致（品牌块 + 可滚的菜单区），
+只是没有折叠开关；顶栏左侧那个按钮在窄屏是"打开抽屉"，宽屏才是"收起侧栏"。
 
 ## 4. 数据流
 
@@ -382,7 +422,8 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | `useSelect` 解构 `selectProps` 得到 undefined | v5 移除了 `selectProps`，直接返回 `options` | 自己接 `options` + `loading` + `filterOption` |
 | 下拉里永远只有十几条选项 | `useSelect` 没配 `pagination: { mode: 'off' }`，或 dataProvider 没把 off 翻译成一次取满 | 见 `dataProvider.buildListQuery`：off → `page_size=200` |
 | 筛选条件填了但结果没变 | filter 的 field 不在 dataProvider 白名单里，被丢弃 | 后端加参数时同步 `PASSTHROUGH_FILTERS` |
-| 配了 `Menu.darkItem*` 却一点变化都没有 | `@refinedev/antd` 的 `ThemedSider` 把 `backgroundColor: token.colorBgElevated` 内联写进 `Layout.Sider`，`Menu` 也没传 `theme="dark"`，所以侧栏实际是白底 | 侧栏定为**浅色**（token 见 `theme.ts`）；真要深色得自己实现 Sider 组件，不要在 token 里配 `darkItem*` 骗自己 |
+| 切了侧栏配色，内容区跟着一起变 | 侧栏主题被写进根 `ConfigProvider`，或那层开了 `cssVar` 撞了全局变量 | 侧栏必须是自己的 `ConfigProvider` 且 `cssVar: false`（见 `theme.ts` 的 `buildSiderThemeConfig`） |
+| `window.scrollTo` 没反应 / 切视图后滚动位置丢了 | 外壳一屏高，窗口不滚，滚的是内容区 | 用 `utils/scroll.ts` 的三个函数，不要直接摸 `window` |
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；检查后端 `cache.memory.persist` |
 | 续期在生产不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 暴露 | 见后端 `AGENTS.md`「令牌续期」；开发期同源复现不出来 |
 | 每个页面跳转都多一次 `/auth/profile` | `authProvider.check` 里的 identity 缓存被清掉了 | 检查 `login` / `check` / `onError` 三处对 `identity` 的赋值 |

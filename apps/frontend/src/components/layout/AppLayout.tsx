@@ -1,4 +1,5 @@
 import {
+  BgColorsOutlined,
   BellOutlined,
   CompressOutlined,
   ExpandOutlined,
@@ -9,13 +10,13 @@ import {
   SunOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { ThemedLayout, useThemedLayoutContext } from '@refinedev/antd'
 import { useGetIdentity, useLogout, useMenu, type TreeMenuItem } from '@refinedev/core'
 import { useQuery } from '@tanstack/react-query'
 import {
   Avatar,
   Badge,
   Button,
+  ConfigProvider,
   Drawer,
   Dropdown,
   Grid,
@@ -23,25 +24,41 @@ import {
   Menu,
   Space,
   Tooltip,
-  theme,
 } from 'antd'
 import type { MenuProps } from 'antd'
-import type { FC } from 'react'
-import { useEffect, useMemo } from 'react'
+import type { CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { useUiPrefs } from '@/providers/uiPrefs'
+import {
+  HEADER_HEIGHT,
+  buildSiderThemeConfig,
+  resolveSiderMode,
+  siderCssVars,
+  type SiderMode,
+} from '@/theme'
 import type { UserInfo } from '@/types'
+import { scrollContentTo } from '@/utils/scroll'
 import { ModuleSearch } from './module-search'
 
-type SiderTitle = FC<{ collapsed: boolean }>
+/** 侧栏宽度：宽屏与抽屉共用，收窄后只剩图标。 */
+const SIDER_WIDTH = 200
+const SIDER_COLLAPSED_WIDTH = 80
+/** 抽屉比侧栏宽一点：移动端旁边没有内容区，宽一些更好点。 */
+const MOBILE_SIDER_WIDTH = 248
+
+const SIDER_MODE_LABELS: Record<SiderMode, string> = {
+  follow: '跟随页面',
+  light: '侧栏浅色',
+  dark: '侧栏深色',
+}
 
 /**
  * 侧栏品牌块。
  *
- * ThemedLayout 会在侧栏收起时把 collapsed 传进来，收起态只留标志图形，
- * 避免 228px 收成 80px 后文字被裁成半截。
+ * 收起态只留标志图形，避免 200px 收成 80px 后文字被裁成半截。
  */
 function BrandTitle({ collapsed }: { collapsed: boolean }) {
   return (
@@ -55,27 +72,6 @@ function BrandTitle({ collapsed }: { collapsed: boolean }) {
       )}
     </div>
   )
-}
-
-/**
- * 侧栏。
- *
- * 不用 refine 的 ThemedSider：它用的是 antd 已废弃的 Menu children 写法
- * （<Menu.Item> / <Menu.SubMenu>），每次加载刷两条告警 —— "children is
- * deprecated" 与 React 19 的 "Accessing element.ref"，30 个页面各一次，
- * 把真问题埋在噪音里。菜单数据仍来自 refine 的 useMenu（同一份 resources，
- * 分组 / 图标 / 选中态都在里面），只是换成 items 写法自己渲染。
- *
- * 与 ThemedSider 有意保持一致的两处：退出登录不进导航（顶栏头像下拉里已有）；
- * 窄屏侧栏是抽屉，由顶栏左侧那个按钮打开（见 AppHeader），不再渲染 refine
- * 那个会压住页面标题的浮动开关。
- *
- * 分成两层是因为 refine 判 hasSider 的方式是**把 Sider 当普通函数调用一次**
- * （`!!SiderToRender({ Title })`）——那一刻还没有 context provider，
- * 带 hook 的组件直接被调用会拿不到 context。外层不带 hook，只返回一个元素。
- */
-function AppSider({ Title }: { Title?: SiderTitle }) {
-  return <AppSiderBody Title={Title} />
 }
 
 /** refine 的菜单树 → antd Menu 的 items（叶子节点才给链接）。 */
@@ -93,14 +89,43 @@ function toMenuItems(nodes: TreeMenuItem[]): NonNullable<MenuProps['items']> {
   })
 }
 
-function AppSiderBody({ Title }: { Title?: SiderTitle }) {
-  const { token } = theme.useToken()
-  const { siderCollapsed, setSiderCollapsed, mobileSiderOpen, setMobileSiderOpen } =
-    useThemedLayoutContext()
+interface AppSiderProps {
+  collapsed: boolean
+  mobile: boolean
+  mobileOpen: boolean
+  onToggleCollapse: () => void
+  onMobileClose: () => void
+  /** 侧栏自己的 CSS 变量：与页面主题无关的一套配色（见 theme.ts）。 */
+  vars: CSSProperties
+}
+
+/**
+ * 侧栏。
+ *
+ * 不用 refine 的 ThemedSider：它要的三段结构（品牌块 / 可滚菜单 / 底部开关）
+ * 与自带主题都只能靠覆写它的内联样式得到；它用的还是 antd 已废弃的 Menu children
+ * 写法（<Menu.Item> / <Menu.SubMenu>），每次加载刷告警，把真问题埋在噪音里。
+ * 菜单数据仍来自 refine 的 useMenu（同一份 resources，分组 / 图标 / 选中态都在里面），
+ * 只是换成 items 写法自己渲染。
+ *
+ * 结构是**三段**，而不是一整块跟着页面滚：
+ *   品牌块   定高，与顶栏同高，不参与滚动
+ *   菜单区   占满剩余高度，自己滚（这是全屏里第二个滚动容器）
+ *   折叠开关 定高，钉在侧栏底部
+ * 所以菜单再长，品牌块和开关都不会被滚走。
+ *
+ * 窄屏下整块换成抽屉：抽屉不带折叠开关（没有"收起"这回事），
+ * 点菜单项即关闭（见 onClick）。
+ */
+function AppSider({
+  collapsed,
+  mobile,
+  mobileOpen,
+  onToggleCollapse,
+  onMobileClose,
+  vars,
+}: AppSiderProps) {
   const { menuItems, selectedKey, defaultOpenKeys } = useMenu()
-  // 与 refine 同一条判定（lg 之下是抽屉）；首帧拿不到断点时当宽屏处理。
-  const isMobile = Grid.useBreakpoint().lg === false
-  const RenderToTitle = Title ?? (() => null)
   const items = useMemo(() => toMenuItems(menuItems), [menuItems])
 
   // 用 Link 而不是 onClick 导航：中键 / 右键「在新标签打开」是常态操作，
@@ -113,97 +138,88 @@ function AppSiderBody({ Title }: { Title?: SiderTitle }) {
       defaultOpenKeys={defaultOpenKeys}
       style={{ borderInlineEnd: 'none' }}
       onClick={() => {
-        if (isMobile) setMobileSiderOpen(false)
+        if (mobile) onMobileClose()
       }}
     />
   )
 
-  // 品牌块：宽 200 / 收起 80，与侧栏同宽，高与顶栏对齐。
-  const brand = (collapsed: boolean) => (
-    <div
-      style={{
-        width: collapsed ? '80px' : '200px',
-        padding: collapsed ? '0' : '0 16px',
-        display: 'flex',
-        justifyContent: collapsed ? 'center' : 'flex-start',
-        alignItems: 'center',
-        height: '64px',
-        backgroundColor: token.colorBgElevated,
-        fontSize: '14px',
-      }}
-    >
-      <RenderToTitle collapsed={collapsed} />
-    </div>
-  )
+  if (mobile) {
+    const drawerBody: CSSProperties = {
+      padding: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      // 抽屉自己不许滚：滚的只能是菜单区，否则品牌块会跟着滑走。
+      overflow: 'hidden',
+      ...vars,
+    }
 
-  if (isMobile) {
     return (
       <Drawer
         placement="left"
-        width={200}
-        open={mobileSiderOpen}
-        onClose={() => setMobileSiderOpen(false)}
+        width={MOBILE_SIDER_WIDTH}
+        open={mobileOpen}
+        onClose={onMobileClose}
         closable={false}
-        styles={{ body: { padding: 0 } }}
+        styles={{ body: drawerBody }}
+        classNames={{ body: 'app-sider-drawer-body' }}
       >
-        {brand(false)}
-        {menu}
+        <div className="app-sider-brand">
+          <BrandTitle collapsed={false} />
+        </div>
+        <div className="app-sider-menu">{menu}</div>
       </Drawer>
     )
   }
 
   return (
     <Layout.Sider
-      collapsible
-      collapsed={siderCollapsed}
-      // 只认手动点开关：breakpoint 触发的（type === 'responsive'）由侧栏自己管。
-      onCollapse={(collapsed, type) => {
-        if (type === 'clickTrigger') setSiderCollapsed(collapsed)
-      }}
-      collapsedWidth={80}
-      breakpoint="lg"
-      width={200}
-      trigger={
-        <Button
-          type="text"
-          aria-label={siderCollapsed ? '展开导航' : '收起导航'}
-          icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          style={{
-            borderRadius: 0,
-            height: '100%',
-            width: '100%',
-            backgroundColor: token.colorBgElevated,
-          }}
-        />
-      }
+      className="app-sider"
+      collapsed={collapsed}
+      collapsedWidth={SIDER_COLLAPSED_WIDTH}
+      width={SIDER_WIDTH}
+      /*
+       * 不给 collapsible / trigger：antd 自带的触发器是 position: fixed，
+       * 在这套"外壳一屏高、只有内容区滚"的布局里会钉在视口底部、
+       * 而不是侧栏底部。下面自己画一个。
+       */
+      style={vars}
     >
-      {brand(siderCollapsed)}
-      {menu}
+      <div className="app-sider-brand">
+        <BrandTitle collapsed={collapsed} />
+      </div>
+      <div className="app-sider-menu">{menu}</div>
+      <button
+        type="button"
+        className="app-sider-trigger"
+        aria-label={collapsed ? '展开导航' : '收起导航'}
+        onClick={onToggleCollapse}
+      >
+        {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+      </button>
     </Layout.Sider>
   )
+}
+
+interface AppHeaderProps {
+  mobile: boolean
+  collapsed: boolean
+  onToggleSider: () => void
 }
 
 /**
  * 顶栏。
  *
- * 折叠按钮用 useThemedLayoutContext 控制侧栏：宽屏是收起 / 展开侧栏，
- * 窄屏下侧栏是抽屉（refine 按 lg 断点切换），这里改成打开抽屉 ——
- * setSiderCollapsed 管不到抽屉，原先注释里"这个按钮就是抽屉的开关"是错的，
- * 实机上点它没有任何反应。refine 自带的那个 fixed 抽屉开关与这里是重复入口、
- * 还会压在页面标题上，已在样式里藏掉（见 index.css 的窄屏段）。
+ * 它在 .app-main 的顶部、不在任何滚动容器里 —— 内容区怎么滚它都不动。
+ * 左侧按钮按断点切换语义：宽屏收起 / 展开侧栏，窄屏打开抽屉
+ * （窄屏没有"收起"这回事，侧栏是覆盖层）。
  *
  * 四类信息放在这一条上：先找（模块搜索），再看（待办条目数），
- * 然后是观感（明暗）与自己（密度、退出）。全部用 antd 的 text 按钮，
- * 不再手写 `<button>` + 自定义 hover 样式。
+ * 然后是观感（明暗、侧栏配色）与自己（密度、退出）。全部用 antd 的 text 按钮。
  */
-function AppHeader() {
-  const { siderCollapsed, setSiderCollapsed, setMobileSiderOpen } = useThemedLayoutContext()
-  // 与 refine 的 ThemedSider 同一条判定（lg 之下是抽屉）。首帧拿不到断点时
-  // 当宽屏处理，和 refine 的 isMobile 一致。
-  const narrow = Grid.useBreakpoint().lg === false
+function AppHeader({ mobile, collapsed, onToggleSider }: AppHeaderProps) {
   const { data: identity } = useGetIdentity<UserInfo>()
   const { mutate: logout } = useLogout()
-  const { mode, toggleMode, compact, toggleCompact } = useUiPrefs()
+  const { mode, toggleMode, compact, toggleCompact, siderMode, setSiderMode } = useUiPrefs()
   const navigate = useNavigate()
 
   // 与概览页用同一个 query key：两处共用一次请求，徽标不会比页面慢一拍。
@@ -238,13 +254,24 @@ function AppHeader() {
     ],
   }
 
+  // 侧栏配色单独一项：它只影响侧栏，与上面的整页明暗互不干扰。
+  const siderMenu: MenuProps = {
+    selectable: true,
+    selectedKeys: [siderMode],
+    items: (['follow', 'light', 'dark'] as SiderMode[]).map((key) => ({
+      key,
+      label: SIDER_MODE_LABELS[key],
+    })),
+    onClick: ({ key }) => setSiderMode(key as SiderMode),
+  }
+
   return (
     <Layout.Header className="app-header">
       <Button
         type="text"
-        aria-label={narrow ? '打开导航' : siderCollapsed ? '展开导航' : '收起导航'}
-        icon={!narrow && !siderCollapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-        onClick={() => (narrow ? setMobileSiderOpen(true) : setSiderCollapsed(!siderCollapsed))}
+        aria-label={mobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'}
+        icon={!mobile && !collapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+        onClick={onToggleSider}
       />
 
       <ModuleSearch />
@@ -272,6 +299,12 @@ function AppHeader() {
           />
         </Tooltip>
 
+        <Tooltip title="侧栏配色">
+          <Dropdown trigger={['click']} menu={siderMenu}>
+            <Button type="text" aria-label="侧栏配色" icon={<BgColorsOutlined />} />
+          </Dropdown>
+        </Tooltip>
+
         <Dropdown trigger={['click']} menu={userMenu}>
           <Button type="text" className="app-user">
             <Avatar size={26} icon={<UserOutlined />} />
@@ -284,21 +317,71 @@ function AppHeader() {
 }
 
 /**
- * 所有受保护页面的外壳：侧栏 + 顶栏 + 内容区，由 refine 的 ThemedLayout 提供。
+ * 所有受保护页面的外壳：固定顶栏 + 独立滚动的侧栏 + 内容区。
  *
- * 路由切换时把滚动位置拉回顶部：ThemedLayout 的内容区不是滚动容器，
- * 滚的是 window，不手动复位的话从长列表点进详情会停在页面中间。
+ * 布局不交给 refine 的 ThemedLayout：它是"整页滚动"的形状（外层 minHeight 100vh、
+ * 内容区不给高度），要做出"顶栏不动、侧栏与内容各滚各的"只能层层覆写它的内联样式。
+ * 这里直接给出结构，四个滚动边界的责任就一目了然：
+ *
+ *   .app-shell   正好一屏高，overflow: hidden —— 窗口永远不滚
+ *   .app-sider   左侧一列，菜单区自己滚（见 AppSider）
+ *   .app-header  在 .app-main 顶部，不在任何滚动容器里
+ *   .app-content 唯一的滚动容器
+ *
+ * 侧栏外面套了第二个 ConfigProvider（buildSiderThemeConfig）：侧栏按自己的
+ * 偏好取配色，与内容区的主题互不影响——内容区换明暗不会重置侧栏的选择。
  */
 export function AppLayout() {
   const { pathname } = useLocation()
+  const { mode, compact, siderMode } = useUiPrefs()
+  // 与 refine 同一条判定（lg 之下侧栏是抽屉）；首帧拿不到断点时按宽屏处理。
+  const mobile = Grid.useBreakpoint().lg === false
 
+  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const siderColorMode = resolveSiderMode(siderMode, mode)
+  const siderTheme = useMemo(
+    () => buildSiderThemeConfig({ mode: siderColorMode, compact }),
+    [siderColorMode, compact],
+  )
+  const siderVars = useMemo(() => siderCssVars(siderColorMode), [siderColorMode])
+
+  // 路由切换回到顶部：窗口不再滚动，滚的是内容区（见 utils/scroll.ts）。
   useEffect(() => {
-    window.scrollTo({ top: 0 })
+    scrollContentTo(0)
   }, [pathname])
 
+  // 抽屉只在窄屏有意义：拉宽窗口后不能让它继续盖着页面。
+  useEffect(() => {
+    if (!mobile) setMobileOpen(false)
+  }, [mobile])
+
+  const shellStyle = { '--app-header-height': `${HEADER_HEIGHT}px` } as CSSProperties
+
   return (
-    <ThemedLayout Title={BrandTitle} Header={AppHeader} Sider={AppSider}>
-      <Outlet />
-    </ThemedLayout>
+    <div className="app-shell" style={shellStyle}>
+      <ConfigProvider theme={siderTheme}>
+        <AppSider
+          collapsed={collapsed}
+          mobile={mobile}
+          mobileOpen={mobileOpen}
+          onToggleCollapse={() => setCollapsed((prev) => !prev)}
+          onMobileClose={() => setMobileOpen(false)}
+          vars={siderVars}
+        />
+      </ConfigProvider>
+
+      <div className="app-main">
+        <AppHeader
+          mobile={mobile}
+          collapsed={collapsed}
+          onToggleSider={() => (mobile ? setMobileOpen(true) : setCollapsed((prev) => !prev))}
+        />
+        <main className="app-content" data-app-content>
+          <Outlet />
+        </main>
+      </div>
+    </div>
   )
 }

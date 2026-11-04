@@ -1,13 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import type { ColorMode } from '@/theme'
+import type { ColorMode, SiderMode } from '@/theme'
 
 /**
- * 界面偏好：亮/暗色 + 标准/紧凑密度。
+ * 界面偏好：亮/暗色 + 标准/紧凑密度 + 侧栏配色。
  *
- * 这两项只影响观感，不影响业务数据，所以存在 localStorage 而不是后端：
+ * 这三项只影响观感，不影响业务数据，所以存在 localStorage 而不是后端：
  * 换台机器重新选一次比为一个开关加一张表划算。
+ *
+ * 侧栏配色单独一项而不是复用 mode：侧栏和内容区是两套主题，允许一深一浅
+ * （深色侧栏配亮色内容是最常见的一种）。默认 follow，即"用户不表态就跟页面走"。
  *
  * 偏好必须落在 ConfigProvider 的**外层**：ConfigProvider 的 theme 由它算出来，
  * 反过来包就会读到上一帧的值，切主题时整页闪一次旧颜色。
@@ -16,6 +19,7 @@ import type { ColorMode } from '@/theme'
 export interface UiPrefs {
   mode: ColorMode
   compact: boolean
+  siderMode: SiderMode
 }
 
 interface UiPrefsValue extends UiPrefs {
@@ -23,11 +27,18 @@ interface UiPrefsValue extends UiPrefs {
   toggleMode: () => void
   setCompact: (compact: boolean) => void
   toggleCompact: () => void
+  setSiderMode: (mode: SiderMode) => void
 }
 
 const STORAGE_KEY = 'gowork.ui-prefs'
 
-const DEFAULT_PREFS: UiPrefs = { mode: 'light', compact: false }
+const DEFAULT_PREFS: UiPrefs = { mode: 'light', compact: false, siderMode: 'follow' }
+
+const SIDER_MODES: SiderMode[] = ['follow', 'light', 'dark']
+
+function readSiderMode(value: unknown): SiderMode {
+  return SIDER_MODES.includes(value as SiderMode) ? (value as SiderMode) : DEFAULT_PREFS.siderMode
+}
 
 /**
  * 首次进入跟随系统：系统是深色就先用深色，用户手动切过之后以存储为准。
@@ -40,14 +51,19 @@ function readInitialPrefs(): UiPrefs {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<UiPrefs> | null
       if (parsed?.mode === 'dark' || parsed?.mode === 'light') {
-        return { mode: parsed.mode, compact: Boolean(parsed.compact) }
+        return {
+          mode: parsed.mode,
+          compact: Boolean(parsed.compact),
+          // 老版本存过的偏好里没有这一项：缺省就是 follow。
+          siderMode: readSiderMode(parsed.siderMode),
+        }
       }
     }
   } catch {
     // 存储被禁用或内容损坏：当作没存过。
   }
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-  return { mode: prefersDark ? 'dark' : 'light', compact: false }
+  return { mode: prefersDark ? 'dark' : 'light', compact: false, siderMode: 'follow' }
 }
 
 const UiPrefsContext = createContext<UiPrefsValue | null>(null)
@@ -85,10 +101,13 @@ export function UiPrefsProvider({ children }: { children: ReactNode }) {
   const toggleCompact = useCallback(() => {
     setPrefs((prev) => ({ ...prev, compact: !prev.compact }))
   }, [])
+  const setSiderMode = useCallback((siderMode: SiderMode) => {
+    setPrefs((prev) => ({ ...prev, siderMode }))
+  }, [])
 
   const value = useMemo<UiPrefsValue>(
-    () => ({ ...prefs, setMode, toggleMode, setCompact, toggleCompact }),
-    [prefs, setMode, toggleMode, setCompact, toggleCompact],
+    () => ({ ...prefs, setMode, toggleMode, setCompact, toggleCompact, setSiderMode }),
+    [prefs, setMode, toggleMode, setCompact, toggleCompact, setSiderMode],
   )
 
   return <UiPrefsContext.Provider value={value}>{children}</UiPrefsContext.Provider>

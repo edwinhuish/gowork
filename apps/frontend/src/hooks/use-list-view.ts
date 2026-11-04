@@ -2,6 +2,8 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Grid } from 'antd'
 
+import { getMaxScrollTop, getScrollTop, scrollContentTo } from '@/utils/scroll'
+
 export type ListViewMode = 'list' | 'card'
 
 /**
@@ -35,7 +37,8 @@ export function useListView(storageKey: string, fallback: ListViewMode = 'list')
     (next: ListViewMode) => {
       setViewState((current) => {
         if (current === next) return current
-        pendingScroll.current = window.scrollY
+        // 滚的是内容区，不是窗口（见 utils/scroll.ts）。
+        pendingScroll.current = getScrollTop()
         try {
           window.localStorage.setItem(storageKey, next)
         } catch {
@@ -61,8 +64,7 @@ export function useListView(storageKey: string, fallback: ListViewMode = 'list')
     pendingScroll.current = null
     // 等一帧：此时新布局已经量完，scrollHeight 才是切换后的真实高度。
     const raf = requestAnimationFrame(() => {
-      const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0)
-      window.scrollTo({ top: Math.min(target, max) })
+      scrollContentTo(Math.min(target, getMaxScrollTop()))
     })
     return () => cancelAnimationFrame(raf)
   }, [view])
