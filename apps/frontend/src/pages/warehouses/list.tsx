@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useList } from '@refinedev/core'
-import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, message } from 'antd'
+import { CheckOutlined } from '@ant-design/icons'
+import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, message, theme } from 'antd'
 
 import { http } from '@/api/client'
-import { AccentTag, Empty } from '@/components/fields'
+import { Empty } from '@/components/fields'
 import { PageList } from '@/components/page'
 import type { Warehouse } from '@/types'
 
@@ -27,6 +28,7 @@ interface WarehouseForm {
  * 它不是"更常用的一条"，而是新流水唯一能自动落的位置。
  */
 export function WarehouseList() {
+  const { token } = theme.useToken()
   const [showDeleted, setShowDeleted] = useState(false)
   const { query, result } = useList<Warehouse>({
     resource: 'warehouses',
@@ -180,9 +182,13 @@ export function WarehouseList() {
       />
       <Table.Column
         dataIndex="is_default"
-        title="默认"
+        title="默认仓"
         width={90}
-        render={(v: boolean) => (v ? <AccentTag>默认</AccentTag> : <Empty />)}
+        // 只给勾，不再放一个写着「默认」的标签：列头已经说明了这一列是什么，
+        // 「默认 | 默认」读起来像同一个词写了两遍。
+        render={(v: boolean) =>
+          v ? <CheckOutlined style={{ color: token.colorPrimary }} /> : <Empty />
+        }
       />
       <Table.Column
         title="操作"
@@ -207,7 +213,15 @@ export function WarehouseList() {
                   cancelText="取消"
                   onConfirm={() => remove(row)}
                 >
-                  <Button size="small" type="link" danger>
+                  {/* 默认仓后端会 409：能点开一个注定失败的确认框，
+                      不如直接禁用并把原因写在按钮上。 */}
+                  <Button
+                    size="small"
+                    type="link"
+                    danger
+                    disabled={row.is_default}
+                    title={row.is_default ? '默认仓不能删除：先把另一个仓设为默认' : undefined}
+                  >
                     删除
                   </Button>
                 </Popconfirm>
