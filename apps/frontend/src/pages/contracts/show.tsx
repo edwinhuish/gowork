@@ -155,7 +155,7 @@ export function ContractShow() {
         }}
       />
 
-      <Descriptions column={{ xs: 1, sm: 2, md: 2, lg: 3 }} bordered size="small">
+      <Descriptions column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 3 }} bordered size="small">
         <Descriptions.Item label="合同类型">
           {/* 类型没有"好 / 坏"，是身份，所以中性；状态走字典自带的 tone。 */}
           <OptionTag value={c?.type} options={CONTRACT_TYPE_OPTIONS} />

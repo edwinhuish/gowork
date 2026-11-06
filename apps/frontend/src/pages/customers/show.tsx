@@ -37,7 +37,7 @@ export function CustomerShow() {
       }
     >
       <Descriptions
-        column={{ xs: 1, sm: 2, md: 2, lg: 3 }}
+        column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 3 }}
         bordered
         size="middle"
         items={[
