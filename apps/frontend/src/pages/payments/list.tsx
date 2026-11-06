@@ -39,24 +39,26 @@ export function PaymentList() {
       createLabel="登记收付款"
       tableProps={tableProps}
       rowKey="id"
-      scrollX={1200}
+      // 不给死宽度：原来的 1200 比 1440 下的内容区（1137）还宽，
+      // 而滚动条是 overlay 的（Chrome 在 Linux / macOS 上只在滚动时出现），
+      // 结果是最右边的「水单号」被切掉、看不出还能横滑。列宽按内容配。
     >
       <Table.Column
         dataIndex="doc_no"
         title="单号"
-        width={160}
+        width={138}
         render={(value: string) => <Mono>{value}</Mono>}
       />
       <Table.Column
         dataIndex="direction"
         title="方向"
-        width={90}
+        width={76}
         render={(value: number) => <OptionTag value={value} options={PAYMENT_DIRECTION_OPTIONS} />}
       />
       <Table.Column
         dataIndex="partner"
         title="往来单位"
-        width={180}
+        width={140}
         render={(value: Payment['partner']) =>
           value ? <span className="cell-strong">{value.name}</span> : <Empty />
         }
@@ -64,31 +66,36 @@ export function PaymentList() {
       <Table.Column
         dataIndex="pay_date"
         title="到账日"
-        width={120}
+        width={106}
         render={(value: string) => formatDate(value)}
       />
       <Table.Column
         dataIndex="amount"
-        title="金额"
-        width={170}
+        title="金额 / 汇率"
+        width={150}
         align="right"
         // 币种交给 Money：它按该币种的小数位显示（JPY 0 位、KWD 3 位），
         // 并在金额后面带上代码。之前固定 2 位 + 单独的 Tag，
         // 日元会显示成 1,000.00、科威特第纳尔会丢第三位。
+        //
+        // 汇率并进这一列的第二行：它单占一列要 88px，而这张表 10 列已经
+        // 超过 1440 的内容区；汇率是「这单怎么折的本币」，与金额同看才有用。
         render={(value: string, record: Payment) => (
-          <Money value={value} currency={record.currency_code} />
+          <div className="cell-stack">
+            <span className="cell-strong">
+              <Money value={value} currency={record.currency_code} />
+            </span>
+            {record.currency_code !== 'CNY' && (
+              <span className="cell-sub">
+                @ {Number(record.exchange_rate) === 1 ? '1' : Number(record.exchange_rate).toFixed(4)}
+              </span>
+            )}
+          </div>
         )}
       />
       <Table.Column
-        dataIndex="exchange_rate"
-        title="汇率"
-        width={100}
-        align="right"
-        render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
-      />
-      <Table.Column
         title="已核销"
-        width={130}
+        width={120}
         align="right"
         // 已核销与未核销只用于列表提示，算术在服务端按末位做。
         render={(_, record: Payment) => {
@@ -101,7 +108,7 @@ export function PaymentList() {
       />
       <Table.Column
         title="未核销"
-        width={120}
+        width={100}
         align="right"
         render={(_, record: Payment) => {
           const allocated = (record.allocations ?? []).reduce((sum, a) => sum + Number(a.amount), 0)
@@ -112,12 +119,12 @@ export function PaymentList() {
       <Table.Column
         dataIndex="reference"
         title="水单号"
-        width={150}
+        width={140}
         render={(value: string) => (value ? <Mono>{value}</Mono> : <Empty />)}
       />
       <Table.Column
         title="操作"
-        width={180}
+        width={150}
         fixed="right"
         render={(_, record: Payment) => (
           <Space size={4}>
