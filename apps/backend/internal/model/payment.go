@@ -145,6 +145,31 @@ type PaymentAllocation struct {
 
 func (PaymentAllocation) TableName() string { return "biz_payment_allocation" }
 
+// SettlementAllocation 是「这张应收 / 应付被谁的钱核销了」的一行，**只读投影**。
+//
+// 与 PaymentAllocation 的方向相反：那边从收付款单出发看"这笔钱抵了哪几张单"，
+// 这边从单据出发看"这笔钱是谁付的、哪天到的"。两边都不能少——收付款详情要
+// 能追到被打的单，应收详情也得能追到钱；只有一边时，对账永远要绕回去搜单号。
+//
+// 它不是表：由仓储按 target 反查 biz_payment_allocation 并 join 收付款单拼出来
+// （见 PaymentRepository.ListAllocationsByTarget），没有自己的表与索引。
+type SettlementAllocation struct {
+	// ID 是核销行的主键：同一张收付款单可以分两次核销同一张应收，
+	// 所以 payment_id 不唯一，列表的行键只能用它。
+	ID           uint      `json:"id"`
+	PaymentID    uint      `json:"payment_id"`
+	PaymentDocNo string    `json:"payment_doc_no"`
+	PayDate      time.Time `json:"pay_date"`
+	CurrencyCode string    `json:"currency_code"`
+	// ExchangeRate 是**到账日**的汇率，不是单据上锁的那个：
+	// 两者的差就是这一笔的汇兑损益原料（与 Payment 的注释同一条口径）。
+	ExchangeRate money.Decimal      `json:"exchange_rate"`
+	Amount       money.Decimal      `json:"amount"`
+	AmountBase   money.Decimal      `json:"amount_base"`
+	Method       SettlementMethod   `json:"method"`
+	Reference    string             `json:"reference"`
+}
+
 // SettlementStatusFor 由金额推导结清状态。
 //
 // 状态是金额的派生值，不单独维护：允许两者各改各的，就会出现

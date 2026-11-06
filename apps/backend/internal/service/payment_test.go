@@ -106,10 +106,13 @@ func newPaymentFixture(t *testing.T, now time.Time) paymentFixture {
 
 	receivables := NewReceivableService(
 		repository.NewReceivableRepository(db), salesOrderRepo, partnerRepo, docNoSvc,
-		WithReceivableClock(clock))
+		WithReceivableClock(clock),
+		// 详情要带回核销记录，所以与收付款服务共用同一份收付款仓储。
+		WithReceivableAllocations(repository.NewPaymentRepository(db)))
 	payables := NewPayableService(
 		repository.NewPayableRepository(db), purchaseRepo, partnerRepo, docNoSvc,
-		WithPayableClock(clock))
+		WithPayableClock(clock),
+		WithPayableAllocations(repository.NewPaymentRepository(db)))
 
 	rc, err := receivables.Create(ctx, dto.ReceivableInput{
 		SourceType: int8(model.SettlementSourceSalesOrder),

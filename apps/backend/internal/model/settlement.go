@@ -137,6 +137,15 @@ type Settlement struct {
 	Status  SettlementStatus `gorm:"not null;index" json:"status"`
 
 	Remark string `gorm:"size:255" json:"remark"`
+
+	// Allocations 是核销这张单的收付款行，**只读投影**（不落库、不在迁移里）：
+	// 只在详情里填充，由 service 调仓储按 target 反查后挂上。
+	//
+	// 为什么不做成关联：核销表按 target_type + target_id 指向两张表之一，
+	// gorm 的 Preload 表达不了这种多态外键（只能各配一个 has-many 再二选一）。
+	// 不做的话，详情页只有"已结清 12,000"这一个派生数字，谁付的、哪天到的
+	// 一概不知，对账时要回收付款列表里逐张翻。
+	Allocations []SettlementAllocation `gorm:"-" json:"allocations,omitempty"`
 }
 
 // Outstanding 是未核销的原币金额。账龄与毛利都按它算，

@@ -1,16 +1,18 @@
 import { Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
-import { Descriptions } from 'antd'
+import { Descriptions, Typography } from 'antd'
 import { Link } from 'react-router'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { DocChain } from '@/components/doc-chain'
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
+import { ResponsiveTable } from '@/components/page'
 import {
   SETTLEMENT_STATUS_OPTIONS,
+  settlementMethodLabel,
   settlementSourceLabel,
 } from '@/constants/catalog'
-import type { Settlement } from '@/types'
+import type { Settlement, SettlementAllocation } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
 
 import type { SettlementDirection } from './form-fields'
@@ -56,6 +58,21 @@ export function SettlementShow({
   const outstanding = result ? Number(result.amount) - Number(result.settled_amount) : 0
 
   const href = result ? sourceHref(result.source_type, result.source_id) : undefined
+  const allocations = result?.allocations ?? []
+  // 收款这一环要接上真实核销记录：只按单据推导的话，一笔已经收齐的应收
+  // 在链上仍然画成"还没有收款"，看的人会以为钱没到。
+  // 多笔时不给链接（链上一格放不下多张单），单号写成「N 笔」。
+  const paymentChain =
+    allocations.length === 0
+      ? {}
+      : allocations.length === 1
+        ? {
+            payment: {
+              docNo: allocations[0].payment_doc_no,
+              href: `/payments/show/${allocations[0].payment_id}`,
+            },
+          }
+        : { payment: { docNo: `${allocations.length} 笔` } }
   // 应付那侧的标签是采购词（报价/合同/出货），拿销售的单据链去套会自相矛盾，
   // 所以只在应收上画链；应付的来源链接放在 Descriptions 那一行里。
   const chainDocs = {
@@ -63,6 +80,7 @@ export function SettlementShow({
     ...(result?.source_type === 10 ? { order: { docNo: result.source_doc_no, href } } : {}),
     ...(result?.source_type === 20 ? { shipment: { docNo: result.source_doc_no, href } } : {}),
     ...(result?.source_type === 40 ? { contract: { docNo: result.source_doc_no, href } } : {}),
+    ...paymentChain,
   }
 
   return (
@@ -147,6 +165,83 @@ export function SettlementShow({
           { key: 'remark', label: '备注', span: 'filled', children: result?.remark || <Empty /> },
           { key: 'created_at', label: '创建时间', children: formatTime(result?.created_at) },
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
+        ]}
+      />
+
+      {/* 已结清金额是核销行加总出来的派生值。只给一个总数时，
+          "这 12,000 是谁付的、哪天到的、按哪个汇率折的"都答不上来，
+          对账的人只能回到收付款列表里逐张翻。 */}
+      <Typography.Title level={5} style={{ marginTop: 24 }}>
+        {isReceivable ? '收款记录' : '付款记录'}
+      </Typography.Title>
+
+      <ResponsiveTable<SettlementAllocation>
+        rows={allocations}
+        rowKey="id"
+        size="small"
+        pagination={false}
+        empty={
+          isReceivable
+            ? '这笔应收还没收到过钱；预收挂在收付款单上，核销之后才会出现在这里'
+            : '这笔应付还没付过钱；预付挂在收付款单上，核销之后才会出现在这里'
+        }
+        columns={[
+          {
+            dataIndex: 'pay_date',
+            title: '到账日',
+            width: 120,
+            render: (value: string) => formatDate(value),
+          },
+          {
+            dataIndex: 'payment_doc_no',
+            title: isReceivable ? '收款单' : '付款单',
+            // 这一行回答的就是"钱从哪来"，单号必须能点进去看水单与其它核销行。
+            render: (value: string, record: SettlementAllocation) => (
+              <Link to={`/payments/show/${record.payment_id}`}>
+                <Mono>{value}</Mono>
+              </Link>
+            ),
+          },
+          {
+            dataIndex: 'method',
+            title: '结算方式',
+            width: 110,
+            render: (value: string) => settlementMethodLabel(value) || <Empty />,
+          },
+          {
+            dataIndex: 'reference',
+            title: '水单号',
+            width: 150,
+            render: (value: string) => (value ? <Mono>{value}</Mono> : <Empty />),
+          },
+          {
+            dataIndex: 'amount',
+            title: '核销金额（原币）',
+            width: 180,
+            align: 'right',
+            render: (value: string, record: SettlementAllocation) => (
+              <Money value={value} currency={record.currency_code} />
+            ),
+          },
+          {
+            dataIndex: 'amount_base',
+            title: '核销金额（本币）',
+            width: 170,
+            align: 'right',
+            // 与收付款详情同一条口径：本币不跟原币符号。
+            render: (value: string) => <Money value={value} />,
+          },
+          {
+            dataIndex: 'exchange_rate',
+            title: '汇率（到账日）',
+            width: 130,
+            align: 'right',
+            // 到账日汇率与单头上锁的那个通常不同，差额就是这笔的汇兑损益；
+            // 两个数并排才看得出差在哪，只显示一个时对不上账。
+            render: (value: string) => (
+              <span className="cell-mono">{Number(value) === 1 ? '1' : Number(value).toFixed(4)}</span>
+            ),
+          },
         ]}
       />
 

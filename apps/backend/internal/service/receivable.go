@@ -36,12 +36,20 @@ type receivableService struct {
 	// shipments 供「按出货开票」用（T-53）。为 nil 时那条来源返回明确的错误，
 	// 而不是 panic——老的装配与测试不必为它准备仓储。
 	shipments repository.ShipmentRepository
-	docNos    DocNoService
-	clock     func() time.Time
-	log       *slog.Logger
+	// payments 只在 Get 里用：填"核销这张单的钱是哪几笔"。为 nil 时详情不填，
+	// 老装配与测试不必为了它准备一份收付款仓储。
+	payments repository.PaymentRepository
+	docNos   DocNoService
+	clock    func() time.Time
+	log      *slog.Logger
 }
 
 type ReceivableOption func(*receivableService)
+
+// WithReceivableAllocations 注入收付款仓储，让应收详情带回核销记录。
+func WithReceivableAllocations(repo repository.PaymentRepository) ReceivableOption {
+	return func(s *receivableService) { s.payments = repo }
+}
 
 // WithReceivableShipments 注入出货仓储，启用「按出货开票」（T-53）。
 func WithReceivableShipments(repo repository.ShipmentRepository) ReceivableOption {
@@ -178,8 +186,20 @@ func (s *receivableService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// Get 给详情页：单据本体 + 核销记录。
+//
+// 核销记录是"已结清 12,000"这个派生值的构成，不带上它，详情页只能显示一个
+// 加总后的数，说不出这笔钱是谁付的、哪天到的。
 func (s *receivableService) Get(ctx context.Context, id uint) (*model.Receivable, error) {
-	return s.repo.FindByID(ctx, id)
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := fillSettlementAllocations(
+		ctx, s.payments, model.SettlementTargetReceivable, m.ID, &m.Settlement); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (s *receivableService) List(

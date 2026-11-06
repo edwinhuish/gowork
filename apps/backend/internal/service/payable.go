@@ -34,12 +34,19 @@ type payableService struct {
 	repo     repository.PayableRepository
 	orders   repository.PurchaseOrderRepository
 	partners repository.PartnerRepository
+	// payments 只在 Get 里用：填"付款是哪几笔"。为 nil 时详情不填。
+	payments repository.PaymentRepository
 	docNos   DocNoService
 	clock    func() time.Time
 	log      *slog.Logger
 }
 
 type PayableOption func(*payableService)
+
+// WithPayableAllocations 注入收付款仓储，让应付详情带回付款记录。
+func WithPayableAllocations(repo repository.PaymentRepository) PayableOption {
+	return func(s *payableService) { s.payments = repo }
+}
 
 func WithPayableClock(now func() time.Time) PayableOption {
 	return func(s *payableService) { s.clock = now }
@@ -165,8 +172,17 @@ func (s *payableService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// Get 给详情页：单据本体 + 付款记录。与应收同一条口径（见 receivableService.Get）。
 func (s *payableService) Get(ctx context.Context, id uint) (*model.Payable, error) {
-	return s.repo.FindByID(ctx, id)
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := fillSettlementAllocations(
+		ctx, s.payments, model.SettlementTargetPayable, m.ID, &m.Settlement); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (s *payableService) List(

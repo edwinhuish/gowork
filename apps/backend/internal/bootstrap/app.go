@@ -279,10 +279,13 @@ func New(cfg *config.Config) (*App, error) {
 	// 采购单上取供应商与采购币种，两边汇率互不影响。
 	receivableSvc = service.NewReceivableService(
 		receivableRepo, orderRepo, partnerRepo, docNoSvc,
-		service.WithReceivableLogger(log), service.WithReceivableShipments(shipmentRepo))
+		service.WithReceivableLogger(log), service.WithReceivableShipments(shipmentRepo),
+		// 详情要带回"这笔应收是谁付的"，所以给一份收付款仓储；
+		// 核销写回仍在 payment 的仓储事务里，这里只读。
+		service.WithReceivableAllocations(paymentRepo))
 	payableSvc := service.NewPayableService(
 		payableRepo, purchaseRepo, partnerRepo, docNoSvc,
-		service.WithPayableLogger(log))
+		service.WithPayableLogger(log), service.WithPayableAllocations(paymentRepo))
 	// 收付款单读应收 / 应付仓储只为了填核销行与给出可读的错误，
 	// 真正的额度判定在仓储事务里做，所以这里依赖仓储而不是两个服务。
 	paymentSvc := service.NewPaymentService(

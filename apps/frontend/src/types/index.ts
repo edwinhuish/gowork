@@ -928,8 +928,32 @@ export interface Settlement {
   status: number
   remark: string
   partner?: Partner | null
+  /**
+   * 核销这张单的收付款行，**只在详情里回来**（列表不带，那是 N+1）。
+   * 已结清金额是由它加总出来的，看不到它就只能看到一个说不出构成的总数。
+   */
+  allocations?: SettlementAllocation[]
   created_at: string
   updated_at: string
+}
+
+/** 核销记录：一笔收付款抵在这张应收 / 应付上的那一行。 */
+export interface SettlementAllocation {
+  /** 核销行主键：同一张收付款单可以分两次核销同一张单，payment_id 不唯一。 */
+  id: number
+  payment_id: number
+  payment_doc_no: string
+  /** YYYY-MM-DD，到账日（不是录入日）。 */
+  pay_date: string
+  currency_code: string
+  /** 到账日汇率，与单据上锁定的那个不同，差额就是汇兑损益。 */
+  exchange_rate: string
+  amount: string
+  amount_base: string
+  /** TT / LC 等结算方式。 */
+  method: string
+  /** 银行水单号。 */
+  reference: string
 }
 
 /** 应收单与应付单结构相同，分开取名只为让调用处读得懂。 */

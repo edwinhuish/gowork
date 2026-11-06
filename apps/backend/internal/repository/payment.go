@@ -54,6 +54,13 @@ type PaymentRepository interface {
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	FindByID(ctx context.Context, id uint) (*model.Payment, error)
 	List(ctx context.Context, f PaymentFilter, p Pagination) ([]model.Payment, int64, error)
+	// ListAllocationsByTarget 反查"核销这张应收 / 应付的钱是哪几笔"。
+	//
+	// 只有详情页用它：应收详情的已结清金额是派生值，看不到构成它的收付款单，
+	// 对账就只能靠人去收付款列表里逐张翻。列表页不填充——那是 N+1。
+	ListAllocationsByTarget(
+		ctx context.Context, target model.SettlementTarget, targetID uint,
+	) ([]model.SettlementAllocation, error)
 }
 
 type paymentRepo struct {
@@ -168,6 +175,33 @@ func (r *paymentRepo) List(
 			Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") })
 	})
 	return r.PaginateOrdered(ctx, p, "pay_date DESC, id DESC", scopes...)
+}
+
+// ListAllocationsByTarget 反查核销某张应收 / 应付的收付款行。
+//
+// 两个 deleted_at 都要带：核销行随收付款单一起软删（见 Delete），
+// 只判核销行会把删掉的钱再列一遍；只判收付款单则会漏掉"行留着、单没了"的
+// 历史数据——那种行不该出现在对账清单里。
+//
+// 排序按到账日、同一天按行 id：对账看的是"钱什么时候到的"，
+// 与收付款单自己的排序（到账日倒序）故意不同——这里读的是时间线。
+func (r *paymentRepo) ListAllocationsByTarget(
+	ctx context.Context, target model.SettlementTarget, targetID uint,
+) ([]model.SettlementAllocation, error) {
+	var rows []model.SettlementAllocation
+	err := r.conn(ctx).
+		Table("biz_payment_allocation AS a").
+		Select(`a.id, a.payment_id, p.doc_no AS payment_doc_no, p.pay_date, p.currency_code,
+			p.exchange_rate, a.amount, a.amount_base, p.method, p.reference`).
+		Joins("JOIN biz_payment AS p ON p.id = a.payment_id AND p.deleted_at = 0").
+		Where("a.deleted_at = 0").
+		Where("a.target_type = ? AND a.target_id = ?", target, targetID).
+		Order("p.pay_date ASC, a.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询核销记录(target=%d, id=%d): %w", target, targetID, err)
+	}
+	return rows, nil
 }
 
 // applyAllocation 校验一行核销并回写目标的已核销金额。
