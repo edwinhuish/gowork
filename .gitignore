@@ -36,7 +36,6 @@ release-notes.md
 # editor / os
 .DS_Store
 .idea/
-.vscode/
 *.swp
 
 # AI 工具的工作目录（本地计划与缓存，不入库）
