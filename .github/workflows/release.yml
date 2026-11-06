@@ -1,0 +1,281 @@
+# 推 v* tag 触发：编译五个平台的后端包（linux/darwin/windows）、打包前端 dist、推 ghcr.io 镜像，
+# 齐了再创建 GitHub Release。
+#
+# 为什么由 tag 触发而不是由 release 任务直接调 API：tag 是不可变指针，别人 clone 下来
+# 就能对上「这一版到底是哪几个提交」；本地脚本只负责把 tag 推上去，产物一律在 CI 里出，
+# 免得谁的机器上少装了什么就发出一份不一样的包。
+#
+# 发版入口是 `task release`（见根 Taskfile 与 .github/scripts/release.sh），
+# 这里不重复版本号逻辑：tag 名就是版本号，构建期用 -X main.version 注进二进制。
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  # contents 用于创建 Release，packages 用于推 ghcr.io 镜像。
+  contents: write
+  packages: write
+
+jobs:
+  backend:
+    name: 后端 ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      # 单个平台编译失败不该掐掉其余平台，全跑完再看哪些挂了。
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 准备 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: 构建
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          # 三种数据库驱动里 sqlite 走的是纯 Go 实现（glebarez/sqlite → modernc），
+          # 关掉 CGO 仍能跑，交叉编译因此不必配 C 工具链。
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          target="${GOOS}-${GOARCH}"
+          stage="${GITHUB_WORKSPACE}/dist/${target}"
+          bin="gowork-server"
+          if [ "${GOOS}" = "windows" ]; then
+            bin="gowork-server.exe"
+          fi
+          mkdir -p "${stage}"
+          # 与 apps/backend/Taskfile.yml 的 build 注同一批变量，只是版本号换成 tag 名：
+          # 发布产物自报的那个号必须与对外宣布的一致，而 tag 才是权威。
+          ldflags="-s -w
+            -X main.version=${{ github.ref_name }}
+            -X main.commit=${{ github.sha }}
+            -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          (cd apps/backend && go build -trimpath -ldflags "${ldflags}" -o "${stage}/${bin}" ./cmd/server)
+          # 二进制默认读 configs/config.yaml，包里附一份样例，免得用户对着空目录手抄配置。
+          cp apps/backend/configs/config.yaml "${stage}/config.example.yaml"
+
+      # 只有跟 runner 同架构的那一个包跑得起来，其余平台到 Release 里再验证。
+      - name: 冒烟：版本号是否真的注入了
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          out="$(./dist/linux-amd64/gowork-server -version)"
+          echo "${out}"
+          echo "${out}" | grep -q "${{ github.ref_name }}"
+
+      - name: 打包
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          name="gowork-${{ github.ref_name }}-${GOOS}-${GOARCH}"
+          mkdir -p "${GITHUB_WORKSPACE}/dist/archives"
+          if [ "${GOOS}" = "windows" ]; then
+            (cd "dist/${GOOS}-${GOARCH}" && zip -qr "${GITHUB_WORKSPACE}/dist/archives/${name}.zip" .)
+          else
+            tar -czf "dist/archives/${name}.tar.gz" -C "dist/${GOOS}-${GOARCH}" .
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/archives/*
+          if-no-files-found: error
+
+  frontend:
+    name: 前端静态产物
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本从 apps/frontend/package.json 的 packageManager 读，
+      # 与 ci.yml 同一套写法：本地、CI、发布三处不该各写一个版本号。
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/frontend/package.json
+          cache: true
+          cache_dependency_path: apps/frontend/pnpm-lock.yaml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 按锁文件装：发布产物不该依赖某个包昨晚发了新版本。
+      - name: 安装依赖（严格按锁文件）
+        working-directory: apps/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建
+        working-directory: apps/frontend
+        run: pnpm run build
+
+      - name: 打包
+        run: |
+          set -euo pipefail
+          mkdir -p dist/archives
+          tar -czf "dist/archives/gowork-${{ github.ref_name }}-frontend.tar.gz" -C apps/frontend/dist .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: dist/archives/*
+          if-no-files-found: error
+
+  image:
+    name: 推送 ghcr.io 镜像
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # arm64 是模拟执行，比原生的 amd64 慢不少；两者并行构建由 BuildKit 调度。
+      - name: 准备 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 准备 Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GITHUB_TOKEN 本身就够推本仓库的 ghcr.io 包，不必再配一个 PAT——
+      # 前提是上面声明了 packages: write。
+      - name: 登录 ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 推导镜像标签
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # 直接用 github.repository，不放硬编码的 owner/repo，
+          # 这样仓库改名或 fork 出去都不用改这里。
+          images: ghcr.io/${{ github.repository }}/server
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # latest 的开关不能用 is_default_branch：本工作流只由 tag 触发，
+            # github.ref 是 refs/tags/vX，拿它比默认分支永远为假 —— 那等于从不打
+            # latest。预发布（v1.3.0-rc.1）不移动 latest：带 - 后缀的 tag 只留版本号，
+            # 免得 :latest 指到一个还没转正的候选版本上。
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          # 镜像是纯后端：前端产物由反代或网关单独发布（README「存储」一节同款选择）。
+          context: ./apps/backend
+          file: ./apps/backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: 发布 ${{ github.ref_name }}
+    # 镜像一起算进来：二进制、前端产物、镜像都落地了才对外宣布这个版本。
+    needs: [backend, frontend, image]
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 是必须的：生成发布说明要跑 `git log <上一个标签>..<当前标签>`，
+      # 也要能枚举出历史标签来挑上一个版本。默认的浅克隆（fetch-depth: 1）两条都做不到。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 上一个版本标签交给脚本按语义化版本算，而不是在 workflow 里塞一行 git describe：
+      # 后者只认 git 的访达顺序，跨 minor / 跨 major 时选出来的常常不是想要的那一个。
+      # 首个版本（仓库里没有更早的 v* 标签）时它输出空的 previous_tag，说明会退化成
+      # 「该标签的全部历史」，不会让发布失败。
+      - name: 查找上一个版本标签
+        id: tags
+        run: |
+          chmod +x .github/scripts/get-tags.sh
+          .github/scripts/get-tags.sh "${{ github.ref_name }}"
+
+      - name: 生成发布说明
+        id: changelog
+        env:
+          TAG: ${{ steps.tags.outputs.current_tag }}
+          PREVIOUS_TAG: ${{ steps.tags.outputs.previous_tag }}
+        run: |
+          chmod +x .github/scripts/generate-changelog.sh
+          .github/scripts/generate-changelog.sh "$TAG" "$PREVIOUS_TAG" release-notes.md
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      # 校验和只对最终产物算 —— 让用户下载后能验证传输没出错。
+      - name: 计算校验和
+        working-directory: assets
+        run: |
+          set -euo pipefail
+          # download-artifact 会把每个产物放到 assets/<产物名>/ 下，先摊平。
+          find . -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec mv -f {} . \;
+          find . -mindepth 1 -type d -empty -delete
+          sha256sum -- *.tar.gz *.zip | tee checksums.txt
+
+      # 用 gh CLI 而不是第三方的 release action：Runner 自带 gh，
+      # 少一个外部依赖，也就少一处供应链风险。
+      - name: 创建 / 更新 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ steps.changelog.outputs.notes_file }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          # 说明文件没落地时宁可直接失败：带着空 body 发出去的 Release，
+          # 页面看着是好的，实际上没人知道这次改了什么。
+          if [ -z "${NOTES}" ] || [ ! -f "${NOTES}" ]; then
+            echo "::error::没有拿到发布说明文件（NOTES='${NOTES}'）。检查「生成发布说明」那一步。"
+            exit 1
+          fi
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            # 重跑同一个 tag 的场景：补传覆盖，而不是直接失败。
+            # 说明也一并刷新成本次生成的这份 —— 两次跑出来的内容可能不同，别留旧的。
+            gh release edit "${tag}" --notes-file "${NOTES}"
+            gh release upload "${tag}" assets/* --clobber
+          else
+            gh release create "${tag}" --title "${tag}" --notes-file "${NOTES}" assets/*
+          fi
+
+      # 只看退出码会把「说明没写进去」当成成功：Release 页面看着已发布，实际只有一堆
+      # 产物、没有变更内容。所以把终态断言出来 —— 生成的说明里必定带本次标签（对比
+      # 链接或文字范围），拿它当判据。
+      - name: 校验发布说明已落盘
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          body=$(gh release view "${tag}" --json body --jq .body)
+          if [ -z "$body" ] || [[ "$body" != *"$tag"* ]]; then
+            echo "::error::Release ${tag} 的说明为空或与本次标签无关（body 长度 ${#body}）。检查「生成发布说明」那一步。"
+            exit 1
+          fi
+          echo "发布说明已写入（${#body} 字节）"
