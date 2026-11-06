@@ -29,7 +29,7 @@ import (
 //	go build -ldflags "-X main.version=0.1.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%FT%TZ)"
 //
 // 正本是仓库根目录的 VERSION（`task release` 写它）。两条构建路径都把它的内容交给
-// 上面的 -X：`task backend:build`（缺省读 VERSION，可用 VERSION=1.2.3 覆盖）与
+// 上面的 -X：`task backend:build`（缺省读 VERSION，可用 APP_VERSION=1.2.3 覆盖）与
 // 发布流水线（用 tag 名，那才是对外的权威）；`docker build --build-arg VERSION=…`
 // 同理，缺省落在 dev 上。
 //
