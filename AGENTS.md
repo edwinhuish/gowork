@@ -50,6 +50,7 @@
 GoWork/
 ├── AGENTS.md                    # 本文件：总览与导航
 ├── Taskfile.yml                 # 根编排：只调子项目任务，不写具体命令
+├── VERSION                      # 版本号正本：task release 写它，构建期注入二进制
 ├── apps/
 │   ├── backend/                 # Go 服务（见 apps/backend/AGENTS.md）
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
@@ -63,7 +64,11 @@ GoWork/
 ├── docs/
 │   ├── glossary.md              # 术语表：业务对象叫什么、归哪个域（唯一事实来源）
 │   └── architecture.md          # 分层约定、存储可替换性、扩展指引
-└── .github/workflows/ci.yml     # CI：go build/vet/test + pnpm install/typecheck/build
+└── .github/
+    ├── scripts/                 # 发版脚本：release.sh 与发布说明用的两个单用途脚本
+    └── workflows/
+        ├── ci.yml               # CI：go build/vet/test + pnpm install/typecheck/build
+        └── release.yml          # 推 v* tag：后端包 + 前端 dist + 镜像 + Release
 ```
 
 **两端的耦合方式只有一条：HTTP。** 前端不 import 后端代码，后端不产前端产物，
@@ -174,13 +179,14 @@ CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
 ## 7. 运行
 
 ```bash
-task dev     # 后端 :8080（air 热重载）+ 前端 :5173（Vite HMR）
-task test    # 后端单元测试
-task lint    # go vet + 前端 tsc --noEmit
+task dev      # 后端 :8080（air 热重载）+ 前端 :5173（Vite HMR）
+task test     # 后端单元测试
+task lint     # go vet + 前端 tsc --noEmit
+task release  # 发版：问版本号 -> 同步版本号 -> 提交打 tag -> 问是否推送
 ```
 
 默认账号 `admin / admin123`；默认配置是 SQLite + 内存缓存，零外部依赖。
-前置版本、完整命令表、存储切换（PostgreSQL / MySQL / Redis）见 `README.md`。
+前置版本、完整命令表、存储切换（PostgreSQL / MySQL / Redis）与发版细节见 `README.md`。
 
 ## 8. 文档地图
 

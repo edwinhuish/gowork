@@ -368,7 +368,7 @@ task backend:test       # go test ./... -count=1
 | 监听范围 | `root = "."`（就是 `apps/backend`），`include_ext = ["go"]`：只有 `.go` 变更触发编译 |
 | 忽略目录 | `bin`（产物与 `build-errors.log`，不排除会自己触发自己）、`data`（sqlite 的 `db`/`-wal`/`-shm` 与缓存快照运行期一直在写）、`.git`、`vendor`、`node_modules`、`.vscode`、`.idea` |
 | 排除文件 | `_test.go`（不进服务二进制，改了不必重启）、编辑器临时/交换文件（`.#*`、`*~`）。另有 `exclude_unchanged = true`：内容没变不重启 |
-| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task backend:build` 的发布参数，热重载剥符号只拖慢重启 |
+| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task backend:build` 的发布参数（它还用 `-X main.version` 注入版本号），热重载剥符号只拖慢重启，`-version` 也就该报 `dev` |
 | 运行命令 | `entrypoint = ["./bin/dev/gowork-server"]`，不写 `-config`，走 `main.go` 里 `-config` 的默认值 `configs/config.yaml` |
 | 产物位置 | `bin/dev/gowork-server`；`bin/` 已在 `.gitignore`。它与 `task backend:build` 的 `bin/gowork-server` 是两个文件，互不覆盖 |
 | 日志 | 业务日志仍是 slog 打 **stdout**，不经 air、不落文件。air 自己的 `building... / running... / failed to build` 带 `[HH:MM:SS]` 前缀（`log.time = true`），与业务日志一眼分得开。编译报错详情在终端，`bin/dev/build-errors.log` 只有一行 `exit status N` |

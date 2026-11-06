@@ -96,10 +96,60 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 | `task test:storage` | 三库两缓存一致性测试 |
 | `task lint` | `go vet` + 前端类型检查 |
 | `task fmt` | gofmt |
+| `task release` | 发版：问版本号 → 同步前后端版本号 → 提交打 tag → 问是否推送 |
 | `task clean` | 清理 `bin/` 与 `dist/` |
 | `task infra:up` / `infra:down` | 启停 PostgreSQL + Redis（MySQL 加 `--profile mysql`） |
 
 子目录也有各自任务：`task -d apps/backend -- --list`、`task -d apps/frontend -- --list`。
+
+## 发版
+
+版本号正本是仓库根目录的 `VERSION`（一行数字），`apps/frontend/package.json` 的 `version`
+跟着一起改。产物不读这个文件，而是**构建期注进去** —— 二进制要能在任何目录、任何机器上
+用 `gowork-server -version` 自证：
+
+```
+gowork-server 0.1.0
+  commit: 7b2b231
+  built:  2026-11-06T10:18:49Z
+  go:     go1.27.3
+```
+
+| 优先级 | 来源 | 用在哪 |
+|---|---|---|
+| 1（最高） | `-X main.version=…` 链接参数 | 发布流水线把 tag 名注进去；`docker build --build-arg VERSION=` 也走这条 |
+| 2 | `task backend:build APP_VERSION=1.2.3` | 本地试打某个号 |
+| 3 | 根目录 `VERSION` | `task backend:build` 没显式给号时的缺省值 |
+| 4（兜底） | 代码里的 `"dev"` | 裸 `go build` / air 热重载不带 ldflags，一眼看出不是发布产物 |
+
+发版走 `task release`，它按顺序做完这几步，任一步失败就停下并说明停在哪：
+
+| 步骤 | 做什么 | 出问题时的表现 |
+|---|---|---|
+| 前置校验 | 工作区干净、不在 detached HEAD、远程（若配置了）可达且没有同名 tag | 列出原因后退出，不留半成品 |
+| 问版本号 | 回车 = 当前版本 +1 patch，也可以直接敲 `1.3.0` / `1.3.0-rc.1` | 输错当场重问 |
+| 同步版本号 | 写 `VERSION` 与 `apps/frontend/package.json` 的 `version` | 两处本来就是目标版本时跳过提交，只打 tag |
+| 提交 + 打 tag | 一个「发布 vX.Y.Z」提交，加一个带注释的 `vX.Y.Z` tag | — |
+| 问推送 | 回车即 `git push --atomic`，分支与 tag 一起推 | 选不推就只留本地提交与 tag，并把补推命令打在屏幕上 |
+
+```bash
+task release                      # 不带参数：先问版本号（回车 = 当前版本 +1 patch）
+task release VERSION=1.3.0        # 指定版本号（带不带 v 前缀都认），不再问版本号
+task release VERSION=1.3.0-rc.1   # 预发布，tag 仍是 v 前缀
+task release REMOTE=upstream      # 推到别的远程（默认 origin；没配远程就跳过推送）
+task release PUSH=false           # 只做本地部分（提交 + tag），不问也不推
+task release DRY_RUN=true         # 只打印将要发生什么，不改文件、不提交、不推
+```
+
+推 tag 之后由 CI 出产物，本机不再参与：
+
+| 工作流 | 触发时机 | 做什么 |
+|---|---|---|
+| `ci.yml` | 任意 `push`、`pull_request` | 后端 `build` / `vet` / `gofmt` / `test`，前端 `typecheck` / `build`，外加三库两缓存的一致性测试 |
+| `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 镜像 + Release |
+
+两条流水线都不重写构建命令，一律调用 `Taskfile.yml` 里已有的任务。发布说明由提交历史
+现算（`.github/scripts/generate-changelog.sh`），不依赖 GitHub 的自动生成。
 
 ## 前端只认 pnpm
 
