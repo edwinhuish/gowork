@@ -140,7 +140,9 @@ export function StockMovementList() {
           const source = record.source_doc_no
           return (
             <div className="cell-stack">
-              <span>{value || <Empty />}</span>
+              {/* 没备注就不占一行：原来这里是个「—」，下面又跟着「来源 IN-…」，
+                  两行里有一个字是没有信息的。 */}
+              {value ? <span>{value}</span> : null}
               {source && <span className="cell-sub">来源 {source}</span>}
             </div>
           )
@@ -149,6 +151,9 @@ export function StockMovementList() {
       <Table.Column
         title="操作"
         width={90}
+        // 单据产生的流水不给删除：冲销要走单据本身（确认过了就是账）。
+        // 这里原来写的是「由单据产生」四个字 —— 一列叫「操作」却只放说明，
+        // 而它想解释的事在「备注 / 来源」里已经写了来源单号。
         render={(_, record: StockMovement) =>
           isManual(record.type) ? (
             <DeleteButton
@@ -160,7 +165,7 @@ export function StockMovementList() {
               confirmCancelText="返回"
             />
           ) : (
-            <span className="cell-sub">由单据产生</span>
+            <Empty />
           )
         }
       />
