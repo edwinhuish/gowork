@@ -225,7 +225,8 @@ export function SalesDashboardPage() {
           rowKey="key"
           loading={isLoading}
           pagination={false}
-          scrollX={1180}
+          // 不给死宽度：1180 比 1440 下的内容区（1137）宽，表格就永远多出
+          // 一截，「票数」被切在边缘。列宽已经按内容配过，让 max-content 收口。
           empty="范围内没有出货或订单"
           // 与上面的合计行是同一份数：换维度不换数，卡上也要是"全量"那一栏。
           // 成本不可见时给「—」而不是 0 —— 0 会被读成"这批货没成本"。
@@ -307,19 +308,33 @@ export function SalesDashboardPage() {
           <Table.Column
             dataIndex="label"
             title={DIMENSION_COLUMN[dimension]}
-            width={240}
+            // 200 不是 240：这张表 8 列，客户列多占的 40px 会把最右边的
+            // 「出货数」挤出内容区（1440 下整表 1180 > 1137）。
+            width={205}
             render={(value: string, row: SalesDashboardRow) => (
               <Space size={4}>
+                {/* 名字限宽 + 省略：客户名「CUS004 · Ferreteria Central S.A.」这种
+                    在 auto 布局下会把这一列从 190 撑到 253，最右边的「票数」就被
+                    挤出内容区了。全名放 title。 */}
                 {dimension === 'product' ? (
                   // 只有产品维度能下钻：品类/客户/国家的"逐票"是另一个问题，
                   // 顺手都给会让人以为点进去能看到该品类每票的毛利，实际只能分摊。
                   <Typography.Link
                     onClick={() => setDrill({ id: Number(row.key), label: value })}
+                    title={value}
                   >
-                    {value}
+                    <span className="ellipsis-line" style={{ maxWidth: 190 }}>
+                      {value}
+                    </span>
                   </Typography.Link>
                 ) : (
-                  <span className={dimension === 'month' ? 'cell-mono' : undefined}>{value}</span>
+                  <span
+                    className={dimension === 'month' ? 'cell-mono ellipsis-line' : 'ellipsis-line'}
+                    style={{ maxWidth: 190 }}
+                    title={value}
+                  >
+                    {value}
+                  </span>
                 )}
                 {row.cost_missing && (
                   <Tooltip title="这一行里有出货行没挂采购单，成本偏低，毛利因此偏高">
@@ -330,8 +345,10 @@ export function SalesDashboardPage() {
             )}
           />
           <Table.Column
-            title="订单额（按下单日）"
-            width={150}
+            // 「按下单日」省成「下单日」：表头带排序箭头，150px 放不下 9 个字，
+            // 折成「订单额（按下单」+「日）」两行，箭头也跟着掉到第二行。
+            title="订单额（下单日）"
+            width={155}
             align="right"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
               Number(a.order_amount) - Number(b.order_amount)
@@ -342,7 +359,7 @@ export function SalesDashboardPage() {
           />
           <Table.Column
             title="收入（已出货）"
-            width={150}
+            width={140}
             align="right"
             defaultSortOrder="descend"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
@@ -356,7 +373,7 @@ export function SalesDashboardPage() {
           />
           <Table.Column
             title="采购成本"
-            width={140}
+            width={130}
             align="right"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) => Number(a.cost) - Number(b.cost)}
             render={(_, row: SalesDashboardRow) =>
@@ -367,7 +384,7 @@ export function SalesDashboardPage() {
           />
           <Table.Column
             title="运杂费"
-            width={120}
+            width={112}
             align="right"
             render={(_, row: SalesDashboardRow) =>
               row.cost_hidden ? (
@@ -381,7 +398,7 @@ export function SalesDashboardPage() {
           />
           <Table.Column
             title="毛利"
-            width={140}
+            width={130}
             align="right"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
               Number(a.profit) - Number(b.profit)
@@ -396,7 +413,7 @@ export function SalesDashboardPage() {
           />
           <Table.Column
             title="毛利率"
-            width={100}
+            width={92}
             align="right"
             sorter={(a: SalesDashboardRow, b: SalesDashboardRow) =>
               Number(a.margin) - Number(b.margin)
@@ -408,7 +425,7 @@ export function SalesDashboardPage() {
           <Table.Column
             dataIndex="shipments"
             title="票数"
-            width={80}
+            width={72}
             align="right"
           />
         </ResponsiveTable>
