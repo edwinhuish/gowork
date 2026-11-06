@@ -1,7 +1,17 @@
-/** 时间格式化：后端返回 RFC3339 字符串，统一成本地可读格式。 */
+/**
+ * 时间格式化：后端返回 RFC3339 字符串，统一本地时区的「2026-10-30 20:08:04」。
+ *
+ * 不用 toLocaleString('zh-CN')：它给的是「2026/10/30 20:08:04」——
+ * 一是同一张详情页里，业务日期是 2026-10-30、录入时间是 2026/10/30，
+ * 两种分隔符；二是月日不补零，日志这类右对齐的长列表里一眼看得出参差。
+ * 补零之后固定 19 个字符，列宽也好算。
+ */
 export function formatTime(value?: string) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 /**
