@@ -11,7 +11,7 @@ import { PageList } from '@/components/page'
 import { ORDER_STATUS_OPTIONS } from '@/constants/catalog'
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Shipment } from '@/types'
-import { formatDate, formatQty } from '@/utils/format'
+import { formatDate, formatQtyByUnit } from '@/utils/format'
 
 interface ShipmentSearch {
   keyword?: string
@@ -81,13 +81,11 @@ export function ShipmentList() {
         render={(_, record: Shipment) => {
           const allocations = record.allocations ?? []
           if (allocations.length === 0) return <Empty />
-          // 数量是定点字符串：这里的合计只用于列表提示，算术在服务端。
-          const totalQty = allocations.reduce((sum, a) => sum + Number(a.qty), 0)
           const docNos = [...new Set(allocations.map((a) => a.sales_order_doc_no))]
           return (
             <div className="cell-stack">
               <span className="cell-strong">
-                {allocations.length} 行 · 共 {formatQty(totalQty)}
+                {allocations.length} 行 · {formatQtyByUnit(allocations)}
               </span>
               <span className="cell-sub">{docNos.filter(Boolean).join('、') || '—'}</span>
             </div>

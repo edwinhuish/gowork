@@ -51,6 +51,27 @@ export function formatQty(value?: number | string | null) {
 }
 
 /**
+ * 把若干行的数量**按单位**汇总，例如「8400 PCS · 2400 SET」。
+ *
+ * 不同单位不能直接相加：一票里 6000 PCS + 2400 SET + 3000 PCS 报「11400」
+ * 是没有意义的数——单位是数量的一部分，PCS 与 SET 相加等于把两种东西折成
+ * 一个不存在的单位。合计先按单位分组，再各自求和。
+ *
+ * 单位为空时按「件」兜底：老数据的明细行可能没带单位，空字符串进到
+ * 「8400 」这种显示里，看起来像漏了东西。
+ */
+export function formatQtyByUnit(rows: { qty: string; unit?: string | null }[]) {
+  const byUnit = new Map<string, number>()
+  for (const row of rows) {
+    const unit = row.unit?.trim() || '件'
+    byUnit.set(unit, (byUnit.get(unit) ?? 0) + Number(row.qty))
+  }
+  return [...byUnit.entries()]
+    .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
+    .join(' · ')
+}
+
+/**
  * 文件大小（字节 → KB / MB）。
  *
  * 附件列表要知道"那份扫描件多大"。用 1024 进制并保留一位小数：

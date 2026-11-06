@@ -11,7 +11,7 @@ import { Empty, Mono, OptionTag } from '@/components/fields'
 import { ResponsiveTable } from '@/components/page'
 import { ORDER_STATUS_OPTIONS, orderStatusLabel } from '@/constants/catalog'
 import type { Settlement, Shipment, ShipmentAllocation } from '@/types'
-import { formatDate, formatQty, formatTime } from '@/utils/format'
+import { formatDate, formatQty, formatQtyByUnit, formatTime } from '@/utils/format'
 
 import { ChargesPanel } from './charge-panel'
 import { CustomsPanel } from './customs-panel'
@@ -112,7 +112,7 @@ export function ShipmentShow() {
   const s = result
   const actions = s ? nextActions(s.status) : []
   // 数量与重量是定点字符串：这里的合计只用于显示，装箱单上的数字由服务端算。
-  const totalQty = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.qty), 0)
+
   // 箱数与毛净重只由分配行相加得出：票头上另存一份，装箱单的合计就会与明细对不上。
   const packCartons = (s?.allocations ?? []).reduce((sum, a) => sum + (a.cartons ?? 0), 0)
   const packGross = (s?.allocations ?? []).reduce((sum, a) => sum + Number(a.gross_weight ?? 0), 0)
@@ -308,7 +308,10 @@ export function ShipmentShow() {
           {
             key: 'total',
             label: '合计数量',
-            children: s ? `${(s.allocations ?? []).length} 行 · 共 ${formatQty(totalQty)}` : <Empty />,
+            // 按单位汇总：6000 PCS + 2400 SET 报「共 11400」是把两种东西加在一起。
+            children: s
+              ? `${(s.allocations ?? []).length} 行 · ${formatQtyByUnit(s.allocations ?? [])}`
+              : <Empty />,
           },
           {
             key: 'packing',
