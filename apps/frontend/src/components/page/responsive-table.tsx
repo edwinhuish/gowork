@@ -1,8 +1,9 @@
-import { Grid, Table } from 'antd'
+import { Table } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
+import { useNarrowCards } from '@/hooks/use-list-view'
 import type { CardColumn, CardSummary } from './record-cards'
 import { collectCardColumns, collectCardColumnsFromDefs, RecordCards } from './record-cards'
 
@@ -51,7 +52,7 @@ export interface ResponsiveTableProps<T> {
 }
 
 /**
- * 宽屏是表格、窄屏（< 768px）是卡片。
+ * 宽屏是表格、窄屏（< 992px，与 useListView 同一个断点）是卡片。
  *
  * 与 PageList 里那套是同一个判断，只是把"降级"这件事单独拎出来：
  * 报表页不走 PageList（它们不是 CRUD 资源，没有 useTable，数据来自 react-query，
@@ -80,7 +81,7 @@ export function ResponsiveTable<T extends object>({
   columns: columnDefs,
   children,
 }: ResponsiveTableProps<T>) {
-  const narrow = Grid.useBreakpoint().md === false
+  const narrow = useNarrowCards()
   // 列定义只依赖 children / columns 的引用：页面每次渲染都新建这些元素，
   // 但推导本身很便宜，且它们变化时必须重算，所以只按这两个来源记忆。
   const columns = useMemo<CardColumn<T>[]>(() =>

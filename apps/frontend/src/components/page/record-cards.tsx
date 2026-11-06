@@ -3,7 +3,7 @@ import { Children, Fragment, isValidElement } from 'react'
 import type { ReactNode } from 'react'
 
 /**
- * 窄屏（< 768px）下把宽表降级成的卡片列表。
+ * 窄屏（< 992px）下把宽表降级成的卡片列表。
  *
  * 列表页常见 8–12 列（单号 / 客户 / 状态 / 金额 / 交期…），平板上只有两条路：
  * 横向滚动，或者把一行拆成一张卡。前者是"把桌面版塞进手机"——

@@ -14,7 +14,7 @@ export type ListViewMode = 'list' | 'card'
  *   - localStorage 次之，是因为一个人习惯卡片视图，不该每次进来都退回表格；
  *   - 都没有才用默认。
  *
- * **窄屏（< 768px）强制卡片**，压过上面三个来源：此时表格只能靠横向滚动看全，
+ * **窄屏（< 992px）强制卡片**，压过上面三个来源：此时表格只能靠横向滚动看全，
  * 而这个宽度上横滑五六屏比竖着读几张卡难得多。强制只在渲染层生效，
  * 不改 URL 也不改 localStorage —— 把窗口拉宽，用户原来选的视图还在。
  * 页面拿到 `narrow` 后应当把切换控件隐藏掉：一个点了没反应的开关
@@ -26,12 +26,25 @@ export type ListViewMode = 'list' | 'card'
  * 视图切换只改渲染方式，不重建列表状态 —— 筛选、排序、页码都由 useTable
  * 持有，组件没有卸载，所以天然保留。滚动位置是唯一需要手动接的东西。
  */
+/**
+ * 是否该退回卡片视图：**比 antd 的 lg（992px）窄**。
+ *
+ * 不是 768：列表里的宽表普遍在 1100px 以上（出货、收付款 1200，账龄 1136），
+ * 768–991 这一段放表格只能横滑三四屏，而滚动条是 overlay 的 —— Chrome 在
+ * Linux / macOS 上只在滚动时出现，看不出右边还有内容。992 以下卡片更读得下去。
+ *
+ * 抽成函数是因为它在两处生效（列表外壳的视图强制与 ResponsiveTable 的降级），
+ * 两处写两个断点值，改一次就会漏一处。
+ */
+export function useNarrowCards() {
+  return Grid.useBreakpoint().lg === false
+}
+
 export function useListView(storageKey: string, fallback: ListViewMode = 'list') {
   const [searchParams, setSearchParams] = useSearchParams()
   const [view, setViewState] = useState<ListViewMode>(() => readInitial(searchParams.get('view'), storageKey, fallback))
   const pendingScroll = useRef<number | null>(null)
-  // antd 的 md 断点是 768px：md 为 false 即「比平板窄」。
-  const narrow = Grid.useBreakpoint().md === false
+  const narrow = useNarrowCards()
 
   const setView = useCallback(
     (next: ListViewMode) => {

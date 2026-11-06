@@ -21,7 +21,7 @@ import { ResponsiveTable } from './responsive-table'
  * 不吞掉 refine 的能力：`tableProps` / `searchFormProps` 原样透传，
  * 页面仍然能用 useTable 的排序、筛选与 URL 同步。
  *
- * 窄屏（< 768px）在没有自定义 `table` 时自动降级成卡片：列定义从
+ * 窄屏（< 992px）在没有自定义 `table` 时自动降级成卡片：列定义从
  * `<Table.Column>` 的 children 读出来（见 record-cards.tsx），
  * 页面不需要为手机再写一套视图。降级判断在 ResponsiveTable 里，
  * 报表页（不走 PageList）用的是同一份。给了 `table` 的页面
