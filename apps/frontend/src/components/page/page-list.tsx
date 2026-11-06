@@ -8,6 +8,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { LIST_PAGE_SIZE, useClientFeed } from '@/hooks/use-infinite-feed'
 import type { InfiniteFeed } from '@/hooks/use-infinite-feed'
 import { useUiPrefs } from '@/providers/uiPrefs'
+import { FormAnchor } from './form-anchor'
 import { InfiniteFooter } from './infinite-footer'
 import { ResponsiveTable } from './responsive-table'
 
@@ -170,7 +171,9 @@ export function PageList<T extends object>({
             </Space>
           </Form.Item>
         </Form>
-      ) : null}
+      ) : (
+        <FormAnchor formProps={searchFormProps} />
+      )}
 
       {table ?? (
         <ResponsiveTable<T>

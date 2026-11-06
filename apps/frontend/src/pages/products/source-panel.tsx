@@ -21,7 +21,7 @@ import {
 
 import { productSourceApi, type ProductSourceInput } from '@/api/product-sources'
 import { Empty, Mono, Money } from '@/components/fields'
-import { InfiniteFooter, ResponsiveTable } from '@/components/page'
+import { FormAnchor, InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ProductSource } from '@/types'
 
@@ -52,7 +52,7 @@ export function SourcesPanel({ productId }: { productId: number }) {
   const invalidate = useInvalidate()
 
   const [showDeleted, setShowDeleted] = useState(false)
-  const { tableProps, setFilters, feed } = useInfiniteList<ProductSource>({
+  const { tableProps, searchFormProps, setFilters, feed } = useInfiniteList<ProductSource>({
     resource: 'product-sources',
     filters: {
       permanent: [{ field: 'product_id', operator: 'eq', value: productId }],
@@ -172,6 +172,8 @@ export function SourcesPanel({ productId }: { productId: number }) {
       style={{ marginTop: 16 }}
       extra={
         <Space size={8}>
+      {/* 接住 useTable 建的表单实例：这张表只有外键永久筛选，没有筛选表单 */}
+      <FormAnchor formProps={searchFormProps} />
           {/* 删除是软删：这一行的恢复入口藏在开关后面，
               平时列表里看不到它们。 */}
           <Checkbox

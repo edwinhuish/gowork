@@ -1,5 +1,6 @@
 export { EmptyGuide } from './empty-guide'
 export { FilterBar } from './filter-bar'
+export { FormAnchor } from './form-anchor'
 export { InfiniteFooter } from './infinite-footer'
 export type { InfiniteFooterProps } from './infinite-footer'
 export { PageForm } from './page-form'

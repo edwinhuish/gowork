@@ -21,7 +21,12 @@ import { formatDate } from '@/utils/format'
  */
 export function PaymentList() {
   const invalidate = useInvalidate()
-  const { tableProps, feed } = useInfiniteList<Payment>({ resource: 'payments', syncWithLocation: true })
+  // searchFormProps 必须往下传：refine 的 useTable 已经建好了表单实例，
+  // 页面不把它交给 PageList，实例就没人接，antd 会在控制台报警。
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Payment>({
+    resource: 'payments',
+    syncWithLocation: true,
+  })
 
   const remove = async (record: Payment) => {
     try {
@@ -37,6 +42,7 @@ export function PaymentList() {
     <PageList
       infinite={feed}
       createLabel="登记收付款"
+      searchFormProps={searchFormProps}
       tableProps={tableProps}
       rowKey="id"
       // 不给死宽度：原来的 1200 比 1440 下的内容区（1137）还宽，

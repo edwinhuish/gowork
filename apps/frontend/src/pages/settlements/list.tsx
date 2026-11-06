@@ -29,7 +29,11 @@ export function SettlementList({
   const isReceivable = direction === 'receivable'
   const invalidate = useInvalidate()
   const { token } = theme.useToken()
-  const { tableProps, feed } = useInfiniteList<Settlement>({ resource, syncWithLocation: true })
+  // searchFormProps 要往下传：refine 已经建好表单实例，没人接就会在控制台报警。
+  const { tableProps, searchFormProps, feed } = useInfiniteList<Settlement>({
+    resource,
+    syncWithLocation: true,
+  })
 
   const api = isReceivable ? receivableApi : payableApi
 
@@ -65,6 +69,7 @@ export function SettlementList({
     <PageList
       infinite={feed}
       createLabel={isReceivable ? '新建应收' : '新建应付'}
+      searchFormProps={searchFormProps}
       tableProps={tableProps}
       rowKey="id"
     >

@@ -20,7 +20,7 @@ import {
 
 import { shipmentChargeApi, type ShipmentChargeInput } from '@/api/shipment-charges'
 import { Empty, Money } from '@/components/fields'
-import { InfiniteFooter, ResponsiveTable } from '@/components/page'
+import { FormAnchor, InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { SHIPMENT_CHARGE_OPTIONS, shipmentChargeLabel } from '@/constants/catalog'
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ShipmentCharge } from '@/types'
@@ -51,7 +51,7 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
   const [form] = Form.useForm<ChargeForm>()
   const invalidate = useInvalidate()
 
-  const { tableProps, feed } = useInfiniteList<ShipmentCharge>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<ShipmentCharge>({
     resource: 'shipment-charges',
     filters: {
       permanent: [{ field: 'shipment_id', operator: 'eq', value: shipmentId }],
@@ -165,6 +165,8 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
       style={{ marginTop: 16 }}
       extra={
         <Space size={12}>
+      {/* 接住 useTable 建的表单实例：这张表只有外键永久筛选，没有筛选表单 */}
+      <FormAnchor formProps={searchFormProps} />
           <span className="cell-sub">
             折本币合计：{totalBase === null ? '—' : <Money value={totalBase} />}
           </span>

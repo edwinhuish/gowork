@@ -21,7 +21,7 @@ import {
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, OptionTag } from '@/components/fields'
-import { InfiniteFooter, ResponsiveTable } from '@/components/page'
+import { FormAnchor, InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { CUSTOMS_STATUS_OPTIONS, SUPERVISION_MODE_OPTIONS } from '@/constants/catalog'
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { CustomsDeclaration } from '@/types'
@@ -54,7 +54,7 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
   const [form] = Form.useForm<DeclForm>()
   const invalidate = useInvalidate()
 
-  const { tableProps, feed } = useInfiniteList<CustomsDeclaration>({
+  const { tableProps, searchFormProps, feed } = useInfiniteList<CustomsDeclaration>({
     resource: 'customs-declarations',
     filters: {
       permanent: [{ field: 'shipment_id', operator: 'eq', value: shipmentId }],
@@ -126,6 +126,8 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
       style={{ marginTop: 16 }}
       extra={
         <Button type="primary" onClick={openCreate}>
+      {/* 接住 useTable 建的表单实例：这张表只有外键永久筛选，没有筛选表单 */}
+      <FormAnchor formProps={searchFormProps} />
           新增报关单
         </Button>
       }
