@@ -132,10 +132,17 @@ export function UserAccountList() {
             <Form.Item
               name="username"
               label="用户名"
-              rules={[
-                { required: true, message: '请填写用户名' },
-                { max: 64, message: '最多 64 个字符' },
-              ]}
+              // 编辑态这个框是 disabled 的：建号之后用户名不能改（下一条 tooltip
+              // 解释了为什么）。给一个灰掉的框配上必填星号，只会让人以为
+              // 哪里没填好，而它根本没法填。
+              rules={
+                editing
+                  ? undefined
+                  : [
+                      { required: true, message: '请填写用户名' },
+                      { max: 64, message: '最多 64 个字符' },
+                    ]
+              }
               tooltip="登录凭据，建号之后不能改——改了等于换了个人，历史操作记录会对不上"
             >
               <Input disabled={!!editing} placeholder="alice" />
