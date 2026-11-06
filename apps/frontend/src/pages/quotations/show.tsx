@@ -265,12 +265,14 @@ export function QuotationShow() {
           },
           {
             key: 'cost_total',
-            label: '成本合计',
+            // 成本、毛利都是本币口径（成本来自货源，本来就是本币），
+            // 与上一格「折本币」并列时标清楚，否则会被当成原币金额去比。
+            label: '成本合计（本币）',
             children: q ? <Money value={q.cost_total} /> : <Empty />,
           },
           {
             key: 'gross_profit',
-            label: '毛利',
+            label: '毛利（本币）',
             children: q ? (
               <span style={{ color: Number(q.gross_profit) < 0 ? 'var(--ant-color-error)' : undefined }}>
                 <Money value={q.gross_profit} />
@@ -357,20 +359,22 @@ export function QuotationShow() {
           />
           <Table.Column
             dataIndex="cost_price"
-            title="单位成本"
-            width={110}
+            // 成本列一律是本币：单位成本 22.00 挨着单价 4.05 时，
+            // 不标币种会被读成"加价五倍"，而它其实已经折过汇率。
+            title="单位成本（本币）"
+            width={130}
             align="right"
             render={(value: number) => <Money value={value} />}
           />
           <Table.Column
             dataIndex="cost_amount"
-            title="成本额"
+            title="成本额（本币）"
             width={120}
             align="right"
             render={(value: number) => <Money value={value} />}
           />
           <Table.Column
-            title="毛利"
+            title="毛利（本币）"
             width={110}
             align="right"
             render={(_, record: QuotationItem) => {
