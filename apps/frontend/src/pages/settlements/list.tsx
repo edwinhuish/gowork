@@ -1,5 +1,5 @@
 import { useInvalidate } from '@refinedev/core'
-import { EditButton } from '@refinedev/antd'
+import { EditButton, ShowButton } from '@refinedev/antd'
 import { Button, message, Popconfirm, Space, Table, Tag, theme } from 'antd'
 
 import { receivableApi } from '@/api/receivables'
@@ -148,9 +148,17 @@ export function SettlementList({
       />
       <Table.Column
         title="操作"
-        width={200}
+        width={240}
+        // 固定在右侧：这张表列多、1440 下就要横向滚，操作列跟着滚出去
+        // 等于每看一行都要先横滑一次。
+        fixed="right"
         render={(_, record: Settlement) => (
           <Space size={4}>
+            {/* 详情里放着核销记录与对账单附件，列表页不给入口时，
+                这两样只能靠手敲 URL 才看得到。 */}
+            <ShowButton size="small" type="link" recordItemId={record.id}>
+              详情
+            </ShowButton>
             <EditButton size="small" type="link" recordItemId={record.id}>
               编辑
             </EditButton>
