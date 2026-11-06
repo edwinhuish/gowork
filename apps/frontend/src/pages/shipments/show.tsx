@@ -342,7 +342,9 @@ export function ShipmentShow() {
           size="small"
           rows={s?.allocations ?? []}
           pagination={false}
-          scrollX={1200}
+          // 不给死宽度：1200 比详情页的内容区（1440 下 1111）还宽，
+          // 最右边的「外箱尺寸」被切在视口外，而 overlay 滚动条不显形。
+          // 列宽已按内容配过，让 max-content 收口。
           empty="没有明细"
           // 第一列是来源订单，但一票里多行常常来自同一张订单 —— 拿它当标题
           // 会出现几张同名的卡。行与行的区别是货品，所以标题用 SKU。
