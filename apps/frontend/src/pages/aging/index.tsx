@@ -133,7 +133,9 @@ export function AgingPage() {
           rowKey={(row) => `${row.partner_id}-${row.currency_code}`}
           loading={isLoading}
           pagination={false}
-          scrollX={1200}
+          // 与列宽之和一致：给大了表格会比内容宽、给小了会把最后一列压掉。
+          // 1136 = 152+68+96+100+96+96+100+116+116+120+76，正好落在 1440 的内容区里。
+          scrollX={1136}
           empty="没有未结清的单据"
           // 窄屏没有列可对齐，同一份合计排成一张卡（原币合计跨币种没有意义，
           // 表里留空、卡里也就不列这一行）。
@@ -160,8 +162,15 @@ export function AgingPage() {
             rows.length > 0 ? (
               <Table.Summary fixed>
                 <Table.Summary.Row>
+                  {/* 这一行的分桶是本币，而上面每一行的分桶是原币 ——
+                      同一个列里上下两种币种，不写清楚就会被当成"加起来对不上"。 */}
                   <Table.Summary.Cell index={0} colSpan={2}>
-                    <span className="cell-strong">本币合计</span>
+                    <Space direction="vertical" size={0}>
+                      <span className="cell-strong">本币合计</span>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        下列各桶已折本币
+                      </Typography.Text>
+                    </Space>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={2} align="right">
                     <Money value={total?.not_due} />
@@ -195,7 +204,7 @@ export function AgingPage() {
         >
           <Table.Column
             title={isPayable ? '供应商' : '客户'}
-            width={200}
+            width={152}
             render={(_, row: AgingRow) => (
               <Space direction="vertical" size={0}>
                 <span className="cell-strong">{row.partner_name}</span>
@@ -206,42 +215,42 @@ export function AgingPage() {
           <Table.Column
             dataIndex="currency_code"
             title="币种"
-            width={80}
+            width={68}
             render={(value: string) => <Tag>{value}</Tag>}
           />
           <Table.Column
             title="未到期"
-            width={120}
+            width={96}
             align="right"
             render={(_, row: AgingRow) => <Bucket value={row.amount.not_due} />}
           />
           <Table.Column
             title="逾期 1-30"
-            width={120}
+            width={100}
             align="right"
             render={(_, row: AgingRow) => <Bucket value={row.amount.days_1_30} />}
           />
           <Table.Column
             title="31-60"
-            width={120}
+            width={96}
             align="right"
             render={(_, row: AgingRow) => <Bucket value={row.amount.days_31_60} tone="warning" />}
           />
           <Table.Column
             title="61-90"
-            width={120}
+            width={96}
             align="right"
             render={(_, row: AgingRow) => <Bucket value={row.amount.days_61_90} tone="warning" />}
           />
           <Table.Column
             title="90 天以上"
-            width={130}
+            width={100}
             align="right"
             render={(_, row: AgingRow) => <Bucket value={row.amount.days_over_90} tone="error" />}
           />
           <Table.Column
-            title="合计（原币）"
-            width={140}
+            title="原币小计"
+            width={116}
             align="right"
             render={(_, row: AgingRow) => (
               <span className="cell-strong">
@@ -250,8 +259,8 @@ export function AgingPage() {
             )}
           />
           <Table.Column
-            title="合计（本币）"
-            width={140}
+            title="本币小计"
+            width={116}
             align="right"
             render={(_, row: AgingRow) => (
               <span className="cell-strong">
@@ -262,12 +271,15 @@ export function AgingPage() {
           <Table.Column
             dataIndex="earliest_due_date"
             title="最早到期"
+            // auto 布局下列宽只是建议值：再补一条 nowrap，免得内容一变又折成两行。
             width={120}
-            render={(value: string) => (value ? value.slice(0, 10) : <Empty />)}
+            render={(value: string) =>
+              value ? <span style={{ whiteSpace: 'nowrap' }}>{value.slice(0, 10)}</span> : <Empty />
+            }
           />
           <Table.Column
             title="对账单"
-            width={96}
+            width={76}
             render={(_, row: AgingRow) =>
               // 应付侧的对账单还没做（后端只有客户对账单）。摆一个点了才知道
               // 没有的按钮，比不摆更烦人。
