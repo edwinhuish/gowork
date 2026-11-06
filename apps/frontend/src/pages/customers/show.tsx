@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Show } from '@refinedev/antd'
+import { EditButton, Show } from '@refinedev/antd'
 import { useShow } from '@refinedev/core'
 import { Button, Descriptions, Space, Tag } from 'antd'
 
@@ -25,6 +25,10 @@ export function CustomerShow() {
       headerButtons={
         result ? (
           <Space>
+            {/* 已软删的主体：编辑与删除都会 404，只能从列表里恢复。 */}
+            {!result.deleted_at && (
+              <EditButton resource="customers" recordItemId={result.id} />
+            )}
             <Button onClick={() => setOwnerOpen(true)}>转移负责人</Button>
             <Button onClick={() => setMergeOpen(true)}>合并到其他主体</Button>
           </Space>

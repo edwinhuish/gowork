@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useList, useShow } from '@refinedev/core'
-import { Show } from '@refinedev/antd'
+import { EditButton, Show } from '@refinedev/antd'
 import {
   Button,
   Descriptions,
@@ -72,6 +72,7 @@ export function OpportunityShow() {
       isLoading={query.isLoading}
       headerButtons={
         <Space wrap>
+          {o && <EditButton resource="opportunities" recordItemId={o.id} />}
           {!isFinal && (
             <Popconfirm
               title="按今日汇率重估这笔商机？"
