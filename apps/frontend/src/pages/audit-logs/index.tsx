@@ -4,6 +4,7 @@ import { Form, Input, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import { auditLogApi } from '@/api/audit-logs'
 import { Empty, Mono } from '@/components/fields'
 import { PageList } from '@/components/page'
+import { roleLabel } from '@/constants/catalog'
 import { usePagedFeed } from '@/hooks/use-infinite-feed'
 import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
@@ -177,7 +178,8 @@ export function AuditLogList() {
       tableProps={{ dataSource: rows, loading: feed.isLoading, pagination: false }}
       infinite={feed}
       rowKey="id"
-      scrollX={1300}
+      // 1130 = 150+110+92+150+70+250+200+110，正好落在 1440 的内容区里。
+      scrollX={1130}
       footer={
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
           日志只增不改：本页没有编辑与删除，后端的仓储也只有写入与查询两个方法。
@@ -187,23 +189,25 @@ export function AuditLogList() {
       <Table.Column
         dataIndex="created_at"
         title="时间"
-        width={180}
+        width={150}
         render={(value: string) => formatTime(value)}
       />
       <Table.Column
         title="操作人"
-        width={140}
+        width={110}
         render={(_, row: AuditLog) => (
           <Space direction="vertical" size={0}>
             <span>{row.actor_name || <Empty />}</span>
-            <span className="cell-sub">{row.actor_role}</span>
+            {/* 日志里存的是角色原值（admin），直接显示会在一列中文里冒出一个
+                admin，与账号页的「管理员」对不上号。 */}
+            <span className="cell-sub">{roleLabel(row.actor_role)}</span>
           </Space>
         )}
       />
       <Table.Column
         dataIndex="action"
         title="动作"
-        width={110}
+        width={92}
         render={(value: string) => (
           <Tag bordered={false} color={actionColor(value)}>
             {value}
@@ -212,7 +216,7 @@ export function AuditLogList() {
       />
       <Table.Column
         title="对象"
-        width={220}
+        width={150}
         render={(_, row: AuditLog) => (
           <Space direction="vertical" size={0}>
             <Mono>{row.entity}</Mono>
@@ -223,7 +227,7 @@ export function AuditLogList() {
       <Table.Column
         dataIndex="status"
         title="结果"
-        width={80}
+        width={70}
         render={(value: number) => (
           <Tag bordered={false} color={statusColor(value)}>
             {value}
@@ -237,7 +241,7 @@ export function AuditLogList() {
             <Tooltip title={<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{row.body}</pre>}>
               <Typography.Text
                 ellipsis
-                style={{ maxWidth: 460, fontFamily: 'monospace', fontSize: 12 }}
+                style={{ maxWidth: 250, fontFamily: 'monospace', fontSize: 12 }}
               >
                 {row.body}
               </Typography.Text>
@@ -250,7 +254,7 @@ export function AuditLogList() {
       <Table.Column
         dataIndex="path"
         title="路径"
-        width={240}
+        width={200}
         render={(value: string) => (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {value}
@@ -260,7 +264,7 @@ export function AuditLogList() {
       <Table.Column
         dataIndex="request_id"
         title="请求号"
-        width={140}
+        width={110}
         render={(value: string) => (value ? <Mono>{value}</Mono> : <Empty />)}
       />
     </PageList>

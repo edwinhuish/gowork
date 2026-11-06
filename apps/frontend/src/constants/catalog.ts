@@ -538,3 +538,21 @@ export function settlementMethodLabel(value?: string | null): string {
   if (!value) return '—'
   return SETTLEMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value
 }
+
+/** 账号角色：与后端 model.RoleAdmin / RoleManager / RoleStaff 一致。 */
+export const ROLE_OPTIONS = [
+  { value: 'admin', label: '管理员' },
+  { value: 'manager', label: '主管' },
+  { value: 'staff', label: '业务员' },
+]
+
+/**
+ * 角色的中文名。未知值原样透出，不吞数据。
+ *
+ * 抽到这里是因为两个页面都要用：账号维护（下拉与列表）和操作日志
+ * （日志里存的是 roles 的原值，直接显示会在一列中文里冒出个 admin）。
+ */
+export function roleLabel(value?: string | null): string {
+  if (!value) return '—'
+  return ROLE_OPTIONS.find((o) => o.value === value)?.label ?? value
+}

@@ -4,14 +4,8 @@ import { Button, Form, Input, Modal, Select, Switch, Table, Tag, message } from 
 import { userAccountApi, type UserUpdateInput } from '@/api/user-accounts'
 import { PageList } from '@/components/page'
 import { AccentTag, StatusTag } from '@/components/fields'
+import { ROLE_OPTIONS } from '@/constants/catalog'
 import type { SystemUser } from '@/types'
-
-/** 与后端 model.RoleAdmin / RoleManager / RoleStaff 一致。 */
-const ROLE_OPTIONS = [
-  { value: 'admin', label: '管理员' },
-  { value: 'manager', label: '主管' },
-  { value: 'staff', label: '业务员' },
-]
 
 const ROLE_LABEL = new Map(ROLE_OPTIONS.map((o) => [o.value, o.label]))
 
