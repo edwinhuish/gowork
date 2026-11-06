@@ -1,6 +1,7 @@
 import { useShow } from '@refinedev/core'
 import { Show } from '@refinedev/antd'
 import { Button, Descriptions, Popconfirm, Tag, Typography, message } from 'antd'
+import { Link } from 'react-router'
 
 import { paymentApi } from '@/api/payments'
 import { AttachmentPanel } from '@/components/attachment-panel'
@@ -112,7 +113,9 @@ export function PaymentShow() {
           {
             key: 'amount_base',
             label: '金额（本币）',
-            children: result ? <Money value={result.amount_base} currency={result?.currency_code} /> : <Empty />,
+            // 本币金额后面不跟原币符号：85,080 是折成本币的数，
+            // 标成 USD 会让人以为这张单收了两笔美元。
+            children: result ? <Money value={result.amount_base} /> : <Empty />,
           },
           {
             key: 'allocated',
@@ -161,7 +164,19 @@ export function PaymentShow() {
           {
             dataIndex: 'target_doc_no',
             title: '目标单据',
-            render: (value: string) => <Mono>{value}</Mono>,
+            // 核销行是"这笔钱抵了哪张单"，单号必须能点进去核对金额 ——
+            // 目标类型只有应收 / 应付两种，路由由它决定。
+            render: (_: string, record: PaymentAllocation) => {
+              const path =
+                record.target_type === 10
+                  ? `/receivables/show/${record.target_id}`
+                  : `/payables/show/${record.target_id}`
+              return (
+                <Link to={path}>
+                  <Mono>{record.target_doc_no}</Mono>
+                </Link>
+              )
+            },
           },
           {
             dataIndex: 'target_type',
@@ -181,7 +196,9 @@ export function PaymentShow() {
             title: '核销金额（本币）',
             width: 180,
             align: 'right',
-            render: (value: string) => <Money value={value} currency={result?.currency_code} />,
+            // 本币金额不带原币符号：12,000 USD 折 85,080 之后标的还是 USD，
+            // 看上去像"这笔美元有两份"。币种只标在原币那两列。
+            render: (value: string) => <Money value={value} />,
           },
           {
             // 撤销一条核销（T-52）：不删整张单，只回滚这一行。
