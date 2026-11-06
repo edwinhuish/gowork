@@ -325,7 +325,7 @@ export function OrderShow() {
       {o && o.status >= 10 && o.status <= 40 && <CreditHint partnerId={o.partner_id} />}
 
       <Descriptions
-        column={{ xs: 1, sm: 2, lg: 3 }}
+        column={{ xs: 1, sm: 2, md: 2, lg: 3 }}
         bordered
         size="middle"
         items={[

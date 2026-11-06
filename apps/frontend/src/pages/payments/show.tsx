@@ -68,7 +68,7 @@ export function PaymentShow() {
       ) : null}
 
       <Descriptions
-        column={{ xs: 1, sm: 2, lg: 3 }}
+        column={{ xs: 1, sm: 2, md: 2, lg: 3 }}
         bordered
         size="middle"
         items={[
