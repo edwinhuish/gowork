@@ -30,6 +30,9 @@ configs/config.local.yaml
 logs/
 *.log
 
+# 发布说明的临时落点（release.yml 在 CI 里生成，本地试跑同样落在这里）
+release-notes.md
+
 # editor / os
 .DS_Store
 .idea/
