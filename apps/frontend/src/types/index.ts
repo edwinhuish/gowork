@@ -1145,6 +1145,8 @@ export interface TodoInspection {
   doc_no: string
   partner_name: string
   sku_code: string
+  /** 采购行上的品名快照：只有 SKU 时，催验货的人还得去产品页确认是什么货。 */
+  name_cn: string
   plan_date: string
   overdue_days: number
 }

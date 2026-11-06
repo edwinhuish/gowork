@@ -18,7 +18,7 @@ import { Empty, Mono, Money } from '@/components/fields'
 import { PageHeader, StatCard } from '@/components/page'
 import { ResponsiveTable } from '@/components/page'
 import type { TodoCurrency, TodoFollowup, TodoReceivable, TodoInspection, TodoContractTerm } from '@/types'
-import { formatTime } from '@/utils/format'
+import { formatDate } from '@/utils/format'
 
 /**
  * 待办清单（T-34）。
@@ -209,7 +209,17 @@ export function TodoPage() {
               </Link>
             )}
           />
-          <Table.Column dataIndex="sku_code" title="SKU" width={140} />
+          <Table.Column
+            dataIndex="sku_code"
+            title="SKU / 品名"
+            width={200}
+            render={(value: string, row: TodoInspection) => (
+              <Space direction="vertical" size={0}>
+                <Mono>{value}</Mono>
+                <span className="cell-sub ellipsis-line">{row.name_cn}</span>
+              </Space>
+            )}
+          />
           <Table.Column
             title="供应商"
             width={200}
@@ -305,7 +315,8 @@ export function TodoPage() {
       <Card
         variant="borderless"
         title="缺当日汇率"
-        extra={<span className="cell-sub">报价与开单都要锁当天汇率</span>}
+        // 写成一句话比一句标语有用：这几个标签是能点的，不点就没人会点。
+        extra={<span className="cell-sub">报价与开单都要锁当天汇率，点币种补录</span>}
       >
         {data && data.missing_rates.length > 0 ? (
           <Space wrap size={8}>
@@ -326,7 +337,9 @@ export function TodoPage() {
       </Card>
 
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        生成于 {formatTime(data?.as_of ?? '')}；「待确认单据」暂不做——
+        {/* as_of 是**日期**（2006-01-02），用 formatTime 会被当成 UTC 零点、
+            在 UTC+8 显示成「08:00:00」——一个当天生成的数据看起来像早上的旧货。 */}
+        截至 {formatDate(data?.as_of ?? '')}；「待确认单据」暂不做——
         什么算"停太久"还没有口径，随手定一个天数只会天天报警然后被无视。
       </Typography.Text>
     </Flex>

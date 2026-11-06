@@ -268,8 +268,10 @@ type TodoInspection struct {
 	DocNo           string `json:"doc_no"`
 	PartnerName     string `json:"partner_name"`
 	SKUCode         string `json:"sku_code"`
-	PlanDate        string `json:"plan_date"`
-	OverdueDays     int    `json:"overdue_days"`
+	// NameCN 是采购行上的品名快照，与 SKU 一起显示。
+	NameCN      string `json:"name_cn"`
+	PlanDate    string `json:"plan_date"`
+	OverdueDays int    `json:"overdue_days"`
 }
 
 // TodoContractTerm 是一条已到期、还没收到的合同分期（T-61）。

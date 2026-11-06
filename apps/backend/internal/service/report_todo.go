@@ -103,6 +103,7 @@ func (s *reportService) Todos(ctx context.Context, q dto.TodoQuery) (*dto.TodoRe
 			DocNo:           m.DocNo,
 			PartnerName:     m.PartnerName,
 			SKUCode:         m.SKUCode,
+			NameCN:          m.NameCN,
 			PlanDate:        model.DateOnly(m.PlanDate).Format(rateDateLayout),
 			OverdueDays:     max(agingDays(asOf, model.DateOnly(m.PlanDate)), 0),
 		})

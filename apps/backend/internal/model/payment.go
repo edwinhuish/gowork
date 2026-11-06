@@ -163,11 +163,11 @@ type SettlementAllocation struct {
 	CurrencyCode string    `json:"currency_code"`
 	// ExchangeRate 是**到账日**的汇率，不是单据上锁的那个：
 	// 两者的差就是这一笔的汇兑损益原料（与 Payment 的注释同一条口径）。
-	ExchangeRate money.Decimal      `json:"exchange_rate"`
-	Amount       money.Decimal      `json:"amount"`
-	AmountBase   money.Decimal      `json:"amount_base"`
-	Method       SettlementMethod   `json:"method"`
-	Reference    string             `json:"reference"`
+	ExchangeRate money.Decimal    `json:"exchange_rate"`
+	Amount       money.Decimal    `json:"amount"`
+	AmountBase   money.Decimal    `json:"amount_base"`
+	Method       SettlementMethod `json:"method"`
+	Reference    string           `json:"reference"`
 }
 
 // SettlementStatusFor 由金额推导结清状态。

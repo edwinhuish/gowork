@@ -120,7 +120,10 @@ type TodoInspection struct {
 	DocNo           string
 	PartnerName     string
 	SKUCode         string
-	PlanDate        time.Time
+	// NameCN 是下单时那一行的品名快照。只给 SKU 时，催验货的人还得去
+	// 产品页确认「BM01-0001-SS」是什么货 —— 而待办的全部意义是拿起电话就能问。
+	NameCN   string
+	PlanDate time.Time
 }
 
 // ListTodoInspections 取已过计划日、还没做完成的验货节点（T-62）。
@@ -139,6 +142,9 @@ func (r *reportRepo) ListTodoInspections(
 			Joins("JOIN biz_purchase_order AS o ON o.id = m.purchase_order_id AND o.deleted_at = 0").
 			Joins("JOIN biz_purchase_order_item AS i ON i.id = m.purchase_order_item_id AND i.deleted_at = 0").
 			Joins("LEFT JOIN md_partner AS p ON p.id = o.supplier_id AND p.deleted_at = 0").
+			// 品名优先用下单时的快照；老数据里快照可能是空的（那会儿还没存），
+			// 回退到产品主数据，别让催验货的人对着一串 SKU 发呆。
+			Joins("LEFT JOIN md_product AS pd ON pd.id = i.product_id AND pd.deleted_at = 0").
 			Where("m.deleted_at = 0").
 			Where("m.node = ?", model.PurchaseNodeInspected).
 			Where("m.done_date IS NULL").
@@ -162,7 +168,8 @@ func (r *reportRepo) ListTodoInspections(
 	rows := make([]TodoInspection, 0, limit)
 	err := base().
 		Select(`m.id, m.purchase_order_id, o.doc_no,
-			COALESCE(p.name, '') AS partner_name, i.sku_code, m.plan_date`).
+			COALESCE(p.name, '') AS partner_name, i.sku_code,
+			COALESCE(NULLIF(i.name_cn, ''), pd.name_cn, '') AS name_cn, m.plan_date`).
 		Order("m.plan_date ASC, m.id ASC").
 		Limit(limit).
 		Scan(&rows).Error
