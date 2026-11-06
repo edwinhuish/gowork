@@ -194,6 +194,12 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        env:
+          # build-push-action 默认把构建记录（*.dockerbuild）也当成 artifact 上传。
+          # 它是 gzip 而不是 zip，release job 全量下载 artifact 时会拿它当 zip 解，
+          # 重试五次后报 "Artifact download failed after 5 retries"，整个发版中断。
+          # 发布流程用不到这份记录（它是给 Docker Desktop 看构建详情的），从源头关掉。
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
 
   release:
     name: 发布 ${{ github.ref_name }}
@@ -226,9 +232,14 @@ jobs:
           chmod +x .github/scripts/generate-changelog.sh
           .github/scripts/generate-changelog.sh "$TAG" "$PREVIOUS_TAG" release-notes.md
 
+      # 不带 name / pattern 时会下载本 run 的全部 artifact，其中可能混进 build-push-action
+      # 上传的构建记录（形如 owner~repo~hash.dockerbuild，gzip 包而非 zip），
+      # 拿它当 zip 解会失败。上面已经关掉那份记录的上传，这里再按扩展名排除一次 ——
+      # 重跑一个更早的 run 时，它里面已经传上去的记录仍然存在。
       - uses: actions/download-artifact@v4
         with:
           path: assets
+          pattern: '!*.dockerbuild'
 
       # 校验和只对最终产物算 —— 让用户下载后能验证传输没出错。
       - name: 计算校验和
