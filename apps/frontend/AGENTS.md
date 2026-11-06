@@ -497,3 +497,6 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 点一下标签页就弹「确定要离开吗」 | 还在用 refine 的 `UnsavedChangesNotifier`，它拦所有路由跳转 | 用 `unsaved-tab-guard.tsx`：目标已是打开的标签页就放行 |
 | 用 `useBlocker` 做未保存提示，报 `must be used within a data router` | 本项目是 `<BrowserRouter>`，不是 data router | 学 refine 原版包 `navigator.push` / `navigator.go` |
 | 切回标签页后无限滚动不触发了 | `IntersectionObserver` 的 root 绑在了别的 pane 上 | root 取 `node.closest('[data-app-content]')`，不要全局查 |
+| 宽表最后一列被切掉半截，看起来还滚不动 | 列宽之和超过 1440 窗口的内容区（1137px），而滚动条是 overlay 的：Chrome 在 Linux / macOS 上只在滚动时出现，`::-webkit-scrollbar` 的样式在 overlay 模式下**不生效**，无法靠 CSS 让它常显 | 把列宽之和配到 1137 以内（账龄 / 汇兑损益 / 操作日志 / 销售看板都是这么收的）；`scrollX` 不要传大于内容区的值，能省就省掉让 `max-content` 收口。auto 布局下列宽只是建议值，长文本列要自己限宽 + `ellipsis-line` + `title` |
+| 出货单合计数量显示成「共 11400」，实际是 6000 PCS + 2400 SET | 不同单位直接相加，等于折成一个不存在的单位 | 一律用 `formatQtyByUnit`（按单位分组再求和）；数量是定点字符串，显示前不要自己 `+` |
+| 日期字段显示成 `2026/11/6 08:00:00` | 后端给的是 date-only（`2006-01-02`），`new Date('2026-11-06')` 被当成 UTC 零点，在 UTC+8 就是早上八点 | 日期用 `formatDate`，只有真正的时间戳（`*_at`）才用 `formatTime` |
