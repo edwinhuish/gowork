@@ -70,6 +70,7 @@ apps/frontend/
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
     │   ├── partner-avatar.tsx     主体头像 / Logo：真图 → 名称占位标识，卡片与详情共用
     │   ├── partner-contacts-cell.tsx  列表里的多联系人头像组：最多 3 个，其余 +N
+    │   ├── partner-contacts-panel.tsx 主体详情页的完整联系人名单（含编辑入口）
     │   ├── partner-cards.tsx      往来单位卡片视图 + 卡片行操作（三张角色表共用）
     │   ├── line-items-editor.tsx  单据明细行（数量 × 单价），create / edit 共用
     │   ├── product-select.tsx     选产品的下拉：按关键词走后端搜，客户报的编号也能选到
@@ -320,6 +321,7 @@ api/client.ts
 | `pages/customers/`、`pages/suppliers/`、`pages/forwarders/` 列表 | 三张列表都有「负责人」列 | 空值显示灰字「未分配」而不是空白——空白会被读成"接口没返回"，而未分配是一种正常状态（公共池） |
 | `components/partner-avatar.tsx` | 往来单位的头像 / Logo（卡片头部、详情页，以及任何需要认 Logo 的位置） | 只有这一个实现，卡片与详情调用同一个组件、同一个默认尺寸（`PARTNER_AVATAR_SIZE`）——换个视图就换个长相，会被当成两条数据。降级顺序：`logo_url` 取到字节 → 名称占位标识（中文取首字、西文取前两个词首字母，配色按名称哈希）；有图但加载失败也降级，不要显示浏览器破图。真图走 `useAuthedUrl`，与公司 logo 同通道。三张主体列表的表格视图已**不再**显示主体 Logo，认人交给 `partner-contacts-cell` |
 | `components/partner-contacts-cell.tsx` | 三张主体列表的「联系人」列 | 只展示 `partner.contacts` 的前 3 个，其余收进 `+N`，主联系人带角标。顺序由后端保证（主联系人排第一），**前端不要重排**——列表只显示前三个，重排会把主联系人挤掉。收起而不是铺开：列宽固定，人多时排开会把「负责人 / 账期」挤出可见区；完整名单在详情页与 `/contacts` |
+| `components/partner-contacts-panel.tsx` | 三个主体详情页的「联系人」卡 | 数据直接用详情里回填的 `partner.contacts`，**不要**再请求一次 `/contacts`——两处顺序迟早不一致。语言与渠道合成一列（都决定"怎么联系上这个人"，拆开会把姓名挤出窄屏）。新增与改主联系人链到 `/contacts`：那里才有主体下拉与主联系人开关；**不要**用 `?partner_id=` 预筛，联系人列表的筛选表单读自己的字段，裸参数只会筛了数据却不显示条件，看着像丢了行 |
 | `components/partner-cards.tsx` | 三张主体列表的卡片视图 + 卡片里的删除 / 恢复（`PartnerRowActions`） | 卡片该显示什么只有一份实现，客户卡多的「分组 / 区域 / 结算 / 账期」由 `showCustomerFacts` 开关——货代表单原本就不给商务条件，这里是同一个结论。`PartnerRowActions` 同时用在表格操作列与卡片右下角，两边按钮必须一样。卡片区不画分页条：滚到底由外层 `InfiniteFooter` 追加 |
 | `pages/todos/` | 待办清单（T-34） | 每块副标题都写着判定口径（"早于今天（当天不算）"/"到期日 <= 今天（当天就算）"）——这类页面的争议永远在"为什么它算在这里"；口径里的 `<` 必须写成 `{'…'}`，JSX 文本里会被当成标签开头 |
 | `components/partner-owner-modal.tsx` | 三个主体详情页的「转移负责人」 | 选人列表来自 `GET /users`（只列启用账号），下拉第一项是「未分配（公共池）」——离职与暂时没人跟都要能把归属清掉；弹窗里必须写清"这个客户的单据会一起跟着走" |
@@ -349,10 +351,20 @@ pages/xxx/
 并由 `create.tsx` 与 `edit.tsx` 共用。行的隐藏主键（`product_id`、`sales_order_item_id`）
 必须用 hidden 的 `Form.Item` 渲染出来——不渲染就提交，这一行到后端就是空的。
 
-**详情页的 `Descriptions`**：`column` 一律是响应式的（`{ xs: 1, sm: 2, lg: 3 }`），
+**详情页的 `Descriptions`**：`column` 一律是响应式的 `{ xs: 1, sm: 2, md: 2, lg: 3 }`，
 所以长字段（备注 / 地址 / 材质）**不要写死 `span: 2`** —— 窄屏只有 1 列，
 写死就超出列数：antd 告警，这一格还会被裁回 1 列，"占两列"的意图悄悄失效。
 写 `span: 'filled'`（占满这一行剩下的列），任何断点都对。
+
+**`md: 2` 这一档不要省**：只写 `{ xs: 1, sm: 2, lg: 3 }` 时，768～991 会解析成三列
+（实测 768 宽就是三列），每格只剩 120px 左右，单号断在连字符上、
+`15,570.00` 断在数字中间、日期断在斜杠上——这些记号断行后既读不出来也不像同一个字段。
+768 是 iPad 竖屏与 1024 笔记本缩放的常见宽度，所以这一档必须显式降成两列。
+
+**`headerButtons` 是整体替换，不是追加**：`Show` 自带的列表 / 刷新 / 编辑按钮会被它全部挤掉。
+详情页只要写了 `headerButtons`，就要自己把「编辑」放回去（三张主体表与商机曾因此
+四个编辑页只能手敲 URL 才到得了）；按状态决定能不能改的页面（合同 / 采购 / 出入库单）
+还要把状态条件一起写清楚。
 
 ### 列表页的双视图（表格 / 卡片）
 
