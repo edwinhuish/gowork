@@ -702,6 +702,20 @@ body {
 }
 
 /*
+ * 单行省略。
+ *
+ * 表格里那一串 SKU / 备注 / 路径，超出列宽时 antd 默认是硬切 ——
+ * 字断在半截、没有省略号，读的人第一反应是"数据坏了"。
+ * 给省略号，全文放 title 或详情里。
+ */
+.ellipsis-line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/*
  * 等宽 + 等宽数字。
  *
  * 单号、编码这类字符串强调"能对着抄"，等宽字体让每位对齐；而真正让它可读的是

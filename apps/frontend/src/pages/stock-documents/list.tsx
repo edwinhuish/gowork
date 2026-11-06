@@ -121,7 +121,15 @@ export function StockDocumentList() {
                 {/* 盘点单的数量是实盘数，加起来没有意义，所以不显示合计。 */}
                 {record.type !== STOCK_DOC_COUNT && ` · 共 ${formatQty(total)}`}
               </span>
-              <span className="cell-sub">{items.map((it) => it.sku_code).join('、')}</span>
+              {/* 只铺首个 SKU + 种数：整串 SKU 在 1440 下会把「来源单号」挤到
+                  列宽外切掉半截。全量放在 title 与详情里。 */}
+              <span
+                className="cell-sub ellipsis-line"
+                title={items.map((it) => it.sku_code).join('、')}
+              >
+                {items[0].sku_code}
+                {items.length > 1 ? ` 等 ${items.length} 种` : ''}
+              </span>
             </div>
           )
         }}
