@@ -6,6 +6,7 @@ import { Button, Descriptions, Space, Tag } from 'antd'
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, Money, RoleTag } from '@/components/fields'
 import { Partner360Panel } from '@/components/partner-360-panel'
+import { PartnerContactsPanel } from '@/components/partner-contacts-panel'
 import { PartnerAddressPanel } from '@/components/partner-address-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
@@ -95,6 +96,12 @@ export function CustomerShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 完整联系人名单。上面 Descriptions 里的「联系人」只是主联系人的快照，
+          这里才是这家客户都有谁 —— 报价、单证通知方、催款各找不同的人。 */}
+      {result?.id ? (
+        <PartnerContactsPanel contacts={result.contacts} />
+      ) : null}
 
       {/* 多地址：单证取址的依据。发票抬头、收货人、通知方常常是三家不同的公司，
           所以它与上面那条"主地址"不是重复，而是"按用途各取所需"。 */}

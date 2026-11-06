@@ -5,6 +5,7 @@ import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { PartnerAddressPanel } from '@/components/partner-address-panel'
+import { PartnerContactsPanel } from '@/components/partner-contacts-panel'
 import { Empty, EntityTypeTag, RoleTag } from '@/components/fields'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
@@ -62,6 +63,11 @@ export function SupplierShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 完整联系人名单：工厂那边对接业务、跟单、财务常常是三个人。 */}
+      {result?.id ? (
+        <PartnerContactsPanel contacts={result.contacts} />
+      ) : null}
 
       {/* 供应商也要多地址：采购合同的收货地址常常是工厂而不是注册地。 */}
       {result?.id ? <PartnerAddressPanel partnerId={result.id} /> : null}

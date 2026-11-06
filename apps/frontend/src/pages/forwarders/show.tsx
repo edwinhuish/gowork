@@ -5,6 +5,7 @@ import { Button, Descriptions, Space } from 'antd'
 
 import { AttachmentPanel } from '@/components/attachment-panel'
 import { Empty, EntityTypeTag, RoleTag } from '@/components/fields'
+import { PartnerContactsPanel } from '@/components/partner-contacts-panel'
 import { PartnerMergeModal } from '@/components/partner-merge-modal'
 import { PartnerOwnerModal } from '@/components/partner-owner-modal'
 import type { Partner } from '@/types'
@@ -61,6 +62,11 @@ export function ForwarderShow() {
           { key: 'updated_at', label: '更新时间', children: formatTime(result?.updated_at) },
         ]}
       />
+
+      {/* 货代的交接人经常换：订舱、报关、对账各一个联系人，得能一次看全。 */}
+      {result?.id ? (
+        <PartnerContactsPanel contacts={result.contacts} />
+      ) : null}
 
       {/* 货代是往来单位的另一个角色，附件同样落在 partner 上：
           代理协议、订舱确认、对账用的运费清单都是长期有效的文件。 */}
