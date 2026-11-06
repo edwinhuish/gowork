@@ -378,13 +378,33 @@ export function ProductList() {
         dataIndex="spec"
         title="规格"
         width={150}
-        render={(value: string) => value || <EmptyValue />}
+        // 限宽 + 省略：规格是自由文本，「M8×80 mm / 100pcs」这种长度会把
+        // auto 布局的列从 150 撑到内容宽度，右边那列就被压得贴上来。
+        render={(value: string) =>
+          value ? (
+            <span className="ellipsis-line" title={value}>
+              {value}
+            </span>
+          ) : (
+            <EmptyValue />
+          )
+        }
       />
       <Table.Column
         dataIndex="supplier"
         title="供应商"
         width={150}
-        render={(value: Product['supplier']) => value?.name || <EmptyValue />}
+        // 同上：公司名十几个字，「宁波北仑精密压铸有限公司」会把这一列撑到两行
+        // 并把下面的行高全部带歪。一行显示，全名放 title。
+        render={(value: Product['supplier']) =>
+          value?.name ? (
+            <span className="ellipsis-line" title={value.name}>
+              {value.name}
+            </span>
+          ) : (
+            <EmptyValue />
+          )
+        }
       />
       <Table.Column
         dataIndex="cost_price"
