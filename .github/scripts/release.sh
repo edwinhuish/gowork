@@ -236,7 +236,7 @@ ask_version() {
     return 0
   fi
   while true; do
-    printf '版本号 [%s]（回车用默认；当前 %s）：' "$suggested" "$base_version" >&2
+    printf '当前[%s]（默认 %s）：' "$base_version" "$suggested" >&2
     if ! IFS= read -r input; then
       # Ctrl-D / 输入被关掉：当成回车处理。死循环或带着空版本号往下走都更难解释。
       echo >&2
@@ -347,8 +347,6 @@ fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
 # 多一个空格、多一行注释都会被当成版本号的一部分注进二进制。
 printf '%s\n' "$version" > "$version_file"
 
-echo "已把版本号改成 $version（根目录 $version_file + $frontend_pkg）"
-
 # ---- 提交 ----
 # 版本号本来就和目标一致时（比如上次发布推失败、这次原样重来），不要造一个空提交：
 # 空提交会让 release 说明里多一条没有内容的条目。
@@ -383,7 +381,7 @@ else
     echo "标准输入不是终端，按默认继续推送（不想推就加 PUSH=false）"
     should_push=1
   else
-    printf '推送到 %s（分支 %s + tag %s）？[Y/n] ' "$push_target" "$branch" "$tag" >&2
+    printf '推送到 %s ？[Y/n] ' "$push_target" >&2
     if ! IFS= read -r reply; then
       echo >&2
       reply=""
@@ -398,7 +396,6 @@ fi
 if [ "$should_push" = "1" ]; then
   # --atomic：分支与 tag 要么一起成功、要么一起失败。分开推的话，分支推上去而 tag 失败
   # 会留下一个「代码已发布、却没有触发 release.yml」的中间态，得人工补推。
-  echo "推送到 $push_target（分支 $branch + tag $tag）..."
   if ! git push --atomic "$push_target" "HEAD:refs/heads/$branch" "refs/tags/$tag"; then
     cat >&2 <<EOF
 
@@ -413,14 +410,6 @@ EOF
     exit 1
   fi
 
-  cat <<EOF
-
-已发布 $tag
-    版本号：$version（根目录 $version_file 与 $frontend_pkg 已同步并提交）
-    分支  ：$branch -> $push_target
-推送 tag 会触发 .github/workflows/release.yml（五个平台的后端包 + 前端 dist + ghcr.io 镜像）。
-进度用 gh run list --workflow release.yml 看；产物落地后用 ./gowork-server -version 自证版本。
-EOF
   exit 0
 fi
 
