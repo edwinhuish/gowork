@@ -251,6 +251,7 @@ func (r *shipmentRepo) FindByID(ctx context.Context, id uint) (*model.Shipment, 
 		Preload("Forwarder").
 		Preload("Allocations.SalesOrderItem").
 		Preload("Allocations.SalesOrderItem.SalesOrder").
+		Preload("Allocations.SalesOrderItem.SalesOrder.Partner").
 		First(&m, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.ErrNotFound
@@ -269,7 +270,8 @@ func (r *shipmentRepo) List(
 	scopes := append(f.scopes(), func(db *gorm.DB) *gorm.DB {
 		return db.Preload("Allocations", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 			Preload("Allocations.SalesOrderItem").
-			Preload("Allocations.SalesOrderItem.SalesOrder")
+			Preload("Allocations.SalesOrderItem.SalesOrder").
+			Preload("Allocations.SalesOrderItem.SalesOrder.Partner")
 	})
 	return r.PaginateOrdered(ctx, p, "ship_date DESC, id DESC", scopes...)
 }

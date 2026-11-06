@@ -146,6 +146,12 @@ type ShipmentAllocation struct {
 	// 不让前端去 allocations[].sales_order_item.sales_order.doc_no 里翻：
 	// ShipmentAllocation 嵌的 SalesOrderItem 里那个整单是不回吐接口的。
 	SalesOrderDocNo string `gorm:"-" json:"sales_order_doc_no"`
+
+	// PartnerName 同理，是来源订单的客户名。
+	//
+	// 出货单本身没有客户字段：一票货装的是**销售订单行**，客户是订单上的。
+	// 但出货列表要按客户认人（"这票是给谁的"），缺了它只能拿订单号回查。
+	PartnerName string `gorm:"-" json:"partner_name"`
 }
 
 func (ShipmentAllocation) TableName() string { return "biz_shipment_allocation" }

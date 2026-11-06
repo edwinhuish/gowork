@@ -302,7 +302,7 @@ func (s *shipmentService) List(
 		return nil, err
 	}
 	for i := range list {
-		annotateDocNo(&list[i])
+		annotateAllocations(&list[i])
 	}
 	return dto.NewPageResult(list, total, q.Page, q.PageSize), nil
 }
@@ -345,22 +345,27 @@ func (s *shipmentService) load(ctx context.Context, id uint) (*model.Shipment, e
 	if err != nil {
 		return nil, err
 	}
-	annotateDocNo(m)
+	annotateAllocations(m)
 	return m, nil
 }
 
-// annotateDocNo 把每条分配行背后的订单号摊平出来。
+// annotateAllocations 把每条分配行背后的订单号与客户名摊平出来。
 //
-// 订单号本来在 allocations[].sales_order_item.sales_order 里，但那一层整单对象
+// 它们本来在 allocations[].sales_order_item.sales_order 里，但那一层整单对象
 // 是不回吐接口的（json:"-"），前端拿不到；让前端自己去查第二遍又会让列表多几十个请求。
-func annotateDocNo(m *model.Shipment) {
+// 客户名是为了列表能按客户认人——一票货装的是销售订单行，客户在订单上。
+func annotateAllocations(m *model.Shipment) {
 	if m == nil {
 		return
 	}
 	for i := range m.Allocations {
 		item := m.Allocations[i].SalesOrderItem
-		if item != nil && item.SalesOrder != nil {
-			m.Allocations[i].SalesOrderDocNo = item.SalesOrder.DocNo
+		if item == nil || item.SalesOrder == nil {
+			continue
+		}
+		m.Allocations[i].SalesOrderDocNo = item.SalesOrder.DocNo
+		if p := item.SalesOrder.Partner; p != nil {
+			m.Allocations[i].PartnerName = p.Name
 		}
 	}
 }

@@ -843,6 +843,13 @@ export interface ShipmentAllocation {
   sales_order_item_id: number
   /** 来源订单号，后端摊平后给出，省得前端顺着三层对象去翻。 */
   sales_order_doc_no: string
+  /**
+   * 来源订单的客户名，同样是后端摊平的。
+   *
+   * 出货单本身没有客户：一票装的是销售订单行，客户在订单上。列表要按客户
+   * 认人（「这票是给谁的」），缺了它只能拿订单号回查。
+   */
+  partner_name: string
   sku_code: string
   name_cn: string
   spec: string

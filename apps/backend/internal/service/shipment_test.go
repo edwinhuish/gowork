@@ -804,3 +804,32 @@ func (s stubSalesOut) IssueSalesOut(
 	s.t.Fatal("这条用例不该触发出库")
 	return nil, nil
 }
+
+func TestShipmentListAnnotatesCustomer(t *testing.T) {
+	now := time.Date(2026, 10, 20, 10, 0, 0, 0, time.Local)
+	fx := newShipmentFixture(t, &now)
+	ctx := context.Background()
+
+	if _, err := fx.shipments.Create(ctx, dto.ShipmentInput{
+		ShipDate:    "2026-10-20",
+		Allocations: []dto.ShipmentAllocationInput{{SalesOrderItemID: fx.orderA.Items[0].ID, Qty: qtyOf(5)}},
+	}); err != nil {
+		t.Fatalf("建出货批次失败: %v", err)
+	}
+
+	page, err := fx.shipments.List(ctx, dto.ShipmentQuery{})
+	if err != nil {
+		t.Fatalf("查出货列表失败: %v", err)
+	}
+	if len(page.List) != 1 || len(page.List[0].Allocations) != 1 {
+		t.Fatalf("出货列表 = %+v，期望 1 票 1 行", page.List)
+	}
+	a := page.List[0].Allocations[0]
+	if a.SalesOrderDocNo != fx.orderA.DocNo {
+		t.Errorf("分配行订单号 = %q，期望 %q", a.SalesOrderDocNo, fx.orderA.DocNo)
+	}
+	// 客户名跟着订单号一起摊平：出货单自己没有客户字段，列表要按客户认人。
+	if a.PartnerName != "Ferreteria El Sol" {
+		t.Errorf("分配行客户名 = %q，期望 Ferreteria El Sol", a.PartnerName)
+	}
+}

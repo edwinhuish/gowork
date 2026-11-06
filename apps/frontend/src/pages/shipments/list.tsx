@@ -66,7 +66,7 @@ export function ShipmentList() {
       <Table.Column
         dataIndex="doc_no"
         title="单号"
-        width={170}
+        width={160}
         render={(value: string) => <Mono>{value}</Mono>}
       />
       <Table.Column
@@ -77,18 +77,40 @@ export function ShipmentList() {
       />
       <Table.Column
         dataIndex="allocations"
+        title="客户 / 来源订单"
+        width={200}
+        render={(_, record: Shipment) => {
+          const allocations = record.allocations ?? []
+          if (allocations.length === 0) return <Empty />
+          // 一票通常只装一个客户的货；多客户时按出现顺序去重罗列，
+          // 不缩写成「等 2 家」——认人靠的就是名字。
+          const partners = [...new Set(allocations.map((a) => a.partner_name).filter(Boolean))]
+          const docNos = [...new Set(allocations.map((a) => a.sales_order_doc_no).filter(Boolean))]
+          return (
+            <div className="cell-stack">
+              <span
+                className={partners.length > 0 ? 'cell-strong ellipsis-line' : 'cell-sub'}
+                title={partners.join('、')}
+              >
+                {partners.length > 0 ? partners.join('、') : '无客户'}
+              </span>
+              <span className="cell-sub ellipsis-line" title={docNos.join('、')}>
+                {docNos.join('、') || '—'}
+              </span>
+            </div>
+          )
+        }}
+      />
+      <Table.Column
+        dataIndex="allocations"
         title="装了哪些货"
         render={(_, record: Shipment) => {
           const allocations = record.allocations ?? []
           if (allocations.length === 0) return <Empty />
-          const docNos = [...new Set(allocations.map((a) => a.sales_order_doc_no))]
           return (
-            <div className="cell-stack">
-              <span className="cell-strong">
-                {allocations.length} 行 · {formatQtyByUnit(allocations)}
-              </span>
-              <span className="cell-sub">{docNos.filter(Boolean).join('、') || '—'}</span>
-            </div>
+            <span>
+              {allocations.length} 行 · {formatQtyByUnit(allocations)}
+            </span>
           )
         }}
       />
