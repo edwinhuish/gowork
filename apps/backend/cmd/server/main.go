@@ -2,6 +2,10 @@
 //
 // 只负责：解析启动参数 -> 加载配置 -> 装配应用 -> 启停 HTTP 服务。
 // 业务逻辑一律下沉到 internal 下的各层。
+//
+// 除 -config 外只有一个附加参数：
+//
+//	-version  打印版本信息然后退出
 package main
 
 import (
@@ -12,11 +16,31 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/edwinhuish/gowork/internal/bootstrap"
 	"github.com/edwinhuish/gowork/internal/config"
+)
+
+// 版本号在构建期用 ldflags 注入，代码里不读文件：
+//
+//	go build -ldflags "-X main.version=0.1.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%FT%TZ)"
+//
+// 正本是仓库根目录的 VERSION（`task release` 写它）。两条构建路径都把它的内容交给
+// 上面的 -X：`task backend:build`（缺省读 VERSION，可用 VERSION=1.2.3 覆盖）与
+// 发布流水线（用 tag 名，那才是对外的权威）；`docker build --build-arg VERSION=…`
+// 同理，缺省落在 dev 上。
+//
+// 为什么不在代码里读 VERSION：产物要能在任何目录、任何机器上自证，不该依赖旁边恰好
+// 放着一份文本；而 -X 只对「字面量初始化的 string 变量」可靠，换成函数返回值后会在
+// init 阶段把注进去的值静默覆盖掉，构建日志一个字都不会提。
+var (
+	// 裸 go build 与 air 热重载不带 ldflags，落在默认值上 —— 一眼看出不是发布产物。
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 func main() {
@@ -28,7 +52,17 @@ func main() {
 
 func run() error {
 	configPath := flag.String("config", "configs/config.yaml", "配置文件路径")
+	showVersion := flag.Bool("version", false, "打印版本信息并退出")
 	flag.Parse()
+
+	// 放在加载配置之前：-version 不该依赖配置文件是否存在。
+	if *showVersion {
+		fmt.Printf("gowork-server %s\n", version)
+		fmt.Printf("  commit: %s\n", commit)
+		fmt.Printf("  built:  %s\n", date)
+		fmt.Printf("  go:     %s\n", runtime.Version())
+		return nil
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
