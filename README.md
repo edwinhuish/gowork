@@ -149,7 +149,7 @@ task release DRY_RUN=true         # 只打印将要发生什么，不改文件�
 | `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 镜像 + Release |
 
 两条流水线都不重写构建命令，一律调用 `Taskfile.yml` 里已有的任务。发布说明由提交历史
-现算（`.github/scripts/generate-changelog.sh`），不依赖 GitHub 的自动生成。
+现算（`scripts/generate-changelog.sh`），不依赖 GitHub 的自动生成。
 
 ## 前端只认 pnpm
 

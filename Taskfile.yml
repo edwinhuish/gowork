@@ -67,7 +67,7 @@ tasks:
 
   release:
     # 发版是本地的一串动作（问版本号 -> 同步前后端版本号 -> 提交、打 tag -> 问是否推送），
-    # 逻辑全在 .github/scripts/release.sh：那里能按顺序校验工作区、远程与 tag 是否被占用，
+    # 逻辑全在 scripts/release.sh：那里能按顺序校验工作区、远程与 tag 是否被占用，
     # 失败时说清停在哪一步。这里只转传参数，不把这套流程在 Taskfile 里再写一份。
     desc: 打版本 tag 并发版（会先问版本号；VERSION=1.2.3 REMOTE=origin PUSH=false DRY_RUN=true）
     silent: true
@@ -78,7 +78,7 @@ tasks:
       PUSH: '{{.PUSH | default "ask"}}'
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
     cmds:
-      - .github/scripts/release.sh
+      - scripts/release.sh
 
   demo:reset:
     desc: 清空开发库并重灌演示数据（演示数据只在空库时写入，所以要重建）

@@ -5,7 +5,7 @@
 # 就能对上「这一版到底是哪几个提交」；本地脚本只负责把 tag 推上去，产物一律在 CI 里出，
 # 免得谁的机器上少装了什么就发出一份不一样的包。
 #
-# 发版入口是 `task release`（见根 Taskfile 与 .github/scripts/release.sh），
+# 发版入口是 `task release`（见根 Taskfile 与 scripts/release.sh），
 # 这里不重复版本号逻辑：tag 名就是版本号，构建期用 -X main.version 注进二进制。
 
 name: Release
@@ -220,8 +220,8 @@ jobs:
       - name: 查找上一个版本标签
         id: tags
         run: |
-          chmod +x .github/scripts/get-tags.sh
-          .github/scripts/get-tags.sh "${{ github.ref_name }}"
+          chmod +x scripts/get-tags.sh
+          scripts/get-tags.sh "${{ github.ref_name }}"
 
       - name: 生成发布说明
         id: changelog
@@ -229,8 +229,8 @@ jobs:
           TAG: ${{ steps.tags.outputs.current_tag }}
           PREVIOUS_TAG: ${{ steps.tags.outputs.previous_tag }}
         run: |
-          chmod +x .github/scripts/generate-changelog.sh
-          .github/scripts/generate-changelog.sh "$TAG" "$PREVIOUS_TAG" release-notes.md
+          chmod +x scripts/generate-changelog.sh
+          scripts/generate-changelog.sh "$TAG" "$PREVIOUS_TAG" release-notes.md
 
       # 不带 name / pattern 时会下载本 run 的全部 artifact，其中可能混进 build-push-action
       # 上传的构建记录（形如 owner~repo~hash.dockerbuild，gzip 包而非 zip），

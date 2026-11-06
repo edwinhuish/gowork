@@ -64,8 +64,8 @@ GoWork/
 ├── docs/
 │   ├── glossary.md              # 术语表：业务对象叫什么、归哪个域（唯一事实来源）
 │   └── architecture.md          # 分层约定、存储可替换性、扩展指引
+├── scripts/                     # 发版脚本：release.sh 与发布说明用的两个单用途脚本
 └── .github/
-    ├── scripts/                 # 发版脚本：release.sh 与发布说明用的两个单用途脚本
     └── workflows/
         ├── ci.yml               # CI：go build/vet/test + pnpm install/typecheck/build
         └── release.yml          # 推 v* tag：后端包 + 前端 dist + 镜像 + Release

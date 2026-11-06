@@ -11,7 +11,7 @@
 #   task release DRY_RUN=true           # 只打印将发生什么，不改文件、不提交、不推
 #
 # 也可以直接跑脚本，参数与上面等价：
-#   .github/scripts/release.sh --version 1.2.0 --remote origin --no-push
+#   scripts/release.sh --version 1.2.0 --remote origin --no-push
 #
 # 为什么把这一串放在脚本里，而不是在 Taskfile 里连写几条 git：
 #   发布是「改文件 → 提交 → 打 tag → 推」的链式动作，每一环都可能失败，而且失败时
