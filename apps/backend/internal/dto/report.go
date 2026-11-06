@@ -139,7 +139,10 @@ type ExchangeGainLine struct {
 	PartnerName  string `json:"partner_name"`
 	CurrencyCode string `json:"currency_code"`
 	// TargetType 10 应收单 / 20 应付单。
-	TargetType  int8   `json:"target_type"`
+	TargetType int8 `json:"target_type"`
+	// TargetID 与 TargetType 一起决定目标单据详情页的路由：
+	// 报表上每一行都要能点回去核对，只给单号就只能靠人再搜一次。
+	TargetID    uint   `json:"target_id"`
 	TargetDocNo string `json:"target_doc_no"`
 
 	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSelect } from '@refinedev/core'
 import { Alert, Card, Flex, Input, Select, Space, Table, Tag, Typography, theme } from 'antd'
+import { Link } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'
@@ -145,7 +146,8 @@ export function ExchangeGainsPage() {
           rows={feed.rows}
           rowKey={(row) => `${row.payment_id}-${row.target_doc_no}-${row.amount}`}
           loading={isLoading}
-          scrollX={1300}
+          // 1138 = 112+140+70+148+68+160+110+100+100+130，正好落在 1440 的内容区里。
+          scrollX={1138}
           empty="这段时间没有产生汇兑差额的核销"
           // 第一列是到账日，卡上该写单号：认一笔损益靠的是"哪张收付款单"。
           cardTitleKey="payment_doc_no"
@@ -177,19 +179,26 @@ export function ExchangeGainsPage() {
           <Table.Column
             dataIndex="pay_date"
             title="到账日"
-            width={110}
-            render={(value: string) => value}
+            // auto 布局下列宽只是建议值，再补 nowrap：日期折成「2026-10-」+「27」
+            // 会被误读成两个数，而这张表里到处是数。
+            width={112}
+            render={(value: string) => <span style={{ whiteSpace: 'nowrap' }}>{value}</span>}
           />
           <Table.Column
             dataIndex="payment_doc_no"
             title="收付款单"
-            width={160}
-            render={(value: string) => <Mono>{value}</Mono>}
+            width={140}
+            // 这一行回答「汇兑差额是哪笔钱产生的」，点进去才看得到水单与其它核销行。
+            render={(value: string, row: ExchangeGainLine) => (
+              <Link to={`/payments/show/${row.payment_id}`}>
+                <Mono>{value}</Mono>
+              </Link>
+            )}
           />
           <Table.Column
             dataIndex="direction"
             title="方向"
-            width={80}
+            width={70}
             render={(value: number) => (
               <Tag bordered={false} color={value === 20 ? 'warning' : 'success'}>
                 {paymentDirectionLabel(value)}
@@ -198,7 +207,7 @@ export function ExchangeGainsPage() {
           />
           <Table.Column
             title="往来单位"
-            width={180}
+            width={148}
             render={(_, row: ExchangeGainLine) => (
               <Space direction="vertical" size={0}>
                 <span>{row.partner_name || <Empty />}</span>
@@ -209,46 +218,56 @@ export function ExchangeGainsPage() {
           <Table.Column
             dataIndex="currency_code"
             title="币种"
-            width={80}
+            width={68}
             render={(value: string) => <Tag>{value}</Tag>}
           />
           <Table.Column
             title="目标单据"
-            width={190}
-            render={(_, row: ExchangeGainLine) => (
-              <Space direction="vertical" size={0}>
-                <Mono>{row.target_doc_no}</Mono>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {PAYMENT_TARGET_OPTIONS.find((o) => o.value === row.target_type)?.label}
-                </Typography.Text>
-              </Space>
-            )}
+            width={160}
+            // 单据链的另一半：损益是「到账汇率 − 这张单锁的汇率」，
+            // 两个汇率分别在这边和那边，对不上时得能立刻跳过去看。
+            render={(_, row: ExchangeGainLine) => {
+              const path =
+                row.target_type === 10
+                  ? `/receivables/show/${row.target_id}`
+                  : `/payables/show/${row.target_id}`
+              return (
+                <Space direction="vertical" size={0}>
+                  <Link to={path}>
+                    <Mono>{row.target_doc_no}</Mono>
+                  </Link>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {PAYMENT_TARGET_OPTIONS.find((o) => o.value === row.target_type)?.label}
+                  </Typography.Text>
+                </Space>
+              )
+            }}
           />
           <Table.Column
             dataIndex="amount"
             title="核销原币"
-            width={120}
+            width={110}
             align="right"
             render={(value: string) => <Money value={value} />}
           />
           <Table.Column
             dataIndex="payment_rate"
             title="到账汇率"
-            width={110}
+            width={100}
             align="right"
             render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
           />
           <Table.Column
             dataIndex="document_rate"
             title="单据汇率"
-            width={110}
+            width={100}
             align="right"
             render={(value: string) => (Number(value) === 1 ? '1' : Number(value).toFixed(4))}
           />
           <Table.Column
             dataIndex="gain_base"
-            title="汇兑损益（本币）"
-            width={150}
+            title="损益（本币）"
+            width={130}
             align="right"
             render={(value: string) => <GainValue value={value} strong />}
           />

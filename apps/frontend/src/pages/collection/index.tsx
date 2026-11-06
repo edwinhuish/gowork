@@ -15,6 +15,7 @@ import {
   Typography,
   theme,
 } from 'antd'
+import { Link } from 'react-router'
 
 import { reportApi } from '@/api/reports'
 import { Empty, HeatTag, Mono, Money } from '@/components/fields'
@@ -248,7 +249,12 @@ export function CollectionPage() {
             dataIndex="doc_no"
             title="单据号"
             width={160}
-            render={(value: string) => <Mono>{value}</Mono>}
+            // 这张表的用途就是"催哪几张单"，点不进去就只能照着单号再搜一次。
+            render={(value: string, row: CollectionRow) => (
+              <Link to={`/${isPayable ? 'payables' : 'receivables'}/show/${row.id}`}>
+                <Mono>{value}</Mono>
+              </Link>
+            )}
           />
           <Table.Column
             title={isPayable ? '供应商' : '客户'}

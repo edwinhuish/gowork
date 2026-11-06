@@ -234,6 +234,7 @@ func (s *reportService) ExchangeGains(
 			PartnerName:  l.PartnerName,
 			CurrencyCode: l.CurrencyCode,
 			TargetType:   int8(l.TargetType),
+			TargetID:     l.TargetID,
 			TargetDocNo:  l.TargetDocNo,
 			Amount:       l.Amount.Round(4),
 			AmountBase:   l.AmountBase.Round(4),

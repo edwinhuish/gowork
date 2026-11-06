@@ -168,6 +168,7 @@ type ExchangeGainLine struct {
 	PaymentRate  money.Decimal
 	DocumentRate money.Decimal
 	TargetType   model.SettlementTarget
+	TargetID     uint
 	TargetDocNo  string
 	// Amount 是核销原币；AmountBase 是按到账汇率折的本币。
 	Amount     money.Decimal
@@ -414,6 +415,7 @@ func (r *reportRepo) ListExchangeGains(
 				p.exchange_rate AS payment_rate,
 				d.exchange_rate AS document_rate,
 				a.target_type,
+				a.target_id,
 				a.target_doc_no,
 				a.amount,
 				a.amount_base`).

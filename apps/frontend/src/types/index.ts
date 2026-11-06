@@ -1286,6 +1286,8 @@ export interface ExchangeGainLine {
   currency_code: string
   /** 10 应收单 / 20 应付单 */
   target_type: number
+  /** 与 target_type 一起决定目标单据详情页的路由。 */
+  target_id: number
   target_doc_no: string
   /** 核销原币。定点字符串（后端 money.Decimal）。 */
   amount: string
