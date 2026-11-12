@@ -1,6 +1,6 @@
 // Package config 负责加载与校验应用配置。
 //
-// 优先级：配置文件 < 环境变量（GOWORK_ 前缀）。
+// 优先级：配置文件 < 环境变量（缺省前缀 GOWORK_，可用 LoadWithEnvPrefix 换掉）。
 // 生产环境的密码、DSN 一律走环境变量，不进仓库。
 //
 // 存储相关的配置都遵循同一个思路：**用配置选项切换实现，而不是改代码**。
@@ -161,8 +161,22 @@ type Log struct {
 	Format string `yaml:"format"` // text | json
 }
 
-// Load 读取配置文件并应用默认值与环境变量覆盖。
+// DefaultEnvPrefix 是环境变量前缀的缺省值：GOWORK_APP_ENV 即前缀 + APP_ENV。
+const DefaultEnvPrefix = "GOWORK_"
+
+// Load 读取配置文件并应用默认值与环境变量覆盖（环境变量用缺省前缀）。
 func Load(path string) (*Config, error) {
+	return LoadWithEnvPrefix(path, DefaultEnvPrefix)
+}
+
+// LoadWithEnvPrefix 同 Load，但允许指定环境变量前缀。
+//
+// 前缀为空等价于缺省值；不以 "_" 结尾时自动补上，大小写不敏感
+// （"--env-prefix acme" 与 "--env-prefix ACME_" 等价，都读 ACME_APP_ENV）。
+//
+// 需要它的场景是同一个制品部署多套实例：同一个二进制，靠前缀区分
+// 各套的环境变量，不必为了换一套变量名再编译一次。
+func LoadWithEnvPrefix(path, prefix string) (*Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("读取配置文件 %s: %w", path, err)
@@ -174,12 +188,25 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg.applyDefaults()
-	cfg.applyEnv()
+	cfg.applyEnv(NormalizeEnvPrefix(prefix))
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// NormalizeEnvPrefix 把用户给的前缀规整成 "大写 + 尾部下划线" 的唯一形式，
+// 空串返回 DefaultEnvPrefix。
+func NormalizeEnvPrefix(prefix string) string {
+	p := strings.ToUpper(strings.TrimSpace(prefix))
+	if p == "" {
+		return DefaultEnvPrefix
+	}
+	if !strings.HasSuffix(p, "_") {
+		p += "_"
+	}
+	return p
 }
 
 func (c *Config) applyDefaults() {
@@ -261,35 +288,39 @@ func (c *Config) applyDefaults() {
 }
 
 // applyEnv 只覆盖最常因环境而变的几项，其余仍以配置文件为准。
-func (c *Config) applyEnv() {
-	setStr(&c.App.Env, "GOWORK_APP_ENV")
-	setStr(&c.HTTP.Addr, "GOWORK_HTTP_ADDR")
-	setStr(&c.HTTP.Mode, "GOWORK_HTTP_MODE")
-	setStr(&c.Database.Driver, "GOWORK_DB_DRIVER")
-	setStr(&c.Database.DSN, "GOWORK_DB_DSN")
-	setStr(&c.Database.Host, "GOWORK_DB_HOST")
-	setStr(&c.Database.User, "GOWORK_DB_USER")
-	setStr(&c.Database.Password, "GOWORK_DB_PASSWORD")
-	setStr(&c.Database.Name, "GOWORK_DB_NAME")
-	setStr(&c.Database.LogLevel, "GOWORK_DB_LOG_LEVEL")
-	setStr(&c.Cache.Driver, "GOWORK_CACHE_DRIVER")
-	setStr(&c.Cache.Memory.Path, "GOWORK_CACHE_MEMORY_PATH")
-	setStr(&c.Cache.Redis.Addr, "GOWORK_REDIS_ADDR")
-	setStr(&c.Cache.Redis.Password, "GOWORK_REDIS_PASSWORD")
-	setStr(&c.JWT.Secret, "GOWORK_JWT_SECRET")
-	setStr(&c.Log.Level, "GOWORK_LOG_LEVEL")
-	setStr(&c.Log.Format, "GOWORK_LOG_FORMAT")
-	setStr(&c.PDF.FontPath, "GOWORK_PDF_FONT_PATH")
-	setStr(&c.PDF.TemplateDir, "GOWORK_PDF_TEMPLATE_DIR")
-	setStr(&c.PDF.CompanyName, "GOWORK_PDF_COMPANY_NAME")
+// prefix 已由 NormalizeEnvPrefix 规整（大写且以 "_" 结尾）。
+func (c *Config) applyEnv(prefix string) {
+	// 所有变量名都经 key 拼出来：换前缀时只改这一处，漏改会立刻被测试发现。
+	key := func(name string) string { return prefix + name }
 
-	setInt(&c.Database.Port, "GOWORK_DB_PORT")
-	setInt(&c.Cache.Redis.DB, "GOWORK_REDIS_DB")
-	setInt(&c.Cache.Memory.SaveInterval, "GOWORK_CACHE_SAVE_INTERVAL")
-	setBool(&c.Cache.FallbackToMemory, "GOWORK_CACHE_FALLBACK_TO_MEMORY")
-	setBoolPtr(&c.Cache.Memory.Persist, "GOWORK_CACHE_MEMORY_PERSIST")
+	setStr(&c.App.Env, key("APP_ENV"))
+	setStr(&c.HTTP.Addr, key("HTTP_ADDR"))
+	setStr(&c.HTTP.Mode, key("HTTP_MODE"))
+	setStr(&c.Database.Driver, key("DB_DRIVER"))
+	setStr(&c.Database.DSN, key("DB_DSN"))
+	setStr(&c.Database.Host, key("DB_HOST"))
+	setStr(&c.Database.User, key("DB_USER"))
+	setStr(&c.Database.Password, key("DB_PASSWORD"))
+	setStr(&c.Database.Name, key("DB_NAME"))
+	setStr(&c.Database.LogLevel, key("DB_LOG_LEVEL"))
+	setStr(&c.Cache.Driver, key("CACHE_DRIVER"))
+	setStr(&c.Cache.Memory.Path, key("CACHE_MEMORY_PATH"))
+	setStr(&c.Cache.Redis.Addr, key("REDIS_ADDR"))
+	setStr(&c.Cache.Redis.Password, key("REDIS_PASSWORD"))
+	setStr(&c.JWT.Secret, key("JWT_SECRET"))
+	setStr(&c.Log.Level, key("LOG_LEVEL"))
+	setStr(&c.Log.Format, key("LOG_FORMAT"))
+	setStr(&c.PDF.FontPath, key("PDF_FONT_PATH"))
+	setStr(&c.PDF.TemplateDir, key("PDF_TEMPLATE_DIR"))
+	setStr(&c.PDF.CompanyName, key("PDF_COMPANY_NAME"))
 
-	if v := os.Getenv("GOWORK_HTTP_CORS_ORIGINS"); v != "" {
+	setInt(&c.Database.Port, key("DB_PORT"))
+	setInt(&c.Cache.Redis.DB, key("REDIS_DB"))
+	setInt(&c.Cache.Memory.SaveInterval, key("CACHE_SAVE_INTERVAL"))
+	setBool(&c.Cache.FallbackToMemory, key("CACHE_FALLBACK_TO_MEMORY"))
+	setBoolPtr(&c.Cache.Memory.Persist, key("CACHE_MEMORY_PERSIST"))
+
+	if v := os.Getenv(key("HTTP_CORS_ORIGINS")); v != "" {
 		c.HTTP.CORSOrigins = strings.Split(v, ",")
 	}
 }

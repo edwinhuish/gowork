@@ -3,9 +3,10 @@
 // 只负责：解析启动参数 -> 加载配置 -> 装配应用 -> 启停 HTTP 服务。
 // 业务逻辑一律下沉到 internal 下的各层。
 //
-// 除 -config 外只有一个附加参数：
+// 除 -config 外还有两个附加参数：
 //
-//	-version  打印版本信息然后退出
+//	-env-prefix  环境变量前缀，缺省 GOWORK_（见 internal/config）
+//	-version     打印版本信息然后退出
 package main
 
 import (
@@ -28,8 +29,8 @@ import (
 //
 //	go build -ldflags "-X main.version=0.1.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%FT%TZ)"
 //
-// 正本是仓库根目录的 VERSION（`task release` 写它）。两条构建路径都把它的内容交给
-// 上面的 -X：`task backend:build`（缺省读 VERSION，可用 APP_VERSION=1.2.3 覆盖）与
+// 正本是仓库根目录的 VERSION.txt（`task release` 写它）。两条构建路径都把它的内容交给
+// 上面的 -X：`task backend:build`（缺省读 VERSION.txt，可用 APP_VERSION=1.2.3 覆盖）与
 // 发布流水线（用 tag 名，那才是对外的权威）；`docker build --build-arg VERSION=…`
 // 同理，缺省落在 dev 上。
 //
@@ -52,6 +53,8 @@ func main() {
 
 func run() error {
 	configPath := flag.String("config", "configs/config.yaml", "配置文件路径")
+	// 同一个制品部署多套时靠前缀区分各自的环境变量；留空即缺省的 GOWORK_。
+	envPrefix := flag.String("env-prefix", config.DefaultEnvPrefix, "环境变量前缀，例如 GOWORK_（大小写不敏感，缺省自动补下划线）")
 	showVersion := flag.Bool("version", false, "打印版本信息并退出")
 	flag.Parse()
 
@@ -64,7 +67,7 @@ func run() error {
 		return nil
 	}
 
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.LoadWithEnvPrefix(*configPath, *envPrefix)
 	if err != nil {
 		return err
 	}

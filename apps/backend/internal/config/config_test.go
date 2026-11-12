@@ -1,9 +1,67 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestNormalizeEnvPrefix(t *testing.T) {
+	cases := map[string]string{
+		"":        DefaultEnvPrefix,
+		"   ":     DefaultEnvPrefix,
+		"GOWORK_": DefaultEnvPrefix,
+		"acme":    "ACME_",
+		"acme_":   "ACME_",
+		" Acme_ ": "ACME_",
+	}
+	for in, want := range cases {
+		if got := NormalizeEnvPrefix(in); got != want {
+			t.Errorf("NormalizeEnvPrefix(%q) = %q, 期望 %q", in, got, want)
+		}
+	}
+}
+
+func TestLoadWithEnvPrefix(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("jwt:\n  secret: from-file\n"), 0o600); err != nil {
+		t.Fatalf("写临时配置: %v", err)
+	}
+
+	t.Setenv("GOWORK_JWT_SECRET", "from-gowork")
+	t.Setenv("ACME_JWT_SECRET", "from-acme")
+
+	// 自定义前缀只读自己那套变量。
+	cfg, err := LoadWithEnvPrefix(path, "acme")
+	if err != nil {
+		t.Fatalf("LoadWithEnvPrefix: %v", err)
+	}
+	if cfg.JWT.Secret != "from-acme" {
+		t.Errorf("自定义前缀应读 ACME_JWT_SECRET，得到 %q", cfg.JWT.Secret)
+	}
+
+	// 不指定前缀（含显式空串）时行为与原来一致。
+	for _, prefix := range []string{DefaultEnvPrefix, ""} {
+		cfg, err := LoadWithEnvPrefix(path, prefix)
+		if err != nil {
+			t.Fatalf("LoadWithEnvPrefix(%q): %v", prefix, err)
+		}
+		if cfg.JWT.Secret != "from-gowork" {
+			t.Errorf("prefix=%q 应读 GOWORK_JWT_SECRET，得到 %q", prefix, cfg.JWT.Secret)
+		}
+	}
+
+	// 环境变量都没有时回落到配置文件。
+	os.Unsetenv("GOWORK_JWT_SECRET")
+	cfg, err = Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "from-file" {
+		t.Errorf("无环境变量时应读配置文件，得到 %q", cfg.JWT.Secret)
+	}
+}
 
 func TestResolvedDSNPostgres(t *testing.T) {
 	db := Database{
