@@ -1,0 +1,68 @@
+# nginx 站点配置模板。官方 nginx 镜像的 entrypoint 会在启动时对
+# /etc/nginx/templates/*.template 做一次 envsubst，结果写到 /etc/nginx/conf.d/default.conf。
+# envsubst 只替换「已定义的环境变量」，所以 $uri / $host 这些 nginx 变量原样保留；
+# 反过来说，这里不要写 $hostname 这类与宿主环境变量同名的东西。
+#
+# 上游地址来自 GOWORK_API_UPSTREAM（Dockerfile 给了默认值，compose 覆盖）。
+
+# Docker 内置 DNS。配合下面用变量写的 proxy_pass，后端容器重启换了 IP 时
+# nginx 会按 valid 重新解析，而不是抱着启动时那一个 IP 一直 502。
+resolver 127.0.0.11 ipv6=off valid=10s;
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # 默认 1m：产品图片与附件都从这个容器进后端，1m 会在 413 上撞墙。
+    client_max_body_size 32m;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # 容器存活探针（镜像里的 HEALTHCHECK 打这里）。它不能落到后端：
+    # 后端没起来时这个容器仍然是健康的，只是 /api 会 502。
+    location = /healthz {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ok\n";
+    }
+
+    # 接口一律转给后端。用变量做 proxy_pass 才能让上面的 resolver 生效；
+    # 写成变量后 nginx 会原样转发原始 URI，不再做路径重写 —— 这里正好要这样。
+    location /api/ {
+        set $api_upstream ${GOWORK_API_UPSTREAM};
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        # 导出、报表这类接口会慢一些，但也不该无限等：60s 之后交给前端报错。
+        proxy_read_timeout 60s;
+    }
+
+    # vite 的产物文件名自带 hash，内容变了文件名就变了 —— 可以长缓存。
+    # 只用 add_header 写一次 Cache-Control：expires 也会生成一条同名响应头，
+    # 两条并存时不同的 CDN / 代理对「听谁的」各有各的答案。
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # 入口文件绝不能缓存：发版后浏览器若拿着一张指向旧 chunk 的 index.html，
+    # 就是白屏，而且刷新也不一定自愈。
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # 单页应用：地址在服务端不存在时交给 index.html，前端路由自己解析。
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

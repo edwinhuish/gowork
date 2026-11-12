@@ -53,19 +53,21 @@ GoWork/
 ├── AGENTS.md                    # 本文件：总览与导航
 ├── Taskfile.yml                 # 根编排：只调子项目任务，不写具体命令
 ├── VERSION.txt                  # 版本号正本：task release 写它，构建期注入二进制
-├── Dockerfile                   # 镜像构建（上下文是仓库根目录），只装后端
-├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 ├── apps/
 │   ├── backend/                 # Go 服务（见 apps/backend/AGENTS.md）
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
 │   │   ├── configs/             # 4 份配置样例：默认 / prod / postgres / mysql
+│   │   ├── Dockerfile           # 后端镜像（上下文是仓库根目录：要读 VERSION.txt）
+│   │   ├── entrypoint.sh        # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 │   │   └── internal/            # 全部业务代码，不对外暴露
 │   └── frontend/                # React 单页应用（见 apps/frontend/AGENTS.md）
 │       ├── src/                 # pages / providers / api / components / constants / utils / types
+│       ├── Dockerfile           # 前端镜像（上下文是 apps/frontend）：nginx + dist + /api 反代
+│       ├── nginx/               # 上面的镜像用的站点配置模板（envsubst 注入后端地址）
 │       └── pnpm-workspace.yaml  # pnpm 设置（不是工作区划分）
 ├── docker-compose.dev.yml       # 本地依赖容器：PostgreSQL + Redis（MySQL 走 profile）
 ├── deployments/
-│   ├── docker-compose.yml       # 生产：只起后端容器（库与缓存用外部服务）
+│   ├── docker-compose.yml       # 生产：后端 + 前端两个容器（库与缓存用外部服务）
 │   ├── config.prod.yaml         # 生产应用配置，只读挂进容器覆盖镜像内模板
 │   └── .env.example             # 生产密钥模板（.env 不入库）
 ├── docs/
@@ -75,12 +77,14 @@ GoWork/
 └── .github/
     └── workflows/
         ├── ci.yml               # CI：go build/vet/test + pnpm install/typecheck/build
-        └── release.yml          # 推 v* tag：后端包 + 前端 dist + 镜像 + Release
+        └── release.yml          # 推 v* tag：后端包 + 前端 dist + server/frontend 两个镜像 + Release
 ```
 
 **两端的耦合方式只有一条：HTTP。** 前端不 import 后端代码，后端不产前端产物，
-`deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 只起
-后端容器（库与缓存用外部服务），前端 `dist` 由网关或反代发布。
+`deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 起两个容器：
+`server`（只绑回环）与 `frontend`（nginx，对外入口，`/api` 反向代理到 `server`）。
+两个镜像各自由 `apps/backend/Dockerfile` 与 `apps/frontend/Dockerfile` 构建，可以单独回滚。
+两者的构建上下文不同：后端要往上提到仓库根目录（读 `VERSION.txt`），前端就是它自己的目录。
 
 ## 3. 整体架构
 

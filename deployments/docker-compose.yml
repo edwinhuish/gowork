@@ -1,12 +1,15 @@
-# 生产环境：只起后端容器。
+# 生产环境：后端 + 前端两个容器。
 #
 # 数据库与缓存在这个文件之外 —— 用云托管或机房已有的 PostgreSQL / Redis。
 # 它们不跟着应用一起起落，所以这里不定义、也不接管它们的备份与扩容；
 # 开发时临时在本机起一套（PostgreSQL + Redis）用仓库根目录的 docker-compose.dev.yml。
 #
+# 前后端仍是两个镜像、两个容器，没有合并成一个：两端只靠 HTTP 耦合（见 AGENTS.md），
+# 各自可以单独回滚。前端容器是 nginx，托管静态产物并把 /api 反代给后端。
+#
 # 刻意不在这个文件里的东西：
-#   - 前端：dist 由反代或网关发布，两端只靠 HTTP 耦合（见 AGENTS.md）；
-#   - adminer / 监控 / 日志收集这类配套容器：本文件只描述本项目自己的服务。
+#   - adminer / 监控 / 日志收集这类配套容器：本文件只描述本项目自己的服务；
+#   - TLS 证书与限流：留给这台机器外面的那层网关。
 #
 # 配置分两层，别混：
 #   ./config.prod.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），
@@ -16,10 +19,10 @@
 # 用法：
 #   cp .env.example .env          # 填库与缓存的密码
 #   docker compose -f deployments/docker-compose.yml up -d
-#   docker compose -f deployments/docker-compose.yml logs -f server
+#   docker compose -f deployments/docker-compose.yml logs -f server frontend
 #
 # 镜像默认拉发布流水线推的 ghcr.io 包；本机改了代码要自己构建时加 --build
-# （构建上下文是仓库根目录，用根目录那个 Dockerfile，与 release.yml 是同一份）。
+# （后端用 apps/backend/Dockerfile、前端用 apps/frontend/Dockerfile，与 release.yml 是同一份）。
 
 name: gowork-prod
 
@@ -34,9 +37,10 @@ services:
   server:
     image: ${SERVER_IMAGE:-ghcr.io/edwinhuish/gowork/server:latest}
     build:
-      # 上下文是仓库根目录：Dockerfile 要把根目录的 VERSION.txt 读进来当版本号兜底。
+      # 上下文是仓库根目录（不是 apps/backend）：Dockerfile 要把根目录的 VERSION.txt
+      # 读进来当版本号兜底，所以它是上下文里的一个路径，而不是工作目录。
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       args:
         # 留空就用根目录 VERSION.txt 的值；指定具体版本时传这里。
         VERSION: ${SERVER_VERSION:-}
@@ -68,4 +72,33 @@ services:
     ports:
       - '127.0.0.1:${HTTP_PORT:-8080}:8080'
     # 存活探针写在镜像里（轮询 /healthz），这里不重复定义，免得两处阈值各说各的。
+    logging: *logging
+
+  frontend:
+    # 前端镜像（服务名与镜像名一致，不要叫 web —— 同一个东西两个叫法，日志和文档里
+    # 迟早对不上）。nginx 托管 dist，并把 /api 反代给上面的 server。
+    # 同源之后浏览器不发跨域请求，config.prod.yaml 的 cors_origins 只影响直连后端的场景。
+    image: ${FRONTEND_IMAGE:-ghcr.io/edwinhuish/gowork/frontend:latest}
+    build:
+      # 前端的构建上下文是 apps/frontend 本身（它自带 .dockerignore），不像后端要读仓库根的 VERSION.txt。
+      context: ../apps/frontend
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${FRONTEND_VERSION:-}
+    container_name: gowork-prod-frontend
+    restart: unless-stopped
+    # 只管启动顺序：后端还没 Ready 时前端也能起 —— 上游按请求现解析，
+    # 那段时间 /api 返回 502，静态页面照常打开（比让前端跟着启动失败好）。
+    depends_on:
+      - server
+    environment:
+      # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值。
+      # 走服务名而不是 IP：后端换地址只改这里，不用重建前端镜像。
+      GOWORK_API_UPSTREAM: http://server:8080
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      # 前端是这个栈唯一的对外入口；后端仍只绑回环。证书与限流留给外面那层网关。
+      # 默认 80，不要跟 HTTP_PORT（默认 8080，绑 127.0.0.1）撞端口。
+      - '${FRONTEND_PORT:-80}:80'
+    # 探针在镜像里（自己的 /healthz，不穿到后端），这里同样不重复定义。
     logging: *logging

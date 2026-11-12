@@ -84,26 +84,35 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 
 ## 生产部署（单机 Compose）
 
-`deployments/docker-compose.yml` **只起后端容器**：数据库与缓存用云托管或机房已有的
-PostgreSQL / Redis，不跟应用一起起落。前端 `dist` 与证书交给同一台机器上的反代或网关。
-镜像由仓库根目录的 `Dockerfile` 构建（构建上下文是仓库根目录，好让版本号取自 `VERSION.txt`）。
+`deployments/docker-compose.yml` 起**两个容器**：`server`（Go API，只绑 `127.0.0.1`）
+与 `frontend`（nginx，托管前端 `dist` 并把 `/api` 反代到 `server`，是这个栈唯一的对外入口）。
+数据库与缓存用云托管或机房已有的 PostgreSQL / Redis，不跟应用一起起落；
+TLS 证书与限流交给同一台机器外面的那层网关。
+
+两个镜像由两份 Dockerfile 构建，随同一次发布一起推：后端是 `apps/backend/Dockerfile`
+（构建上下文是仓库根目录，好让版本号取自 `VERSION.txt`），前端是 `apps/frontend/Dockerfile`
+（上下文是 `apps/frontend` 本身）。它们不合并成一个镜像，因此可以单独回滚。
+前后端同源之后浏览器不发跨域请求，`config.prod.yaml` 的 `cors_origins` 只影响直连后端的场景。
 
 配置分两处：应用自身的配置在 `deployments/config.prod.yaml`（库与缓存地址、CORS、
 建表开关、日志格式），只读挂进容器覆盖镜像里的同名模板，改完重启即可；`.env` 只放
-密钥、镜像名、对外端口与运行身份。
+密钥、两个镜像名、对外端口与运行身份。
 
 ```bash
 cp deployments/.env.example deployments/.env      # 填库与缓存的密码
 docker compose -f deployments/docker-compose.yml up -d
-docker compose -f deployments/docker-compose.yml logs -f server
+docker compose -f deployments/docker-compose.yml logs -f server frontend
 ```
+
+本机要自己构建这两个镜像（不拉 ghcr.io）时，在 `up` 后面加 `--build`；只重建其中一个：
+`docker compose -f deployments/docker-compose.yml build server`（或 `frontend`）。
 
 和开发环境（根目录 `docker-compose.dev.yml`，`task infra:up`）的区别：
 
 | | 开发 | 生产 |
 |---|---|---|
-| 起哪些服务 | 只起库与缓存，应用在宿主机上跑 | 只起后端，库与缓存是外部服务 |
-| 端口 | 库 / 缓存都映射到本机，方便连工具 | 只有后端绑 `127.0.0.1` |
+| 起哪些服务 | 只起库与缓存，应用在宿主机上跑 | 前端 + 后端两个容器，库与缓存是外部服务 |
+| 端口 | 库 / 缓存都映射到本机，方便连工具 | 前端对外（默认 80），后端只绑 `127.0.0.1` |
 | 配置 | `apps/backend/configs/config.yaml`（可再用 `GOWORK_*` 覆盖） | `deployments/config.prod.yaml`，密钥走 `.env` |
 | 运行身份 | 当前登录用户 | 默认 root；设 `PUID`/`PGID` 则降权并让 `/app` 属主对齐 |
 | 建表 / 种子 | 每次启动按 `config.yaml` 决定 | 在 `config.prod.yaml` 里首启时打开，之后改回 `false` |
@@ -176,7 +185,7 @@ task release DRY_RUN=true         # 只打印将要发生什么，不改文件�
 | 工作流 | 触发时机 | 做什么 |
 |---|---|---|
 | `ci.yml` | 任意 `push`、`pull_request` | 后端 `build` / `vet` / `gofmt` / `test`，前端 `typecheck` / `build`，外加三库两缓存的一致性测试 |
-| `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 镜像 + Release |
+| `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 与 `ghcr.io/<repo>/frontend` 两个镜像 + Release |
 
 两条流水线都不重写构建命令，一律调用 `Taskfile.yml` 里已有的任务。发布说明由提交历史
 现算（`scripts/generate-changelog.sh`），不依赖 GitHub 的自动生成。

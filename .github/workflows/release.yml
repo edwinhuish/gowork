@@ -1,5 +1,5 @@
-# 推 v* tag 触发：编译五个平台的后端包（linux/darwin/windows）、打包前端 dist、推 ghcr.io 镜像，
-# 齐了再创建 GitHub Release。
+# 推 v* tag 触发：编译五个平台的后端包（linux/darwin/windows）、打包前端 dist、
+# 推 ghcr.io 的两个镜像（server / frontend），齐了再创建 GitHub Release。
 #
 # 为什么由 tag 触发而不是由 release 任务直接调 API：tag 是不可变指针，别人 clone 下来
 # 就能对上「这一版到底是哪几个提交」；本地脚本只负责把 tag 推上去，产物一律在 CI 里出，
@@ -141,8 +141,21 @@ jobs:
           if-no-files-found: error
 
   image:
-    name: 推送 ghcr.io 镜像
+    name: 镜像 ${{ matrix.image }}
     runs-on: ubuntu-latest
+    strategy:
+      # 两个镜像互不依赖：前端构建失败不该连带后端镜像一起不出。
+      fail-fast: false
+      matrix:
+        include:
+          # 后端：Dockerfile 在子项目里，上下文仍是仓库根目录（要读根目录的 VERSION.txt 当版本号兜底）。
+          - image: server
+            context: .
+            dockerfile: ./apps/backend/Dockerfile
+          # 前端：上下文就是 apps/frontend，产物在镜像里由 nginx 托管并把 /api 反代给后端。
+          - image: frontend
+            context: ./apps/frontend
+            dockerfile: ./apps/frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -168,7 +181,8 @@ jobs:
         with:
           # 直接用 github.repository，不放硬编码的 owner/repo，
           # 这样仓库改名或 fork 出去都不用改这里。
-          images: ghcr.io/${{ github.repository }}/server
+          # 两个镜像同仓不同名：.../server 与 .../frontend，标签规则完全一致。
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -181,10 +195,10 @@ jobs:
       - name: 构建并推送
         uses: docker/build-push-action@v6
         with:
-          # 镜像是纯后端：前端产物由反代或网关单独发布（README「存储」一节同款选择）。
-          # 上下文是仓库根目录：Dockerfile 要读根目录的 VERSION.txt 当版本号兜底。
-          context: .
-          file: ./Dockerfile
+          # 上下文与 Dockerfile 按 matrix 分：后端从仓库根目录建（要读 VERSION.txt），
+          # 前端只从 apps/frontend 建，镜像里是 nginx + dist。
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -193,8 +207,9 @@ jobs:
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # gha 缓存默认共用一个 scope：两个 matrix job 并行写同一份会互相覆盖对方的层。
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
         env:
           # build-push-action 默认把构建记录（*.dockerbuild）也当成 artifact 上传。
           # 它是 gzip 而不是 zip，release job 全量下载 artifact 时会拿它当 zip 解，

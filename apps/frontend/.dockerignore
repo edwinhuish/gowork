@@ -1,0 +1,10 @@
+# 前端镜像的构建上下文就是这个目录。这里只挡「本地才有、镜像里要从源码重建」的东西：
+# 少传几百 MB 的 node_modules，也避免把本机那份旧 dist 打进镜像。
+node_modules
+dist
+.vite
+
+# 与业务无关的本地文件
+*.log
+.pnpm-debug.log*
+.DS_Store

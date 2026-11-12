@@ -38,6 +38,8 @@
 apps/backend/
 ├── cmd/server/main.go           # 入口：参数 → 配置 → 装配 → 启停（不做业务）
 ├── configs/                     # 4 份配置样例，见第 7 节
+├── Dockerfile                   # 后端镜像；构建上下文是仓库根目录（要读根目录的 VERSION.txt）
+├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 └── internal/                    # 全部业务代码，外部不可 import
     ├── config/                  配置结构体、默认值、env 覆盖、启动期校验
     ├── bootstrap/               依赖装配（app.go）+ 演示数据（seed.go）

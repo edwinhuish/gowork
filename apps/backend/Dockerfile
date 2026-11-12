@@ -1,7 +1,9 @@
-# 后端镜像。构建上下文是仓库根目录：
-#   docker build -t gowork-server .
-# 只装后端：前端 dist 由反代或网关单独发布（见 AGENTS.md「两端的耦合方式只有一条」），
-# 不进这个镜像。配置不打进镜像层：部署侧把配置文件挂到 /app/configs 下覆盖。
+# 后端镜像。Dockerfile 与 entrypoint.sh 属于本子项目，但构建上下文仍是仓库根目录：
+#   docker build -t gowork-server -f apps/backend/Dockerfile .
+# 上下文往上提一层是为了读到根目录的 VERSION.txt（版本号兜底），也为了 COPY 路径
+# 与仓库结构一致；下方所有 COPY 的源路径都相对仓库根目录。
+# 只装后端：前端是另一个镜像（apps/frontend/Dockerfile），两者只靠 HTTP 耦合。
+# 配置不打进镜像层：部署侧把配置文件挂到 /app/configs 下覆盖。
 
 # ---------- 构建阶段 ----------
 # 编译固定在构建机原生架构上：多架构构建时 arm64 不跑在 QEMU 里。
@@ -70,7 +72,7 @@ WORKDIR /app
 COPY --from=builder /out/server /app/server
 # 配置样例一起进镜像：部署侧要么挂载覆盖 config.prod.yaml，要么直接用 -config 指别处。
 COPY apps/backend/configs /app/configs
-COPY entrypoint.sh /entrypoint.sh
+COPY apps/backend/entrypoint.sh /entrypoint.sh
 
 # Windows 检出（core.autocrlf）会带 CRLF，先归一化再给执行权限。
 RUN sed -i 's/\r$//' /entrypoint.sh \
