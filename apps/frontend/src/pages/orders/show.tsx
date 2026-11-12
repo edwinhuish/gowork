@@ -1,9 +1,10 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { DownloadOutlined } from '@ant-design/icons'
 import { useGetIdentity, useInvalidate, useList, useNavigation, useShow } from '@refinedev/core'
 import { EditButton, Show } from '@refinedev/antd'
-import {
-  Button,
+import { Button,
   Card,
   Checkbox,
   Descriptions,
@@ -11,9 +12,7 @@ import {
   Popconfirm,
   Space,
   Table,
-  Tag,
-  Tooltip,
-} from 'antd'
+  Tag, } from 'antd'
 
 import { download } from '@/api/client'
 import { salesOrderApi } from '@/api/sales-orders'
@@ -145,6 +144,7 @@ export function OrderShow() {
   const [changes, setChanges] = useState<SalesOrderChange[]>([])
   const [changesLoading, setChangesLoading] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [exportingChanges, setExportingChanges] = useState(false)
   const isAdmin = identity?.role === 'admin'
 
   const o = result
@@ -189,6 +189,22 @@ export function OrderShow() {
   useEffect(() => {
     if (orderId) void loadChanges(orderId)
   }, [orderId, loadChanges])
+
+  /*
+   * 导出变更历史：走 fetch + blob，不是 window.open ——
+   * 后者带不上 Authorization，只会拿到一个 401。
+   */
+  const exportChanges = async () => {
+    if (!o || exportingChanges) return
+    setExportingChanges(true)
+    try {
+      await salesOrderApi.exportChanges(o.id, o.doc_no)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '导出失败')
+    } finally {
+      setExportingChanges(false)
+    }
+  }
 
   const afterChange = async () => {
     if (!orderId) return
@@ -575,7 +591,19 @@ export function OrderShow() {
           title="变更历史"
           size="small"
           style={{ marginTop: 16 }}
-          extra={<span className="cell-sub">共 {changes.length} 次，最近一次在最上面</span>}
+          extra={
+            <Space size={12}>
+              <span className="cell-sub">共 {changes.length} 次，最近一次在最上面</span>
+              <Button
+                size="small"
+                icon={<DownloadOutlined />}
+                loading={exportingChanges}
+                onClick={() => void exportChanges()}
+              >
+                导出
+              </Button>
+            </Space>
+          }
         >
           <ResponsiveTable
             rowKey="id"

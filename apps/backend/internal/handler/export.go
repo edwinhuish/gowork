@@ -381,3 +381,82 @@ func (h *PayableHandler) ExportPayables(c *gin.Context) {
 	writeCSV(c, "payables",
 		[]string{"单号", "供应商", "来源单", "币种", "金额", "已付", "未结清", "到期日", "状态"}, out)
 }
+
+// ExportSalesOrderChanges GET /api/v1/sales-orders/:id/changes/export
+//
+// 一张订单的变更历史：一行一个"变了的行"。
+//
+// 只改交期的变更没有行可展开，用一行空 SKU 占位 —— 否则那次变更在文件里
+// 就消失了，而它同样改变了订单。文件名带订单号：同一目录下过两次，
+// 靠它才分得清是哪张单的历史。
+//
+// 不做筛选、也不复用列表接口：变更历史没有分页参数，它天然是"这张单的全部"。
+func (h *SalesOrderHandler) ExportSalesOrderChanges(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	order, err := h.orders.Get(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	list, err := h.orders.ListChanges(c.Request.Context(), id)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	rows := orderChangeRows(list)
+
+	writeCSV(c, "order-changes-"+order.DocNo, orderChangeHeader, rows)
+}
+
+// orderChangeHeader 是变更历史导出的表头。
+//
+// 单独提出来，是因为行装配与表头必须同长：少一列会让整份文件错位，
+// 而错位的表格比没有表格更难看懂。
+var orderChangeHeader = []string{
+	"变更序号", "变更单号", "变更时间", "操作人", "原因", "SKU",
+	"原数量", "新数量", "原单价", "新单价",
+	"原订单总额", "新订单总额", "原交期", "新交期",
+}
+
+// orderChangeRows 把变更历史摊成 CSV 行：一行一个"变了的行"。
+//
+// 抽成纯函数是为了能直接测：这里有两处容易错的地方 ——
+// 只改交期的变更没有行可展开（要占位，否则那次变更消失），
+// 以及展开之后每一行的列数必须一样（少一列会让整份文件错位）。
+func orderChangeRows(list []model.SalesOrderChange) [][]string {
+	rows := make([][]string, 0, len(list))
+	for _, ch := range list {
+		head := []string{
+			strconv.Itoa(int(ch.Seq)),
+			ch.DocNo,
+			ch.CreatedAt.Format("2006-01-02 15:04"),
+			ch.Operator,
+			ch.Reason,
+		}
+		tail := []string{
+			ch.BeforeTotal.String(),
+			ch.AfterTotal.String(),
+			dateOrEmpty(ch.BeforeDeliveryDate),
+			dateOrEmpty(ch.AfterDeliveryDate),
+		}
+
+		if len(ch.Lines) == 0 {
+			row := append([]string{}, head...)
+			row = append(row, "", "", "", "", "")
+			rows = append(rows, append(row, tail...))
+			continue
+		}
+		for _, ln := range ch.Lines {
+			row := append([]string{}, head...)
+			row = append(row, ln.SKUCode,
+				ln.BeforeQty.String(), ln.AfterQty.String(),
+				ln.BeforeUnitPrice.String(), ln.AfterUnitPrice.String())
+			rows = append(rows, append(row, tail...))
+		}
+	}
+	return rows
+}

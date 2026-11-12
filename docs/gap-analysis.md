@@ -118,7 +118,7 @@ T-37 把金额换成了定点 `Decimal`，浮点尾巴这一层风险已经消�
 | 产品报关要素 | 6 个字段在产品上（HS、申报中英文名、材质、原产国、法定单位） | **无人读取**：报关单、CI、PL 都不引用；出货分配行也没有快照 | 要素改了，历史单证的申报信息跟着变，无法复现当时申报内容 | `service/product.go:99-104`；`model/customs_declaration.go:57-72` |
 | 成本与售价 | `cost_price` / `sale_price` 在产品上 | 从不参与计算：报价成本取的是货源表最低价 | 两个字段只是「记录」，容易让人误以为系统按它报价 | `service/quotation.go:636,679` |
 | 报价定价 | 每条明细一个 `unit_price`，可手改 | 无阶梯价、无客户等级价、无价格表、无改价审批 | 报价全靠人记价；报错价没有拦截 | `dto/quotation.go:21-32` |
-| 销售订单履约视角 | 订购 / 已出 / 未出三个数由明细与出货分配现算：列表按页批量、详情抬头给合计、明细逐行给；列表可筛「逾期未出」 | **已修（不立卡）**：变更单仍无导出 | 跟单不必逐单点开算 | `service/sales_order.go:attachFulfillment`；`repository/sales_order.go:FulfillmentByOrders` |
+| 销售订单履约视角 | 订购 / 已出 / 未出三个数由明细与出货分配现算：列表按页批量、详情抬头给合计、明细逐行给；列表可筛「逾期未出」 | **已修（不立卡）**：变更单的导出已于 2026-11-09 补上（T-73） | 跟单不必逐单点开算 | `service/sales_order.go:attachFulfillment`；`repository/sales_order.go:FulfillmentByOrders` |
 | 采购 | 订单 + 以销定采 + 5 个跟单节点 | 无收货单（GRN）、无验货报告（只有完成日期）、无供应商比价、无采购退货 | 「验过货」无法自证；入库与采购单靠字符串关联 | `model/purchase_milestone.go:15-19`；`model/stock_document.go:108-128` |
 | 库存 | 单池流水 + 快照 + 盘点 | 无仓库 / 库位（调拨返回 400）、无批次 / 序列号、无 ATP、盘点差异无原因枚举 | 备货与直发混池；客户投诉某批货追不回来 | `model/stock.go:106-171`；`service/stock_document.go:413-416` |
 | 出货 | 分配行 + 装箱 + 状态机 + 物流节点 | 票头无收货人 / 通知方 / 货代；无装船通知、产地证、保险单、订舱委托；箱唛只出「一箱一单」版式 | 单证要另做 Excel；拼箱时无法出唛 | `model/shipment.go:14-45`；`service/pdf.go:31-42` |

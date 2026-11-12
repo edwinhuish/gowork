@@ -355,6 +355,8 @@ func New(
 		// 已确认订单的变更：不能直接 PUT，改走变更单留痕（T-44）。
 		orders.GET("/:id/changes", h.SalesOrder.Changes)
 		orders.POST("/:id/changes", h.SalesOrder.Change)
+		// 变更历史的导出：改过几次、每次谁改的、从多少改到多少，一张表带走。
+		orders.GET("/:id/changes/export", h.SalesOrder.ExportSalesOrderChanges)
 		// 订单打印件（T-54）：客户要一份书面确认时，不必再截图。
 		orders.GET("/:id/pdf", h.PDF.SalesOrder)
 

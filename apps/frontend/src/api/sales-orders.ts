@@ -81,6 +81,14 @@ export const salesOrderApi = {
   listChanges: (id: number) => http.get<SalesOrderChange[]>(`/sales-orders/${id}/changes`),
 
   /**
+   * 变更历史导出成 CSV：一行一个"变了的行"，只改交期的那次变更用空 SKU 占位。
+   *
+   * 文件名带订单号：同一目录下过两次，靠它才分得清是哪张单的历史。
+   */
+  exportChanges: (id: number, docNo: string) =>
+    http.download(`/sales-orders/${id}/changes/export`, `changes-${docNo}.csv`),
+
+  /**
    * 提交一次变更：订单更新到新值，同时留下改前改后与原因。
    *
    * key 是幂等键（T-46）：这个接口每次调用都会**新建一条变更记录**，
