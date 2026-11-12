@@ -91,14 +91,15 @@ tasks:
       - task: backend:clean
       - task: frontend:clean
 
+  # 只起开发用的依赖容器（docker-compose.dev.yml）；生产栈是另一份文件，
+  # 入口写在 deployments/docker-compose.yml 的头注释与 README「生产」一节，
+  # 不在这里再加一对开关——它的用法是填 .env、改 config.prod.yaml、之后交给运维。
   infra:up:
     desc: 启动 PostgreSQL 与 Redis 容器（另需 MySQL 时加 -- --profile mysql up -d）
-    dir: deployments
     cmds:
-      - docker compose up -d
+      - docker compose -f docker-compose.dev.yml up -d
 
   infra:down:
-    desc: 停止并移除容器
-    dir: deployments
+    desc: 停止并移除开发依赖容器
     cmds:
-      - docker compose down
+      - docker compose -f docker-compose.dev.yml down

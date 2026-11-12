@@ -4,6 +4,9 @@
 #   GOWORK_DB_PASSWORD、GOWORK_REDIS_PASSWORD、GOWORK_JWT_SECRET
 # 换 MySQL 只需把 driver 改成 mysql 并把 port 改成 3306，其余键名不变
 # （也可以直接参考 config.mysql.yaml）。
+#
+# 单机 compose 部署不用这份文件：那边把 deployments/config.prod.yaml 只读挂到
+# 这个路径上覆盖它（库在同机容器、没有 TLS、空库首启要建表，取值不同）。
 
 app:
   name: gowork

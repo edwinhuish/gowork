@@ -27,8 +27,10 @@
 应收应付与收付款核销、报表（账龄分桶 / 单票毛利 / 汇兑损益 / 销售看板 / 回款与账龄 / 客户 360）、
 订单确认时的客户信用额度拦截、数据范围与操作日志、导入导出。
 **阶段 10 的 20 条卡已全部收口**（仓库维度与调拨、批次追溯、收货单与验货、贷项与红冲、
-合同分期与商机锁汇率都在其中）；剩下的未立卡缺口（价格表、履约数量暴露到列表）见
-`docs/gap-analysis.md`，扩展套路见 `docs/architecture.md` 第六节。
+合同分期与商机锁汇率都在其中）；**阶段 11 的应用外壳重构 7 条也已收口**（布局与主题复刻、
+标签页缓存边界）。剩下的未立卡缺口只有价格表一类——它缺的是口径（按什么分级、折扣超阈值
+怎么审批），不是代码，见 `docs/gap-analysis.md` 第 3.4 与 7.2 节；扩展套路见
+`docs/architecture.md` 第六节。
 
 **改代码前先查 `docs/glossary.md`。** 它规定了每个业务对象该叫什么名、
 归哪个域、哪些词不许用——那里面每一条都是踩过的坑。
@@ -50,7 +52,9 @@
 GoWork/
 ├── AGENTS.md                    # 本文件：总览与导航
 ├── Taskfile.yml                 # 根编排：只调子项目任务，不写具体命令
-├── VERSION                      # 版本号正本：task release 写它，构建期注入二进制
+├── VERSION.txt                  # 版本号正本：task release 写它，构建期注入二进制
+├── Dockerfile                   # 镜像构建（上下文是仓库根目录），只装后端
+├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 ├── apps/
 │   ├── backend/                 # Go 服务（见 apps/backend/AGENTS.md）
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
@@ -59,8 +63,11 @@ GoWork/
 │   └── frontend/                # React 单页应用（见 apps/frontend/AGENTS.md）
 │       ├── src/                 # pages / providers / api / components / constants / utils / types
 │       └── pnpm-workspace.yaml  # pnpm 设置（不是工作区划分）
+├── docker-compose.dev.yml       # 本地依赖容器：PostgreSQL + Redis（MySQL 走 profile）
 ├── deployments/
-│   └── docker-compose.yml       # 本地 PostgreSQL + Redis（MySQL 走 profile）
+│   ├── docker-compose.yml       # 生产：只起后端容器（库与缓存用外部服务）
+│   ├── config.prod.yaml         # 生产应用配置，只读挂进容器覆盖镜像内模板
+│   └── .env.example             # 生产密钥模板（.env 不入库）
 ├── docs/
 │   ├── glossary.md              # 术语表：业务对象叫什么、归哪个域（唯一事实来源）
 │   └── architecture.md          # 分层约定、存储可替换性、扩展指引
@@ -72,7 +79,8 @@ GoWork/
 ```
 
 **两端的耦合方式只有一条：HTTP。** 前端不 import 后端代码，后端不产前端产物，
-`deployments/` 里也没有把两者打包进同一镜像——部署时由网关或反代拼起来。
+`deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 只起
+后端容器（库与缓存用外部服务），前端 `dist` 由网关或反代发布。
 
 ## 3. 整体架构
 
@@ -204,6 +212,7 @@ task release  # 发版：问版本号 -> 同步版本号 -> 提交打 tag -> 问
 | `docs/gap-analysis.md` | **差距与整改**：与主流 ERP / CRM 的能力差距证据、架构评估、为什么建议补某条 | 要补功能、评估重构或质疑优先级时 |
 | `apps/backend/AGENTS.md` | 后端手册：分层、接口清单（唯一处）、数据流、约定、陷阱 | 改 Go 代码 |
 | `apps/frontend/AGENTS.md` | 前端手册：分层、数据流、页面套路、约定、陷阱 | 改 React 代码 |
+| `docs/ui-shell-refactor.md` | **外壳重构需求**：Vben 视觉复刻范围、多标签页行为与 keepAlive 边界、不保留 Vben 结构的约束、验收口径 | 要动布局、主题或标签页时 |
 
 **格式约定**（三份人读手册与业务文档分开编号，避免 `## 3.` 同时表示两种意思）：
 

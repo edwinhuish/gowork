@@ -182,8 +182,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           # 镜像是纯后端：前端产物由反代或网关单独发布（README「存储」一节同款选择）。
-          context: ./apps/backend
-          file: ./apps/backend/Dockerfile
+          # 上下文是仓库根目录：Dockerfile 要读根目录的 VERSION.txt 当版本号兜底。
+          context: .
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

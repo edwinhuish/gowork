@@ -20,7 +20,7 @@
 #   sh: 条件，报错就只剩一句 git 的原始输出。
 #
 # 版本号的两个落点是刻意的，不是重复：
-#   仓库根目录 VERSION 是项目的正本：`task backend:build` 缺省读它，构建期用
+#   仓库根目录 VERSION.txt 是项目的正本：`task backend:build` 缺省读它，构建期用
 #   -ldflags "-X main.version=…" 注进二进制，供 `gowork-server -version` 自证；
 #   前端 apps/frontend/package.json 的 version 是 npm 生态认的那个。
 #   两处不一致时，报障的人报的数字就对不上产物 —— 所以这里总是一起改。
@@ -123,7 +123,7 @@ if ! repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
 fi
 cd "$repo_root"
 
-version_file="VERSION"
+version_file="VERSION.txt"
 frontend_pkg="apps/frontend/package.json"
 
 for f in "$version_file" "$frontend_pkg"; do
@@ -190,7 +190,7 @@ read_pkg_version() {
   sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' "$frontend_pkg" | head -1
 }
 
-# 当前版本 = 最新稳定 tag、根目录 VERSION、前端 package.json 三者里最大的那个。
+# 当前版本 = 最新稳定 tag、根目录 VERSION.txt、前端 package.json 三者里最大的那个。
 # 正常发布后三者相等（每次一起更新）；取最大值是为了在有人手改过其中一处时，
 # 默认值不会倒退到已经发过的号上 —— 那种情况 git tag 会直接拒绝，白问一遍。
 current_version() {
@@ -343,7 +343,7 @@ pkg.version = next;
 fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
 ' "$frontend_pkg" "$version"
 
-# 根目录 VERSION 只有一行数字：`task backend:build` 会原样读它去拼 -ldflags，
+# 根目录 VERSION.txt 只有一行数字：`task backend:build` 会原样读它去拼 -ldflags，
 # 多一个空格、多一行注释都会被当成版本号的一部分注进二进制。
 printf '%s\n' "$version" > "$version_file"
 

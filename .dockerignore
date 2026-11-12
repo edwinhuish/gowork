@@ -1,0 +1,20 @@
+# 镜像只装后端，构建上下文却是仓库根目录（Dockerfile 要读根目录的 VERSION.txt）。
+# 这里把用不上的东西挡在上下文之外：省的是每次构建的传输时间，不是镜像大小。
+apps/frontend
+docs
+deployments
+.github
+.codebuddy
+.git
+*.md
+
+# 构建产物与本地数据
+**/bin
+**/dist
+**/node_modules
+apps/backend/data
+*.db
+*.db-shm
+*.db-wal
+*.snapshot
+*.log

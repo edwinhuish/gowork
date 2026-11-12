@@ -38,7 +38,6 @@
 apps/backend/
 ├── cmd/server/main.go           # 入口：参数 → 配置 → 装配 → 启停（不做业务）
 ├── configs/                     # 4 份配置样例，见第 7 节
-├── Dockerfile                   # 多阶段构建，上下文是本目录
 └── internal/                    # 全部业务代码，外部不可 import
     ├── config/                  配置结构体、默认值、env 覆盖、启动期校验
     ├── bootstrap/               依赖装配（app.go）+ 演示数据（seed.go）
@@ -213,6 +212,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 | PUT | `/api/v1/sales-orders/:id/status` | `SalesOrder.UpdateStatus` | 走完整状态机，跳步/回退由 `checkDocumentTransit` 拒绝（409）；确认（10→20）时校验信用额度，超额 409，`force_credit` 仅 admin |
 | GET | `/api/v1/sales-orders/:id/changes` | `SalesOrder.Changes` | 变更历史，按序号倒序；订单不存在时 404，而不是返回空历史 |
 | POST | `/api/v1/sales-orders/:id/changes` | `SalesOrder.Change` | 已确认/备货中的订单改量改价改交期：原因必填、操作人从 ctx 取、改后数量不得低于已出货量（409）、不允许增删行、带 `updated_at` 走乐观锁 |
+| GET | `/api/v1/sales-orders/:id/changes/export` | `SalesOrder.ExportSalesOrderChanges` | 变更历史导出 CSV：一行一个变了的行，只改交期的变更用空 SKU 占位；文件名带订单号 |
 | GET / POST | `/api/v1/purchase-orders` | `Purchase.List` / `.Create` | 单号 `PO-{YYMM}-{NNN}`；明细可带 `sales_order_item_id` 做以销定采 |
 | GET / PUT / DELETE | `/api/v1/purchase-orders/:id` | `Purchase.Get` / `.Update` / `.Delete` | 只有草稿可改可删，其余 409 |
 | PUT | `/api/v1/purchase-orders/:id/status` | `Purchase.UpdateStatus` | 与销售订单共用状态机 |
@@ -354,7 +354,9 @@ task backend:test       # go test ./... -count=1
 
 命令的真实来源是 `apps/backend/Taskfile.yml`（`task -d apps/backend -- --list`）；
 前置版本、`build` / `test:storage` / `tool:air` 与存储切换见 `README.md`。
-直接跑二进制：`./bin/gowork-server -config configs/config.yaml`（`-config` 是唯一启动参数）。
+直接跑二进制：`./bin/gowork-server -config configs/config.yaml`。
+启动参数只有三个：`-config`（缺省 `configs/config.yaml`）、`-env-prefix`（环境变量前缀，
+缺省 `GOWORK_`，见下方「配置文件」）与 `-version`（打印版本后退出，不读配置文件）。
 
 ### 热重载（air）
 
@@ -397,6 +399,11 @@ task backend:test       # go test ./... -count=1
 `GOWORK_HTTP_ADDR`、`GOWORK_DB_DRIVER`、`GOWORK_DB_DSN`、`GOWORK_DB_PASSWORD`、
 `GOWORK_CACHE_DRIVER`、`GOWORK_REDIS_ADDR`、`GOWORK_JWT_SECRET`、`GOWORK_LOG_LEVEL`。
 生产环境的密码与密钥只走环境变量，不写进配置文件。
+
+前缀本身可换：`-env-prefix acme` 之后读的是 `ACME_HTTP_ADDR`、`ACME_DB_DSN`……
+（大小写不敏感，尾部下划线自动补；留空或给 `GOWORK_` 即原来的行为）。
+用途是同一个制品在一台机器上跑多套实例时靠前缀隔离各自的变量。
+变量名一律经 `applyEnv` 里的 `key()` 拼出，新增配置项照这个写，不要在别处硬编码前缀。
 
 启动顺序里有三个开关值得记住：`database.auto_migrate`（建表）、`database.seed`（账号
 `admin / admin123`、币种汇率、往来单位/产品/货源/条款）、`database.demo_seed`（在 seed 之上

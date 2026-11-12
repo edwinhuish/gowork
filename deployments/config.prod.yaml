@@ -1,0 +1,73 @@
+# 单机 Compose 部署的应用配置。
+#
+# compose 把它只读挂到容器的 /app/configs/config.prod.yaml，覆盖镜像里那份同名模板：
+# 配置跟着部署走，改完重启容器即生效，不用重建镜像。
+#
+# 数据库与缓存都是外部服务（云托管或机房已有），地址写在这里；
+# 密码与密钥不写进文件，由环境变量注入：
+#   GOWORK_DB_PASSWORD、GOWORK_REDIS_PASSWORD、GOWORK_JWT_SECRET
+
+app:
+  name: gowork
+  env: prod
+
+http:
+  addr: ":8080"
+  mode: release
+  # 前端实际访问的地址：必须与浏览器地址栏一致（协议、域名、端口）。
+  cors_origins:
+    - https://erp.example.com
+  shutdown_timeout: 15
+
+database:
+  driver: postgres
+  # 换成实际的库地址；只在内网可达的库也写内网域名，别写 127.0.0.1（容器里指的是它自己）。
+  host: postgres.example.com
+  port: 5432
+  user: gowork
+  name: gowork
+  password: "" # GOWORK_DB_PASSWORD
+  params:
+    # 托管的库基本都强制 TLS；库在内网且没有证书时改成 disable。
+    sslmode: require
+    TimeZone: Asia/Shanghai
+  max_open: 100
+  max_idle: 20
+  max_lifetime: 3600
+  log_level: warn
+  # 空库首次部署要建表并创建 admin（默认密码 admin123）：先开着跑一次，
+  # 登录后在「账号维护」里改掉密码，再把这两项改成 false 重启。
+  auto_migrate: true
+  seed: true
+
+cache:
+  driver: redis
+  prefix: "gowork:"
+  # 生产不允许静默降级：多实例部署下退回进程内缓存会造成登录态与限流各算各的。
+  fallback_to_memory: false
+  redis:
+    # 换成实际的缓存地址（host:port）。
+    addr: "redis.example.com:6379"
+    password: "" # GOWORK_REDIS_PASSWORD
+    db: 0
+    dial_timeout: 2
+  memory:
+    persist: false
+
+jwt:
+  secret: "" # GOWORK_JWT_SECRET，至少 32 位
+  expire: 12
+
+log:
+  level: info
+  format: json
+
+# 单据打印：镜像只装了 ca-certificates 与 tzdata，没有中文字体——留空则 PDF
+#（报价单 / 发票）不可用，其它功能不受影响。要打印就放开 compose 里的 fonts
+# 与 templates 两行，再按下面填容器内路径（字体必须是 .ttf）。
+# pdf:
+#   font_path: /app/data/fonts/NotoSansSC-Regular.ttf
+#   template_dir: /app/data/templates
+#   company_name: 你的公司名
+#   company_address: 你的地址
+#   company_contact: 联系方式

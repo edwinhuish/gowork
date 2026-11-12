@@ -1,75 +1,71 @@
-# 本地基础设施：PostgreSQL + Redis（MySQL 用 profile 按需启动）
+# 生产环境：只起后端容器。
+#
+# 数据库与缓存在这个文件之外 —— 用云托管或机房已有的 PostgreSQL / Redis。
+# 它们不跟着应用一起起落，所以这里不定义、也不接管它们的备份与扩容；
+# 开发时临时在本机起一套（PostgreSQL + Redis）用仓库根目录的 docker-compose.dev.yml。
+#
+# 刻意不在这个文件里的东西：
+#   - 前端：dist 由反代或网关发布，两端只靠 HTTP 耦合（见 AGENTS.md）；
+#   - adminer / 监控 / 日志收集这类配套容器：本文件只描述本项目自己的服务。
+#
+# 配置分两层，别混：
+#   ./config.prod.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），
+#                       只读挂进容器；换库、换域名都改这里，重启容器即生效。
+#   ./.env              只有密钥、镜像名、对外端口与运行身份，由 compose 插值成环境变量。
 #
 # 用法：
-#   docker compose up -d                 # postgres + redis
-#   docker compose --profile mysql up -d # 额外启动 mysql
-#   docker compose down                  # 停止并移除容器（数据卷保留）
+#   cp .env.example .env          # 填库与缓存的密码
+#   docker compose -f deployments/docker-compose.yml up -d
+#   docker compose -f deployments/docker-compose.yml logs -f server
 #
-# 开发默认不需要这些：config.yaml 走 SQLite + 内存缓存。
-# 这里起的服务是给「验证换库/换缓存」用的，配套：
-#   task backend:dev:pg    -> config.postgres.yaml
-#   task backend:dev:mysql -> config.mysql.yaml
+# 镜像默认拉发布流水线推的 ghcr.io 包；本机改了代码要自己构建时加 --build
+# （构建上下文是仓库根目录，用根目录那个 Dockerfile，与 release.yml 是同一份）。
+
+name: gowork-prod
+
+# 日志轮转：容器日志默认无限增长，单机部署最容易死在磁盘写满上。
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
 
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: gowork-postgres
+  server:
+    image: ${SERVER_IMAGE:-ghcr.io/edwinhuish/gowork/server:latest}
+    build:
+      # 上下文是仓库根目录：Dockerfile 要把根目录的 VERSION.txt 读进来当版本号兜底。
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        # 留空就用根目录 VERSION.txt 的值；指定具体版本时传这里。
+        VERSION: ${SERVER_VERSION:-}
+    container_name: gowork-prod-server
     restart: unless-stopped
+    # 优雅退出多留一截：服务自己的 http.shutdown_timeout 是 15s，
+    # 卡在同一个数上会让正在写的请求在关闭途中被 SIGKILL 切断。
+    stop_grace_period: 30s
     environment:
-      POSTGRES_DB: gowork
-      POSTGRES_USER: gowork
-      POSTGRES_PASSWORD: gowork
-      TZ: Asia/Shanghai
-      PGTZ: Asia/Shanghai
-    ports:
-      - '5432:5432'
+      # 只有密钥走环境变量，其余全在挂进去的 config.prod.yaml 里。
+      GOWORK_DB_PASSWORD: ${GOWORK_DB_PASSWORD:?.env 里缺 GOWORK_DB_PASSWORD}
+      GOWORK_REDIS_PASSWORD: ${GOWORK_REDIS_PASSWORD:?.env 里缺 GOWORK_REDIS_PASSWORD}
+      GOWORK_JWT_SECRET: ${GOWORK_JWT_SECRET:?.env 里缺 GOWORK_JWT_SECRET（至少 32 位）}
+      # 运行身份：0 表示以 root 运行；非 0 时入口脚本把应用降权到 PUID:PGID，
+      # 并把 /app 属主对齐（挂载目录要由这个身份可写时才需要）。
+      PUID: ${PUID:-0}
+      PGID: ${PGID:-0}
+      # 单据日期与汇率取当天都按进程本地时间算，别让它跟着宿主机漂。
+      TZ: ${TZ:-Asia/Shanghai}
     volumes:
-      - pg-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U gowork -d gowork']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  mysql:
-    image: mysql:8.4
-    container_name: gowork-mysql
-    restart: unless-stopped
-    profiles: ['mysql']
-    environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: gowork
-      MYSQL_USER: gowork
-      MYSQL_PASSWORD: gowork
-      TZ: Asia/Shanghai
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      # 只读覆盖镜像里的 configs/config.prod.yaml：配置跟着部署走，不进镜像。
+      - ./config.prod.yaml:/app/configs/config.prod.yaml:ro
+      # 单据模板与中文字体：镜像只装了 ca-certificates 与 tzdata，没有中文字体，
+      # 要打印就放开这两行，再把 config.prod.yaml 的 pdf.font_path 指到容器内路径。
+      # - ./pdf/templates:/app/data/templates:ro
+      # - ./pdf/fonts:/app/data/fonts:ro
+    # 只绑回环：证书、静态资源、限流都在反代那一层，后端不直接对外。
+    # 反代在别的容器或别的主机上时，改成 0.0.0.0 或让它接入同一网络。
     ports:
-      - '3306:3306'
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-pgowork']
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    container_name: gowork-redis
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-volumes:
-  pg-data:
-  mysql-data:
-  redis-data:
+      - '127.0.0.1:${HTTP_PORT:-8080}:8080'
+    # 存活探针写在镜像里（轮询 /healthz），这里不重复定义，免得两处阈值各说各的。
+    logging: *logging
