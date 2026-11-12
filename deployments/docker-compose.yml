@@ -37,12 +37,13 @@ services:
   server:
     image: ${SERVER_IMAGE:-ghcr.io/edwinhuish/gowork/server:latest}
     build:
-      # 上下文是仓库根目录（不是 apps/backend）：Dockerfile 要把根目录的 VERSION.txt
-      # 读进来当版本号兜底，所以它是上下文里的一个路径，而不是工作目录。
-      context: ..
-      dockerfile: apps/backend/Dockerfile
+      # 上下文就是后端目录：镜像不读仓库里的任何版本文件，只认下面的 VERSION 参数。
+      # 注意 compose 的 dockerfile 相对 context（buildx/`-f` 则相对当前目录），别对调。
+      context: ../apps/backend
+      dockerfile: Dockerfile
       args:
-        # 留空就用根目录 VERSION.txt 的值；指定具体版本时传这里。
+        # 留空 = 镜像自己的缺省值 dev。要真版本号：
+        #   SERVER_VERSION=$(git describe --always --long --dirty) docker compose ... build
         VERSION: ${SERVER_VERSION:-}
     container_name: gowork-prod-server
     restart: unless-stopped
@@ -80,7 +81,7 @@ services:
     # 同源之后浏览器不发跨域请求，config.prod.yaml 的 cors_origins 只影响直连后端的场景。
     image: ${FRONTEND_IMAGE:-ghcr.io/edwinhuish/gowork/frontend:latest}
     build:
-      # 前端的构建上下文是 apps/frontend 本身（它自带 .dockerignore），不像后端要读仓库根的 VERSION.txt。
+      # 上下文就是 apps/frontend 本身（它自带 .dockerignore），与后端一样不碰仓库根目录。
       context: ../apps/frontend
       dockerfile: Dockerfile
       args:

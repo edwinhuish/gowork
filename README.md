@@ -89,9 +89,11 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 数据库与缓存用云托管或机房已有的 PostgreSQL / Redis，不跟应用一起起落；
 TLS 证书与限流交给同一台机器外面的那层网关。
 
-两个镜像由两份 Dockerfile 构建，随同一次发布一起推：后端是 `apps/backend/Dockerfile`
-（构建上下文是仓库根目录，好让版本号取自 `VERSION.txt`），前端是 `apps/frontend/Dockerfile`
-（上下文是 `apps/frontend` 本身）。它们不合并成一个镜像，因此可以单独回滚。
+两个镜像由两份 Dockerfile 构建，随同一次发布一起推：后端是 `apps/backend/Dockerfile`、
+前端是 `apps/frontend/Dockerfile`，**构建上下文都是各自的子项目目录**，都不从仓库里读版本号。
+后端的版本号只经 `--build-arg VERSION` 进去，不传就是 `dev`；本机想让它能自证就传
+`git describe --always --long --dirty` 的结果（`task backend:image` 已代劳）。两个镜像
+不合并成一个，因此可以单独回滚。
 前后端同源之后浏览器不发跨域请求，`config.prod.yaml` 的 `cors_origins` 只影响直连后端的场景。
 
 配置分两处：应用自身的配置在 `deployments/config.prod.yaml`（库与缓存地址、CORS、
@@ -130,6 +132,7 @@ docker compose -f deployments/docker-compose.yml logs -f server frontend
 | `task dev` | 并行启动前后端（air + Vite HMR） |
 | `task backend:dev:once` | 后端单次启动、不监听变更 |
 | `task backend:tool:air` | 安装 air（一次性） |
+| `task backend:image` | 构建后端镜像（版本号缺省 `git describe --always --long --dirty`） |
 | `task build` | 后端二进制 + 前端静态产物 |
 | `task test` | 后端单元测试 |
 | `task test:storage` | 三库两缓存一致性测试 |
@@ -156,10 +159,10 @@ gowork-server 0.1.0
 
 | 优先级 | 来源 | 用在哪 |
 |---|---|---|
-| 1（最高） | `-X main.version=…` 链接参数 | 发布流水线把 tag 名注进去；`docker build --build-arg VERSION=` 也走这条 |
+| 1（最高） | `-X main.version=…` 链接参数 | 发布流水线把 tag 名注进去；`docker build --build-arg VERSION=` 同理，不传就是 `dev` |
 | 2 | `task backend:build APP_VERSION=1.2.3` | 本地试打某个号 |
-| 3 | 根目录 `VERSION.txt` | `task backend:build` 没显式给号时的缺省值 |
-| 4（兜底） | 代码里的 `"dev"` | 裸 `go build` / air 热重载不带 ldflags，一眼看出不是发布产物 |
+| 3 | 根目录 `VERSION.txt` | `task backend:build` 没显式给号时的缺省值（**只管本地编译，镜像不读它**） |
+| 4（兜底） | 代码里的 `"dev"` | 裸 `go build` / air 热重载 / 没传 `VERSION` 的镜像构建，一眼看出不是发布产物 |
 
 发版走 `task release`，它按顺序做完这几步，任一步失败就停下并说明停在哪：
 

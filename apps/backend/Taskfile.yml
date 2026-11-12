@@ -19,6 +19,11 @@ vars:
     sh: git rev-parse --short HEAD 2>/dev/null || echo none
   BUILD_DATE:
     sh: date -u +%Y-%m-%dT%H:%M:%SZ
+  # 镜像的版本号缺省值，与上面的 APP_VERSION 分开：那个读 VERSION.txt，回答「这是哪个发版号」；
+  # 这个回答「这一份构建从哪来」—— --always 保证没有 tag 时也有提交号，--long 让输出必带
+  # 提交数，--dirty 让「工作区有未提交改动」不会被伪装成一个干净的 tag。
+  IMAGE_VERSION:
+    sh: git describe --always --long --dirty 2>/dev/null || echo dev
 
 tasks:
   default:
@@ -43,6 +48,18 @@ tasks:
     cmds:
       - mkdir -p {{.BIN_DIR}}
       - go build -trimpath -ldflags "-s -w -X main.version={{.APP_VERSION}} -X main.commit={{.COMMIT}} -X main.date={{.BUILD_DATE}}" -o {{.BIN_DIR}}/{{.APP_NAME}} ./cmd/server
+
+  image:
+    desc: 构建后端镜像（版本号缺省 git describe --always --long --dirty；IMAGE=repo/tag 覆盖镜像名）
+    # 构建上下文是本目录：镜像不从仓库里读版本文件，版本号只经 --build-arg 进去。
+    cmds:
+      - >-
+        docker build
+        -t {{.IMAGE | default "gowork-server:dev"}}
+        --build-arg VERSION={{.IMAGE_VERSION}}
+        --build-arg COMMIT={{.COMMIT}}
+        --build-arg BUILD_DATE={{.BUILD_DATE}}
+        .
 
   dev:
     desc: 热重载启动（air 监听 *.go 变更 → 重新编译 → 自动重启；SQLite + 内存缓存）

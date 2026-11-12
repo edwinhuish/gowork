@@ -148,11 +148,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # 后端：Dockerfile 在子项目里，上下文仍是仓库根目录（要读根目录的 VERSION.txt 当版本号兜底）。
+          # 后端：上下文就是子项目目录，镜像不读仓库里的任何版本文件，版本号只走 build-args。
           # 注意 path 的基准与 compose 相反：buildx 的 file 相对**工作目录**（$GITHUB_WORKSPACE），
           # 所以要带 apps/backend/ 前缀；compose 的 dockerfile 才相对 context。两者别对调。
           - image: server
-            context: .
+            context: ./apps/backend
             dockerfile: ./apps/backend/Dockerfile
           # 前端：上下文就是 apps/frontend，产物在镜像里由 nginx 托管并把 /api 反代给后端。
           - image: frontend

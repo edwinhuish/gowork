@@ -1,40 +1,50 @@
-# 后端镜像。Dockerfile 与 entrypoint.sh 属于本子项目，但构建上下文仍是仓库根目录：
-#   docker build -t gowork-server -f apps/backend/Dockerfile .
-# 上下文往上提一层是为了读到根目录的 VERSION.txt（版本号兜底），也为了 COPY 路径
-# 与仓库结构一致；下方所有 COPY 的源路径都相对仓库根目录。
-# 只装后端：前端是另一个镜像（apps/frontend/Dockerfile），两者只靠 HTTP 耦合。
-# 配置不打进镜像层：部署侧把配置文件挂到 /app/configs 下覆盖。
+# 后端镜像。构建上下文就是本目录（apps/backend）：
+#   docker build -t gowork-server -f apps/backend/Dockerfile apps/backend
+#   task backend:image        # 同上，版本号缺省取 `git describe --always --long --dirty`
+#
+# 镜像不从仓库里读任何文件取版本号：只认 --build-arg VERSION，不传就是 dev。
+# 仓库根目录的 VERSION.txt 只服务 `task backend:build`（本地编译二进制），
+# 镜像这条路由调用方把值传进来——镜像因此完全不依赖仓库根，上下文也只有本目录。
+#
+# 为什么不在这里跑 git describe：--dirty 判的是索引与工作区文件的差异，而构建上下文
+# 只有本目录（根目录的 md、docs/、.git 都不在里面），在容器里算出来会永远带 -dirty，
+# 比不给版本号更误导。要真版本号就在宿主上算好传进来。
 
 # ---------- 构建阶段 ----------
 # 编译固定在构建机原生架构上：多架构构建时 arm64 不跑在 QEMU 里。
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
-
-# buildx 会传入；本地普通构建回退到当前平台。
-ARG TARGETOS=linux
-ARG TARGETARCH
-
-# 版本与来源信息由发布流水线传入（tag 名 / git sha / 构建时间）。
-# 不传时回退读仓库根目录的 VERSION.txt，本地构建也说得清自己是哪一版。
-ARG VERSION=
-ARG COMMIT=none
-ARG BUILD_DATE=unknown
 
 # GOTOOLCHAIN=local：只用镜像里的工具链，go.mod 抬高 go 指令时直接失败，
 # 不静默下载一个新版本 —— 否则同一份代码在两台机器上编出的结果可能不同。
 ENV CGO_ENABLED=0 \
     GOTOOLCHAIN=local
 
-WORKDIR /src/apps/backend
+WORKDIR /src
 
 # 先只拷依赖清单：改业务代码不会触发重新下载模块。
-COPY apps/backend/go.mod apps/backend/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY apps/backend/ ./
-COPY VERSION.txt /src/VERSION.txt
+COPY . .
+
+# 构建参数声明在这里而不是文件开头：ARG 的值会进入其后每一步的环境变量，
+# 摆在 go mod download 之前的话，换一个版本号（BUILD_DATE 每次都不同）就连
+# 模块下载那一步的缓存一起打掉 —— 实测每次多花 160s 重下一遍依赖。
+#
+# TARGETOS / TARGETARCH 由 buildx 传入；本地普通构建回退到当前平台。
+# VERSION / COMMIT / BUILD_DATE 由调用方传入：发布流水线给 tag 名，本地
+# `task backend:image` 给 `git describe --always --long --dirty`，都不传时落到 dev。
+ARG TARGETOS=linux
+ARG TARGETARCH
+ARG VERSION=
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
 
 RUN set -eu; \
-    ver="${VERSION:-$(tr -d ' \r\n' < /src/VERSION.txt)}"; \
+    if [ -z "${VERSION}" ]; then \
+      echo "未传 --build-arg VERSION：版本号记为 dev（要真版本号用 task backend:image）" >&2; \
+    fi; \
+    ver="${VERSION:-dev}"; \
     arch="${TARGETARCH:-$(go env GOARCH)}"; \
     echo "building version=${ver} os=${TARGETOS} arch=${arch}"; \
     CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${arch}" go build -trimpath \
@@ -71,8 +81,8 @@ WORKDIR /app
 
 COPY --from=builder /out/server /app/server
 # 配置样例一起进镜像：部署侧要么挂载覆盖 config.prod.yaml，要么直接用 -config 指别处。
-COPY apps/backend/configs /app/configs
-COPY apps/backend/entrypoint.sh /entrypoint.sh
+COPY configs /app/configs
+COPY entrypoint.sh /entrypoint.sh
 
 # Windows 检出（core.autocrlf）会带 CRLF，先归一化再给执行权限。
 RUN sed -i 's/\r$//' /entrypoint.sh \

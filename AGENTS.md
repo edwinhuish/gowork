@@ -57,7 +57,7 @@ GoWork/
 │   ├── backend/                 # Go 服务（见 apps/backend/AGENTS.md）
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
 │   │   ├── configs/             # 4 份配置样例：默认 / prod / postgres / mysql
-│   │   ├── Dockerfile           # 后端镜像（上下文是仓库根目录：要读 VERSION.txt）
+│   │   ├── Dockerfile           # 后端镜像（上下文就是本目录；版本号只走 --build-arg）
 │   │   ├── entrypoint.sh        # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 │   │   └── internal/            # 全部业务代码，不对外暴露
 │   └── frontend/                # React 单页应用（见 apps/frontend/AGENTS.md）
@@ -84,7 +84,8 @@ GoWork/
 `deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 起两个容器：
 `server`（只绑回环）与 `frontend`（nginx，对外入口，`/api` 反向代理到 `server`）。
 两个镜像各自由 `apps/backend/Dockerfile` 与 `apps/frontend/Dockerfile` 构建，可以单独回滚。
-两者的构建上下文不同：后端要往上提到仓库根目录（读 `VERSION.txt`），前端就是它自己的目录。
+两个镜像的构建上下文都是各自的子项目目录，也都不从仓库里读版本号：后端版本只经
+`--build-arg VERSION` 传（缺省 `dev`，`task backend:image` 传 `git describe` 的结果）。
 
 ## 3. 整体架构
 
