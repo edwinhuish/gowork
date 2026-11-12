@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
 )
 
 // ImportPartners 按行导入主体，先校验、再按 dryRun 决定是否落库。

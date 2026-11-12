@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
 )
 
 // seedStockAndFinance 写入期初库存。

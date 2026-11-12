@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestOrderPDFPieces 覆盖订单打印件的两块纯逻辑：状态文案与明细行。

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // 产品图片整条链路：路由挂载、multipart 字段名、主图推导、排序 409、取图鉴权与 ETag。

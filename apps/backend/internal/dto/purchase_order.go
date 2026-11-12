@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // PurchaseOrderQuery 是采购订单列表的查询条件。

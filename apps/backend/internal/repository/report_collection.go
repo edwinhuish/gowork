@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // SumSettlementDue 汇总期间内**到期**的单据金额（本币），用于回款率的分母。

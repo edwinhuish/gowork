@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // demoMaster 是演示数据里"长期不变"的那一层：主体、产品，以及它们的 id。

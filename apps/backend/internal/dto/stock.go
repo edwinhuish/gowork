@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // StockMovementQuery 是库存流水的列表查询。

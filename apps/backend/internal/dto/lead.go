@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/model"
+import "gowork_server/internal/model"
 
 // LeadQuery 是线索列表的查询条件。
 type LeadQuery struct {

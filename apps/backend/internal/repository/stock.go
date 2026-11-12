@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
 )
 
 // StockMovementFilter 是库存流水的查询条件。

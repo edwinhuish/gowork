@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // DebitNoteInput 是开一张借项通知单的入参。
 //

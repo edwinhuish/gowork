@@ -8,9 +8,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/model"
+	codenorm "gowork_server/internal/pkg/code"
+	"gowork_server/internal/pkg/errs"
 )
 
 // ProductFilter 是产品列表的查询条件。

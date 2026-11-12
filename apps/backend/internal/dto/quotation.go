@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // QuotationQuery 是报价单列表的查询条件。

@@ -17,10 +17,10 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/edwinhuish/gowork/internal/bootstrap"
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/server/middleware"
+	"gowork_server/internal/bootstrap"
+	"gowork_server/internal/config"
+	"gowork_server/internal/model"
+	"gowork_server/internal/server/middleware"
 )
 
 // 这一组是**跨层冒烟**：走真实装配（配置 → 数据库 → 仓储 → 服务 → 中间件 → 路由），

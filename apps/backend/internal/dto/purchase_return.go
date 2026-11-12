@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // PurchaseReturnInput 是从收货单发起退货的入参（T-52b3）。

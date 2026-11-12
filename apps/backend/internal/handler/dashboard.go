@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 type DashboardHandler struct {

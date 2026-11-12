@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/repository"
 )
 
 // 仓库此前连删除入口都没有，更没有恢复：录错一个只能放着让它占着下拉。

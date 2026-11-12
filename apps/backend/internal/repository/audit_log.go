@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // AuditFilter 是审计日志的查询条件。全部可选，留空即不过滤。

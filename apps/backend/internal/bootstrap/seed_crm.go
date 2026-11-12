@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // seedCRM 写入联系人、线索、商机与跟进记录。

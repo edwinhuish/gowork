@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // CreditSummary 是一个主体当前的信用占用情况，单位本币。
 //

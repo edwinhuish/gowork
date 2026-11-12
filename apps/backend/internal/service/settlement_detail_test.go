@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestSettlementDetailAllocations 证明应收 / 应付详情能反查到"这笔钱是谁付的"。

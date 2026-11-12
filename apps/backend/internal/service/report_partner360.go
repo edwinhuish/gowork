@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
 )
 
 // 客户 360 每块明细的行数。这一页是用来"判断接下来该跟哪一条"的，

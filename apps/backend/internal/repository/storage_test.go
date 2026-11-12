@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
 )
 
 // storageTarget 描述一个待验证的数据库实例。

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/pkg/pdf"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/pkg/pdf"
 )
 
 // pdfSvc 构造 PDF 服务。没有可用中文字体时跳过：

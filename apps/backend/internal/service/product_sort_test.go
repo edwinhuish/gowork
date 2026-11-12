@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // 列表排序只认白名单字段，其余一律退回默认顺序（id DESC），

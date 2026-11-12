@@ -3,7 +3,7 @@ package repository
 import (
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // TestAttachTargetsMatchConstants 守住「附件能挂在哪」这张清单。

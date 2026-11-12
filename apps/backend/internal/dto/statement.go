@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // StatementQuery 是客户对账单的入参。
 //

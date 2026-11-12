@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
+	"gowork_server/internal/service"
 )
 
 const defaultAdminPassword = "admin123"

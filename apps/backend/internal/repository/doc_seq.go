@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // docSeqMaxAttempts 是发号的冲突重试次数。

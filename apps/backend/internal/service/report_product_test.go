@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/errs"
 )
 
 // 品类是产品的归类，不是成交条件：报表按产品**当前**的归类算，

@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/infra/cache"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"gowork_server/internal/infra/cache"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
 )
 
 // IdempotencyKeyHeader 是客户端给"这一次写操作"分配的唯一键。

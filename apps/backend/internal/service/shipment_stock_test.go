@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
 )
 
 // T-40：出货确认即出库。三条验收各有用例：

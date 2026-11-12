@@ -9,8 +9,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/config"
+	"gowork_server/internal/model"
 )
 
 // legacyProbe 模拟改造前的表：deleted_at 是可空的时间戳。

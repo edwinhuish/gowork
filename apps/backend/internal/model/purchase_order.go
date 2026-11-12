@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // PurchaseOrder 是向供应商下的采购单：销售订单的镜像。

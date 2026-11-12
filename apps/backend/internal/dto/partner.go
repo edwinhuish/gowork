@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // PartnerRoleInput 是角色集合的可选入参：1 客户 / 2 供应商 / 3 两者。

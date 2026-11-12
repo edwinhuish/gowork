@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/repository"
 )
 
 // UserCredentialKeeper 是账号维护需要的鉴权能力：算密码摘要、吊销会话。

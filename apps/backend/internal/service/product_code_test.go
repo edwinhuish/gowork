@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	codenorm "gowork_server/internal/pkg/code"
+	"gowork_server/internal/repository"
 )
 
 type productCodeFixture struct {

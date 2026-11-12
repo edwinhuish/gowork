@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/config"
 )
 
 // memoryCache 是进程内缓存。

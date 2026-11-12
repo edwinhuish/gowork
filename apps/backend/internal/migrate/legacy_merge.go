@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // mergeLegacyRecord 是这条迁移在 sys_migration 里的登记名。

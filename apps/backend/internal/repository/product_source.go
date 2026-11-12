@@ -7,9 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/code"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/code"
+	"gowork_server/internal/pkg/errs"
 )
 
 // ProductSourceFilter 是产品货源的查询条件。

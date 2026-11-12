@@ -12,7 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/pkg/errs"
 )
 
 // captureLog 把默认 logger 临时换成写内存的，返回日志缓冲与还原函数。

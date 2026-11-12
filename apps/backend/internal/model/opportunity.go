@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // OpportunityStage 是商机阶段。

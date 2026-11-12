@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
 )
 
 // ItemPatch 是对一条订单明细的原地更新。

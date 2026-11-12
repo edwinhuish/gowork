@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // 币种与折算的测试跑在真实 sqlite 上，而不是手写假仓储。

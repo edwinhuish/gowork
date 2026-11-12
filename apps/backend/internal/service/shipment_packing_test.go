@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestFillPackingFromProduct 是 T-50 的验收点：产品维护了箱规之后，

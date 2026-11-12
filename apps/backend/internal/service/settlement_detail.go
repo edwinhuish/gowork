@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/model"
+	"gowork_server/internal/repository"
 )
 
 // fillSettlementAllocations 给应收 / 应付详情补上"核销这张单的钱是哪几笔"。

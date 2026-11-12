@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // dec 是演示数据里写金额的简写：常量金额用字符串写，避免浮点字面量在定点数上丢精度。

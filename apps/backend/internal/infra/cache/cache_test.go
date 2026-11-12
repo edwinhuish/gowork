@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/config"
 )
 
 func testLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }

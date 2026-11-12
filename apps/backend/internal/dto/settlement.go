@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // ReceivableQuery 是应收单的查询条件。

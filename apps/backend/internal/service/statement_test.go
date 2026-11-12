@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // TestReceivableStatement 是 T-53 的验收点：期初 + 本期发生 − 本期收款 = 期末，

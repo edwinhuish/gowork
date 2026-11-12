@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"gowork_server/internal/pkg/response"
 )
 
 // AccessLog 输出结构化访问日志，request_id 与响应体中的值一致。

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // CreditNote 是贷项通知单（T-52b）。

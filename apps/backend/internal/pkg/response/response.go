@@ -12,7 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/pkg/errs"
 )
 
 // RequestIDKey 是请求 ID 在 gin.Context 中的键。

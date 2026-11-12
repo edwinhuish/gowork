@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	codenorm "github.com/edwinhuish/gowork/internal/pkg/code"
+	"gowork_server/internal/model"
+	codenorm "gowork_server/internal/pkg/code"
 )
 
 const backfillSupplierSKUNormName = "backfill_supplier_sku_norm"

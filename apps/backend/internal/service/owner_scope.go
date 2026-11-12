@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/repository"
 )
 
 // ensurePartnerVisible 校验当前身份能否看到属于该客户的单据。

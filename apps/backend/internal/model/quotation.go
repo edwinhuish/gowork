@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // Quotation 是对客户发出的价格方案：主链上第一张真正的单据。

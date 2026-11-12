@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/repository"
 )
 
 // TestPartnerProfileFields 是 T-49a 的验收点：税号 / 客户分组 / 区域 / 分级

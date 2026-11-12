@@ -3,9 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // WarehouseHandler 维护仓库主数据（T-56）。

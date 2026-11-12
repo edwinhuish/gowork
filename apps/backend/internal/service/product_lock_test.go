@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/errs"
 )
 
 // 产品走的是 Base.UpdateFields 这条通用路径（报价单走各自的事务），

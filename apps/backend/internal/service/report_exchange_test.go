@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // 造数据的辅助函数保留 float64 入参：这些测试要摆的是"汇率 7.1、1000 美元"这种

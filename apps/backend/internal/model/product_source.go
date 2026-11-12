@@ -1,6 +1,6 @@
 package model
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // ProductSource 产品货源：某产品在某供应商处的采购来源。
 //

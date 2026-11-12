@@ -3,9 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // ClauseHandler 是条款模板库的出口（T-27）。

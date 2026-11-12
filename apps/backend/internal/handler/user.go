@@ -3,9 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // UserHandler 是账号目录与账号维护入口（T-32 的选择器 / T-57 的维护页）。

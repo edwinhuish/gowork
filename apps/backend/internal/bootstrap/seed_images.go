@@ -15,7 +15,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
 
-	"github.com/edwinhuish/gowork/internal/dto"
+	"gowork_server/internal/dto"
 )
 
 // 演示用的产品图是**画出来的示意图**，不是照片。

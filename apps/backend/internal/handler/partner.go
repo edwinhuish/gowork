@@ -3,11 +3,11 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // PartnerHandler 同时服务四个路由前缀：

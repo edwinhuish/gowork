@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
 )
 
 // Recovery 捕获 panic，保证单个请求出错不会拖垮进程。

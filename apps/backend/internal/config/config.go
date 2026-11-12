@@ -19,7 +19,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/edwinhuish/gowork/internal/pkg/dialect"
+	"gowork_server/internal/pkg/dialect"
 )
 
 // 支持的数据库驱动。

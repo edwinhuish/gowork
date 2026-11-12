@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // CreditService 管客户信用额度：敞口怎么算、什么时候拦、谁能放行。

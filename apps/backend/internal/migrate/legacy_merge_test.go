@@ -9,9 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/model"
 )
 
 func newTestDB(t *testing.T) *gorm.DB {

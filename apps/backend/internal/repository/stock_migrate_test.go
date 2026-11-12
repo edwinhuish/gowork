@@ -12,10 +12,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestBackfillWarehouseBatches 验存量回填真的分批，而不是一条 UPDATE 到底。

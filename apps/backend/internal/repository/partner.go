@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
 )
 
 // PartnerGradeUnset 是「筛未分级」的哨兵值。

@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/server/middleware"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/server/middleware"
+	"gowork_server/internal/service"
 )
 
 // ProductImageHandler 处理产品图片的上传、排序、替换、删除与取图。

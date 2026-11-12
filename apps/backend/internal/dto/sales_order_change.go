@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // SalesOrderChangeInput 是一次变更的提交内容。

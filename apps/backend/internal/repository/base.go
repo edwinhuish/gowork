@@ -11,7 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/pkg/errs"
 )
 
 // Pagination 是数据访问层的分页入参，与 HTTP 参数解耦。

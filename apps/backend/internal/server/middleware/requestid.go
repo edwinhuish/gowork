@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"gowork_server/internal/pkg/response"
 )
 
 const headerRequestID = "X-Request-ID"

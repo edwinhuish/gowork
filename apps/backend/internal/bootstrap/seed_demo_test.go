@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/bootstrap"
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/bootstrap"
+	"gowork_server/internal/config"
 )
 
 // newDemoE2EApp 起一个开了 demo_seed 的真实装配。

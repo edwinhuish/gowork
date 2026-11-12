@@ -21,7 +21,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/config"
 )
 
 // ErrMiss 表示键不存在（区别于"缓存不可用"这类真实错误）。

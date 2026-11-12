@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/repository"
 )
 
 // AuditService 是操作日志的写入口与查询入口（T-33）。

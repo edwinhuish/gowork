@@ -1,6 +1,6 @@
 package model
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // Product 产品主数据。
 //

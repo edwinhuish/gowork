@@ -5,9 +5,9 @@
 package service
 
 import (
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
 )
 
 // 下面两个 helper 是给"还保留启用状态的两个实体"用的：

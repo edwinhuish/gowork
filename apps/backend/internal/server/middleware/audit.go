@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // auditBodyLimit 是请求体落库前的截断长度（字符）。

@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/cache"
 )
 
 var updateOpenAPI = flag.Bool("update", false, "按当前路由表重新生成 docs/openapi.json")

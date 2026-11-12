@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestSnapshotCustoms 是 T-55 后半的验收点：报关要素在出货时抄到分配行上，

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // SalesOrderChange 是已确认订单的一次变更。

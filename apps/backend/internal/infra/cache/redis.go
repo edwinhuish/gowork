@@ -8,7 +8,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/config"
 )
 
 type redisCache struct {

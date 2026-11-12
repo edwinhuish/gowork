@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/cache"
+	"gowork_server/internal/model"
+	"gowork_server/internal/repository"
 )
 
 type dashboardFixture struct {

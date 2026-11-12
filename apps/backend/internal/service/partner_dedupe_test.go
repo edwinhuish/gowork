@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
 )
 
 // 查重跑在真实库上：分组要跨"这一页之外"的记录比对，而软删行是否参与

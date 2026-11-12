@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/cache"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // idemFixture 装一台只有两条路由的引擎：一条会数自己被执行了几次。

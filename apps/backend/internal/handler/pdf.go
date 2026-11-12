@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // PDFHandler 输出单据 PDF。

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
+	"gowork_server/internal/repository"
 )
 
 // TestStockWarehouseIsolation 是 T-56 的验收点。

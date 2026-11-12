@@ -8,10 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
 )
 
 func newDupTestDB(t *testing.T) *gorm.DB {

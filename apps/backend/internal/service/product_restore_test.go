@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/errs"
 )
 
 // 删除是软删，恢复就该有入口：把标记写回 0，行重新出现在普通查询里。

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 func TestRenameShipmentDocNos(t *testing.T) {

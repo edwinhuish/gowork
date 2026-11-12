@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/money"
 )
 
 // parseDateOnly 解析业务日期，只认 YYYY-MM-DD，顺手容忍前端带上来的完整时间串。

@@ -3,7 +3,7 @@ package repository
 import (
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/model"
+	"gowork_server/internal/model"
 )
 
 // MigrateExchangeRateType 把汇率唯一索引换成含 rate_type 的四列（T-60）。

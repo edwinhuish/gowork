@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/pkg/errs"
 )
 
 // BodyLimit 给请求体设一个上限，超了直接 413。

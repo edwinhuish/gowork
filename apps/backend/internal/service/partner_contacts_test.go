@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/repository"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/repository"
 )
 
 // TestPartnerContacts 是「主体带多个联系人」的验收点。

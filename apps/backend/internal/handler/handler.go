@@ -12,9 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/server/middleware"
+	"gowork_server/internal/pkg/errs"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/server/middleware"
 )
 
 // parseID 解析路径上的 :id 参数。

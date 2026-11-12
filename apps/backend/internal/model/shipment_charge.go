@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // ShipmentChargeType 是一票货的某笔费用属于哪一类。

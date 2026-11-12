@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // 隐藏发生在**服务端**：只在前端不渲染，等于把数字发给了不该看到的人，

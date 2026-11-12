@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/cache"
 )
 
 // 上限必须挂在**引擎**上，而不是某个路由上：漏挂一处就等于那类接口可以被打爆，

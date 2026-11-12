@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/edwinhuish/gowork/internal/pkg/money"
+import "gowork_server/internal/pkg/money"
 
 // OpportunityQuery 是商机列表的查询条件。
 type OpportunityQuery struct {

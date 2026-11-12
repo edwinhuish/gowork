@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // StockMovementType 说明这条流水为什么发生，不决定方向。

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/bootstrap"
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/bootstrap"
+	"gowork_server/internal/config"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestStartupMigrations 在真实数据库上走一遍启动期迁移链。

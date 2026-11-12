@@ -13,17 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/handler"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
-	"github.com/edwinhuish/gowork/internal/infra/database"
-	"github.com/edwinhuish/gowork/internal/infra/logger"
-	"github.com/edwinhuish/gowork/internal/migrate"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/pdf"
-	"github.com/edwinhuish/gowork/internal/repository"
-	"github.com/edwinhuish/gowork/internal/server"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/config"
+	"gowork_server/internal/handler"
+	"gowork_server/internal/infra/cache"
+	"gowork_server/internal/infra/database"
+	"gowork_server/internal/infra/logger"
+	"gowork_server/internal/migrate"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/pdf"
+	"gowork_server/internal/repository"
+	"gowork_server/internal/server"
+	"gowork_server/internal/service"
 )
 
 // App 持有进程级资源，供 main 启动与优雅退出使用。

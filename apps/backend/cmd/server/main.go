@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/bootstrap"
-	"github.com/edwinhuish/gowork/internal/config"
+	"gowork_server/internal/bootstrap"
+	"gowork_server/internal/config"
 )
 
 // 版本号在构建期用 ldflags 注入，代码里不读文件：

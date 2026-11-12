@@ -21,8 +21,8 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/pkg/errs"
+	"gowork_server/internal/config"
+	"gowork_server/internal/pkg/errs"
 )
 
 // Open 按配置打开数据库连接并设置连接池。

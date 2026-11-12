@@ -8,10 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/csvx"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/csvx"
+	"gowork_server/internal/pkg/response"
 )
 
 // exportPageSize 是翻页取数时的每页条数：与列表接口的上限一致（200），

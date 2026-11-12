@@ -9,12 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/config"
-	"github.com/edwinhuish/gowork/internal/handler"
-	"github.com/edwinhuish/gowork/internal/infra/cache"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/server/middleware"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/config"
+	"gowork_server/internal/handler"
+	"gowork_server/internal/infra/cache"
+	"gowork_server/internal/model"
+	"gowork_server/internal/server/middleware"
+	"gowork_server/internal/service"
 )
 
 // Handlers 汇总所有 HTTP handler，由 bootstrap 注入。

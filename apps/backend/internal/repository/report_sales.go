@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/money"
 )
 
 // SalesFilter 是看板的时间范围，两端都是闭区间；nil 表示不限。

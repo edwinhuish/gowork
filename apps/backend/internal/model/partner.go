@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // PartnerRole 是商业伙伴在业务中承担的角色，按位定义。

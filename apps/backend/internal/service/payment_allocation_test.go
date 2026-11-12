@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/pkg/money"
 )
 
 // TestRemoveAllocation 是 T-52 第一块的验收点：撤销单条核销，只动这一行。

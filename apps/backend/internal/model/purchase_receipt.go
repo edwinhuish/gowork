@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // PurchaseReceipt 是一次实际到货（T-51a）。

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/edwinhuish/gowork/internal/pkg/money"
+	"gowork_server/internal/pkg/money"
 )
 
 // SalesOrder 是客户下达的订单：报价谈成之后的第一张"要出货"的凭证。

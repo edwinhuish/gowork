@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/edwinhuish/gowork/internal/pkg/dialect"
+	"gowork_server/internal/pkg/dialect"
 )
 
 // likeEscape 是 LIKE 的转义字符。

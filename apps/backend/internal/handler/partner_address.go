@@ -3,10 +3,10 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/edwinhuish/gowork/internal/dto"
-	"github.com/edwinhuish/gowork/internal/model"
-	"github.com/edwinhuish/gowork/internal/pkg/response"
-	"github.com/edwinhuish/gowork/internal/service"
+	"gowork_server/internal/dto"
+	"gowork_server/internal/model"
+	"gowork_server/internal/pkg/response"
+	"gowork_server/internal/service"
 )
 
 // PartnerAddressHandler 处理 /partners/:id/addresses 下的地址读写。
