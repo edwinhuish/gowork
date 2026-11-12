@@ -62,9 +62,10 @@ apps/frontend/
     │       purchase-orders / quotations / sales-orders / shipments /
     │       stock / stock-documents   单个资源的非 CRUD 动作（转单、确认、重算…）
     ├── components/
-    │   ├── layout/AppLayout.tsx   应用外壳：顶栏 + 标签条 + 侧栏（自带配色）+ 内容区
-    │   ├── layout/app-tabs.tsx    标签条（antd Tabs，只管显隐与点击）
-    │   ├── layout/tab-panes.tsx   每个标签页一份内容，全部保持挂载（状态靠不卸载保留）
+    │   ├── layout/AppLayout.tsx   应用外壳：顶栏（含标签）+ 侧栏（自带配色）+ 内容区
+    │   ├── layout/app-tabs.tsx    顶栏里的标签（antd Tabs：显隐、点击、关闭、拖拽排序）
+    │   ├── layout/tab-panes.tsx   每个标签页一份内容，默认全部挂载（`keepAlive: false` 的除外）
+    │   ├── layout/top-progress.tsx 顶部加载进度条（只读 client.ts 的并发请求数）
     │   ├── layout/unsaved-tab-guard.tsx  未保存提醒：切到已打开的标签页不拦
     │   ├── fields.tsx       StatusTag / RoleTag / EntityTypeTag / AccentTag / HeatTag /
     │   │                    Money / CategoryTag / Mono / Empty（标签的三档用法见第 6 节）
@@ -152,7 +153,7 @@ apps/frontend/
 （各带自己的 `:id` 与 query），而 `<Routes>` 一个地址只匹配一棵树。所以 `AppLayout` 不再用
 `<Outlet />`，而是给每个已打开的标签页各跑一次 `useRoutes(appRoutes, tab.location)`。
 
-### 外壳：一屏高，顶栏与标签条不动
+### 外壳：一屏高，顶栏（含标签）不动
 
 `components/layout/AppLayout.tsx` 自己搭外壳，**不用** refine 的 `ThemedLayout` ——
 它是"整页滚动"的形状（外层 `minHeight: 100vh`、内容区不给高度），要做出
@@ -162,11 +163,20 @@ apps/frontend/
 .app-shell            一屏高 + overflow: hidden —— 窗口永远不滚
 ├── .app-sider            品牌块（定高）/ .app-sider-menu（自己滚）/ 折叠开关（定高）
 └── .app-main
-    ├── .app-header       不在任何滚动容器里，所以永远不动
-    ├── .app-tabbar       同上；标签多了由 antd Tabs 自己横向滚
+    ├── .app-header       不在任何滚动容器里，所以永远不动；
+    │                     里面从左到右是 .app-tabbar（标签，弹性）/ 待办 / 头像
     └── .app-content      只排版，不滚
         └── .app-tab-pane × N   每个标签页一个滚动容器（隐藏的那些 display: none）
 ```
+
+**标签住在顶栏里**，不再单独占一条：`AppHeader` 直接渲染 `<AppTabs />`，
+`.app-tabbar` 是顶栏里的一个弹性子项（`flex: 1 1 auto` + `min-width: 0`），
+右侧待办与头像定宽，所以标签再多也只会在自己的区间里横向滚。
+
+因此顶栏左侧**没有**"收起 / 展开侧栏"的按钮：那件事由侧栏底部的
+`.app-sider-trigger` 负责（宽屏）。窄屏是唯一例外 —— 那里的侧栏是抽屉，
+没有底部开关，所以 `AppHeader` 在 `mobile` 时画一个"打开导航"。加按钮前先想清楚
+它属于哪一侧：顶栏的横向空间现在归标签。
 
 三条硬约束：
 
@@ -175,19 +185,46 @@ apps/frontend/
   它会挑**可见的那一个** `[data-app-content]`，所以调用方不用知道现在有几个标签页。
   `IntersectionObserver` 这类需要长期持有 root 的地方（无限滚动），root 要取
   `node.closest('[data-app-content]')` 而不是全局查询，否则切回来就绑在别人的 pane 上。
-- **`HEADER_HEIGHT` 只有一处**（`theme.ts`）：顶栏高度与侧栏品牌块都由它下发，
-  改一个数两边一起变。各写一个数，两列之间就会露出一条错位接缝。
+- **外壳尺寸只有一处**（`theme.ts` 的 `shell`）：顶栏高度、侧栏两档宽度、抽屉宽度、
+  内容内距、品牌块与标签胶囊的度量都在那里，并以 `--shell-*` 下发给 `index.css`。
+  顶栏与品牌块共用 `shell.headerHeight`（当前 50），改一个数两边一起变；
+  各写一个数，两列之间就会露出一条错位接缝。注意 `AppLayout` 把变量挂在 `.app-shell` 上，
+  而窄屏抽屉是 portal 渲染到 `body` 的 —— 它那一侧要单独再给一次变量。
+  侧栏宽度现在是 224 / 收起 60（Vben 档位，不是 antd 默认的 200 / 80）。
 - **`100dvh` 不是笔误**：移动端地址栏收起/展开时视口高度会变，`100vh` 会把底部顶出去；
   认不得 `dvh` 的浏览器保留上一行的 `100vh`。
 
 ### 多标签页
 
-顶栏下面那条标签条，是"标题栏"的角色：每个已打开的页面一个标签，点过去就切回那一页。
+顶栏里那排标签就是"标题栏"：每个已打开的页面一个标签，点过去就切回那一页。
+标签做成胶囊而不是 card 型原来那种贴着内容区的卡片（顶栏里没有可依附的内容区）；
+关闭按钮默认不显示，悬停该标签才淡入。拖拽可调整顺序，拖动时其余标签让位闪避。
 
 **状态靠"不卸载"保留。** 每个标签页在 `TabPanes` 里各占一个 pane，全部保持挂载、只切
 `hidden`。所以筛选、表单里打了一半的字、展开的分组、已加载的数据都还在原来的组件里，
 不需要序列化再恢复；唯一需要手动接的是滚动位置（`display: none` 会让元素丢掉 `scrollTop`），
 由 `providers/tabs.tsx` 的 `rememberScroll` / `restoreScroll` 负责。
+
+**但"不卸载"不等于无限保留**（完整边界见 `docs/ui-shell-refactor.md` 4.3）：
+
+- 开着的标签（固定标签不计）超过 `TAB_LIMIT`（10）时，自动关掉**最久未激活**的那一个，
+  顶部 message 说明关的是谁；当前页永不被淘汰，固定标签永不入选。
+- `resources` 里写了 `meta.keepAlive: false` 的页面（当前是账号、操作日志）切走即卸载、
+  切回重新取数。默认是缓存 —— 加页面时**不要随手关掉它**：筛选、分页、半填表单都在
+  组件里，卸载就是把它们扔掉。
+- 标签列表、顺序、滚动位置都不落盘：刷新后按打开顺序重来。
+
+五个操作要点：
+
+- 固定标签（首页）带钉标、始终排第一、不可关闭。
+- 关闭其他 / 关闭左侧 / 关闭右侧 / 全部关闭共用 `applyClose` 的落点规则
+  （右邻 → 左邻 → 首页）。新增关闭入口时走同一个函数，不要另写一套落点。
+- 右键「刷新」把该标签的 `version` 加一，`tab-panes` 用它做 key：整棵内容树重挂载
+  ≈ 重新请求。不重挂载的话 query 还带着旧数据，点了看着什么都没发生。
+- 右键菜单的计数（「关闭左侧」等）必须按"被右键的那个标签"算，不是当前激活的：
+  目标在 `contextmenu` 的捕获阶段记下来。
+- 标签条溢出时用 antd 自带的「更多」下拉，**不要**改成原生横向滚动：
+  rc-tabs 用 transform 管理可视区间，加一层滚动会和它的溢出计算打架。
 
 三条必须知道的：
 
@@ -298,7 +335,7 @@ api/client.ts
 | `components/page/record-cards.tsx` | 窄屏的通用卡片视图 + 从 `<Table.Column>` 读列定义（`collectCardColumns`） | 卡片内容由列定义推导，不要为某个模块再写一套卡片；推导不出来会退回表格，不会白屏 |
 | `components/page/responsive-table.tsx` | 「宽屏表格 / 窄屏卡片」的同一个开关 | 列表页走 `PageList`；**报表页、详情页、面板与弹窗、以及不走 PageList 的列表页**（待办、首页看板）直接用它 —— 判据是列数：**≥ 4 列就降级**，3 列以内的横滑一屏看得完、卡片化反而更啰嗦，保留表格（客户 360 的出货、导入失败清单）。列定义两种写法都能推导：`<Table.Column>` children 与 `columns={[...]}`。合计要给两份：`summary`（`Table.Summary`）与 `cardSummary`（合计卡），形状不同、数是同一份。操作列是猜的（最后一列 + 无 dataIndex + 只有 render），猜错了用 `cardActionKeys` 覆盖，`[]` 表示没有操作列 |
 | `constants/catalog.ts` | 字典类枚举：产品类别、启用状态（**只对账号用**，另有 `CURRENCY_STATUS_OPTIONS` 给币种的归档） | 取值必须与后端 `model` 里的常量一致（`EnableStatusOn = 1`）；后端改枚举时同步这里，不要在页面里另写一份 options |
-| `api/client.ts` | 令牌注入、拆包、续期、401 | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑 |
+| `api/client.ts` | 令牌注入、拆包、续期、401，以及**并发请求计数** | 所有请求必须经它；页面里直接 `fetch` 会漏掉全部横切逻辑（顶部进度条也在其中：它只认这里的计数，见 `utils/load-progress.ts`） |
 | `pages/*/form-fields.tsx` | 新建与编辑共用的表单字段 | 加字段只改这一处，两个入口自动同步 |
 | `components/line-items-editor.tsx` | 报价单 / 订单 / 采购的明细行（数量 × 单价） | 金额只显示不提交，后端算 |
 | `components/product-select.tsx` | 任何「选一个产品」的下拉（明细行、库存流水、出入库单明细） | 搜索走后端 `/products?keyword=`，不要退化成 `useSelect` 取满 200 条——本地过滤筛不出客户报的编号，产品过两百条之后后半段还会选不到 |
@@ -481,6 +518,8 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 下拉里永远只有十几条选项 | `useSelect` 没配 `pagination: { mode: 'off' }`，或 dataProvider 没把 off 翻译成一次取满 | 见 `dataProvider.buildListQuery`：off → `page_size=200` |
 | 筛选条件填了但结果没变 | filter 的 field 不在 dataProvider 白名单里，被丢弃 | 后端加参数时同步 `PASSTHROUGH_FILTERS` |
 | 切了侧栏配色，内容区跟着一起变 | 侧栏主题被写进根 `ConfigProvider`，或那层开了 `cssVar` 撞了全局变量 | 侧栏必须是自己的 `ConfigProvider` 且 `cssVar: false`（见 `theme.ts` 的 `buildSiderThemeConfig`） |
+| 侧栏收起后图标被裁、菜单比侧栏宽 | antd 内联折叠菜单的宽度是 `controlHeightLG * 2`（≈80），不跟 `Sider` 的 `collapsedWidth` 走 | 两份 `Menu` token（页面 / 侧栏各自的 `ConfigProvider`）都要写 `collapsedWidth: shell.siderCollapsedWidth`；折叠态别预留 `scrollbar-gutter`，否则 60 的侧栏只剩 50 |
+| 移动端抽屉里的品牌块比宽屏小一号 | 抽屉是 portal 渲染到 `body` 的，拿不到挂 `.app-shell` 上的 `--shell-*` | 抽屉的 `styles.body` 里再展开一次 `shellCssVars` |
 | `window.scrollTo` 没反应 / 切视图后滚动位置丢了 | 外壳一屏高，窗口不滚，滚的是内容区 | 用 `utils/scroll.ts` 的三个函数，不要直接摸 `window` |
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；检查后端 `cache.memory.persist` |
 | 续期在生产不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 暴露 | 见后端 `AGENTS.md`「令牌续期」；开发期同源复现不出来 |
