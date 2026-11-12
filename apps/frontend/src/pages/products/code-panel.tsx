@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Input, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd'
 
@@ -8,6 +9,8 @@ import { PRODUCT_CODE_SOURCE_OPTIONS, productCodeSourceLabel } from '@/constants
 import type { ProductCode } from '@/types'
 import { formatTime } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /**
  * 产品详情页的编号面板：SKU 之外那些「别人怎么叫它」的号。
  *
@@ -152,9 +155,9 @@ export function CodePanel({ productId }: { productId: number }) {
               cancelText="取消"
               onConfirm={() => remove(record)}
             >
-              <Button size="small" type="link" danger>
-                删除
-              </Button>
+                            <Tooltip title="删除">
+                <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+              </Tooltip>
             </Popconfirm>
           )}
         />

@@ -1,7 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
-import {
-  Button,
+import { Button,
   Card,
   Col,
   Form,
@@ -15,8 +15,7 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
-} from 'antd'
+  Typography } from 'antd'
 
 import { shipmentChargeApi, type ShipmentChargeInput } from '@/api/shipment-charges'
 import { Empty, Money } from '@/components/fields'
@@ -25,6 +24,8 @@ import { SHIPMENT_CHARGE_OPTIONS, shipmentChargeLabel } from '@/constants/catalo
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ShipmentCharge } from '@/types'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 interface ChargeForm {
   type: number
   partner_id?: number
@@ -255,9 +256,9 @@ export function ChargesPanel({ shipmentId }: { shipmentId: number }) {
                 cancelText="取消"
                 onConfirm={() => remove(record)}
               >
-                <Button size="small" type="link" danger>
-                  删除
-                </Button>
+                                <Tooltip title="删除">
+                  <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                </Tooltip>
               </Popconfirm>
             </Space>
           )}

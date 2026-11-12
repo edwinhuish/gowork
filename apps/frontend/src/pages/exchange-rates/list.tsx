@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
 import { DeleteButton } from '@refinedev/antd'
@@ -109,7 +110,9 @@ export function ExchangeRateList() {
         title="操作"
         width={110}
         render={(_, record: ExchangeRate) => (
-          <DeleteButton size="small" recordItemId={record.id} resource="exchange-rates" />
+                    <Tooltip title="删除">
+            <DeleteButton size="small" recordItemId={record.id} resource="exchange-rates" hideText />
+          </Tooltip>
         )}
       />
     </PageList>

@@ -1,6 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Card, Form, Input, Modal, Space, Table, Tag, Tooltip, message } from 'antd'
+import { Button, Card, Form, Input, Modal, Space, Table, Tag, message } from 'antd'
 
 import { purchaseOrderApi } from '@/api/purchase-orders'
 import { Mono } from '@/components/fields'

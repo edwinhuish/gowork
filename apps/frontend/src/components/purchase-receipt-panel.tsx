@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, DatePicker, Input, InputNumber, Modal, Popconfirm, Space, Tag, message } from 'antd'
 
@@ -12,6 +13,8 @@ import { ResponsiveTable } from '@/components/page'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate, formatQty } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /**
  * 采购详情里的收货面板（T-51a）。
  *
@@ -207,9 +210,9 @@ export function PurchaseReceiptPanel({
                     cancelText="返回"
                     onConfirm={() => void remove(record)}
                   >
-                    <Button size="small" type="link" danger>
-                      删除
-                    </Button>
+                                        <Tooltip title="删除">
+                      <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                    </Tooltip>
                   </Popconfirm>
                 </Space>
               ) : (

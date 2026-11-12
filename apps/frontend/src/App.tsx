@@ -11,6 +11,7 @@ import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
 
 import { ApiError } from '@/api/client'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { TopProgress } from '@/components/layout/top-progress'
 import { resources } from '@/config/resources'
 import { LoginPage } from '@/pages/login'
 import { authProvider } from '@/providers/authProvider'
@@ -44,6 +45,11 @@ export default function App() {
     <BrowserRouter>
       <ConfigProvider locale={zhCN} theme={themeConfig}>
         <AntApp>
+          {/*
+           * 顶部加载进度条挂在这里而不是外壳里：登录页、鉴权校验、各页面请求
+           * 都从 api/client.ts 出去，只有挂在最外层才全都能反映出来。
+           */}
+          <TopProgress />
           <Refine
             dataProvider={dataProvider}
             authProvider={authProvider}

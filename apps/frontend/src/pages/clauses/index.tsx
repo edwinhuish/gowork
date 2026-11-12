@@ -1,7 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import {
-  Button,
+import { Button,
   Form,
   Input,
   Modal,
@@ -11,8 +11,7 @@ import {
   Table,
   Tag,
   Typography,
-  message,
-} from 'antd'
+  message } from 'antd'
 
 import { clauseApi, type ClauseInput } from '@/api/clauses'
 import { http } from '@/api/client'
@@ -22,6 +21,8 @@ import { usePagedFeed } from '@/hooks/use-infinite-feed'
 import type { Clause, PageResult } from '@/types'
 import { formatTime } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /**
  * 条款模板库（T-27）。
  *
@@ -265,9 +266,9 @@ export function ClauseList() {
                 cancelText="返回"
                 onConfirm={() => void remove(row)}
               >
-                <Button size="small" type="link" danger>
-                  删除
-                </Button>
+                                <Tooltip title="删除">
+                  <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                </Tooltip>
               </Popconfirm>
             )}
           </Space>

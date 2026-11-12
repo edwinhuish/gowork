@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import {
   BgColorsOutlined,
   BellOutlined,
@@ -12,9 +13,9 @@ import {
 } from '@ant-design/icons'
 import { useGetIdentity, useLogout, useMenu, type TreeMenuItem } from '@refinedev/core'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Avatar,
+import { Avatar,
   Badge,
+  Breadcrumb,
   Button,
   ConfigProvider,
   Drawer,
@@ -22,22 +23,21 @@ import {
   Grid,
   Layout,
   Menu,
-  Space,
-  Tooltip,
-} from 'antd'
+  Space, } from 'antd'
 import type { MenuProps } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 
 import { reportApi } from '@/api/reports'
-import { isKnownPath } from '@/config/resources'
+import { describeTrail, isKnownPath } from '@/config/resources'
 import { TabsProvider } from '@/providers/tabs'
 import { useUiPrefs } from '@/providers/uiPrefs'
 import {
-  HEADER_HEIGHT,
   buildSiderThemeConfig,
   resolveSiderMode,
+  shell,
+  shellCssVars,
   siderCssVars,
   type SiderMode,
 } from '@/theme'
@@ -46,11 +46,10 @@ import { AppTabs } from './app-tabs'
 import { TabPanes } from './tab-panes'
 import { UnsavedTabGuard } from './unsaved-tab-guard'
 
-/** 侧栏宽度：宽屏与抽屉共用，收窄后只剩图标。 */
-const SIDER_WIDTH = 200
-const SIDER_COLLAPSED_WIDTH = 80
-/** 抽屉比侧栏宽一点：移动端旁边没有内容区，宽一些更好点。 */
-const MOBILE_SIDER_WIDTH = 248
+/*
+ * 侧栏两档宽度与抽屉宽度不在这里定义：它们属于外壳几何，
+ * 统一放在 theme.ts 的 `shell`（与顶栏高度、内容内距同一处）。
+ */
 
 const SIDER_MODE_LABELS: Record<SiderMode, string> = {
   follow: '跟随页面',
@@ -109,6 +108,8 @@ function MenuChoice({ checked, children }: { checked: boolean; children: ReactNo
 
 interface AppSiderProps {
   collapsed: boolean
+  /** 整体隐藏：顶栏左侧按钮要求"完全收起"时为真，这时侧栏不渲染、主区域占满整行。 */
+  hidden: boolean
   mobile: boolean
   mobileOpen: boolean
   onToggleCollapse: () => void
@@ -137,6 +138,7 @@ interface AppSiderProps {
  */
 function AppSider({
   collapsed,
+  hidden,
   mobile,
   mobileOpen,
   onToggleCollapse,
@@ -162,19 +164,26 @@ function AppSider({
   )
 
   if (mobile) {
+    /*
+     * 抽屉是 portal 渲染到 body 的：它不在 .app-shell 的子树里，
+     * 拿不到挂在树根上的 --shell-*。必须在这里再给一次 ——
+     * 少了这一份，品牌块与折叠钮会退回 CSS 里的兜底值，
+     * 改 token 时移动端会静默停在旧尺寸上（外观没变、只是对不上）。
+     */
     const drawerBody: CSSProperties = {
       padding: 0,
       display: 'flex',
       flexDirection: 'column',
       // 抽屉自己不许滚：滚的只能是菜单区，否则品牌块会跟着滑走。
       overflow: 'hidden',
+      ...shellCssVars,
       ...vars,
     }
 
     return (
       <Drawer
         placement="left"
-        width={MOBILE_SIDER_WIDTH}
+        width={shell.mobileSiderWidth}
         open={mobileOpen}
         onClose={onMobileClose}
         closable={false}
@@ -189,12 +198,15 @@ function AppSider({
     )
   }
 
+  // 顶栏左侧的按钮要求"完全隐藏"侧栏：这里直接不渲染，主区域自动占满整行。
+  if (hidden) return null
+
   return (
     <Layout.Sider
       className="app-sider"
       collapsed={collapsed}
-      collapsedWidth={SIDER_COLLAPSED_WIDTH}
-      width={SIDER_WIDTH}
+      collapsedWidth={shell.siderCollapsedWidth}
+      width={shell.siderWidth}
       /*
        * 不给 collapsible / trigger：antd 自带的触发器是 position: fixed，
        * 在这套"外壳一屏高、只有内容区滚"的布局里会钉在视口底部、
@@ -220,23 +232,58 @@ function AppSider({
 
 interface AppHeaderProps {
   mobile: boolean
-  collapsed: boolean
+  /** 窄屏没有常驻侧栏，只有一个抽屉：这里留下的按钮负责把它拉出来。 */
+  onOpenNav: () => void
+  /** 侧栏是否被整体隐藏（顶栏左侧按钮控制的那个状态）。 */
+  siderHidden: boolean
+  /** 切换侧栏的整体隐藏 / 展开。 */
   onToggleSider: () => void
+}
+
+/**
+ * 顶栏左侧的面包屑：分组 → 资源列表 → 当前页。
+ *
+ * 内容区那份由 CSS 收起来（refine 的 List/Show 自带），全站只留这一条 ——
+ * 两份同样的导航并排出现，会让人以为其中一份是"另一层"。
+ */
+function AppBreadcrumb() {
+  const { pathname } = useLocation()
+  const trail = describeTrail(pathname)
+  if (trail.length === 0) return null
+
+  return (
+    <Breadcrumb
+      className="app-breadcrumb"
+      items={trail.map((item, index) => ({
+        // 最后一跳是当前页，不给链接；中间那跳回列表。
+        title:
+          item.to && index < trail.length - 1 ? <Link to={item.to}>{item.label}</Link> : item.label,
+      }))}
+    />
+  )
 }
 
 /**
  * 顶栏。
  *
  * 它在 .app-main 的顶部、不在任何滚动容器里 —— 内容区怎么滚它都不动。
- * 左侧按钮按断点切换语义：宽屏收起 / 展开侧栏，窄屏打开抽屉
- * （窄屏没有"收起"这回事，侧栏是覆盖层）。
+ *
+ * 左侧是面包屑：告诉你"现在在哪一页、上一层是什么"。标签条已经搬到它下面的
+ * 独立一条（.app-tabbar-row），两者各管一件事 —— 顶栏回答"当前在哪"，
+ * 标签条回答"还开着什么"。挤在一行里时，标签每多一个就要从面包屑那里让位，
+ * 最后两样都看不全。
+ *
+ * 左侧（面包屑之前）在宽屏放一个"隐藏 / 展开侧栏"按钮：完全收起侧栏，
+ * 让内容区占满整行。它与侧栏底部的开关是两回事——底部那个只是"收成 60px"，
+ * 这里才是整个藏起来（见 AppSider 的 hidden 分支）。窄屏没有常驻侧栏（只有抽屉），
+ * 那个按钮换成"打开导航"（窄屏也不画面包屑：横排空间先给标题）。
  *
  * 右半边只剩两类东西：待办（每天第一眼要看的数）与自己。
  * 观感类的三个开关（明暗、侧栏配色、密度）收进头像菜单：它们都是"设置一次就放着"的
  * 低频操作，占着顶栏会把待办挤到视线外。菜单项仍走各自的 toggle / set，
  * 状态仍由 uiPrefs 持有，逻辑一点没变 —— 只是入口换了地方。
  */
-function AppHeader({ mobile, collapsed, onToggleSider }: AppHeaderProps) {
+function AppHeader({ mobile, onOpenNav, siderHidden, onToggleSider }: AppHeaderProps) {
   const { data: identity } = useGetIdentity<UserInfo>()
   const { mutate: logout } = useLogout()
   const { mode, toggleMode, compact, toggleCompact, siderMode, setSiderMode } = useUiPrefs()
@@ -294,14 +341,25 @@ function AppHeader({ mobile, collapsed, onToggleSider }: AppHeaderProps) {
 
   return (
     <Layout.Header className="app-header">
-      <Button
-        type="text"
-        aria-label={mobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'}
-        icon={!mobile && !collapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-        onClick={onToggleSider}
-      />
+      {/*
+       * 宽屏：面包屑之前的按钮负责把侧栏整体收起 / 展开（完全藏起来，
+       * 让内容区占满整行）。它和侧栏底部的开关是两回事——底部那个只是"收成 60px"，
+       * 这里是整个不渲染。窄屏没有常驻侧栏（只有抽屉），那个按钮换成"打开导航"。
+       */}
+      {mobile ? (
+        <Button type="text" aria-label="打开导航" icon={<MenuUnfoldOutlined />} onClick={onOpenNav} />
+      ) : (
+        <Button
+          type="text"
+          aria-label={siderHidden ? '展开侧边栏' : '隐藏侧边栏'}
+          icon={siderHidden ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          onClick={onToggleSider}
+        />
+      )}
 
-      <div className="app-header-spacer" />
+      {/* 面包屑在顶栏左侧；中间留一个弹性占位，把待办与头像推到右边。 */}
+      <AppBreadcrumb />
+      <div className="app-header-grow" />
 
       <Space size={4} align="center">
         <Tooltip title={pending > 0 ? `${pending} 件到期的事` : '没有到期的事'}>
@@ -331,12 +389,12 @@ function AppHeader({ mobile, collapsed, onToggleSider }: AppHeaderProps) {
  *
  * 布局不交给 refine 的 ThemedLayout：它是"整页滚动"的形状（外层 minHeight 100vh、
  * 内容区不给高度），要做出"顶栏不动、侧栏与内容各滚各的"只能层层覆写它的内联样式。
- * 这里直接给出结构，五个滚动边界的责任就一目了然：
+ * 这里直接给出结构，四个滚动边界的责任就一目了然：
  *
  *   .app-shell      正好一屏高，overflow: hidden —— 窗口永远不滚
  *   .app-sider      左侧一列，菜单区自己滚（见 AppSider）
- *   .app-header     在 .app-main 顶部，不在任何滚动容器里
- *   .app-tabbar     紧贴顶栏，不滚（标签多了自己横向滚）
+ *   .app-header     在 .app-main 顶部，不在任何滚动容器里：面包屑 + 待办 + 用户
+ *   .app-tabbar-row 顶栏下面那一条，也不滚；标签多了自己在条内横向滚
  *   .app-tab-pane   每个标签页一份，各自滚 —— 见 TabPanes
  *
  * 侧栏外面套了第二个 ConfigProvider（buildSiderThemeConfig）：侧栏按自己的
@@ -369,6 +427,10 @@ function AppShell() {
 
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // 侧栏整体隐藏：顶栏左侧按钮控制，与底部"收成 60px"的 collapsed 互不干扰。
+  const [siderHidden, setSiderHidden] = useState(false)
+  // 全屏模式：标签栏右侧按钮控制，隐藏侧栏与顶栏、只留标签条与内容（见 index.css 的 .is-fullscreen）。
+  const [fullscreen, setFullscreen] = useState(false)
 
   const siderColorMode = resolveSiderMode(siderMode, mode)
   const siderTheme = useMemo(
@@ -382,16 +444,19 @@ function AppShell() {
     if (!mobile) setMobileOpen(false)
   }, [mobile])
 
-  const shellStyle = { '--app-header-height': `${HEADER_HEIGHT}px` } as CSSProperties
-
+  /*
+   * 外壳几何以 CSS 变量下发：index.css 的结构性样式引用它们，不抄数字。
+   * 顶栏高度、内容内距、品牌块与标签胶囊的度量都在这一批里（见 theme.ts 的 shell）。
+   */
   return (
-    <div className="app-shell" style={shellStyle}>
+    <div className={`app-shell${fullscreen ? ' is-fullscreen' : ''}`} style={shellCssVars}>
       {/* 未保存提醒要知道已打开的标签页，所以挂在外壳里而不是 App 根上。 */}
       <UnsavedTabGuard />
 
       <ConfigProvider theme={siderTheme}>
         <AppSider
           collapsed={collapsed}
+          hidden={siderHidden}
           mobile={mobile}
           mobileOpen={mobileOpen}
           onToggleCollapse={() => setCollapsed((prev) => !prev)}
@@ -403,10 +468,15 @@ function AppShell() {
       <div className="app-main">
         <AppHeader
           mobile={mobile}
-          collapsed={collapsed}
-          onToggleSider={() => (mobile ? setMobileOpen(true) : setCollapsed((prev) => !prev))}
+          onOpenNav={() => setMobileOpen(true)}
+          siderHidden={siderHidden}
+          onToggleSider={() => setSiderHidden((prev) => !prev)}
         />
-        <AppTabs />
+        {/* 标签条独立一条：顶栏放面包屑与全局操作，它放"开着哪些页"。 */}
+        <AppTabs
+          fullscreen={fullscreen}
+          onToggleFullscreen={() => setFullscreen((prev) => !prev)}
+        />
         <main className="app-content">
           <TabPanes />
         </main>

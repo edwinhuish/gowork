@@ -1,9 +1,12 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { Button, Col, Form, Grid, Input, InputNumber, Row, Typography } from 'antd'
 
 import { AccentTag } from '@/components/fields'
 import { ProductSelect, type ProductHint } from '@/components/product-select'
 import { SourceSelect } from '@/components/product-source-select'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 export interface LineItemRow {
   product_id?: number
   /**
@@ -187,9 +190,9 @@ export function LineItemsEditor({
                     </div>
                   </Col>
                   <Col span={spans.action}>
-                    <Button type="link" danger onClick={() => remove(field.name)}>
-                      删除
-                    </Button>
+                                        <Tooltip title="删除">
+                      <Button type="link" danger onClick={() => remove(field.name)} icon={<DeleteOutlined />} aria-label="删除" />
+                    </Tooltip>
                   </Col>
                 </Row>
               )

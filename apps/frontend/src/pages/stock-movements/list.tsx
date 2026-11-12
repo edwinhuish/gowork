@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import { DeleteButton } from '@refinedev/antd'
 import { Form, Input, Select, Table, Tag } from 'antd'
@@ -156,14 +157,16 @@ export function StockMovementList() {
         // 而它想解释的事在「备注 / 来源」里已经写了来源单号。
         render={(_, record: StockMovement) =>
           isManual(record.type) ? (
-            <DeleteButton
-              size="small"
-              resource="stock-movements"
-              recordItemId={record.id}
-              confirmTitle="删除这条库存流水？"
-              confirmOkText="删除"
-              confirmCancelText="返回"
-            />
+                        <Tooltip title="删除">
+              <DeleteButton
+                            size="small"
+                            resource="stock-movements"
+                            recordItemId={record.id}
+                            confirmTitle="删除这条库存流水？"
+                            confirmOkText="删除"
+                            confirmCancelText="返回" hideText
+                          />
+            </Tooltip>
           ) : (
             <Empty />
           )

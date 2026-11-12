@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { DeleteButton } from '@refinedev/antd'
 import { Button, Popconfirm, Skeleton, Tag, Typography } from 'antd'
@@ -194,13 +195,15 @@ export function PartnerRowActions({
     )
   }
   return (
-    <DeleteButton
-      size="small"
-      resource={resource}
-      recordItemId={record.id}
-      confirmTitle={`删除这个${entityLabel}？`}
-      confirmOkText="删除"
-      confirmCancelText="返回"
-    />
+        <Tooltip title="删除">
+      <DeleteButton
+            size="small"
+            resource={resource}
+            recordItemId={record.id}
+            confirmTitle={`删除这个${entityLabel}？`}
+            confirmOkText="删除"
+            confirmCancelText="返回" hideText
+          />
+    </Tooltip>
   )
 }

@@ -1,16 +1,15 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { PictureOutlined, UploadOutlined } from '@ant-design/icons'
+import {PictureOutlined, UploadOutlined, DeleteOutlined} from '@ant-design/icons'
 import { useInvalidate } from '@refinedev/core'
-import {
-  Button,
+import { Button,
   Card,
   Empty,
   Modal,
   Popconfirm,
   Space,
   Typography,
-  message,
-} from 'antd'
+  message } from 'antd'
 
 import { productImageApi } from '@/api/product-images'
 import { AuthedImage } from '@/components/authed-image'
@@ -352,9 +351,9 @@ export function ProductImagesPanel({ productId }: { productId: number }) {
                   cancelText="取消"
                   onConfirm={() => void remove(image)}
                 >
-                  <Button size="small" type="link" danger disabled={busy}>
-                    删除
-                  </Button>
+                                    <Tooltip title="删除">
+                    <Button size="small" type="link" danger disabled={busy} icon={<DeleteOutlined />} aria-label="删除" />
+                  </Tooltip>
                 </Popconfirm>
               </Space>
             </div>

@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Tag, message } from 'antd'
 
@@ -7,6 +8,8 @@ import { ResponsiveTable } from '@/components/page'
 import { PARTNER_ADDRESS_TYPE_OPTIONS } from '@/constants/catalog'
 import type { PartnerAddress } from '@/types'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 const TYPE_LABEL = new Map(PARTNER_ADDRESS_TYPE_OPTIONS.map((o) => [o.value, o.label]))
 
 /**
@@ -178,9 +181,9 @@ export function PartnerAddressPanel({ partnerId }: { partnerId: number }) {
                   cancelText="返回"
                   onConfirm={() => void remove(record)}
                 >
-                  <Button size="small" type="link" danger>
-                    删除
-                  </Button>
+                                    <Tooltip title="删除">
+                    <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                  </Tooltip>
                 </Popconfirm>
               </Space>
             ),

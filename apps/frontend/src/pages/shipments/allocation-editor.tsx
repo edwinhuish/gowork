@@ -1,6 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useEffect, useMemo, useState } from 'react'
 import { DeleteOutlined } from '@ant-design/icons'
-import { Button, Col, Form, Input, InputNumber, Row, Select, Tooltip, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Select, Typography } from 'antd'
 
 import { shipmentApi } from '@/api/shipments'
 import type { ShipmentAllocation, ShipmentCandidate } from '@/types'

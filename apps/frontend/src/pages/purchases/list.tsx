@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
 import {
@@ -5,7 +6,7 @@ import {
   EditButton,
   ShowButton,
 } from '@refinedev/antd'
-import { Form, Input, Select, Space, Table, Tag, Tooltip } from 'antd'
+import { Form, Input, Select, Space, Table, Tag } from 'antd'
 
 import { Empty, Mono, Money, OptionTag } from '@/components/fields'
 import { PageList } from '@/components/page'
@@ -183,7 +184,9 @@ export function PurchaseList() {
             {record.status === 10 && (
               <>
                 <EditButton size="small" recordItemId={record.id} resource="purchase-orders" />
-                <DeleteButton size="small" recordItemId={record.id} resource="purchase-orders" />
+                                <Tooltip title="删除">
+                  <DeleteButton size="small" recordItemId={record.id} resource="purchase-orders" hideText />
+                </Tooltip>
               </>
             )}
           </Space>

@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useInvalidate } from '@refinedev/core'
 import { EditButton, ShowButton } from '@refinedev/antd'
 import { Button, message, Popconfirm, Space, Table, Tag, theme } from 'antd'
@@ -13,6 +14,8 @@ import { formatDate } from '@/utils/format'
 
 import type { SettlementDirection } from './form-fields'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /**
  * 应收 / 应付列表。两个模块共用，差别只在资源名与文案。
  *
@@ -187,9 +190,9 @@ export function SettlementList({
               cancelText="取消"
               onConfirm={() => remove(record)}
             >
-              <Button size="small" type="link" danger>
-                删除
-              </Button>
+                            <Tooltip title="删除">
+                <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+              </Tooltip>
             </Popconfirm>
           </Space>
         )}

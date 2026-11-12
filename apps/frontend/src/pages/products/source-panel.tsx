@@ -1,7 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import { useInvalidate, useSelect } from '@refinedev/core'
-import {
-  Button,
+import { Button,
   Card,
   Checkbox,
   Col,
@@ -16,8 +16,7 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
-} from 'antd'
+  Typography } from 'antd'
 
 import { productSourceApi, type ProductSourceInput } from '@/api/product-sources'
 import { Empty, Mono, Money } from '@/components/fields'
@@ -25,6 +24,8 @@ import { FormAnchor, InfiniteFooter, ResponsiveTable } from '@/components/page'
 import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Currency, Partner, ProductSource } from '@/types'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 interface SourceForm {
   partner_id: number
   supplier_sku?: string
@@ -277,9 +278,9 @@ export function SourcesPanel({ productId }: { productId: number }) {
                     cancelText="取消"
                     onConfirm={() => remove(record)}
                   >
-                    <Button size="small" type="link" danger>
-                      删除
-                    </Button>
+                                        <Tooltip title="删除">
+                      <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                    </Tooltip>
                   </Popconfirm>
                 </>
               )}

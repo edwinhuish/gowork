@@ -1,6 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { LockOutlined, LoginOutlined, MoonOutlined, SunOutlined, UserOutlined } from '@ant-design/icons'
 import { useLogin } from '@refinedev/core'
-import { Alert, Button, Card, Flex, Form, Input, Tooltip, Typography } from 'antd'
+import { Alert, Button, Card, Flex, Form, Input, Typography } from 'antd'
 
 import { useUiPrefs } from '@/providers/uiPrefs'
 

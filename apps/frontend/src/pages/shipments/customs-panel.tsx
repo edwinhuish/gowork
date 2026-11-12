@@ -1,7 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import { useInvalidate } from '@refinedev/core'
-import {
-  AutoComplete,
+import { AutoComplete,
   Button,
   Card,
   Col,
@@ -15,8 +15,7 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
-} from 'antd'
+  Typography } from 'antd'
 
 import { customsDeclarationApi, type CustomsDeclarationInput } from '@/api/customs-declarations'
 import { AttachmentPanel } from '@/components/attachment-panel'
@@ -27,6 +26,8 @@ import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { CustomsDeclaration } from '@/types'
 import { formatDate } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 interface DeclForm {
   status: number
   decl_no?: string
@@ -192,9 +193,9 @@ export function CustomsPanel({ shipmentId }: { shipmentId: number }) {
                 cancelText="取消"
                 onConfirm={() => remove(record)}
               >
-                <Button size="small" type="link" danger>
-                  删除
-                </Button>
+                                <Tooltip title="删除">
+                  <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                </Tooltip>
               </Popconfirm>
             </Space>
           )}

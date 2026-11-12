@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useEffect, useState } from 'react'
 import { FundOutlined, PercentageOutlined, TeamOutlined } from '@ant-design/icons'
 import type { CrudFilters } from '@refinedev/core'
@@ -194,7 +195,9 @@ export function OpportunityList() {
         render={(_, record: Opportunity) => (
           <Space size={4}>
             <EditButton size="small" recordItemId={record.id} resource="opportunities" />
-            <DeleteButton size="small" recordItemId={record.id} resource="opportunities" />
+                        <Tooltip title="删除">
+              <DeleteButton size="small" recordItemId={record.id} resource="opportunities" hideText />
+            </Tooltip>
           </Space>
         )}
       />

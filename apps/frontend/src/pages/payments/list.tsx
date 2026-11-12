@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useInvalidate } from '@refinedev/core'
 import { EditButton, ShowButton } from '@refinedev/antd'
 import { Button, message, Popconfirm, Space, Table, Tag } from 'antd'
@@ -10,6 +11,8 @@ import { useInfiniteList } from '@/hooks/use-infinite-feed'
 import type { Payment } from '@/types'
 import { formatDate } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /**
  * 收付款列表。
  *
@@ -147,9 +150,9 @@ export function PaymentList() {
               cancelText="取消"
               onConfirm={() => remove(record)}
             >
-              <Button size="small" type="link" danger>
-                删除
-              </Button>
+                            <Tooltip title="删除">
+                <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+              </Tooltip>
             </Popconfirm>
           </Space>
         )}

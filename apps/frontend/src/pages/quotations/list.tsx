@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
 import {
@@ -184,7 +185,9 @@ export function QuotationList() {
             {record.status === 10 && (
               <>
                 <EditButton size="small" recordItemId={record.id} resource="quotations" />
-                <DeleteButton size="small" recordItemId={record.id} resource="quotations" />
+                                <Tooltip title="删除">
+                  <DeleteButton size="small" recordItemId={record.id} resource="quotations" hideText />
+                </Tooltip>
               </>
             )}
           </Space>

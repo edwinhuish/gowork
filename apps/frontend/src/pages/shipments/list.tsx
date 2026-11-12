@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import {
   DeleteButton,
@@ -134,7 +135,9 @@ export function ShipmentList() {
             {record.status === 10 && (
               <>
                 <EditButton size="small" recordItemId={record.id} resource="shipments" />
-                <DeleteButton size="small" recordItemId={record.id} resource="shipments" />
+                                <Tooltip title="删除">
+                  <DeleteButton size="small" recordItemId={record.id} resource="shipments" hideText />
+                </Tooltip>
               </>
             )}
           </Space>

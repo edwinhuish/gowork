@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useInvalidate } from '@refinedev/core'
@@ -197,7 +198,9 @@ export function LeadList() {
                 转化
               </Button>
             )}
-            <DeleteButton size="small" recordItemId={record.id} resource="leads" />
+                        <Tooltip title="删除">
+              <DeleteButton size="small" recordItemId={record.id} resource="leads" hideText />
+            </Tooltip>
           </Space>
         )}
       />

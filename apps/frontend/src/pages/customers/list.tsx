@@ -1,11 +1,11 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'
 import { useInvalidate, useNavigation, type CrudFilters } from '@refinedev/core'
 import { PartnerImportModal } from './import-modal'
 import { CreateButton } from '@refinedev/antd'
-import {
-  Button,
+import { Button,
   Checkbox,
   Form,
   Input,
@@ -14,9 +14,7 @@ import {
   Select,
   Space,
   Table,
-  Tag,
-  Tooltip,
-} from 'antd'
+  Tag, } from 'antd'
 
 import { exportApi } from '@/api/exports'
 import { partnerApi } from '@/api/partners'

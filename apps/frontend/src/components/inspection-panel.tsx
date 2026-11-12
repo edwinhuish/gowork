@@ -1,6 +1,6 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Button,
+import { Button,
   Card,
   DatePicker,
   Form,
@@ -11,8 +11,7 @@ import {
   Select,
   Space,
   Tag,
-  message,
-} from 'antd'
+  message } from 'antd'
 
 import {
   INSPECTION_RESULT_OPTIONS,
@@ -26,6 +25,8 @@ import { ResponsiveTable } from '@/components/page'
 import type { PurchaseOrderItem } from '@/types'
 import { formatDate } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 /** 验货结论：合格 / 有条件接受 / 不合格，正好落在三档语义色上。 */
 const RESULT_META: Record<string, { label: string; color?: string }> = {
   passed: { label: '合格', color: 'success' },
@@ -196,9 +197,9 @@ export function InspectionPanel({
                   cancelText="返回"
                   onConfirm={() => void remove(record)}
                 >
-                  <Button size="small" type="link" danger>
-                    删除
-                  </Button>
+                                    <Tooltip title="删除">
+                    <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                  </Tooltip>
                 </Popconfirm>
               </Space>
             ),

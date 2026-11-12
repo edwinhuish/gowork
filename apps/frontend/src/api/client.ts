@@ -1,5 +1,7 @@
 // 统一的 HTTP 客户端：注入令牌、拆包 {code,message,data}、把业务错误变成异常。
 
+import { trackRequest } from '@/utils/load-progress'
+
 const TOKEN_KEY = 'gowork_token'
 const BASE_URL = '/api/v1'
 
@@ -34,7 +36,26 @@ interface ApiBody<T> {
   data: T
 }
 
+/**
+ * 请求计数包一层：开始 → 计数 +1，结束（含失败）→ -1，顶部进度条据此收放。
+ *
+ * 挂在"整件事"外面而不是 fetch 外面：JSON 要等 body 解析完、下载要等 blob 拼完，
+ * 这些时间用户同样在等。三条链路（JSON / 附件 / 导出）都过它，所以下载也算在加载中。
+ */
+async function tracked<T>(run: () => Promise<T>): Promise<T> {
+  const finish = trackRequest()
+  try {
+    return await run()
+  } finally {
+    finish()
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return tracked(() => send<T>(path, init))
+}
+
+async function send<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   // multipart 的 Content-Type 必须由浏览器生成（它要带 boundary），
   // 手写 application/json 会让服务端解析不出任何表单字段。
@@ -84,7 +105,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
  * 而 PDF 是二进制流，用 res.json() 解析只会得到 null。
  * 失败时后端仍然返回统一响应体，所以错误照样能按 code 判断。
  */
-export async function download(path: string, fallbackName: string): Promise<void> {
+export function download(path: string, fallbackName: string): Promise<void> {
+  return tracked(() => downloadFile(path, fallbackName))
+}
+
+async function downloadFile(path: string, fallbackName: string): Promise<void> {
   const headers = new Headers()
   const token = getToken()
   if (token) {
@@ -154,36 +179,7 @@ export const http = {
    * 所以走 fetch 取 blob，再用一个临时 <a download> 触发保存。
    * 文件名优先用响应头里的（后端带日期），拿不到就退回 fallback。
    */
-  download: async (path: string, fallback: string) => {
-    const headers = new Headers()
-    const token = getToken()
-    if (token) headers.set('Authorization', `Bearer ${token}`)
-
-    let res: Response
-    try {
-      res = await fetch(`${BASE_URL}${path}`, { headers })
-    } catch {
-      throw new ApiError('网络异常，请检查后端服务是否已启动', -1)
-    }
-    if (!res.ok) {
-      // 出错时后端返回的是 JSON，读出来给用户看，别丢一个空文件下去。
-      const body = (await res.json().catch(() => null)) as ApiBody<unknown> | null
-      throw new ApiError(body?.message ?? `导出失败（HTTP ${res.status}）`, body?.code ?? res.status)
-    }
-
-    const blob = await res.blob()
-    const name = filenameFrom(res.headers.get('Content-Disposition')) ?? fallback
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = name
-    // 同上面的 download()：脱离文档的 <a> 在 Firefox 下不触发下载，
-    // 且 revoke 要放到下一拍。两条下载链路保持一致。
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 0)
-  },
+  download: (path: string, fallback: string) => tracked(() => downloadCsv(path, fallback)),
   /**
    * POST。headers 用来带 Idempotency-Key 这类"这次操作"的标记，
    * 令牌与 Content-Type 由 request() 统一注入，调用方不用管。
@@ -209,6 +205,38 @@ export const http = {
    */
   putForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: 'PUT', body: form }),
+}
+
+/** http.download 的实现本体；计数与收尾由 tracked 负责，见上面的 download 属性。 */
+async function downloadCsv(path: string, fallback: string): Promise<void> {
+  const headers = new Headers()
+  const token = getToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { headers })
+  } catch {
+    throw new ApiError('网络异常，请检查后端服务是否已启动', -1)
+  }
+  if (!res.ok) {
+    // 出错时后端返回的是 JSON，读出来给用户看，别丢一个空文件下去。
+    const body = (await res.json().catch(() => null)) as ApiBody<unknown> | null
+    throw new ApiError(body?.message ?? `导出失败（HTTP ${res.status}）`, body?.code ?? res.status)
+  }
+
+  const blob = await res.blob()
+  const name = filenameFrom(res.headers.get('Content-Disposition')) ?? fallback
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  // 同上面的 download()：脱离文档的 <a> 在 Firefox 下不触发下载，
+  // 且 revoke 要放到下一拍。两条下载链路保持一致。
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 // toQuery 把对象拼成查询串，自动跳过空值。

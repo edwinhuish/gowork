@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { CrudFilters } from '@refinedev/core'
 import { useSelect } from '@refinedev/core'
 import { DeleteButton, EditButton } from '@refinedev/antd'
@@ -145,7 +146,9 @@ export function ActivityList() {
         render={(_, record: Activity) => (
           <Space size={4}>
             <EditButton size="small" recordItemId={record.id} resource="activities" />
-            <DeleteButton size="small" recordItemId={record.id} resource="activities" />
+                        <Tooltip title="删除">
+              <DeleteButton size="small" recordItemId={record.id} resource="activities" hideText />
+            </Tooltip>
           </Space>
         )}
       />

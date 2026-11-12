@@ -1,5 +1,6 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { DeleteOutlined } from '@ant-design/icons'
-import { Button, Col, Form, Input, InputNumber, Row, Tooltip, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 
 export interface ContractTermRow {
   name?: string

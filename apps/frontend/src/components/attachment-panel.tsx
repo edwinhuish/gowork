@@ -1,5 +1,6 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useCallback, useEffect, useState } from 'react'
-import { FilePdfOutlined, FileImageOutlined, UploadOutlined } from '@ant-design/icons'
+import {FilePdfOutlined, FileImageOutlined, UploadOutlined, DeleteOutlined} from '@ant-design/icons'
 import { Button, Card, Popconfirm, Space, Table, Tag, Typography, Upload, message } from 'antd'
 
 import { attachmentApi, type AttachmentEntity } from '@/api/attachments'
@@ -177,9 +178,9 @@ export function AttachmentPanel({ entityType, entityId, title = '附件' }: Atta
                 cancelText="取消"
                 onConfirm={() => remove(record)}
               >
-                <Button size="small" type="link" danger>
-                  删除
-                </Button>
+                                <Tooltip title="删除">
+                  <Button size="small" type="link" danger icon={<DeleteOutlined />} aria-label="删除" />
+                </Tooltip>
               </Popconfirm>
             </Space>
           )}

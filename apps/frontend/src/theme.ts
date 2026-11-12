@@ -80,6 +80,11 @@ export const palette = {
     fillSecondary: '#eef2f8',
     fillTertiary: '#f4f6fa',
     fillQuaternary: '#f8fafc',
+    /*
+     * 浮层（Tooltip）底色：明亮主题下用浅灰，与白色页面 / 白色卡片都拉开一档，
+     * 一眼能认出"这是提示"而不是内容；文字仍用 text（深色），压在上面对比度很高。
+     */
+    tooltipBg: '#e9ebef',
     shadow: '0 6px 16px rgba(16, 24, 40, 0.08)',
     shadowSecondary: '0 6px 20px rgba(16, 24, 40, 0.10)',
     shadowCard: '0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04)',
@@ -143,6 +148,11 @@ export const palette = {
     fillSecondary: '#202834',
     fillTertiary: '#1a212b',
     fillQuaternary: '#151b23',
+    /*
+     * 浮层底色（暗色）：比页面背景（#0f141b）再压深一档的深灰，浮在内容之上能
+     * 立刻认出来；文字用 text（浅色），压在上面对比度很高、长时间读不累。
+     */
+    tooltipBg: '#0b0e14',
     shadow: '0 6px 16px rgba(0, 0, 0, 0.45)',
     shadowSecondary: '0 8px 24px rgba(0, 0, 0, 0.5)',
     shadowCard: '0 1px 2px rgba(0, 0, 0, 0.4)',
@@ -156,13 +166,120 @@ export const brand = palette.light
 const RADIUS = 8
 
 /**
- * 顶栏高度。
+ * 外壳几何：顶栏、侧栏、内容内距与标签条的度量。
  *
- * 顶栏与侧栏品牌块共用这一个数：分处两列、却必须落在同一条水平线上。
- * 各写一个值时，谁改了一边都会露出一条错位的接缝 —— 而那正是
- * "这个界面没对齐"最直观的来源。
+ * 这些值此前分居三处：AppLayout 的模块常量（侧栏两档宽度、抽屉宽度）、
+ * index.css 的字面量（内距、品牌块、标签胶囊）、以及内联的 `--app-header-height`。
+ * 改一个侧栏宽度要在两个文件各改一次，漏一处就是一条错位的缝 ——
+ * 顶栏与品牌块必须落在同一条水平线上，正是最典型的一处。
+ *
+ * 这里只管"值放在哪"，不管"值是多少"：换皮时对照参考站实测改这一处。
+ * 形态是 **px 数值**（不是字符串），因为侧栏宽度要交给 antd 的 `Layout.Sider`；
+ * CSS 侧通过 `shellCssVars` 拿到同一批值的 `--shell-*` 变量。
+ *
+ * 每个变量在 index.css 里都带一个同值兜底：`.brand` 在登录页也用到，
+ * 那里没有外壳元素，取不到变量。
  */
-export const HEADER_HEIGHT = 56
+export const shell = {
+  /**
+   * 顶栏高度。顶栏与侧栏品牌块共用：分处两列、却必须落在同一条水平线上。
+   *
+   * 以下四个尺寸取自 Vben 5.7 的 `defaultPreferences`
+   * （`sidebar.width` 224 / `sidebar.collapseWidth` 60 / `header.height` 50）。
+   * 演示站当前对无头浏览器全部返回 503（`/js/*` 无一加载成功），截不到实测图，
+   * 所以基线用源码默认值；页面上量到差异时改这一处，不要改 CSS。
+   */
+  headerHeight: 50,
+  /** 顶栏左右内距，与品牌块的内距分开：后者收窄后要居中。 */
+  headerPaddingInline: 8,
+  /** 顶栏内元素间距（标签条与右侧待办 / 头像之间）。 */
+  headerGap: 8,
+
+  /**
+   * 顶栏下方那条标签条的高度。
+   *
+   * 标签从顶栏里搬出来之后单独占一条：顶栏放面包屑与全局操作，
+   * 标签条放"这半天开着哪些页"，两者的信息密度不一样，挤在一行里会互相让位。
+   */
+  tabbarRowHeight: 40,
+
+  siderWidth: 224,
+  /*
+   * 收起宽度 60（Vben 的 60，不是 antd 默认的 80）。
+   *
+   * antd 的内联折叠菜单宽度是 `controlHeightLG * 2`（≈80），不跟着 Sider 走 ——
+   * 只改 Sider 会让菜单比侧栏宽一截，图标被裁。所以 Menu 的 `collapsedWidth`
+   * 必须同时给成这个值（见下面两处 Menu token）。
+   */
+  siderCollapsedWidth: 60,
+  /** 抽屉与侧栏同宽：Vben 没有为移动端单列一档宽度。 */
+  mobileSiderWidth: 224,
+  siderBrandPaddingInline: 16,
+  /** 底部折叠开关：不参与滚动，钉在侧栏底部。 */
+  siderTriggerHeight: 40,
+
+  /** 内容内距：宽屏 24，窄屏 12（与 refine 的 ThemedLayout 同档）。 */
+  tabPanePadding: 24,
+  tabPanePaddingNarrow: 12,
+
+  /** 品牌标志块：登录页会按自己的尺寸覆写，所以变量只在侧栏里有意义。 */
+  brandMarkSize: 28,
+  brandMarkRadius: 8,
+  brandMarkFontSize: 15,
+  brandGap: 10,
+
+  /** 顶栏里的标签胶囊。 */
+  tabbar: {
+    // 字号与 Vben 的 text-sm 一致（14）。
+    // paddingInline 同时是"左右间隙"：标签文字居中后，右侧这一份空出来给钉标 /
+    // 关闭按钮（两者钉在同一位置，见 index.css），它们显隐不会挤动文字。
+    paddingBlock: 5,
+    paddingInline: 22,
+    radius: 7,
+    gap: 6,
+    fontSize: 14,
+  },
+
+  /** 顶栏右侧的用户块。 */
+  user: {
+    gap: 8,
+    paddingInline: 8,
+    fontSize: 13.5,
+  },
+
+  /** 顶部加载进度条：2px 的线，不占布局。 */
+  progressHeight: 2,
+} as const
+
+/**
+ * 把外壳几何下发成 CSS 变量。
+ *
+ * 挂在 `.app-shell` 上（见 AppLayout），index.css 的结构性样式引用变量、
+ * 不再抄数字。仍保留字面兜底值：登录页在外壳之外，只有 `.brand` 这类共用样式。
+ */
+export const shellCssVars = {
+  '--shell-header-height': `${shell.headerHeight}px`,
+  '--shell-header-gap': `${shell.headerGap}px`,
+  '--shell-header-padding-inline': `${shell.headerPaddingInline}px`,
+  '--shell-tabbar-row-height': `${shell.tabbarRowHeight}px`,
+  '--shell-tab-pane-padding': `${shell.tabPanePadding}px`,
+  '--shell-tab-pane-padding-narrow': `${shell.tabPanePaddingNarrow}px`,
+  '--shell-sider-brand-padding': `${shell.siderBrandPaddingInline}px`,
+  '--shell-sider-trigger-height': `${shell.siderTriggerHeight}px`,
+  '--shell-brand-mark-size': `${shell.brandMarkSize}px`,
+  '--shell-brand-mark-radius': `${shell.brandMarkRadius}px`,
+  '--shell-brand-mark-font-size': `${shell.brandMarkFontSize}px`,
+  '--shell-brand-gap': `${shell.brandGap}px`,
+  '--shell-tab-padding-block': `${shell.tabbar.paddingBlock}px`,
+  '--shell-tab-padding-inline': `${shell.tabbar.paddingInline}px`,
+  '--shell-tab-radius': `${shell.tabbar.radius}px`,
+  '--shell-tab-gap': `${shell.tabbar.gap}px`,
+  '--shell-tab-font-size': `${shell.tabbar.fontSize}px`,
+  '--shell-user-gap': `${shell.user.gap}px`,
+  '--shell-user-padding-inline': `${shell.user.paddingInline}px`,
+  '--shell-user-font-size': `${shell.user.fontSize}px`,
+  '--shell-progress-height': `${shell.progressHeight}px`,
+} as CSSProperties
 
 /**
  * 表格与卡片的行高/内距，密度切换时按比例收一档。
@@ -296,13 +413,16 @@ export function buildThemeConfig({
     },
 
     components: {
-      Layout: {
-        siderBg: c.surface,
-        headerBg: c.surface,
-        bodyBg: c.background,
-        headerHeight: HEADER_HEIGHT,
-        headerPadding: '0 20px',
-      },
+      /*
+       * 不给 Layout 组件 token：外壳没有 <Layout> 根节点（.app-shell 是普通 div，
+       * Header / Sider 各自单独渲染），而开 cssVar 时这批变量注册在
+       * `.css-var-*.ant-layout` 复合类上 —— DOM 里没有元素同时带这两个类，
+       * token 全部落空。headerPadding / headerBg 曾因此静默失效：
+       * 顶栏内距变成 0，面包屑贴着侧栏分界线，看着像被裁掉一截。
+       * 顶栏几何改走 --shell-*，顶栏底色直接写在 index.css 里。
+       * 侧栏的 Layout token 在 buildSiderThemeConfig 里：那一层关了 cssVar，
+       * 用字面值，不受此影响。
+       */
 
       /*
        * 菜单的通用配色（页面里的菜单，不是侧栏）。
@@ -322,9 +442,13 @@ export function buildThemeConfig({
         groupTitleColor: c.textFaint,
         groupTitleFontSize: 12.5,
         itemHeight: compact ? 34 : 38,
+        // 圆角与上下间距照 Vben 的 menu-item-radius / margin-y：8px 与 2px。
         itemMarginInline: 8,
-        itemBorderRadius: RADIUS - 2,
-        subMenuItemBorderRadius: RADIUS - 2,
+        itemMarginBlock: 2,
+        itemBorderRadius: RADIUS,
+        subMenuItemBorderRadius: RADIUS,
+        // 折叠态宽度跟随侧栏（antd 默认 80，比 60 的侧栏宽，图标会被裁）。
+        collapsedWidth: shell.siderCollapsedWidth,
       },
 
       // 表头用浅灰区分于数据行，比加边框更轻；行高给足，扫读密集数据时不挤。
@@ -446,7 +570,16 @@ export function buildThemeConfig({
       },
 
       Tooltip: {
-        colorBgSpotlight: mode === 'dark' ? '#2b3646' : '#1c2532',
+        /*
+         * 浮层跟着主题走，且底色与主题色明显区分：
+         * 明亮用浅灰（c.tooltipBg）、深色用略深于背景的深灰（同样取 c.tooltipBg），
+         * 文字都用 c.text（亮色深字 / 暗色浅字），对比度都拉得很够。
+         *
+         * colorBgSpotlight 是 tooltip 底色，colorTextLightSolid 是它上面的字色
+         * （antd 内部是 tooltipBg / tooltipColor）。
+         */
+        colorBgSpotlight: c.tooltipBg,
+        colorTextLightSolid: c.text,
       },
 
       Popover: {
@@ -597,8 +730,11 @@ export function buildSiderThemeConfig({
         groupTitleFontSize: 12.5,
         itemHeight: compact ? 34 : 38,
         itemMarginInline: 8,
-        itemBorderRadius: RADIUS - 2,
-        subMenuItemBorderRadius: RADIUS - 2,
+        itemMarginBlock: 2,
+        itemBorderRadius: RADIUS,
+        subMenuItemBorderRadius: RADIUS,
+        // 侧栏有独立的 ConfigProvider，这一份必须自己再给一遍。
+        collapsedWidth: shell.siderCollapsedWidth,
       },
     },
   }

@@ -1,9 +1,12 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { Button, Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 
 import { ProductSelect, type ProductHint } from '@/components/product-select'
 import { STOCK_DOC_COUNT } from '@/constants/catalog'
 import { formatQty } from '@/utils/format'
 
+
+import { DeleteOutlined } from '@ant-design/icons'
 export interface StockDocItemRow {
   product_id?: number
   /** 编辑回显用：明细行上有当时的 SKU 与品名快照，不必再问一次服务端。 */
@@ -118,9 +121,9 @@ export function StockDocItemsEditor({ docType }: { docType?: number }) {
                   </Form.Item>
                 </Col>
                 <Col span={spans.action}>
-                  <Button type="link" danger onClick={() => remove(field.name)}>
-                    删除
-                  </Button>
+                                    <Tooltip title="删除">
+                    <Button type="link" danger onClick={() => remove(field.name)} icon={<DeleteOutlined />} aria-label="删除" />
+                  </Tooltip>
                 </Col>
               </Row>
             ))}

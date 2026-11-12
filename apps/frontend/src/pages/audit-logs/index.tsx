@@ -1,5 +1,6 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
-import { Form, Input, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import { Form, Input, Space, Table, Tag, Typography } from 'antd'
 
 import { auditLogApi } from '@/api/audit-logs'
 import { Empty, Mono } from '@/components/fields'

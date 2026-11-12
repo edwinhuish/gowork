@@ -1,9 +1,9 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { AppstoreOutlined, BarsOutlined, PictureOutlined } from '@ant-design/icons'
 import { Link } from 'react-router'
 import { useInvalidate, useNavigation, type CrudFilters, type CrudSort } from '@refinedev/core'
 import { CreateButton, DeleteButton } from '@refinedev/antd'
-import {
-  Button,
+import { Button,
   Checkbox,
   Form,
   Input,
@@ -14,9 +14,7 @@ import {
   Skeleton,
   Space,
   Table,
-  Tag,
-  Tooltip,
-} from 'antd'
+  Tag, } from 'antd'
 
 import { exportApi } from '@/api/exports'
 import { productApi } from '@/api/products'
@@ -458,13 +456,15 @@ function RowActions({ record, onRestore }: { record: Product; onRestore: (record
     )
   }
   return (
-    <DeleteButton
-      size="small"
-      resource="products"
-      recordItemId={record.id}
-      confirmTitle="删除这个产品？"
-      confirmOkText="删除"
-      confirmCancelText="返回"
-    />
+        <Tooltip title="删除">
+      <DeleteButton
+            size="small"
+            resource="products"
+            recordItemId={record.id}
+            confirmTitle="删除这个产品？"
+            confirmOkText="删除"
+            confirmCancelText="返回" hideText
+          />
+    </Tooltip>
   )
 }

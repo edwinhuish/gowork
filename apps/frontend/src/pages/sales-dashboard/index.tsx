@@ -1,7 +1,7 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Alert,
+import { Alert,
   Card,
   Flex,
   Input,
@@ -11,10 +11,8 @@ import {
   Space,
   Table,
   Tag,
-  Tooltip,
   Typography,
-  theme,
-} from 'antd'
+  theme, } from 'antd'
 
 import { reportApi } from '@/api/reports'
 import { Empty, Mono, Money } from '@/components/fields'

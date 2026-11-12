@@ -308,13 +308,14 @@ export const resources: ResourceProps[] = [
     // 账号维护同样只有管理员能用；菜单对所有人可见，权限由接口兜底。
     name: 'user-accounts',
     list: '/user-accounts',
-    meta: { label: '账号', icon: <UserOutlined />, parent: 'system' },
+    // 不缓存：系统页没有"填一半再回来"的场景，表却最重。切走即卸载、切回重取。
+    meta: { label: '账号', icon: <UserOutlined />, parent: 'system', keepAlive: false },
   },
   {
     // 操作日志只读、且只有管理员能查：里面装着全公司单据的提交内容。
     name: 'audit-logs',
     list: '/audit-logs',
-    meta: { label: '操作日志', icon: <FileSearchOutlined />, parent: 'system' },
+    meta: { label: '操作日志', icon: <FileSearchOutlined />, parent: 'system', keepAlive: false },
   },
 ]
 
@@ -328,18 +329,67 @@ export const resources: ResourceProps[] = [
  * 不读 document.title：那是 DocumentTitleHandler 算出来的，带后缀、且要晚一帧；
  * 标签页需要的是稳定的短标题，与侧栏那一项同名才不割裂。
  */
-const ROUTE_LABELS: { path: string; label: string }[] = (() => {
-  const entries: { path: string; label: string }[] = []
+interface RouteEntry {
+  path: string
+  label: string
+  keepAlive: boolean
+  /** 这条路径属于哪个资源（侧栏那一项的中文名），面包屑中间那一跳要它。 */
+  resourceLabel: string
+  /** 分组名（主数据 / 客户与商机…）；概览与待办没有分组。 */
+  groupLabel?: string
+  /** 该资源的列表路径：面包屑里"产品"那一跳点它。 */
+  listPath?: string
+  action: 'list' | 'create' | 'edit' | 'show'
+}
+
+const ROUTE_LABELS: RouteEntry[] = (() => {
+  // 先把"资源名 → 中文名"收一遍：分组标签挂在父资源上，要靠 parent 反查。
+  const labelByName = new Map<string, string>()
+  for (const resource of resources) {
+    const label = resource.meta?.label
+    if (typeof label === 'string') labelByName.set(resource.name, label)
+  }
+
+  const entries: RouteEntry[] = []
   for (const resource of resources) {
     const label = resource.meta?.label
     if (typeof label !== 'string') continue
-    if (resource.list) entries.push({ path: resource.list, label })
-    if (resource.create) entries.push({ path: resource.create, label: `新建${label}` })
-    if (resource.edit) entries.push({ path: resource.edit, label: `编辑${label}` })
-    if (resource.show) entries.push({ path: resource.show, label: `${label}详情` })
+    const parent = resource.meta?.parent
+    const groupLabel = typeof parent === 'string' ? labelByName.get(parent) : undefined
+    /*
+     * 默认缓存，只有显式写 `keepAlive: false` 的页面才在切走后卸载。
+     * 默认取"缓存"，是因为绝大多数页面的价值就在"回来时还是刚才那样"：
+     * 筛选、分页、半填的表单。要关掉的只是少数（系统页、纯报表）。
+     */
+    const common = {
+      keepAlive: resource.meta?.keepAlive !== false,
+      resourceLabel: label,
+      groupLabel,
+      listPath: resource.list,
+    }
+    if (resource.list) entries.push({ ...common, path: resource.list, label, action: 'list' })
+    if (resource.create) {
+      entries.push({ ...common, path: resource.create, label: `新建${label}`, action: 'create' })
+    }
+    if (resource.edit) {
+      entries.push({ ...common, path: resource.edit, label: `编辑${label}`, action: 'edit' })
+    }
+    if (resource.show) {
+      entries.push({ ...common, path: resource.show, label: `${label}详情`, action: 'show' })
+    }
   }
   return entries
 })()
+
+/** 命中模板最长的那个登记项；都没命中返回 null。 */
+function matchRoute(pathname: string): RouteEntry | null {
+  let matched: RouteEntry | null = null
+  for (const entry of ROUTE_LABELS) {
+    if (!pathMatches(entry.path, pathname)) continue
+    if (!matched || entry.path.length > matched.path.length) matched = entry
+  }
+  return matched
+}
 
 /**
  * pathname 是否对应一个已登记的页面。
@@ -354,12 +404,46 @@ export function isKnownPath(pathname: string): boolean {
 
 /** 把 pathname 翻成标签页上那一行字；匹配不到就退回路径本身。 */
 export function describeRoute(pathname: string): string {
-  let matched: { path: string; label: string } | null = null
-  for (const entry of ROUTE_LABELS) {
-    if (!pathMatches(entry.path, pathname)) continue
-    if (!matched || entry.path.length > matched.path.length) matched = entry
+  return matchRoute(pathname)?.label ?? pathname
+}
+
+/** 面包屑的一跳。`to` 为空表示不可点（当前页、或没有对应页面的分组）。 */
+export interface TrailItem {
+  label: string
+  to?: string
+}
+
+/**
+ * pathname → 面包屑：分组 → 资源列表 → 当前页。
+ *
+ * 顶栏里那一条就靠它，内容区不再画第二份。规则与标签标题共用同一份清单：
+ *   - 列表页两跳（分组、资源），资源那一跳就是当前页，不给链接；
+ *   - 新建 / 编辑 / 详情三跳，中间那跳回列表 —— 这是"从单据退回列表"最常走的一步；
+ *   - 概览与待办没有分组，只有一跳。
+ */
+export function describeTrail(pathname: string): TrailItem[] {
+  const matched = matchRoute(pathname)
+  if (!matched) return []
+
+  const trail: TrailItem[] = []
+  if (matched.groupLabel) trail.push({ label: matched.groupLabel })
+  if (matched.action === 'list') {
+    trail.push({ label: matched.resourceLabel })
+    return trail
   }
-  return matched?.label ?? pathname
+  trail.push({ label: matched.resourceLabel, to: matched.listPath })
+  trail.push({ label: matched.label })
+  return trail
+}
+
+/**
+ * 这一页切走之后，是否保留它的组件实例。
+ *
+ * 没登记的路径一律不缓存：认不出来的页面留着只会占内存，也说不清它该是什么状态。
+ * 缓存边界与"允许丢什么"写在 docs/ui-shell-refactor.md 4.3。
+ */
+export function isKeepAlivePath(pathname: string): boolean {
+  return matchRoute(pathname)?.keepAlive ?? false
 }
 
 /**

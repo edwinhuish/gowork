@@ -1,4 +1,5 @@
-import { Tooltip } from 'antd'
+import { Tooltip } from '@/components/ui/Tooltip'
+
 
 import type { Contact } from '@/types'
 import { Empty } from './fields'

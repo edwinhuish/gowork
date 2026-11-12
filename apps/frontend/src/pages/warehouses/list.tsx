@@ -1,7 +1,8 @@
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useState } from 'react'
 import type { CrudFilters } from '@refinedev/core'
 import { useList } from '@refinedev/core'
-import { CheckOutlined } from '@ant-design/icons'
+import {CheckOutlined, DeleteOutlined} from '@ant-design/icons'
 import { Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Switch, Table, message, theme } from 'antd'
 
 import { http } from '@/api/client'
@@ -215,15 +216,15 @@ export function WarehouseList() {
                 >
                   {/* 默认仓后端会 409：能点开一个注定失败的确认框，
                       不如直接禁用并把原因写在按钮上。 */}
-                  <Button
+                                    <Tooltip title="删除">
+                    <Button
                     size="small"
                     type="link"
                     danger
                     disabled={row.is_default}
                     title={row.is_default ? '默认仓不能删除：先把另一个仓设为默认' : undefined}
-                  >
-                    删除
-                  </Button>
+                   icon={<DeleteOutlined />} aria-label="删除" />
+                  </Tooltip>
                 </Popconfirm>
               </>
             )}

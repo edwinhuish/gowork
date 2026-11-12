@@ -28,6 +28,28 @@ body {
 }
 
 /*
+ * Tooltip 浮层改成固定定位：固定定位不会撑出 <body> 的滚动区，
+ * 标签栏右侧的按钮（刷新 / 全屏）悬浮时，浮层贴着视口右缘也不再触发
+ * "横向 / 纵向滚动条一闪一闪"——那个循环是：出现滚动条 → 视口变窄 →
+ * 浮层重定位 → 滚动条消失 → 视口恢复 → 浮层又溢出 → 再出现。
+ * 应用内其它 tooltip（表格单元格、登录页主题开关等）也一并生效，视觉不变：
+ * 它们的 popup 容器都在视口原点，fixed 与 antd 默认的 absolute 等价。
+ * 用 !important 压过 antd 给浮层内联写的 position: absolute。
+ */
+.ant-tooltip {
+  position: fixed !important;
+}
+
+/*
+ * 浮层内容的内边距：antd 默认 6px 8px（取自 paddingSM/2 与 paddingXS），文字贴着
+ * 边显得局促。统一加大到 8px 12px，让提示文字四周留白更舒展；只作用于 tooltip
+ * 本体，不影响按钮 / 输入框等组件（那些用的是各自的 padding token）。
+ */
+.ant-tooltip-inner {
+  padding: 8px 12px !important;
+}
+
+/*
  * 间距标尺与动效时长。
  *
  * antd 的 cssVar 会下发 --ant-* 的颜色与尺寸，但"这一块和上一块之间留多少"
@@ -193,7 +215,7 @@ body {
 .app-tab-pane {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 24px;
+  padding: var(--shell-tab-pane-padding, 24px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -207,7 +229,7 @@ body {
 /* 与 refine 的 ThemedLayout 同档：窄屏把内距收到 12px，一屏多放一行。 */
 @media (max-width: 575px) {
   .app-tab-pane {
-    padding: 12px;
+    padding: var(--shell-tab-pane-padding-narrow, 12px);
   }
 }
 
@@ -241,6 +263,22 @@ body {
    侧栏宽度在 200 / 80 之间做过渡，border 会让内容宽度跟着跳 1px。 */
 .app-sider {
   box-shadow: 1px 0 0 var(--sider-border, var(--ant-color-border-secondary));
+  /* 宽度收放时平滑过渡：既服务全屏（见 .is-fullscreen），也顺带让"收成 60px"那段更顺。 */
+  transition: width 0.22s ease, flex-basis 0.22s ease, min-width 0.22s ease, max-width 0.22s ease;
+}
+
+/*
+ * 全屏模式（.app-shell.is-fullscreen）：侧栏与顶栏收起，只留标签条与内容区。
+ * 用 !important 压过 antd 给 .app-sider 的内联 width / flex / min-width，
+ * transition（上面那条）负责把宽度从 224 顺滑收到 0。
+ */
+.app-shell.is-fullscreen .app-sider {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  flex-basis: 0 !important;
+  overflow: hidden;
+  box-shadow: none;
 }
 
 /* Sider 的 children 容器默认只有 height: 100%，改成纵向 flex：
@@ -259,13 +297,13 @@ body {
   background: var(--sider-bg, var(--ant-color-bg-container));
 }
 
-/* 品牌块与顶栏同高，两列在一条水平线上（高度由 HEADER_HEIGHT 一处下发）。 */
+/* 品牌块与顶栏同高，两列在一条水平线上（高度由 theme.ts 的 shell.headerHeight 一处下发）。 */
 .app-sider-brand {
   display: flex;
   flex: none;
   align-items: center;
-  height: var(--app-header-height, 56px);
-  padding: 0 16px;
+  height: var(--shell-header-height, 56px);
+  padding: 0 var(--shell-sider-brand-padding, 16px);
   overflow: hidden;
   border-bottom: 1px solid var(--sider-border, var(--ant-color-border-secondary));
 }
@@ -308,6 +346,17 @@ body {
 }
 
 /*
+ * 折叠态：不再预留滚动条沟。
+ *
+ * 侧栏收到 60 时，菜单宽度也是 60；再留 10px 的沟，实际只剩 50 ——
+ * 图标挤在 34px 的格子里，右半截还被 overflow 裁掉。折叠后菜单几乎不滚，
+ * 需要时让它自己出条即可。
+ */
+.ant-layout-sider-collapsed .app-sider-menu {
+  scrollbar-gutter: auto;
+}
+
+/*
  * 底部的展开 / 收起开关。
  *
  * 自己画一个，不用 antd Sider 自带的 trigger：那个是 position: fixed，
@@ -319,7 +368,7 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 40px;
+  height: var(--shell-sider-trigger-height, 40px);
   border: 0;
   border-top: 1px solid var(--sider-border, var(--ant-color-border-secondary));
   background: transparent;
@@ -347,7 +396,7 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--shell-brand-gap, 10px);
   padding: 4px 6px;
   overflow: hidden;
   white-space: nowrap;
@@ -356,10 +405,10 @@ body {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  border-radius: 8px;
+  width: var(--shell-brand-mark-size, 28px);
+  height: var(--shell-brand-mark-size, 28px);
+  flex: 0 0 var(--shell-brand-mark-size, 28px);
+  border-radius: var(--shell-brand-mark-radius, 8px);
   background: linear-gradient(
     135deg,
     var(--sider-primary, var(--ant-color-primary)),
@@ -378,7 +427,7 @@ body {
    */
   color: var(--sider-bg, var(--ant-color-bg-container, #fff));
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--shell-brand-mark-font-size, 15px);
   line-height: 1;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--ant-color-primary) 35%, transparent);
 }
@@ -423,20 +472,77 @@ body {
   font-size: 13.5px;
 }
 
-/* ---------- 顶栏 ---------- */
+/* ---------- 顶部加载进度条 ---------- */
+
+/*
+ * 只反映"还有没有请求在飞"（计数在 api/client.ts），见 components/layout/top-progress.tsx。
+ *
+ * 四条各有原因：
+ *   position: fixed  贴视口顶部，不占布局 —— 出现与消失都不会让页面跳一下
+ *   scaleX           用变换而不是 width：改宽度每次都触发重排，变换只走合成层，
+ *                    移动端与低配机器上也不掉帧
+ *   pointer-events   永远不挡点击 —— 它正好压在顶栏与标签上
+ *   z-index: 2000    压在顶栏、抽屉、弹层之上；它只是 2px 的线，遮不住内容
+ *
+ * 静止态 scaleX(0) + opacity 0：没有请求时它连一个像素都不画。
+ */
+.app-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--shell-progress-height, 2px);
+  z-index: 2000;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  opacity: 0;
+  background: var(--ant-color-primary, #2563eb);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ant-color-primary, #2563eb) 60%, transparent);
+  transition: transform 0.2s ease-out, opacity 0.24s linear;
+  will-change: transform, opacity;
+}
+
+/* ---------- 顶栏（标签也住在这一条里） ---------- */
 
 /*
  * 顶栏固定在这一列的顶部：它不在任何滚动容器里，所以"不动"是结构给的，
  * 不靠 position: sticky（sticky 在滚动容器换人之后容易和内容的重叠层打架）。
  * flex: none 防止它在高度被挤压时跟着缩。
+ *
+ * 左边是面包屑（宽度不够只截它自己），右边是待办与头像（定宽，永远不被压）。
+ * overflow: hidden 是护栏 —— 标签条滚到边上时 antd 的溢出阴影会描到边界外 1px，
+ * 顶栏自己裁掉，不让它压到与侧栏、内容区的分界线上。
+ *
+ * padding-inline 与底色必须写在这里：页面主题开 cssVar 后 Layout 的组件变量
+ * 注册在 `.css-var-*.ant-layout` 复合类上，而外壳没有 <Layout> 根节点，
+ * antd 的 headerPadding / headerBg token 落不到这个元素上（见 theme.ts）。
+ * 内距的值归 theme.ts 的 shell.headerPaddingInline，这里只引用变量。
  */
 .app-header {
   display: flex;
   flex: none;
   align-items: center;
-  height: var(--app-header-height, 56px);
-  gap: 8px;
+  height: var(--shell-header-height, 56px);
+  padding-inline: var(--shell-header-padding-inline, 16px);
+  gap: var(--shell-header-gap, 8px);
+  overflow: hidden;
+  background: var(--ant-color-bg-container, #fff);
   border-bottom: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+  /* 高度收放时平滑过渡，服务全屏模式（见 .is-fullscreen）。 */
+  transition: height 0.22s ease, padding 0.22s ease, border-color 0.22s ease;
+}
+
+/*
+ * 全屏模式：顶栏高度收到 0、底线一并撤掉，内容把原本被它占的一行顶上去。
+ * height 用 !important 压过 .app-header 的 CSS 变量高度，transition 负责平滑收放。
+ */
+.app-shell.is-fullscreen .app-header {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding-block: 0 !important;
+  border-bottom-width: 0 !important;
+  overflow: hidden;
 }
 
 /* 顶栏图标按钮统一走 antd 的 text 按钮，只调色：默认的次级文字色在浅底上
@@ -449,50 +555,225 @@ body {
   color: var(--ant-color-primary) !important;
 }
 
-.app-header-spacer {
-  flex: 1;
+/* 面包屑在顶栏左侧：一行到底，宽度不够只截它自己（不换行、不挤压右侧操作区）。 */
+.app-breadcrumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-/* ---------- 标签条 ---------- */
+.app-header-grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 /*
- * 顶栏与内容区之间的那一条，装着已打开的页面。
+ * 内容区那份面包屑收起来。
  *
- * 它不滚（标签多了由 antd Tabs 自己横向滚），也不占定高：
- * 高度由 small 尺寸的标签撑出来，密度切换时跟着 antd 的 token 一起收。
- * 底边那条线用 border 而不是 antd Tabs 自带的 ::before —— 后者只跟 tab 等宽，
- * 标签少的时候会画到一半就断掉。
+ * 两份同样的导航并排出现，会让人以为其中一份是"另一层"结构。
+ * 不给 90 个页面逐个传 breadcrumb={false}：refine 的 List / Show 自带它，
+ * 漏改一个页面就会重新长出第二份，而漏改是迟早的事。
  */
-.app-tabbar {
+.app-tab-pane .ant-page-header .ant-breadcrumb {
+  display: none;
+}
+
+/* ---------- 顶栏下方的标签条 ---------- */
+
+/*
+ * 标签条独立成顶栏下面的一条：顶栏放面包屑与全局操作（待办、头像），
+ * 标签条放"这半天开着哪些页"。挤在一行里时，标签每多一个就要从面包屑那里
+ * 让一次位，最后两样都看不全。
+ *
+ * 三个值都是布局约束，缺一个就错位：
+ *   flex: 1 1 auto  占掉工具组之外的全部空位
+ *   min-width: 0    标签多了可以被压缩 —— 不写就按内容宽度把工具组顶出屏幕
+ *   height: 100%    让里面那层 antd Tabs 在 40px 里垂直居中
+ *
+ * padding-inline 收在 8px：标签是一颗颗胶囊，左边若和顶栏一样留 16px，
+ * 首标签会被推得太靠里、看着空。8px 足够和侧栏分界线拉开距离又不显空。
+ * 左内距不再是 0（之前那样第一个标签贴着分界线，像被裁），但也不跟面包屑对齐——
+ * 面包屑是连续文字、16px 才舒展，标签胶囊需要更紧的起手。
+ */
+.app-tabbar-row {
+  display: flex;
   flex: none;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--ant-color-border-secondary);
-  background: var(--ant-color-bg-container);
+  align-items: center;
+  height: var(--shell-tabbar-row-height, 40px);
+  gap: 4px;
+  padding-inline: 8px;
+  overflow: hidden;
+  background: var(--ant-color-bg-container, #fff);
+  border-bottom: 1px solid var(--ant-color-border-secondary, #e3e8f0);
+}
+
+.app-tabbar {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+}
+
+/* 工具组：刷新 + 批量操作。定宽，标签再多也不参与压缩 ——
+   宁可让标签条自己横向滚，也不能把按钮挤没。 */
+.app-tabbar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.app-tabbar-tools .ant-btn-text {
+  color: var(--ant-color-text-secondary);
+}
+
+.app-tabbar-tools .ant-btn-text:hover {
+  color: var(--ant-color-primary) !important;
+}
+
+/* antd 的 Tabs 在 top 位置是纵向 flex（nav + content）。标签页的内容由 TabPanes
+   各渲染一份，这里没有 children，content 那一层留着只会把 nav 顶到上边去。
+ *
+ * 纵向 flex 里，主轴是竖直的：垂直居中要靠 justify-content，align-items 管的是横向。
+ * 这里误写成 align-items: center 时，nav（flex: 0 0 auto）会被横向收缩成一条并居中，
+ * 标签看着就是"挤在中间的一小撮"。align-items 保持 stretch，nav 才铺满整条宽度。 */
+.app-tabbar .ant-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 0;
+}
+
+.app-tabbar .ant-tabs-content-holder {
+  display: none;
 }
 
 .app-tabbar .ant-tabs-nav {
   margin: 0;
-  padding-top: 4px;
 }
 
+/* 底边那条线由 .app-header 的 border 提供；antd 自带的 ::before 只跟 tab 等宽，
+   标签少的时候会画到一半就断掉。 */
 .app-tabbar .ant-tabs-nav::before {
   border-bottom: none;
 }
 
-.app-tabbar .ant-tabs-tab {
-  padding: 5px 10px;
-  font-size: 13px;
+/*
+ * 标签做成"胶囊"，而不是原来那种贴着内容区的卡片。
+ *
+ * 卡片的上圆角 + 透明底边是为了和下面的内容区连成一片；顶栏里没有可依附的内容区，
+ * 那个缺口就成了"少了一条边的框"。现在：透明底 / 悬停淡底 / 选中主色淡底，
+ * 颜色全取 antd 变量，明暗两套主题都成立。
+ * 选择器把 `.ant-tabs-small` 也带上：small 的内距由
+ * `.ant-tabs-card.ant-tabs-small > .ant-tabs-nav .ant-tabs-tab` 给，同权时后注入的会赢，
+ * 所以必须比它多一层（antd 的样式是运行时注入的，靠加载顺序不可靠）。
+ */
+.app-tabbar .ant-tabs-card.ant-tabs-small > .ant-tabs-nav .ant-tabs-tab {
+  /* 相对定位：钉标 / 关闭按钮都绝对定位到它身上、钉在同一个右间隙里。 */
+  position: relative;
+  /* 左右内距都加大（token 已给 22）：右侧这一份形成"间隙"，钉标与关闭按钮落在里面；
+     左右相等，文字才始终在标签里水平居中。 */
+  padding: var(--shell-tab-padding-block, 5px) var(--shell-tab-padding-inline, 22px);
+  border-color: transparent;
+  border-radius: var(--shell-tab-radius, 7px);
+  background: transparent;
+  font-size: var(--shell-tab-font-size, 14px);
+  /* 关闭按钮脱离文档流后，标签里唯一在流内的就是文字，居中它，
+     钉标 / 关闭按钮显隐不再把文字左右推。 */
+  justify-content: center;
+}
+
+.app-tabbar .ant-tabs-card.ant-tabs-small > .ant-tabs-nav .ant-tabs-tab:hover {
+  background: var(--ant-color-fill-tertiary);
+}
+
+/* card 型会把选中项的底边染成内容区底色（为的是和内容连成一片），这里一并抹平。 */
+.app-tabbar .ant-tabs-card.ant-tabs-small.ant-tabs-top > .ant-tabs-nav .ant-tabs-tab-active {
+  border-color: transparent;
+  background: var(--ant-color-primary-bg);
 }
 
 .app-tabbar .ant-tabs-tab + .ant-tabs-tab {
-  margin-left: 6px;
+  margin-left: var(--shell-tab-gap, 6px);
 }
 
-/* 窄屏标签条内距收一档，与内容区的 12px 对齐。 */
-@media (max-width: 575px) {
-  .app-tabbar {
-    padding: 0 4px;
+/* 标签内容：标题居中；钉标已绝对定位到右侧间隙，不再参与这里的排版。 */
+.app-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  gap: 4px;
+}
+
+/* 钉标与关闭按钮钉在同一个位置（右内距的间隙里）：固定标签常显钉标，
+   悬停非固定标签才出现关闭，两者互斥但占位完全一致。 */
+.app-tab-pin {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  color: var(--ant-color-text-tertiary);
+  font-size: 11px;
+  /* 钉标不抢点击：它只是个状态标记，点它应该等效于点标签本体。 */
+  pointer-events: none;
+}
+
+/*
+ * 关闭按钮默认不出现，鼠标停在那个标签上时才淡入。
+ *
+ * 绝对定位到右侧间隙、与钉标同一个 right/top：脱离文档流，所以显隐不会把文字
+ * 左右推；标签宽度在悬停前后一致，鼠标划过一排标签文字不会抖。
+ * :focus-within 是给键盘用户的 —— 关不掉的标签页等于键盘不可用
+ * （Tab 键能聚焦到那个 × 时它就必须可见）。
+ */
+.app-tabbar .ant-tabs-tab .ant-tabs-tab-remove {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.app-tabbar .ant-tabs-tab:hover .ant-tabs-tab-remove,
+.app-tabbar .ant-tabs-tab:focus-within .ant-tabs-tab-remove {
+  opacity: 1;
+}
+
+/* 触屏没有"悬停"这回事：常显，否则标签页关不掉。 */
+@media (hover: none) {
+  .app-tabbar .ant-tabs-tab .ant-tabs-tab-remove {
+    opacity: 1;
   }
+}
+
+/*
+ * 拖拽排序的视觉反馈（类名与位移由 app-tabs.tsx 直接打在 antd 的标签节点上）。
+ *
+ * 被拖的那一项原地留空：opacity 0，全靠浏览器跟着指针的那张拖影表示"手里拿着谁"。
+ * pointer-events: none 不是为了好看 —— 空位上那个看不见的节点仍然参与命中判断，
+ * 旁边标签闪避过来压住它时，指针会命中它而不是压在上面的标签，于是"让开 / 收回"
+ * 来回闪。撤掉它的命中权，命中就落到真正看得见的那一个上。
+ */
+.app-tabbar .ant-tabs-tab.is-dragging {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 闪避要跟手：antd 卡片标签自带 transition: all 0.3s，拖拽时显得拖泥带水。
+   选择器比 antd 的 `.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab` 多一层，
+   否则同权或更低都压不住（它的样式是运行时注入的，靠加载顺序不可靠）。 */
+.app-tabbar .ant-tabs-nav-wrap .ant-tabs-nav-list .ant-tabs-tab {
+  transition: all 0.16s ease-out;
 }
 
 /*
@@ -522,10 +803,10 @@ body {
 .app-user {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding-inline: 8px;
+  gap: var(--shell-user-gap, 8px);
+  padding-inline: var(--shell-user-padding-inline, 8px);
   color: var(--ant-color-text);
-  font-size: 13.5px;
+  font-size: var(--shell-user-font-size, 13.5px);
 }
 
 /* 折叠后顶栏只剩图标，用户名不能再占位置。 */
