@@ -44,7 +44,7 @@ apps/frontend/
 ├── package.json            # packageManager: pnpm@12.10.1
 ├── pnpm-workspace.yaml     # pnpm 设置（allowBuilds 放行 esbuild），不是工作区划分
 ├── Dockerfile              # 前端镜像：node 构建 → nginx 托管 dist（上下文就是本目录）
-├── nginx/default.conf.template   # 镜像里的站点配置：SPA 回退 + /api 反代，上游写后端容器名
+├── nginx/default.conf.template   # 镜像里的站点配置：SPA 回退 + /api 反代，上游由 envsubst 注入
 └── src/
     ├── main.tsx            挂载；先引 antd reset.css 再引 index.css
     ├── App.tsx             Refine 装配 + 鉴权三段式路由（页面路由不在这）
@@ -492,9 +492,9 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 **用 npm / yarn 装依赖会被 `preinstall` 守卫拦下**，这是有意的。
 
 前端只认 `/api` 相对路径，靠 `vite.config.ts` 的 proxy 转发；生产不需要改代码 ——
-镜像里的 nginx（`nginx/default.conf.template`）接的就是这个路径，上游写的是后端容器名
-`http://gowork-server:8080`（compose 里 server 的 `container_name`，同一自定义网络内由
-Docker 内置 DNS 解析），换后端地址改模板那一行。
+镜像里的 nginx（`nginx/default.conf.template`）接的就是这个路径，上游地址由环境变量
+`GOWORK_API_UPSTREAM` 给（compose 里是后端容器名 `http://gowork-server:8080`，
+同一自定义网络内由 Docker 内置 DNS 解析），换后端地址只改这个变量。
 
 ## 8. 构建产物与体积
 

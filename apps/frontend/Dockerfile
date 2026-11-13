@@ -47,8 +47,11 @@ RUN apk add --no-cache tzdata \
  && ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime \
  && echo "${TZ}" > /etc/timezone
 
-# 后端地址不在这里配置：nginx 模板里直接写后端容器名（gowork-server），
-# 同一网络内由 Docker 内置 DNS 解析，见 nginx/default.conf.template。
+# 后端地址：部署侧用这个环境变量覆盖（compose 里给的是后端容器名 http://gowork-server:8080），
+# 默认值只保证镜像单独跑时有个人样的上游。模板在容器启动时由官方 nginx 镜像的 entrypoint
+# 做 envsubst，见 nginx/default.conf.template。
+ENV GOWORK_API_UPSTREAM=http://server:8080
+
 COPY --from=builder /src/dist /usr/share/nginx/html
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 
