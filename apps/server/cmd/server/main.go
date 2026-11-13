@@ -3,10 +3,14 @@
 // 只负责：解析启动参数 -> 加载配置 -> 装配应用 -> 启停 HTTP 服务。
 // 业务逻辑一律下沉到 internal 下的各层。
 //
-// 除 -config 外还有两个附加参数：
+// 参数写法：全称用双横线，简称用单横线。三个参数都成对提供：
 //
-//	-env-prefix  环境变量前缀，缺省 GOWORK_（见 internal/config）
-//	-version     打印版本信息然后退出
+//	-c, --config       配置文件路径，缺省 configs/config.yaml
+//	-e, --env-prefix   环境变量前缀，缺省 GOWORK_（见 internal/config）
+//	-v, --version      打印版本信息然后退出
+//
+// 单横线的全称（-config）会被拒绝：标准库对单双横线一视同仁，不自己拦一道，
+// 这条约定就只是注释里的一句话。
 package main
 
 import (
@@ -14,11 +18,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"gowork_server/internal/bootstrap"
@@ -55,14 +62,17 @@ func main() {
 }
 
 func run() error {
-	configPath := flag.String("config", "configs/config.yaml", "配置文件路径")
-	// 同一个制品部署多套时靠前缀区分各自的环境变量；留空即缺省的 GOWORK_。
-	envPrefix := flag.String("env-prefix", config.DefaultEnvPrefix, "环境变量前缀，例如 GOWORK_（大小写不敏感，缺省自动补下划线）")
-	showVersion := flag.Bool("version", false, "打印版本信息并退出")
-	flag.Parse()
+	opts, err := parseArgs(os.Args[1:])
+	// --help 走的是 flag.ErrHelp：用法已经打印过，直接当成功退出。
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 
-	// 放在加载配置之前：-version 不该依赖配置文件是否存在。
-	if *showVersion {
+	// 放在加载配置之前：--version 不该依赖配置文件是否存在。
+	if opts.version {
 		fmt.Printf("gowork-server %s\n", version)
 		fmt.Printf("  commit: %s\n", commit)
 		fmt.Printf("  built:  %s\n", date)
@@ -70,7 +80,7 @@ func run() error {
 		return nil
 	}
 
-	cfg, err := config.LoadWithEnvPrefix(*configPath, *envPrefix)
+	cfg, err := config.LoadWithEnvPrefix(opts.configPath, opts.envPrefix)
 	if err != nil {
 		return err
 	}
@@ -122,4 +132,119 @@ func run() error {
 	}
 	app.Log.Info("服务已退出")
 	return nil
+}
+
+// defaultConfigPath 是 --config 的缺省值，也是 --help 里那句话的来源。
+const defaultConfigPath = "configs/config.yaml"
+
+// optionSpec 描述一个启动参数：全称、简称、值占位符（空串表示布尔开关）与用法说明。
+type optionSpec struct {
+	short string
+	long  string
+	value string
+	usage string
+}
+
+// optionSpecs 是参数表的唯一事实来源：注册、简称归一与 --help 的输出都从它推导，
+// 免得「加了一个参数、忘了加简称」这类漂移要在三处比对才能发现。
+var optionSpecs = []optionSpec{
+	// 占位符用英文：--help 的对齐靠 tabwriter 按 rune 数算列宽，
+	// 中文占两列却只算一个 rune，混进去这一列就歪了。
+	{"c", "config", "<path>", "配置文件路径（缺省 " + defaultConfigPath + "）"},
+	{"e", "env-prefix", "<prefix>", "环境变量前缀，缺省 GOWORK_（大小写不敏感，尾部下划线自动补）"},
+	{"v", "version", "", "打印版本信息并退出（不读配置文件）"},
+	{"h", "help", "", "打印本帮助并退出"},
+}
+
+// options 是解析后的启动参数。
+type options struct {
+	configPath string
+	envPrefix  string
+	version    bool
+}
+
+func parseArgs(args []string) (*options, error) {
+	fs := flag.NewFlagSet("gowork-server", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.Usage = func() { writeUsage(fs.Output(), fs.Name()) }
+
+	// 只注册全称：简称在 normalizeArgs 里换成全称后再进来，
+	// 一个值不挂两个 flag 名字，--help 也就不会把同一项印两遍。
+	opts := &options{}
+	fs.StringVar(&opts.configPath, "config", defaultConfigPath, "")
+	fs.StringVar(&opts.envPrefix, "env-prefix", config.DefaultEnvPrefix, "")
+	fs.BoolVar(&opts.version, "version", false, "")
+
+	normalized, err := normalizeArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	if err := fs.Parse(normalized); err != nil {
+		return nil, err
+	}
+	return opts, nil
+}
+
+// normalizeArgs 落实「全称双横线、简称单横线」：把 -c 换成 --config，
+// 单横线写全称（-config）直接拒绝。标准库本身两种写法都收，
+// 不在这里拦一道，上面那条约定就只是注释里的一句话。
+func normalizeArgs(args []string) ([]string, error) {
+	out := make([]string, 0, len(args))
+	for i, arg := range args {
+		// "--" 之后全是位置参数，原样透传；单独一个 "-" 也按位置参数处理。
+		if arg == "--" {
+			return append(out, args[i:]...), nil
+		}
+		if arg == "-" || !strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
+			out = append(out, arg)
+			continue
+		}
+
+		name, value, hasValue := strings.Cut(arg[1:], "=")
+		spec := lookupShort(name)
+		if spec == nil {
+			if long := lookupLong(name); long != nil {
+				return nil, fmt.Errorf("参数 -%s 是全称，要写成 --%s（简称 -%s）", name, long.long, long.short)
+			}
+			return nil, fmt.Errorf("未知参数 -%s：全称用 --，简称用 -，可用参数见 --help", name)
+		}
+
+		normalized := "--" + spec.long
+		if hasValue {
+			normalized += "=" + value
+		}
+		out = append(out, normalized)
+	}
+	return out, nil
+}
+
+func lookupShort(name string) *optionSpec {
+	for i := range optionSpecs {
+		if optionSpecs[i].short == name {
+			return &optionSpecs[i]
+		}
+	}
+	return nil
+}
+
+func lookupLong(name string) *optionSpec {
+	for i := range optionSpecs {
+		if optionSpecs[i].long == name {
+			return &optionSpecs[i]
+		}
+	}
+	return nil
+}
+
+func writeUsage(w io.Writer, name string) {
+	fmt.Fprintf(w, "用法: %s [选项]\n\n选项:\n", name)
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	for _, s := range optionSpecs {
+		head := "  -" + s.short + ", --" + s.long
+		if s.value != "" {
+			head += " " + s.value
+		}
+		fmt.Fprintf(tw, "%s\t%s\n", head, s.usage)
+	}
+	_ = tw.Flush()
 }

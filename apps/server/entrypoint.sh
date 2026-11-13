@@ -4,8 +4,8 @@
 #   1) PUID=0（默认）：不降权，直接以 root exec 主程序。
 #   2) PUID≠0：用 groupmod / usermod 把 app 的 uid/gid 对齐到 PUID/PGID，
 #      把 /app 属主一并改过来，再 su-exec 落到 PUID:PGID。
-#   3) 参数装配：以 - 开头的参数原样转给 server（docker run <image> -version
-#      应当打印版本，而不是把它当配置文件路径）；命令是 server 且没带 -config 时
+#   3) 参数装配：以 - 开头的参数原样转给 server（docker run <image> --version
+#      应当打印版本，而不是把它当配置文件路径）；命令是 server 且没带配置文件参数时
 #      补上默认配置（镜像的 CMD 就是 server，所以默认启动读的是 config.prod.yaml）。
 #
 # 刻意不做的事：
@@ -42,18 +42,19 @@ case "$1" in
     -*) set -- "${APP_BIN}" "$@" ;;
 esac
 
-# 命令就是 server 且没自己带 -config 时补默认配置。
-# 镜像的 CMD 给的是二进制本身（而不是 "/app/server -config …"）：默认配置路径只写在
+# 命令就是 server 且没自己带配置文件参数时补默认配置。
+# 两种写法都认：全称 --config 与简称 -c（见 cmd/server 的参数约定）。
+# 镜像的 CMD 给的是二进制本身（而不是 "/app/server --config …"）：默认配置路径只写在
 # 这里一处，否则 CMD 与脚本各存一份，换配置文件时必然漏掉一边。
 if [ "$1" = "${APP_BIN}" ]; then
     has_config=0
     for arg in "$@"; do
         case "${arg}" in
-            -config|--config|-config=*|--config=*) has_config=1 ;;
+            -c|--config|-c=*|--config=*) has_config=1 ;;
         esac
     done
     if [ "${has_config}" -eq 0 ]; then
-        set -- "$@" -config "${CONFIG_FILE}"
+        set -- "$@" --config "${CONFIG_FILE}"
     fi
 fi
 

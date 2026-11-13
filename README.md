@@ -149,7 +149,7 @@ docker compose -f deployments/docker-compose.yml logs -f server web
 
 版本号正本是仓库根目录的 `VERSION.txt`（一行数字），`apps/web/package.json` 的 `version`
 跟着一起改。产物不读这个文件，而是**构建期注进去** —— 二进制要能在任何目录、任何机器上
-用 `gowork-server -version` 自证：
+用 `gowork-server --version` 自证：
 
 ```
 gowork-server 0.1.0

@@ -21,7 +21,7 @@
 #
 # 版本号的两个落点是刻意的，不是重复：
 #   仓库根目录 VERSION.txt 是项目的正本：`task server:build` 缺省读它，构建期用
-#   -ldflags "-X main.version=…" 注进二进制，供 `gowork-server -version` 自证；
+#   -ldflags "-X main.version=…" 注进二进制，供 `gowork-server --version` 自证；
 #   前端 apps/web/package.json 的 version 是 npm 生态认的那个。
 #   两处不一致时，报障的人报的数字就对不上产物 —— 所以这里总是一起改。
 

@@ -58,7 +58,7 @@ GoWork/
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
 │   │   ├── configs/             # 4 份配置样例：默认 / prod / postgres / mysql
 │   │   ├── Dockerfile           # 后端镜像（上下文就是本目录；版本号只走 --build-arg）
-│   │   ├── entrypoint.sh        # 容器入口：PUID/PGID 降权 + 默认 -config 参数
+│   │   ├── entrypoint.sh        # 容器入口：PUID/PGID 降权 + 默认 --config 参数
 │   │   └── internal/            # 全部业务代码，不对外暴露
 │   └── web/                     # React 单页应用（见 apps/web/AGENTS.md）
 │       ├── src/                 # pages / providers / api / components / constants / utils / types

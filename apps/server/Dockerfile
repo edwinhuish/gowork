@@ -80,7 +80,7 @@ RUN ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime \
 WORKDIR /app
 
 COPY --from=builder /out/server /app/server
-# 配置样例一起进镜像：部署侧要么挂载覆盖 config.prod.yaml，要么直接用 -config 指别处。
+# 配置样例一起进镜像：部署侧要么挂载覆盖 config.prod.yaml，要么直接用 --config 指别处。
 COPY configs /app/configs
 COPY entrypoint.sh /entrypoint.sh
 
@@ -95,9 +95,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 # ENTRYPOINT 做降权与参数装配，CMD 只回答「默认跑什么」：
-#   docker run <image>                 -> server -config /app/configs/config.prod.yaml
-#   docker run <image> -version        -> server -version（打印版本后退出）
-#   docker run <image> -config /x.yaml -> server -config /x.yaml
+#   docker run <image>                  -> server --config /app/configs/config.prod.yaml
+#   docker run <image> --version        -> server --version（打印版本后退出）
+#   docker run <image> --config /x.yaml -> server --config /x.yaml（或简写 -c /x.yaml）
 # CMD 给的是二进制而不是完整命令行：默认配置路径只有入口脚本一处，
 # 换配置改 CONFIG_FILE 或直接覆盖 CMD，不必两处对齐。
 ENTRYPOINT ["/entrypoint.sh"]

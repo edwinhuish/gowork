@@ -39,7 +39,7 @@ apps/server/
 ├── cmd/server/main.go           # 入口：参数 → 配置 → 装配 → 启停（不做业务）
 ├── configs/                     # 4 份配置样例，见第 7 节
 ├── Dockerfile                   # 后端镜像；构建上下文就是本目录，版本号只经 --build-arg VERSION
-├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 -config 参数
+├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 --config 参数
 └── internal/                    # 全部业务代码，外部不可 import
     ├── config/                  配置结构体、默认值、env 覆盖、启动期校验
     ├── bootstrap/               依赖装配（app.go）+ 演示数据（seed.go）
@@ -356,9 +356,18 @@ task server:test       # go test ./... -count=1
 
 命令的真实来源是 `apps/server/Taskfile.yml`（`task -d apps/server -- --list`）；
 前置版本、`build` / `test:storage` / `tool:air` 与存储切换见 `README.md`。
-直接跑二进制：`./bin/gowork-server -config configs/config.yaml`。
-启动参数只有三个：`-config`（缺省 `configs/config.yaml`）、`-env-prefix`（环境变量前缀，
-缺省 `GOWORK_`，见下方「配置文件」）与 `-version`（打印版本后退出，不读配置文件）。
+直接跑二进制：`./bin/gowork-server --config configs/config.yaml`。
+
+启动参数只有三个，每个都成对提供——**全称用双横线，简称用单横线**：
+
+| 全称 | 简称 | 说明 |
+|---|---|---|
+| `--config` | `-c` | 配置文件路径，缺省 `configs/config.yaml` |
+| `--env-prefix` | `-e` | 环境变量前缀，缺省 `GOWORK_`，见下方「配置文件」 |
+| `--version` | `-v` | 打印版本后退出，不读配置文件 |
+
+约定是**强制**的：`cmd/server` 解析前会把简称归一成全称，单横线的全称（`-config`）
+直接报错。标准库本身两种写法都收，不拦这一道，约定就只是一句话。
 
 ### 热重载（air）
 
@@ -372,14 +381,14 @@ task server:test       # go test ./... -count=1
 | 监听范围 | `root = "."`（就是 `apps/server`），`include_ext = ["go"]`：只有 `.go` 变更触发编译 |
 | 忽略目录 | `bin`（产物与 `build-errors.log`，不排除会自己触发自己）、`data`（sqlite 的 `db`/`-wal`/`-shm` 与缓存快照运行期一直在写）、`.git`、`vendor`、`node_modules`、`.vscode`、`.idea` |
 | 排除文件 | `_test.go`（不进服务二进制，改了不必重启）、编辑器临时/交换文件（`.#*`、`*~`）。另有 `exclude_unchanged = true`：内容没变不重启 |
-| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task server:build` 的发布参数（它还用 `-X main.version` 注入版本号），热重载剥符号只拖慢重启，`-version` 也就该报 `dev` |
-| 运行命令 | `entrypoint = ["./bin/dev/gowork-server"]`，不写 `-config`，走 `main.go` 里 `-config` 的默认值 `configs/config.yaml` |
+| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task server:build` 的发布参数（它还用 `-X main.version` 注入版本号），热重载剥符号只拖慢重启，`--version` 也就该报 `dev` |
+| 运行命令 | `entrypoint = ["./bin/dev/gowork-server"]`，不写 `--config`，走 `main.go` 里 `--config` 的默认值 `configs/config.yaml` |
 | 产物位置 | `bin/dev/gowork-server`；`bin/` 已在 `.gitignore`。它与 `task server:build` 的 `bin/gowork-server` 是两个文件，互不覆盖 |
 | 日志 | 业务日志仍是 slog 打 **stdout**，不经 air、不落文件。air 自己的 `building... / running... / failed to build` 带 `[HH:MM:SS]` 前缀（`log.time = true`），与业务日志一眼分得开。编译报错详情在终端，`bin/dev/build-errors.log` 只有一行 `exit status N` |
 | 重启语义 | `send_interrupt = true` + `kill_delay = "3s"`：先 SIGINT 走优雅关闭（刷缓存快照、关连接池），3 秒不退才 SIGKILL。`stop_on_error = true`：编译不过就停掉旧进程，不留着旧二进制继续服务（见第 9 节最后一条） |
 | 改配置 | `.yaml` / `.air.toml` 不在监听范围内，改完要手动 Ctrl-C 再起——air 不重载自身配置，被启动的进程也只在启动时读一次配置 |
 
-换库启动仍可热重载：`task server:dev:pg` / `dev:mysql` 用 `air -c .air.toml -- -config configs/config.postgres.yaml`，
+换库启动仍可热重载：`task server:dev:pg` / `dev:mysql` 用 `air -c .air.toml -- --config configs/config.postgres.yaml`，
 `--` 之后的参数由 air 原样透传给被启动的二进制。
 
 想临时调 air 自身参数，用命令行覆盖而不是改文件：`air -c .air.toml -build.delay 1000`。
@@ -402,7 +411,7 @@ task server:test       # go test ./... -count=1
 `GOWORK_CACHE_DRIVER`、`GOWORK_REDIS_ADDR`、`GOWORK_JWT_SECRET`、`GOWORK_LOG_LEVEL`。
 生产环境的密码与密钥只走环境变量，不写进配置文件。
 
-前缀本身可换：`-env-prefix acme` 之后读的是 `ACME_HTTP_ADDR`、`ACME_DB_DSN`……
+前缀本身可换：`--env-prefix acme`（或 `-e acme`）之后读的是 `ACME_HTTP_ADDR`、`ACME_DB_DSN`……
 （大小写不敏感，尾部下划线自动补；留空或给 `GOWORK_` 即原来的行为）。
 用途是同一个制品在一台机器上跑多套实例时靠前缀隔离各自的变量。
 变量名一律经 `applyEnv` 里的 `key()` 拼出，新增配置项照这个写，不要在别处硬编码前缀。
