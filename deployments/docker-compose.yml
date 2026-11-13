@@ -24,8 +24,8 @@ x-logging: &logging
     max-file: '3'
 
 
-# 自定义网络：默认 bridge 只能按 IP 访问，自定义网络里容器名由 Docker 内置 DNS 解析，
-# frontend 的 nginx 才能写死 http://gowork-server:8080。
+# 自定义网络：默认 bridge 只能按 IP 访问，自定义网络里服务名由 Docker 内置 DNS 解析，
+# frontend 的 nginx 才能写死 http://server:8080。
 networks:
   gowork:
     name: gowork
@@ -74,9 +74,9 @@ services:
     ports:
       - 80:80
     environment:
-      # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值。
-      # 用容器名而不是 IP：同一网络内由 Docker 内置 DNS 解析，后端换 IP 不用改配置。
-      - GOWORK_API_UPSTREAM=http://gowork-server:8080
+      # nginx 启动时用 envsubst 把模板里的 ${SERVER_URL} 换成这个值。
+      # 用服务名而不是 IP：同一网络内由 Docker 内置 DNS 解析，后端换 IP 不用改配置。
+      - SERVER_URL=http://server:8080
       - TZ=${TZ:-Asia/Shanghai}
     # 探针在镜像里（自己的 /healthz，不穿到后端），这里同样不重复定义。
     logging: *logging

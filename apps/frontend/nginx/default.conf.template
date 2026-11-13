@@ -3,8 +3,8 @@
 # envsubst 只替换「已定义的环境变量」，所以 $uri / $host 这些 nginx 变量原样保留；
 # 反过来说，这里不要写 $hostname 这类与宿主环境变量同名的东西。
 #
-# 上游地址来自 GOWORK_API_UPSTREAM：镜像里有默认值，compose 覆盖成后端容器名
-# （http://gowork-server:8080），同一自定义网络内由 Docker 内置 DNS 解析。
+# 上游地址来自 SERVER_URL：镜像里有默认值（本机 8080，仅占位），compose 覆盖成后端
+# 服务名（http://server:8080），同一自定义网络内由 Docker 内置 DNS 解析。
 
 # Docker 内置 DNS。配合下面用变量写的 proxy_pass，后端容器重启换了 IP 时
 # nginx 会按 valid 重新解析，而不是抱着启动时那一个 IP 一直 502。
@@ -36,7 +36,7 @@ server {
     # 接口一律转给后端。用变量做 proxy_pass 才能让上面的 resolver 生效；
     # 写成变量后 nginx 会原样转发原始 URI，不再做路径重写 —— 这里正好要这样。
     location /api/ {
-        set $api_upstream ${GOWORK_API_UPSTREAM};
+        set $api_upstream ${SERVER_URL};
         proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

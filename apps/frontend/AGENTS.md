@@ -493,7 +493,7 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 
 前端只认 `/api` 相对路径，靠 `vite.config.ts` 的 proxy 转发；生产不需要改代码 ——
 镜像里的 nginx（`nginx/default.conf.template`）接的就是这个路径，上游地址由环境变量
-`GOWORK_API_UPSTREAM` 给（compose 里是后端容器名 `http://gowork-server:8080`，
+`SERVER_URL` 给（compose 里是后端服务名 `http://server:8080`，
 同一自定义网络内由 Docker 内置 DNS 解析），换后端地址只改这个变量。
 
 ## 8. 构建产物与体积

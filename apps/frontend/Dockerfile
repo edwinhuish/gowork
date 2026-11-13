@@ -47,10 +47,11 @@ RUN apk add --no-cache tzdata \
  && ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime \
  && echo "${TZ}" > /etc/timezone
 
-# 后端地址：部署侧用这个环境变量覆盖（compose 里给的是后端容器名 http://gowork-server:8080），
-# 默认值只保证镜像单独跑时有个人样的上游。模板在容器启动时由官方 nginx 镜像的 entrypoint
-# 做 envsubst，见 nginx/default.conf.template。
-ENV GOWORK_API_UPSTREAM=http://server:8080
+# 后端地址：部署侧覆盖（compose 里给的是后端服务名 http://server:8080）。
+# 默认值是本机 8080，只作占位：容器里的 127.0.0.1 是前端容器自己，不是宿主机上的后端，
+# 所以单独跑这个镜像时 /api 一律 502，静态页与 /healthz 照常。模板在容器启动时由官方
+# nginx 镜像的 entrypoint 做 envsubst，见 nginx/default.conf.template。
+ENV SERVER_URL=http://127.0.0.1:8080
 
 COPY --from=builder /src/dist /usr/share/nginx/html
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
