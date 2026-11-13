@@ -54,7 +54,11 @@ cache:
     db: 0
     dial_timeout: 2
   memory:
-    persist: false
+    # 落盘，重启后登录态、限流计数不会突然清零。
+    persist: true
+    path: "data/cache.snapshot"
+    # 写操作只置脏标记，按这个间隔合并落盘；退出时还会再刷一次。
+    save_interval: 30
 
 jwt:
   secret: "" # GOWORK_JWT_SECRET，至少 32 位

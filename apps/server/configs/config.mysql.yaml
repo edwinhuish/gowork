@@ -47,7 +47,11 @@ cache:
     addr: "127.0.0.1:6379"
     db: 2
   memory:
-    persist: false
+    # 落盘，重启后登录态、限流计数不会突然清零。
+    persist: true
+    path: "data/cache.snapshot"
+    # 写操作只置脏标记，按这个间隔合并落盘；退出时还会再刷一次。
+    save_interval: 30
 
 jwt:
   secret: "dev-only-secret-please-change-in-production-1a2b3c4d"
