@@ -77,7 +77,7 @@ jobs:
       - name: 冒烟：版本号是否真的注入了
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: |
-          out="$(./dist/linux-amd64/gowork-server -version)"
+          out="$(./dist/linux-amd64/gowork-server --version)"
           echo "${out}"
           echo "${out}" | grep -q "${{ github.ref_name }}"
 
