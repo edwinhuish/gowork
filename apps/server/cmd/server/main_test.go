@@ -16,7 +16,7 @@ func TestNormalizeArgs(t *testing.T) {
 		{"全称等号原样透传", []string{"--config=a.yaml"}, []string{"--config=a.yaml"}},
 		{"简称换成全称", []string{"-c", "a.yaml"}, []string{"--config", "a.yaml"}},
 		{"简称等号换成全称", []string{"-c=a.yaml"}, []string{"--config=a.yaml"}},
-		{"字母间隔的简称", []string{"-e", "acme"}, []string{"--env-prefix", "acme"}},
+		{"无简称的参数用全称", []string{"--env-prefix", "acme"}, []string{"--env-prefix", "acme"}},
 		{"布尔简称", []string{"-v"}, []string{"--version"}},
 		{"帮助简称", []string{"-h"}, []string{"--help"}},
 		{"位置参数原样", []string{"a.yaml"}, []string{"a.yaml"}},
@@ -44,6 +44,7 @@ func TestNormalizeArgsRejects(t *testing.T) {
 	}{
 		{"单横线写全称", []string{"-config", "a.yaml"}},
 		{"单横线写带值的全称", []string{"-env-prefix=acme"}},
+		{"没有简称的参数不接受单字母", []string{"-e", "acme"}},
 		{"未知简称", []string{"-x"}},
 		{"不存在的长参数", []string{"-configx"}},
 	}
@@ -58,7 +59,7 @@ func TestNormalizeArgsRejects(t *testing.T) {
 }
 
 func TestParseArgs(t *testing.T) {
-	opts, err := parseArgs([]string{"-c", "x.yaml", "-e", "acme", "-v"})
+	opts, err := parseArgs([]string{"-c", "x.yaml", "--env-prefix", "acme", "-v"})
 	if err != nil {
 		t.Fatalf("parseArgs 报错: %v", err)
 	}

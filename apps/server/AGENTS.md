@@ -358,16 +358,17 @@ task server:test       # go test ./... -count=1
 前置版本、`build` / `test:storage` / `tool:air` 与存储切换见 `README.md`。
 直接跑二进制：`./bin/gowork-server --config configs/config.yaml`。
 
-启动参数只有三个，每个都成对提供——**全称用双横线，简称用单横线**：
+启动参数只有三个，写法是**全称双横线、简称单横线**；`--env-prefix` 没有简称：
 
 | 全称 | 简称 | 说明 |
 |---|---|---|
 | `--config` | `-c` | 配置文件路径，缺省 `configs/config.yaml` |
-| `--env-prefix` | `-e` | 环境变量前缀，缺省 `GOWORK_`，见下方「配置文件」 |
+| `--env-prefix` | 无 | 环境变量前缀，缺省 `GOWORK_`，见下方「配置文件」 |
 | `--version` | `-v` | 打印版本后退出，不读配置文件 |
 
 约定是**强制**的：`cmd/server` 解析前会把简称归一成全称，单横线的全称（`-config`）
-直接报错。标准库本身两种写法都收，不拦这一道，约定就只是一句话。
+直接报错；参数表里没登记简称的也不接受单字母写法（`-e` 是未知参数）。
+标准库本身两种写法都收，不拦这一道，约定就只是一句话。
 
 ### 热重载（air）
 
@@ -411,7 +412,7 @@ task server:test       # go test ./... -count=1
 `GOWORK_CACHE_DRIVER`、`GOWORK_REDIS_ADDR`、`GOWORK_JWT_SECRET`、`GOWORK_LOG_LEVEL`。
 生产环境的密码与密钥只走环境变量，不写进配置文件。
 
-前缀本身可换：`--env-prefix acme`（或 `-e acme`）之后读的是 `ACME_HTTP_ADDR`、`ACME_DB_DSN`……
+前缀本身可换：`--env-prefix acme` 之后读的是 `ACME_HTTP_ADDR`、`ACME_DB_DSN`……
 （大小写不敏感，尾部下划线自动补；留空或给 `GOWORK_` 即原来的行为）。
 用途是同一个制品在一台机器上跑多套实例时靠前缀隔离各自的变量。
 变量名一律经 `applyEnv` 里的 `key()` 拼出，新增配置项照这个写，不要在别处硬编码前缀。

@@ -3,14 +3,15 @@
 // 只负责：解析启动参数 -> 加载配置 -> 装配应用 -> 启停 HTTP 服务。
 // 业务逻辑一律下沉到 internal 下的各层。
 //
-// 参数写法：全称用双横线，简称用单横线。三个参数都成对提供：
+// 参数写法：全称用双横线，简称用单横线。-c 与 -v 是全称的单字母简称，
+// --env-prefix 没有简称，只能写全称：
 //
 //	-c, --config       配置文件路径，缺省 configs/config.yaml
-//	-e, --env-prefix   环境变量前缀，缺省 GOWORK_（见 internal/config）
+//	    --env-prefix   环境变量前缀，缺省 GOWORK_（见 internal/config）
 //	-v, --version      打印版本信息然后退出
 //
 // 单横线的全称（-config）会被拒绝：标准库对单双横线一视同仁，不自己拦一道，
-// 这条约定就只是注释里的一句话。
+// 这条约定就只是注释里的一句话。同理，没登记简称的参数不会接受单字母写法。
 package main
 
 import (
@@ -138,6 +139,7 @@ func run() error {
 const defaultConfigPath = "configs/config.yaml"
 
 // optionSpec 描述一个启动参数：全称、简称、值占位符（空串表示布尔开关）与用法说明。
+// short 留空表示该参数没有简称，只接受 --全称 这一种写法。
 type optionSpec struct {
 	short string
 	long  string
@@ -151,7 +153,8 @@ var optionSpecs = []optionSpec{
 	// 占位符用英文：--help 的对齐靠 tabwriter 按 rune 数算列宽，
 	// 中文占两列却只算一个 rune，混进去这一列就歪了。
 	{"c", "config", "<path>", "配置文件路径（缺省 " + defaultConfigPath + "）"},
-	{"e", "env-prefix", "<prefix>", "环境变量前缀，缺省 GOWORK_（大小写不敏感，尾部下划线自动补）"},
+	// 不给简称：这个参数在部署脚本里出现频率低，一个单字母反而容易和容器参数混。
+	{"", "env-prefix", "<prefix>", "环境变量前缀，缺省 GOWORK_（大小写不敏感，尾部下划线自动补）"},
 	{"v", "version", "", "打印版本信息并退出（不读配置文件）"},
 	{"h", "help", "", "打印本帮助并退出"},
 }
@@ -204,7 +207,10 @@ func normalizeArgs(args []string) ([]string, error) {
 		spec := lookupShort(name)
 		if spec == nil {
 			if long := lookupLong(name); long != nil {
-				return nil, fmt.Errorf("参数 -%s 是全称，要写成 --%s（简称 -%s）", name, long.long, long.short)
+				if long.short != "" {
+					return nil, fmt.Errorf("参数 -%s 是全称，要写成 --%s（简称 -%s）", name, long.long, long.short)
+				}
+				return nil, fmt.Errorf("参数 -%s 是全称，要写成 --%s（该参数没有简称）", name, long.long)
 			}
 			return nil, fmt.Errorf("未知参数 -%s：全称用 --，简称用 -，可用参数见 --help", name)
 		}
@@ -220,7 +226,8 @@ func normalizeArgs(args []string) ([]string, error) {
 
 func lookupShort(name string) *optionSpec {
 	for i := range optionSpecs {
-		if optionSpecs[i].short == name {
+		// 空 short 不能被空字符串命中，否则 -（一个横线）会被当成某个参数的简称。
+		if optionSpecs[i].short != "" && optionSpecs[i].short == name {
 			return &optionSpecs[i]
 		}
 	}
@@ -240,7 +247,11 @@ func writeUsage(w io.Writer, name string) {
 	fmt.Fprintf(w, "用法: %s [选项]\n\n选项:\n", name)
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	for _, s := range optionSpecs {
-		head := "  -" + s.short + ", --" + s.long
+		// 没有简称时用空格占住 "-c, " 那一列，四行的第二列仍然对齐。
+		head := "      --" + s.long
+		if s.short != "" {
+			head = "  -" + s.short + ", --" + s.long
+		}
 		if s.value != "" {
 			head += " " + s.value
 		}
