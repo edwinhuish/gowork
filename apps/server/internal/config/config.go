@@ -90,10 +90,10 @@ type HTTP struct {
 //  2. 拆成 host/port/user/password/name + params —— 换驱动时只改 driver 一个字段，
 //     剩下的字段名不变（postgres 与 mysql 共用同一组键），避免换库就得重写连接串。
 type Database struct {
-	Driver   string `yaml:"driver"` // postgres | mysql | sqlite
-	DSN      string `yaml:"dsn"`    // 显式连接串，非空时忽略下面的拆分字段
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
+	Driver string `yaml:"driver"` // postgres | mysql | sqlite
+	DSN    string `yaml:"dsn"`    // 显式连接串，非空时忽略下面的拆分字段
+	Host   string `yaml:"host"`
+	Port   int    `yaml:"port"`
 	// Name 是要连的库名；登录凭据是紧跟其后的 username + password。
 	// 三者按"库名 → 账号 → 密码"排列，样例配置里也是这个顺序：
 	// 把 name 与 username 摆在一起时，最容易被读成"这个库的账号叫什么"。
