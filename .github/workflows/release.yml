@@ -1,5 +1,5 @@
 # 推 v* tag 触发：编译五个平台的后端包（linux/darwin/windows）、打包前端 dist、
-# 推 ghcr.io 的两个镜像（server / frontend），齐了再创建 GitHub Release。
+# 推 ghcr.io 的两个镜像（server / web），齐了再创建 GitHub Release。
 #
 # 为什么由 tag 触发而不是由 release 任务直接调 API：tag 是不可变指针，别人 clone 下来
 # 就能对上「这一版到底是哪几个提交」；本地脚本只负责把 tag 推上去，产物一律在 CI 里出，
@@ -20,7 +20,7 @@ permissions:
   packages: write
 
 jobs:
-  backend:
+  server:
     name: 后端 ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
@@ -101,7 +101,7 @@ jobs:
           path: dist/archives/*
           if-no-files-found: error
 
-  frontend:
+  web:
     name: 前端静态产物
     runs-on: ubuntu-latest
     steps:
@@ -132,11 +132,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/archives
-          tar -czf "dist/archives/gowork-${{ github.ref_name }}-frontend.tar.gz" -C apps/web/dist .
+          tar -czf "dist/archives/gowork-${{ github.ref_name }}-web.tar.gz" -C apps/web/dist .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: frontend
+          name: web
           path: dist/archives/*
           if-no-files-found: error
 
@@ -155,7 +155,7 @@ jobs:
             context: ./apps/server
             dockerfile: ./apps/server/Dockerfile
           # 前端：上下文就是 apps/web，产物在镜像里由 nginx 托管并把 /api 反代给后端。
-          - image: frontend
+          - image: web
             context: ./apps/web
             dockerfile: ./apps/web/Dockerfile
     steps:
@@ -183,7 +183,7 @@ jobs:
         with:
           # 直接用 github.repository，不放硬编码的 owner/repo，
           # 这样仓库改名或 fork 出去都不用改这里。
-          # 两个镜像同仓不同名：.../server 与 .../frontend，标签规则完全一致。
+          # 两个镜像同仓不同名：.../server 与 .../web，标签规则完全一致。
           images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
           tags: |
             type=semver,pattern={{version}}
@@ -222,7 +222,7 @@ jobs:
   release:
     name: 发布 ${{ github.ref_name }}
     # 镜像一起算进来：二进制、前端产物、镜像都落地了才对外宣布这个版本。
-    needs: [backend, frontend, image]
+    needs: [server, web, image]
     runs-on: ubuntu-latest
     steps:
       # fetch-depth: 0 是必须的：生成发布说明要跑 `git log <上一个标签>..<当前标签>`，

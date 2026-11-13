@@ -1,7 +1,7 @@
 # 生产编排：后端 + 前端两个容器，库与缓存是外部服务（云托管或机房已有，不随应用起落，
 # 也不接管它们的备份与扩容）；本机临时起一套用仓库根目录的 docker-compose.dev.yml。
 #
-# 两个镜像各自构建、各自可回滚：frontend 是 nginx，托管静态产物并把
+# 两个镜像各自构建、各自可回滚：web 是 nginx，托管静态产物并把
 # /api 反代给 server。本文件只描述本项目自己的服务 —— adminer / 监控 / 日志收集不在这里，
 # TLS 证书与限流留给这台机器外面的那层网关。
 #
@@ -11,7 +11,7 @@
 #
 #   cp .env.example .env
 #   docker compose -f deployments/docker-compose.yml up -d
-#   docker compose -f deployments/docker-compose.yml logs -f server frontend
+#   docker compose -f deployments/docker-compose.yml logs -f server web
 
 
 name: gowork
@@ -25,7 +25,7 @@ x-logging: &logging
 
 
 # 自定义网络：默认 bridge 只能按 IP 访问，自定义网络里服务名由 Docker 内置 DNS 解析，
-# frontend 的 nginx 才能写死 http://server:8080。
+# web 的 nginx 才能写死 http://server:8080。
 networks:
   gowork:
     name: gowork
@@ -60,10 +60,10 @@ services:
     networks:
       - gowork
 
-  frontend:
+  web:
     # 使用前需要登录
     # echo "你的_ghp_开头的_PAT" | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
-    image: ghcr.io/edwinhuish/gowork/frontend:latest
+    image: ghcr.io/edwinhuish/gowork/web:latest
     container_name: gowork-web
     restart: unless-stopped
     # 只管启动顺序：后端没 Ready 时前端也能起，那段时间 /api 返回 502、静态页面照常打开，

@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  server:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,7 +53,7 @@ jobs:
       - name: 单元测试
         run: go test ./... -count=1
 
-  frontend:
+  web:
     runs-on: ubuntu-latest
     defaults:
       run:

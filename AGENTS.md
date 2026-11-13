@@ -77,12 +77,12 @@ GoWork/
 └── .github/
     └── workflows/
         ├── ci.yml               # CI：go build/vet/test + pnpm install/typecheck/build
-        └── release.yml          # 推 v* tag：后端包 + 前端 dist + server/frontend 两个镜像 + Release
+        └── release.yml          # 推 v* tag：后端包 + 前端 dist + server/web 两个镜像 + Release
 ```
 
 **两端的耦合方式只有一条：HTTP。** 前端不 import 后端代码，后端不产前端产物，
 `deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 起两个容器：
-`server`（只绑回环）与 `frontend`（nginx，对外入口，`/api` 反向代理到 `server`）。
+`server`（只绑回环）与 `web`（nginx，对外入口，`/api` 反向代理到 `server`）。
 两个镜像各自由 `apps/server/Dockerfile` 与 `apps/web/Dockerfile` 构建，可以单独回滚。
 两个镜像的构建上下文都是各自的子项目目录，也都不从仓库里读版本号：后端版本只经
 `--build-arg VERSION` 传（缺省 `dev`，`task server:image` 传 `git describe` 的结果）。

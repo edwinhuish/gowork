@@ -86,7 +86,7 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 ## 生产部署（单机 Compose）
 
 `deployments/docker-compose.yml` 起**两个容器**：`server`（Go API，只绑 `127.0.0.1`）
-与 `frontend`（nginx，托管前端 `dist` 并把 `/api` 反代到 `server`，是这个栈唯一的对外入口）。
+与 `web`（nginx，托管前端 `dist` 并把 `/api` 反代到 `server`，是这个栈唯一的对外入口）。
 数据库与缓存用云托管或机房已有的 PostgreSQL / Redis，不跟应用一起起落；
 TLS 证书与限流交给同一台机器外面的那层网关。
 
@@ -104,11 +104,11 @@ TLS 证书与限流交给同一台机器外面的那层网关。
 ```bash
 cp deployments/.env.example deployments/.env      # 填库与缓存的密码
 docker compose -f deployments/docker-compose.yml up -d
-docker compose -f deployments/docker-compose.yml logs -f server frontend
+docker compose -f deployments/docker-compose.yml logs -f server web
 ```
 
 本机要自己构建这两个镜像（不拉 ghcr.io）时，在 `up` 后面加 `--build`；只重建其中一个：
-`docker compose -f deployments/docker-compose.yml build server`（或 `frontend`）。
+`docker compose -f deployments/docker-compose.yml build server`（或 `web`）。
 
 和开发环境（根目录 `docker-compose.dev.yml`，`task infra:up`）的区别：
 
@@ -189,7 +189,7 @@ task release DRY_RUN=true         # 只打印将要发生什么，不改文件�
 | 工作流 | 触发时机 | 做什么 |
 |---|---|---|
 | `ci.yml` | 任意 `push`、`pull_request` | 后端 `build` / `vet` / `gofmt` / `test`，前端 `typecheck` / `build`，外加三库两缓存的一致性测试 |
-| `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 与 `ghcr.io/<repo>/frontend` 两个镜像 + Release |
+| `release.yml` | 推 `v*` tag | 五个平台的后端包 + 前端 `dist` + `checksums.txt` + `ghcr.io/<repo>/server` 与 `ghcr.io/<repo>/web` 两个镜像 + Release |
 
 两条流水线都不重写构建命令，一律调用 `Taskfile.yml` 里已有的任务。发布说明由提交历史
 现算（`scripts/generate-changelog.sh`），不依赖 GitHub 的自动生成。
