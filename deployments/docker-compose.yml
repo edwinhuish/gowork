@@ -1,7 +1,7 @@
 # 生产编排：后端 + 前端两个容器，库与缓存是外部服务（云托管或机房已有，不随应用起落，
 # 也不接管它们的备份与扩容）；本机临时起一套用仓库根目录的 docker-compose.dev.yml。
 #
-# 两个镜像各自构建、各自可回滚：server 只绑回环，frontend 是 nginx，托管静态产物并把
+# 两个镜像各自构建、各自可回滚：frontend 是 nginx，托管静态产物并把
 # /api 反代给 server。本文件只描述本项目自己的服务 —— adminer / 监控 / 日志收集不在这里，
 # TLS 证书与限流留给这台机器外面的那层网关。
 #
@@ -12,11 +12,9 @@
 #   cp .env.example .env
 #   docker compose -f deployments/docker-compose.yml up -d
 #   docker compose -f deployments/docker-compose.yml logs -f server frontend
-#
-# 镜像默认拉发布流水线推的 ghcr.io 包；改了代码要自己构建时加 --build，构建文件与
-# release.yml 是同一份。
 
-name: gowork-prod
+
+name: gowork
 
 # 日志轮转：容器日志默认无限增长，单机部署最容易死在磁盘写满上。
 x-logging: &logging
@@ -27,29 +25,25 @@ x-logging: &logging
 
 services:
   server:
-    image: ${SERVER_IMAGE:-ghcr.io/edwinhuish/gowork/server:latest}
-    build:
-      # 上下文就是后端目录；compose 的 dockerfile 相对 context（buildx 相对当前目录），别对调。
-      context: ../apps/backend
-      dockerfile: Dockerfile
-      args:
-        # 留空 = 镜像缺省值 dev。要真版本号：
-        #   SERVER_VERSION=$(git describe --always --long --dirty) docker compose ... build
-        VERSION: ${SERVER_VERSION:-}
-    container_name: gowork-prod-server
+    image: ghcr.io/edwinhuish/gowork/server:latest
+    container_name: gowork-server
     restart: unless-stopped
     # 比服务自己的 http.shutdown_timeout（15s）留一截，否则关闭途中的请求会被 SIGKILL 切断。
     stop_grace_period: 30s
+    # 前端反代走容器网络，不经这个端口；它只留给调试与外部探活。
+    # 不想暴露就改成 '127.0.0.1:${HTTP_PORT:-8080}:8080'。
+    ports:
+      - '${HTTP_PORT:-8080}:8080'
     environment:
       # 只有密钥走环境变量，其余全在挂进去的 config.prod.yaml 里。
-      GOWORK_DB_PASSWORD: ${GOWORK_DB_PASSWORD:?.env 里缺 GOWORK_DB_PASSWORD}
-      GOWORK_REDIS_PASSWORD: ${GOWORK_REDIS_PASSWORD:?.env 里缺 GOWORK_REDIS_PASSWORD}
-      GOWORK_JWT_SECRET: ${GOWORK_JWT_SECRET:?.env 里缺 GOWORK_JWT_SECRET（至少 32 位）}
+      - GOWORK_DB_PASSWORD=${GOWORK_DB_PASSWORD:?.env 里缺 GOWORK_DB_PASSWORD}
+      - GOWORK_REDIS_PASSWORD=${GOWORK_REDIS_PASSWORD:?.env 里缺 GOWORK_REDIS_PASSWORD}
+      - GOWORK_JWT_SECRET=${GOWORK_JWT_SECRET:?.env 里缺 GOWORK_JWT_SECRET（至少 32 位）}
       # 运行身份：0 表示以 root 运行；非 0 时入口脚本把应用降权到 PUID:PGID，并对齐 /app 属主。
-      PUID: ${PUID:-0}
-      PGID: ${PGID:-0}
+      - PUID=${PUID:-0}
+      - PGID=${PGID:-0}
       # 单据日期与汇率取当天都按进程本地时间算，别让它跟着宿主机漂。
-      TZ: ${TZ:-Asia/Shanghai}
+      - TZ=${TZ:-Asia/Shanghai}
     volumes:
       # 只读覆盖镜像里的 configs/config.prod.yaml：配置跟着部署走，不进镜像。
       - ./config.prod.yaml:/app/configs/config.prod.yaml:ro
@@ -57,34 +51,33 @@ services:
       # 再把 config.prod.yaml 的 pdf.font_path 指到容器内路径。
       # - ./pdf/templates:/app/data/templates:ro
       # - ./pdf/fonts:/app/data/fonts:ro
-    # 只绑回环：证书、静态资源、限流都在反代那一层。反代不在本机时改成 0.0.0.0
-    # 或让它接入同一网络。
-    ports:
-      - '127.0.0.1:${HTTP_PORT:-8080}:8080'
     # 存活探针写在镜像里（轮询 /healthz），这里不重复定义，免得两处阈值各说各的。
     logging: *logging
+    networks:
+      - gowork
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/edwinhuish/gowork/frontend:latest}
-    build:
-      # 上下文就是 apps/frontend 本身（自带 .dockerignore），与后端一样不碰仓库根目录。
-      context: ../apps/frontend
-      dockerfile: Dockerfile
-      args:
-        VERSION: ${FRONTEND_VERSION:-}
-    container_name: gowork-prod-frontend
+    image: ghcr.io/edwinhuish/gowork/frontend:latest
+    container_name: gowork-frontend
     restart: unless-stopped
     # 只管启动顺序：后端没 Ready 时前端也能起，那段时间 /api 返回 502、静态页面照常打开，
     # 比让前端跟着启动失败好。
     depends_on:
       - server
     environment:
-      # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值；
-      # 走服务名而不是 IP，后端换地址只改这里，不用重建前端镜像。
-      GOWORK_API_UPSTREAM: http://server:8080
-      TZ: ${TZ:-Asia/Shanghai}
-    # 前端是这个栈唯一的对外入口；默认 80，不要跟 HTTP_PORT（绑 127.0.0.1）撞端口。
+      # 后端地址不在这里给：nginx 模板里直接写容器名（gowork-server），同一网络内由
+      # Docker 内置 DNS 解析，换地址改模板即可。
+      - TZ=${TZ:-Asia/Shanghai}
+    # 前端是这个栈唯一的对外入口；默认 80，不要跟 HTTP_PORT 撞端口。
     ports:
       - '${FRONTEND_PORT:-80}:80'
     # 探针在镜像里（自己的 /healthz，不穿到后端），这里同样不重复定义。
     logging: *logging
+    networks:
+      - gowork
+
+# 自定义网络：默认 bridge 只能按 IP 访问，自定义网络里容器名由 Docker 内置 DNS 解析，
+# frontend 的 nginx 才能写死 http://gowork-server:8080。
+networks:
+  gowork:
+    name: gowork
