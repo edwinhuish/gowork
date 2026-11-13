@@ -94,9 +94,12 @@ type Database struct {
 	DSN      string `yaml:"dsn"`    // 显式连接串，非空时忽略下面的拆分字段
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
+	// Name 是要连的库名；登录凭据是紧跟其后的 username + password。
+	// 三者按"库名 → 账号 → 密码"排列，样例配置里也是这个顺序：
+	// 把 name 与 username 摆在一起时，最容易被读成"这个库的账号叫什么"。
 	Name     string `yaml:"name"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 	// Params 是附加连接参数，语义按驱动解释：
 	// postgres 拼成 key=value（sslmode、search_path…），mysql 拼成 query（charset、loc…）。
 	Params map[string]string `yaml:"params"`
@@ -299,9 +302,9 @@ func (c *Config) applyEnv(prefix string) {
 	setStr(&c.Database.Driver, key("DB_DRIVER"))
 	setStr(&c.Database.DSN, key("DB_DSN"))
 	setStr(&c.Database.Host, key("DB_HOST"))
-	setStr(&c.Database.User, key("DB_USER"))
-	setStr(&c.Database.Password, key("DB_PASSWORD"))
 	setStr(&c.Database.Name, key("DB_NAME"))
+	setStr(&c.Database.Username, key("DB_USERNAME"))
+	setStr(&c.Database.Password, key("DB_PASSWORD"))
 	setStr(&c.Database.LogLevel, key("DB_LOG_LEVEL"))
 	setStr(&c.Cache.Driver, key("CACHE_DRIVER"))
 	setStr(&c.Cache.Memory.Path, key("CACHE_MEMORY_PATH"))
@@ -351,8 +354,8 @@ func (d Database) Validate() error {
 		if d.DSN != "" {
 			return nil
 		}
-		if d.Host == "" || d.Name == "" || d.User == "" {
-			return fmt.Errorf("database.driver=%s 时需要 dsn，或同时配置 host / name / user", d.Driver)
+		if d.Host == "" || d.Name == "" || d.Username == "" {
+			return fmt.Errorf("database.driver=%s 时需要 dsn，或同时配置 host / name / username", d.Driver)
 		}
 	default:
 		return fmt.Errorf("不支持的 database.driver: %s（可选 %s / %s / %s）",
@@ -389,7 +392,7 @@ func (d Database) ResolvedDSN() string {
 		kv := map[string]string{
 			"host":   d.Host,
 			"port":   strconv.Itoa(d.Port),
-			"user":   d.User,
+			"user":   d.Username,
 			"dbname": d.Name,
 		}
 		if d.Password != "" {
@@ -413,16 +416,16 @@ func (d Database) ResolvedDSN() string {
 			query.Set(k, v)
 		}
 		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s",
-			d.User, d.Password, d.Host, d.Port, d.Name, query.Encode())
+			d.Username, d.Password, d.Host, d.Port, d.Name, query.Encode())
 
 	default:
 		// sqlite：dsn 已在上方返回；走到这里说明只想给个文件名。
-		name := d.Name
-		if name == "" {
-			name = "data/gowork.db"
+		file := d.Name
+		if file == "" {
+			file = "data/gowork.db"
 		}
 		// WAL + busy_timeout 是并发读写下最实用的两个 pragma，三库行为对齐时也要靠它。
-		return fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", name)
+		return fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", file)
 	}
 }
 

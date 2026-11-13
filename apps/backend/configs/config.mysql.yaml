@@ -18,14 +18,18 @@ http:
     - http://localhost:5173
   shutdown_timeout: 10
 
+# 连接数据库：与 postgres 那份的字段名完全一样，只有 driver 和 params 的写法不同。
+# 想完全掌控连接串，也可以只写一行 dsn（此时下面这些字段全部被忽略）。
 database:
-  driver: mysql
-  host: 127.0.0.1
-  port: 3306
-  user: gowork
-  # 与 compose 里的开发账号一致；生产务必置空并走 GOWORK_DB_PASSWORD。
+  driver: mysql         # postgres | mysql | sqlite
+  host: 127.0.0.1       # 库地址；容器里跑时别写 127.0.0.1
+  port: 3306            # mysql 默认 3306，postgres 默认 5432，可省略
+  name: gowork          # 要连的库名（不是账号名）
+  # 这两个才是登录凭据，与上面的 name 无关。
+  # 账号与 compose 里的一致；密码在生产务必置空并走 GOWORK_DB_PASSWORD。
+  username: gowork      # 登录账号
   password: gowork
-  name: gowork
+  # mysql 的 params 是 query string；postgres 那边是 key=value，两者不能照抄。
   params:
     charset: utf8mb4
     parseTime: "True"

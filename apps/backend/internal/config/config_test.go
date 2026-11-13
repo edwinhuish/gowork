@@ -63,14 +63,51 @@ func TestLoadWithEnvPrefix(t *testing.T) {
 	}
 }
 
+func TestLoadDatabaseNameAndUsername(t *testing.T) {
+	// 库里配了这个变量时会整段覆盖 dsn，把本用例的断言搅乱。
+	t.Setenv("GOWORK_DB_DSN", "")
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	body := `
+jwt:
+  secret: test-secret
+database:
+  driver: postgres
+  host: db.local
+  name: erp
+  username: gowork
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("写临时配置: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// name 是库名、username 是账号：各自落位，不会互相串。
+	if cfg.Database.Name != "erp" {
+		t.Errorf("name 未读到，得到 %q", cfg.Database.Name)
+	}
+	if cfg.Database.Username != "gowork" {
+		t.Errorf("username 未读到，得到 %q", cfg.Database.Username)
+	}
+	dsn := cfg.Database.ResolvedDSN()
+	for _, want := range []string{"dbname=erp", "user=gowork"} {
+		if !strings.Contains(dsn, want) {
+			t.Errorf("连接串缺少 %q: %s", want, dsn)
+		}
+	}
+}
+
 func TestResolvedDSNPostgres(t *testing.T) {
 	db := Database{
 		Driver:   DriverPostgres,
 		Host:     "127.0.0.1",
 		Port:     5432,
-		User:     "gowork",
-		Password: "p a'ss",
 		Name:     "gowork",
+		Username: "gowork",
+		Password: "p a'ss",
 		Params:   map[string]string{"TimeZone": "Asia/Shanghai"},
 	}
 
@@ -102,9 +139,9 @@ func TestResolvedDSNMySQL(t *testing.T) {
 		Driver:   DriverMySQL,
 		Host:     "db.local",
 		Port:     3307,
-		User:     "root",
-		Password: "secret",
 		Name:     "erp",
+		Username: "root",
+		Password: "secret",
 	}
 
 	got := db.ResolvedDSN()
@@ -142,8 +179,9 @@ func TestValidateDatabase(t *testing.T) {
 		wantErr bool
 	}{
 		{"sqlite 允许只有文件", Database{Driver: DriverSQLite}, false},
-		{"postgres 拆字段齐全", Database{Driver: DriverPostgres, Host: "h", User: "u", Name: "n"}, false},
-		{"postgres 缺 user", Database{Driver: DriverPostgres, Host: "h", Name: "n"}, true},
+		{"postgres 拆字段齐全", Database{Driver: DriverPostgres, Host: "h", Name: "n", Username: "u"}, false},
+		{"postgres 缺 username", Database{Driver: DriverPostgres, Host: "h", Name: "n"}, true},
+		{"postgres 缺 name", Database{Driver: DriverPostgres, Host: "h", Username: "u"}, true},
 		{"postgres 只有 dsn", Database{Driver: DriverPostgres, DSN: "x"}, false},
 		{"未知驱动", Database{Driver: "oracle"}, true},
 	}

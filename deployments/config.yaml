@@ -20,13 +20,15 @@ http:
   shutdown_timeout: 15
 
 database:
-  driver: postgres
+  driver: postgres      # postgres | mysql
   # 换成实际的库地址；只在内网可达的库也写内网域名，别写 127.0.0.1（容器里指的是它自己）。
   host: postgres.example.com
   port: 5432
-  user: gowork
-  name: gowork
-  password: "" # GOWORK_DB_PASSWORD
+  name: gowork          # 要连的库名（不是账号名）
+  # 这两个才是登录凭据，与上面的 name 无关。
+  username: gowork      # 登录账号
+  password: "" # 密码不进仓库：GOWORK_DB_PASSWORD
+  # params 按驱动解释：postgres 是 key=value，mysql 是 query string。
   params:
     # 托管的库基本都强制 TLS；库在内网且没有证书时改成 disable。
     sslmode: require

@@ -17,15 +17,22 @@ http:
     - http://localhost:5173
   shutdown_timeout: 10
 
+# 连接数据库：填下面这组字段即可，不用记连接串语法。
+# postgres 与 mysql 共用同一组键名，换库时只改 driver（外加 params 的写法）。
+# 想完全掌控连接串，也可以只写一行 dsn（此时下面这些字段全部被忽略）。
 database:
-  driver: postgres
-  host: 127.0.0.1
-  port: 5432
-  user: gowork
-  password: gowork
-  name: gowork
+  driver: postgres      # postgres | mysql | sqlite
+  host: 127.0.0.1       # 库地址；容器里跑时别写 127.0.0.1，那指向容器自己
+  port: 5432            # postgres 默认 5432，mysql 默认 3306，可省略
+  name: gowork          # 要连的库名（不是账号名）
+  # 这两个才是登录凭据，与上面的 name 无关；所以它们挨在一起写。
+  username: gowork      # 登录账号
+  password: gowork      # 登录密码；生产置空，改用 GOWORK_DB_PASSWORD 注入
+  # params 是附加连接参数，语义随驱动变：
+  #   postgres -> key=value（sslmode、TimeZone）
+  #   mysql    -> query string（charset、parseTime、loc）
   params:
-    sslmode: disable
+    sslmode: disable    # 本地容器没有证书；托管库一般要求 require
     TimeZone: Asia/Shanghai
   max_open: 50
   max_idle: 10

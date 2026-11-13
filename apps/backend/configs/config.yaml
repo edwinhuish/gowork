@@ -1,7 +1,7 @@
 # 本地开发默认配置：SQLite + 内存缓存（落盘），零外部依赖即可启动。
 #
 # 想换外部服务不用改代码，只改这里（或对应 GOWORK_* 环境变量）：
-#   换 MySQL    -> database.driver: mysql，配置 host/user/password/name
+#   换 MySQL    -> database.driver: mysql，配置 host/name/username/password
 #   换 PgSQL    -> database.driver: postgres，其余字段名完全一样
 #   换 Redis    -> cache.driver: redis，配置 cache.redis.addr
 app:
@@ -18,7 +18,8 @@ http:
 
 database:
   driver: sqlite
-  # sqlite 的 dsn 就是文件路径 + pragma；不写则默认 data/gowork.db。
+  # sqlite 只看 dsn（或 name 当文件名）：host / port / username / password 在这条驱动下不生效。
+  # 不写 dsn 则默认 data/gowork.db。
   # WAL 让读不阻塞写，busy_timeout 让并发写等锁而不是直接报错。
   dsn: "file:./data/gowork.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
   max_open: 8

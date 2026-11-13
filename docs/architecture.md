@@ -210,26 +210,43 @@ ERP 与 CRM 是两个域，但代码不按域分目录——`internal/service/pr
 
 ```bash
 GOWORK_DB_DRIVER=postgres \
-GOWORK_DB_HOST=10.0.0.5 GOWORK_DB_USER=gowork GOWORK_DB_PASSWORD=*** GOWORK_DB_NAME=gowork \
+GOWORK_DB_HOST=10.0.0.5 GOWORK_DB_NAME=gowork \
+GOWORK_DB_USERNAME=gowork GOWORK_DB_PASSWORD=*** \
 GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=10.0.0.6:6379 \
 task backend:run
 ```
 
-### 2. 数据库：连接串可以整段给，也可以拆开给
+### 2. 数据库：默认拆字段，也可以整段给 dsn
+
+日常用**拆字段**写法（默认，推荐）：照着样例逐项填，不用记任何连接串语法。
 
 ```yaml
 database:
   driver: postgres
   host: 127.0.0.1
   port: 5432
-  user: gowork
+  name: gowork            # 要连的库名
+  # 账号与密码相邻书写：这两个才是登录凭据，name 不参与登录。
+  username: gowork
   password: ""            # 走 GOWORK_DB_PASSWORD
-  name: gowork
   params: {sslmode: disable, TimeZone: Asia/Shanghai}
 ```
 
-`postgres` 与 `mysql` **共用同一组键名**，所以换库时只有 `driver` 和 `params` 的写法要变：
-postgres 的 params 是 `key=value`，mysql 的是 query string。想完全掌控连接串就直接写 `dsn`，此时其余字段被忽略。
+| 字段 | 含义 |
+|---|---|
+| `host` / `port` | 库地址与端口；端口可省（postgres 5432、mysql 3306） |
+| `name` | 要连的**库名**，不是账号名 |
+| `username` / `password` | 登录凭据；成对书写，与 `name` 无关 |
+| `params` | 驱动专属参数：postgres 是 `key=value`，mysql 是 query string |
+
+`postgres` 与 `mysql` **共用同一组键名**，所以换库时只需改 `driver`，再按驱动调 `params`
+的写法。sqlite 忽略 `host/port/username/password`，`name` 或 `dsn` 就是数据库文件路径。
+
+账号这一项叫 `username` 而不是 `user`：本项目里 `user` 专指系统登录账号（`model.User`），
+数据库账号换个词就不会与业务实体混淆。
+
+需要连托管库的特殊参数、或连接串已经在手（例如云厂商控制台给的），也可以只写一行
+`dsn` 完全掌控连接串，此时其余字段被忽略。
 
 驱动差异全部收敛在 `infra/database`：
 

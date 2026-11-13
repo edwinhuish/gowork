@@ -68,7 +68,7 @@ cd apps/frontend && pnpm install && pnpm run dev
 切换只改配置，不改代码。也可以用环境变量整段覆盖：
 
 ```bash
-GOWORK_DB_DRIVER=postgres GOWORK_DB_HOST=127.0.0.1 GOWORK_DB_USER=gowork \
+GOWORK_DB_DRIVER=postgres GOWORK_DB_HOST=127.0.0.1 GOWORK_DB_USERNAME=gowork \
 GOWORK_DB_PASSWORD=gowork GOWORK_DB_NAME=gowork \
 GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=127.0.0.1:6379 \
 task backend:run
@@ -76,7 +76,8 @@ task backend:run
 
 优先级：配置文件 < `GOWORK_*` 环境变量。生产模板见 `configs/config.prod.yaml`
 （单机部署用的是 `deployments/config.prod.yaml`）；
-驱动差异与一致性保障（同一套断言跑三库两缓存）见 [`docs/architecture.md`](docs/architecture.md) 第五节。
+`database` 那段每个字段的含义、以及什么时候该改用整段 `dsn`，
+见 [`docs/architecture.md`](docs/architecture.md) 第五节。
 
 ```bash
 task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳过
