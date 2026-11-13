@@ -1,28 +1,20 @@
-# 生产环境：后端 + 前端两个容器。
+# 生产编排：后端 + 前端两个容器，库与缓存是外部服务（云托管或机房已有，不随应用起落，
+# 也不接管它们的备份与扩容）；本机临时起一套用仓库根目录的 docker-compose.dev.yml。
 #
-# 数据库与缓存在这个文件之外 —— 用云托管或机房已有的 PostgreSQL / Redis。
-# 它们不跟着应用一起起落，所以这里不定义、也不接管它们的备份与扩容；
-# 开发时临时在本机起一套（PostgreSQL + Redis）用仓库根目录的 docker-compose.dev.yml。
+# 两个镜像各自构建、各自可回滚：server 只绑回环，frontend 是 nginx，托管静态产物并把
+# /api 反代给 server。本文件只描述本项目自己的服务 —— adminer / 监控 / 日志收集不在这里，
+# TLS 证书与限流留给这台机器外面的那层网关。
 #
-# 前后端仍是两个镜像、两个容器，没有合并成一个：两端只靠 HTTP 耦合（见 AGENTS.md），
-# 各自可以单独回滚。前端容器是 nginx，托管静态产物并把 /api 反代给后端。
+# 配置分两层：
+#   ./config.prod.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），只读挂进容器
+#   ./.env              密钥、镜像名、对外端口、运行身份，由 compose 插值成环境变量
 #
-# 刻意不在这个文件里的东西：
-#   - adminer / 监控 / 日志收集这类配套容器：本文件只描述本项目自己的服务；
-#   - TLS 证书与限流：留给这台机器外面的那层网关。
-#
-# 配置分两层，别混：
-#   ./config.prod.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），
-#                       只读挂进容器；换库、换域名都改这里，重启容器即生效。
-#   ./.env              只有密钥、镜像名、对外端口与运行身份，由 compose 插值成环境变量。
-#
-# 用法：
-#   cp .env.example .env          # 填库与缓存的密码
+#   cp .env.example .env
 #   docker compose -f deployments/docker-compose.yml up -d
 #   docker compose -f deployments/docker-compose.yml logs -f server frontend
 #
-# 镜像默认拉发布流水线推的 ghcr.io 包；本机改了代码要自己构建时加 --build
-# （后端用 apps/backend/Dockerfile、前端用 apps/frontend/Dockerfile，与 release.yml 是同一份）。
+# 镜像默认拉发布流水线推的 ghcr.io 包；改了代码要自己构建时加 --build，构建文件与
+# release.yml 是同一份。
 
 name: gowork-prod
 
@@ -37,26 +29,23 @@ services:
   server:
     image: ${SERVER_IMAGE:-ghcr.io/edwinhuish/gowork/server:latest}
     build:
-      # 上下文就是后端目录：镜像不读仓库里的任何版本文件，只认下面的 VERSION 参数。
-      # 注意 compose 的 dockerfile 相对 context（buildx/`-f` 则相对当前目录），别对调。
+      # 上下文就是后端目录；compose 的 dockerfile 相对 context（buildx 相对当前目录），别对调。
       context: ../apps/backend
       dockerfile: Dockerfile
       args:
-        # 留空 = 镜像自己的缺省值 dev。要真版本号：
+        # 留空 = 镜像缺省值 dev。要真版本号：
         #   SERVER_VERSION=$(git describe --always --long --dirty) docker compose ... build
         VERSION: ${SERVER_VERSION:-}
     container_name: gowork-prod-server
     restart: unless-stopped
-    # 优雅退出多留一截：服务自己的 http.shutdown_timeout 是 15s，
-    # 卡在同一个数上会让正在写的请求在关闭途中被 SIGKILL 切断。
+    # 比服务自己的 http.shutdown_timeout（15s）留一截，否则关闭途中的请求会被 SIGKILL 切断。
     stop_grace_period: 30s
     environment:
       # 只有密钥走环境变量，其余全在挂进去的 config.prod.yaml 里。
       GOWORK_DB_PASSWORD: ${GOWORK_DB_PASSWORD:?.env 里缺 GOWORK_DB_PASSWORD}
       GOWORK_REDIS_PASSWORD: ${GOWORK_REDIS_PASSWORD:?.env 里缺 GOWORK_REDIS_PASSWORD}
       GOWORK_JWT_SECRET: ${GOWORK_JWT_SECRET:?.env 里缺 GOWORK_JWT_SECRET（至少 32 位）}
-      # 运行身份：0 表示以 root 运行；非 0 时入口脚本把应用降权到 PUID:PGID，
-      # 并把 /app 属主对齐（挂载目录要由这个身份可写时才需要）。
+      # 运行身份：0 表示以 root 运行；非 0 时入口脚本把应用降权到 PUID:PGID，并对齐 /app 属主。
       PUID: ${PUID:-0}
       PGID: ${PGID:-0}
       # 单据日期与汇率取当天都按进程本地时间算，别让它跟着宿主机漂。
@@ -64,42 +53,38 @@ services:
     volumes:
       # 只读覆盖镜像里的 configs/config.prod.yaml：配置跟着部署走，不进镜像。
       - ./config.prod.yaml:/app/configs/config.prod.yaml:ro
-      # 单据模板与中文字体：镜像只装了 ca-certificates 与 tzdata，没有中文字体，
-      # 要打印就放开这两行，再把 config.prod.yaml 的 pdf.font_path 指到容器内路径。
+      # 单据模板与中文字体：镜像没有中文字体，要打印就放开这两行，
+      # 再把 config.prod.yaml 的 pdf.font_path 指到容器内路径。
       # - ./pdf/templates:/app/data/templates:ro
       # - ./pdf/fonts:/app/data/fonts:ro
-    # 只绑回环：证书、静态资源、限流都在反代那一层，后端不直接对外。
-    # 反代在别的容器或别的主机上时，改成 0.0.0.0 或让它接入同一网络。
+    # 只绑回环：证书、静态资源、限流都在反代那一层。反代不在本机时改成 0.0.0.0
+    # 或让它接入同一网络。
     ports:
       - '127.0.0.1:${HTTP_PORT:-8080}:8080'
     # 存活探针写在镜像里（轮询 /healthz），这里不重复定义，免得两处阈值各说各的。
     logging: *logging
 
   frontend:
-    # 前端镜像（服务名与镜像名一致，不要叫 web —— 同一个东西两个叫法，日志和文档里
-    # 迟早对不上）。nginx 托管 dist，并把 /api 反代给上面的 server。
-    # 同源之后浏览器不发跨域请求，config.prod.yaml 的 cors_origins 只影响直连后端的场景。
     image: ${FRONTEND_IMAGE:-ghcr.io/edwinhuish/gowork/frontend:latest}
     build:
-      # 上下文就是 apps/frontend 本身（它自带 .dockerignore），与后端一样不碰仓库根目录。
+      # 上下文就是 apps/frontend 本身（自带 .dockerignore），与后端一样不碰仓库根目录。
       context: ../apps/frontend
       dockerfile: Dockerfile
       args:
         VERSION: ${FRONTEND_VERSION:-}
     container_name: gowork-prod-frontend
     restart: unless-stopped
-    # 只管启动顺序：后端还没 Ready 时前端也能起 —— 上游按请求现解析，
-    # 那段时间 /api 返回 502，静态页面照常打开（比让前端跟着启动失败好）。
+    # 只管启动顺序：后端没 Ready 时前端也能起，那段时间 /api 返回 502、静态页面照常打开，
+    # 比让前端跟着启动失败好。
     depends_on:
       - server
     environment:
-      # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值。
-      # 走服务名而不是 IP：后端换地址只改这里，不用重建前端镜像。
+      # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值；
+      # 走服务名而不是 IP，后端换地址只改这里，不用重建前端镜像。
       GOWORK_API_UPSTREAM: http://server:8080
       TZ: ${TZ:-Asia/Shanghai}
+    # 前端是这个栈唯一的对外入口；默认 80，不要跟 HTTP_PORT（绑 127.0.0.1）撞端口。
     ports:
-      # 前端是这个栈唯一的对外入口；后端仍只绑回环。证书与限流留给外面那层网关。
-      # 默认 80，不要跟 HTTP_PORT（默认 8080，绑 127.0.0.1）撞端口。
       - '${FRONTEND_PORT:-80}:80'
     # 探针在镜像里（自己的 /healthz，不穿到后端），这里同样不重复定义。
     logging: *logging

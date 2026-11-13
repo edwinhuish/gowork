@@ -1,22 +1,16 @@
-# 本地开发环境的基础设施：PostgreSQL + Redis（MySQL 用 profile 按需启动）。
+# 本地开发用的依赖容器：PostgreSQL + Redis（MySQL 走 profile 按需启动）。
 #
-# 这个文件只负责「依赖容器」，不构建也不运行应用本体——应用在宿主机上跑，
-# 改代码即热重载，不必每次重建镜像。生产环境见 deployments/docker-compose.yml，
-# 两个文件各自独立：卷名、网络、账号都不共用（dev 是公开的开发值，prod 走 .env）。
+# 这里只提供外部依赖，应用在宿主机上跑（改代码即热重载），不构建也不运行应用本体。
+# 开发默认并不需要它们（config.yaml 走 SQLite + 内存缓存），起它们是为了验证换库 / 换缓存，
+# 配套 task backend:dev:pg、task backend:dev:mysql。生产编排见 deployments/docker-compose.yml，
+# 两个文件的账号、卷、网络都不共用（dev 是公开的开发值，prod 走 .env）。
 #
-# 用法（在仓库根目录执行，或直接用 task infra:up / infra:down）：
 #   docker compose -f docker-compose.dev.yml up -d                  # postgres + redis
 #   docker compose -f docker-compose.dev.yml --profile mysql up -d  # 额外启动 mysql
 #   docker compose -f docker-compose.dev.yml down                   # 停止并移除容器（数据卷保留）
-#
-# 开发默认不需要这些：config.yaml 走 SQLite + 内存缓存。
-# 这里起的服务是给「验证换库/换缓存」用的，配套：
-#   task backend:dev:pg    -> config.postgres.yaml
-#   task backend:dev:mysql -> config.mysql.yaml
 
-# 项目名固定下来，不随文件所在目录变化：卷前缀因此稳定为 gowork-dev_*。
-# 注意：此前文件在 deployments/ 下时前缀是 deployments_*，旧卷不会被自动接管，
-# 换库验证的数据需要重灌一次（旧卷仍在，确认不要了再自行 docker volume rm）。
+# 项目名固定，卷前缀因此稳定为 gowork-dev_*。此前文件在 deployments/ 下时前缀是
+# deployments_*，旧卷不会被自动接管，换库验证的数据要重灌一次。
 name: gowork-dev
 
 services:
@@ -78,7 +72,7 @@ services:
       timeout: 3s
       retries: 10
 
-# 数据卷：仅用于「换库验证」期间保留数据，随时可以 down -v 重来。
+# 数据卷只用于「换库验证」期间保留数据，随时可以 down -v 重来。
 volumes:
   pg-data:
   mysql-data:
