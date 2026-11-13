@@ -6,7 +6,7 @@
 # TLS 证书与限流留给这台机器外面的那层网关。
 #
 # 配置分两层：
-#   ./config.prod.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），只读挂进容器
+#   ./config.yaml  应用配置（库与缓存地址、CORS、建表开关、日志格式），只读挂进容器
 #   ./.env              密钥、镜像名、对外端口、运行身份，由 compose 插值成环境变量
 #
 #   cp .env.example .env
@@ -32,20 +32,17 @@ networks:
 
 services:
   server:
+    # 使用前需要登录
+    # echo "你的_ghp_开头的_PAT" | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
     image: ghcr.io/edwinhuish/gowork/server:latest
     container_name: gowork-server
     restart: unless-stopped
     # 比服务自己的 http.shutdown_timeout（15s）留一截，否则关闭途中的请求会被 SIGKILL 切断。
     stop_grace_period: 30s
     # 前端反代走容器网络，不经这个端口；它只留给调试与外部探活。
-    # 不想暴露就改成 '127.0.0.1:${HTTP_PORT:-8080}:8080'。
     ports:
-      - '${HTTP_PORT:-8080}:8080'
+      - 8080:8080
     environment:
-      # 只有密钥走环境变量，其余全在挂进去的 config.prod.yaml 里。
-      - GOWORK_DB_PASSWORD=${GOWORK_DB_PASSWORD:?.env 里缺 GOWORK_DB_PASSWORD}
-      - GOWORK_REDIS_PASSWORD=${GOWORK_REDIS_PASSWORD:?.env 里缺 GOWORK_REDIS_PASSWORD}
-      - GOWORK_JWT_SECRET=${GOWORK_JWT_SECRET:?.env 里缺 GOWORK_JWT_SECRET（至少 32 位）}
       # 运行身份：0 表示以 root 运行；非 0 时入口脚本把应用降权到 PUID:PGID，并对齐 /app 属主。
       - PUID=${PUID:-0}
       - PGID=${PGID:-0}
@@ -53,9 +50,9 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
     volumes:
       # 只读覆盖镜像里的 configs/config.prod.yaml：配置跟着部署走，不进镜像。
-      - ./config.prod.yaml:/app/configs/config.prod.yaml:ro
+      - ./config.yaml:/app/configs/config.yaml:ro
       # 单据模板与中文字体：镜像没有中文字体，要打印就放开这两行，
-      # 再把 config.prod.yaml 的 pdf.font_path 指到容器内路径。
+      # 再把 config.yaml 的 pdf.font_path 指到容器内路径。
       # - ./pdf/templates:/app/data/templates:ro
       # - ./pdf/fonts:/app/data/fonts:ro
     # 存活探针写在镜像里（轮询 /healthz），这里不重复定义，免得两处阈值各说各的。
@@ -64,6 +61,8 @@ services:
       - gowork
 
   frontend:
+    # 使用前需要登录
+    # echo "你的_ghp_开头的_PAT" | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
     image: ghcr.io/edwinhuish/gowork/frontend:latest
     container_name: gowork-frontend
     restart: unless-stopped
@@ -71,14 +70,14 @@ services:
     # 比让前端跟着启动失败好。
     depends_on:
       - server
+    # 前端是这个栈唯一的对外入口；默认 80。
+    ports:
+      - 80:80
     environment:
       # nginx 启动时用 envsubst 把模板里的 ${GOWORK_API_UPSTREAM} 换成这个值。
       # 用容器名而不是 IP：同一网络内由 Docker 内置 DNS 解析，后端换 IP 不用改配置。
       - GOWORK_API_UPSTREAM=http://gowork-server:8080
       - TZ=${TZ:-Asia/Shanghai}
-    # 前端是这个栈唯一的对外入口；默认 80，不要跟 HTTP_PORT 撞端口。
-    ports:
-      - '${FRONTEND_PORT:-80}:80'
     # 探针在镜像里（自己的 /healthz，不穿到后端），这里同样不重复定义。
     logging: *logging
     networks:
