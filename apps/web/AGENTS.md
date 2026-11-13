@@ -500,15 +500,26 @@ task web:install:ci  # pnpm install --frozen-lockfile（CI 用）
 
 | chunk | gzip | 说明 |
 |---|---|---|
-| antd | ~281KB | antd 5 + rc-* + dayjs（含 `@ant-design/pro-layout` 约 200KB 的连带依赖） |
-| react | ~89KB | react 19 + react-dom + react-router |
-| vendor | ~119KB | refine core 的传递依赖（lodash / qs / papaparse 等） |
-| refine | ~30KB | `@refinedev/*` |
-| index | ~8KB | 业务代码 |
+| antd | ~380KB | antd 5 + rc-* + `@rc-component/*` + `@ant-design/*` + dayjs + sunflower-antd |
+| vendor | ~122KB | 其余第三方：react-router、`@tanstack/react-query`、`@babel/runtime`、lodash / qs / papaparse 等 |
+| index | ~110KB | 业务代码与页面 |
+| react | ~70KB | 只有 react 19 + react-dom + scheduler |
+| refine | ~28KB | `@refinedev/*` |
 
 按依赖族用函数式 `manualChunks` 拆包（`vite.config.ts`）：三族版本不同步，分开缓存后
 升级一族不会让另外两族的缓存一起失效。**不要为了"少几个文件"改回单包**，那会让首屏
 必须等整个 vendor 下载完。
+
+分块必须构成**单向依赖**（react ← vendor ← antd ← refine ← index）。Rollup 一旦报
+`Circular chunk: vendor -> antd -> vendor`，产物打开就会抛
+`Cannot read properties of undefined (reading 'version')`：循环里的模块初始化顺序不保证，
+antd 拿到的 React 还是 undefined。两条边界最容易踩：
+
+- `id.includes('/react')` 是**错的**。它会把 react-router、`@tanstack/react-query` 一起吸进
+  react chunk，而它们又依赖 vendor 里的包，环立刻出现。react chunk 只认
+  `node_modules/(react|react-dom|scheduler)/`。
+- `sunflower-antd`（`@refinedev/antd` 的依赖）包名不含 `/antd/`，必须显式收进 antd chunk：
+  否则它落在 vendor 却 import antd，而 antd 又 import vendor 里的 `@babel/runtime`。
 
 可优化方向（未做）：`@refinedev/antd` 会连带打包 `@ant-design/pro-layout`，砍掉它大约能省 200KB，
 代价是放弃 refine 的 `List`/`Form` 组件改用手写骨架 —— 除非体积成为硬指标，不建议。
@@ -517,6 +528,7 @@ task web:install:ci  # pnpm install --frozen-lockfile（CI 用）
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
+| 构建产物打开报 `Cannot read properties of undefined (reading 'version')` | `manualChunks` 把相互依赖的包拆进了不同 chunk，Rollup 只给一条 `Circular chunk` 警告 | 按第 8 节的单向顺序收紧归类；构建日志里的 `Circular chunk` 不能忽略 |
 | 用 `@/xxx` 导入报 `Could not resolve` | 只改了 `tsconfig.json` 的 `paths` 或只改了 `vite.config.ts` 的 `resolve.alias` | 两处必须同时存在；改完跑 `pnpm run build` 验证 |
 | 从 `@refinedev/antd` 导入 `ThemedLayoutV2` 报「没有此导出」 | v5 已改名为 `ThemedLayout` | 以 `node_modules/@refinedev/antd` 的实际导出为准，别照 v4 文档写 |
 | `useSelect` 解构 `selectProps` 得到 undefined | v5 移除了 `selectProps`，直接返回 `options` | 自己接 `options` + `loading` + `filterOption` |
