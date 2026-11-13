@@ -12,7 +12,7 @@ export type StatusTone = 'default' | 'processing' | 'success' | 'warning' | 'err
  *
  * 与后端 model.Product.SKUCode 的大类约定保持一致（SKU 前两位即类别码）。
  * 后端目前不校验类别合法性，所以这里是唯一事实来源 —— 改动要同时看
- * apps/backend/internal/model/product.go 的注释。
+ * apps/server/internal/model/product.go 的注释。
  */
 export const PRODUCT_CATEGORIES = [
   { code: 'HT', label: '手动工具' },

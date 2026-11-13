@@ -20,9 +20,9 @@
 #   sh: 条件，报错就只剩一句 git 的原始输出。
 #
 # 版本号的两个落点是刻意的，不是重复：
-#   仓库根目录 VERSION.txt 是项目的正本：`task backend:build` 缺省读它，构建期用
+#   仓库根目录 VERSION.txt 是项目的正本：`task server:build` 缺省读它，构建期用
 #   -ldflags "-X main.version=…" 注进二进制，供 `gowork-server -version` 自证；
-#   前端 apps/frontend/package.json 的 version 是 npm 生态认的那个。
+#   前端 apps/web/package.json 的 version 是 npm 生态认的那个。
 #   两处不一致时，报障的人报的数字就对不上产物 —— 所以这里总是一起改。
 
 set -euo pipefail
@@ -115,7 +115,7 @@ case "${push_mode,,}" in
 esac
 
 # ---- 定位仓库 ----
-# 一律先跳到仓库根：下面的路径都是相对根的，在 apps/backend 里跑也不该出错。
+# 一律先跳到仓库根：下面的路径都是相对根的，在 apps/server 里跑也不该出错。
 if ! repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   echo "错误：当前目录不在 Git 仓库里。发布要靠 git 打 tag 并推送，先进入仓库再执行。" >&2
   echo "      脚本位置：$script_dir" >&2
@@ -124,9 +124,9 @@ fi
 cd "$repo_root"
 
 version_file="VERSION.txt"
-frontend_pkg="apps/frontend/package.json"
+web_pkg="apps/web/package.json"
 
-for f in "$version_file" "$frontend_pkg"; do
+for f in "$version_file" "$web_pkg"; do
   if [ ! -f "$f" ]; then
     echo "错误：找不到 $f。发布要同步的版本文件不在预期位置，先确认仓库结构没变。" >&2
     exit 1
@@ -187,7 +187,7 @@ latest_stable_tag() {
 }
 
 read_pkg_version() {
-  sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' "$frontend_pkg" | head -1
+  sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' "$web_pkg" | head -1
 }
 
 # 当前版本 = 最新稳定 tag、根目录 VERSION.txt、前端 package.json 三者里最大的那个。
@@ -219,7 +219,7 @@ if [ -n "$base_version" ] && is_semver "$base_version"; then
   default_version="$(bump_patch "$base_version")" || default_version=""
 fi
 if [ -z "$default_version" ]; then
-  echo "错误：推不出默认版本号（最新 tag 与 $frontend_pkg 的 version 都是空的或不可解析）。" >&2
+  echo "错误：推不出默认版本号（最新 tag 与 $web_pkg 的 version 都是空的或不可解析）。" >&2
   echo "      用 VERSION=1.2.3 明确指定。" >&2
   exit 1
 fi
@@ -318,7 +318,7 @@ if [ "$dry_run" = "true" ]; then
 [dry-run] tag：$tag
 [dry-run] 分支：$branch
 [dry-run] 将写入：$version_file（根目录，后端构建读它）
-[dry-run]          $frontend_pkg 的 version
+[dry-run]          $web_pkg 的 version
 [dry-run] 之后会：提交 -> 打 tag -> $push_plan
 （dry-run 没有改动任何文件，也没有提交或推送）
 EOF
@@ -341,21 +341,20 @@ pkg.version = next;
 // 两空格缩进 + 结尾换行，与仓库现有格式一致：否则 diff 里会多出一条「整个文件都变了」，
 // 真正的版本号变化就被埋掉了。
 fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
-' "$frontend_pkg" "$version"
+' "$web_pkg" "$version"
 
-# 根目录 VERSION.txt 只有一行数字：`task backend:build` 会原样读它去拼 -ldflags，
+# 根目录 VERSION.txt 只有一行数字：`task server:build` 会原样读它去拼 -ldflags，
 # 多一个空格、多一行注释都会被当成版本号的一部分注进二进制。
 printf '%s\n' "$version" > "$version_file"
 
 # ---- 提交 ----
 # 版本号本来就和目标一致时（比如上次发布推失败、这次原样重来），不要造一个空提交：
 # 空提交会让 release 说明里多一条没有内容的条目。
-git add "$version_file" "$frontend_pkg"
+git add "$version_file" "$web_pkg"
 if git diff --cached --quiet; then
   echo "版本号已经是 $version，跳过版本提交，直接打 tag"
 else
-  git commit -q -m "发布 $tag：前后端版本号与 tag 对齐" \
-    -m "产物里的 -version 与前端 package.json 说同一件事，报障时那个数字才能对上具体版本；两处各写一个号，谁也说不清手上跑的是哪个版本。"
+  git commit -q -m "发布版本： $tag"
 fi
 
 # ---- 打 tag ----

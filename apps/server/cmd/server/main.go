@@ -30,11 +30,11 @@ import (
 //	go build -ldflags "-X main.version=0.1.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%FT%TZ)"
 //
 // 正本是仓库根目录的 VERSION.txt（`task release` 写它）。两条构建路径都把它的内容交给
-// 上面的 -X：`task backend:build`（缺省读 VERSION.txt，可用 APP_VERSION=1.2.3 覆盖）与
+// 上面的 -X：`task server:build`（缺省读 VERSION.txt，可用 APP_VERSION=1.2.3 覆盖）与
 // 发布流水线（用 tag 名，那才是对外的权威）。
 //
-// 镜像那条路不读任何版本文件（后端镜像的上下文只有 apps/backend）：版本号只经
-// `--build-arg VERSION` 传，缺省落在 dev 上；本地 `task backend:image` 传的是
+// 镜像那条路不读任何版本文件（后端镜像的上下文只有 apps/server）：版本号只经
+// `--build-arg VERSION` 传，缺省落在 dev 上；本地 `task server:image` 传的是
 // `git describe --always --long --dirty` 的结果。
 //
 // 为什么不在代码里读 VERSION：产物要能在任何目录、任何机器上自证，不该依赖旁边恰好

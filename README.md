@@ -12,9 +12,9 @@
 
 | 依赖 | 版本 | 说明 |
 |---|---|---|
-| Go | ≥ 1.26 | 见 `apps/backend/go.mod` |
+| Go | ≥ 1.26 | 见 `apps/server/go.mod` |
 | Node | ≥ 20 | 前端 |
-| pnpm | ≥ 11 | 版本锁在 `apps/frontend/package.json` 的 `packageManager` |
+| pnpm | ≥ 11 | 版本锁在 `apps/web/package.json` 的 `packageManager` |
 | `task` | 任意近期版本 | 安装方式见文末 |
 
 ```bash
@@ -25,7 +25,7 @@ corepack enable pnpm        # 之后 pnpm 按 packageManager 自动取对应版�
 
 ```bash
 task install            # 装依赖（后端 go mod + 前端 pnpm install）
-task backend:tool:air   # 一次性：装后端热重载工具 air（go install，不进 go.mod）
+task server:tool:air   # 一次性：装后端热重载工具 air（go install，不进 go.mod）
 task dev                # 并行起后端 :8080（air 热重载）与前端 :5173（Vite HMR）
 ```
 
@@ -38,7 +38,7 @@ task dev                # 并行起后端 :8080（air 热重载）与前端 :517
 演示数据只在**空库**时写入，想重来一遍：
 
 ```bash
-task demo:reset    # 删掉 apps/backend/data/gowork.db，重启后端即重新灌数
+task demo:reset    # 删掉 apps/server/data/gowork.db，重启后端即重新灌数
 ```
 
 `demo_seed` 与 `seed` 分开是因为单元测试也开 `seed`（要那个 admin 账号与产品），
@@ -47,12 +47,12 @@ task demo:reset    # 删掉 apps/backend/data/gowork.db，重启后端即重新�
 没有 `task` 时的等价操作：
 
 ```bash
-cd apps/backend && air -c .air.toml              # 不想热重载就 go run ./cmd/server
-cd apps/frontend && pnpm install && pnpm run dev
+cd apps/server && air -c .air.toml              # 不想热重载就 go run ./cmd/server
+cd apps/web && pnpm install && pnpm run dev
 ```
 
-`task backend:dev` 报找不到 air，就是上面那条 `tool:air` 没执行（版本锁在
-`apps/backend/Taskfile.yml` 的 `AIR_VERSION`，配置见 `apps/backend/.air.toml`）。
+`task server:dev` 报找不到 air，就是上面那条 `tool:air` 没执行（版本锁在
+`apps/server/Taskfile.yml` 的 `AIR_VERSION`，配置见 `apps/server/.air.toml`）。
 
 ## 存储：默认零依赖
 
@@ -61,9 +61,9 @@ cd apps/frontend && pnpm install && pnpm run dev
 
 | 想跑的组合 | 执行 |
 |---|---|
-| SQLite + 内存（默认） | `task backend:dev` |
-| PostgreSQL + Redis | `task infra:up`，再 `task backend:dev:pg` |
-| MySQL + Redis | `task infra:up` + `docker compose -f docker-compose.dev.yml --profile mysql up -d`，再 `task backend:dev:mysql` |
+| SQLite + 内存（默认） | `task server:dev` |
+| PostgreSQL + Redis | `task infra:up`，再 `task server:dev:pg` |
+| MySQL + Redis | `task infra:up` + `docker compose -f docker-compose.dev.yml --profile mysql up -d`，再 `task server:dev:mysql` |
 
 切换只改配置，不改代码。也可以用环境变量整段覆盖：
 
@@ -71,7 +71,7 @@ cd apps/frontend && pnpm install && pnpm run dev
 GOWORK_DB_DRIVER=postgres GOWORK_DB_HOST=127.0.0.1 GOWORK_DB_USERNAME=gowork \
 GOWORK_DB_PASSWORD=gowork GOWORK_DB_NAME=gowork \
 GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=127.0.0.1:6379 \
-task backend:run
+task server:run
 ```
 
 优先级：配置文件 < `GOWORK_*` 环境变量。生产模板见 `configs/config.prod.yaml`
@@ -90,10 +90,10 @@ task test:storage   # postgres/mysql/redis 没起来时对应子用例自动跳�
 数据库与缓存用云托管或机房已有的 PostgreSQL / Redis，不跟应用一起起落；
 TLS 证书与限流交给同一台机器外面的那层网关。
 
-两个镜像由两份 Dockerfile 构建，随同一次发布一起推：后端是 `apps/backend/Dockerfile`、
-前端是 `apps/frontend/Dockerfile`，**构建上下文都是各自的子项目目录**，都不从仓库里读版本号。
+两个镜像由两份 Dockerfile 构建，随同一次发布一起推：后端是 `apps/server/Dockerfile`、
+前端是 `apps/web/Dockerfile`，**构建上下文都是各自的子项目目录**，都不从仓库里读版本号。
 后端的版本号只经 `--build-arg VERSION` 进去，不传就是 `dev`；本机想让它能自证就传
-`git describe --always --long --dirty` 的结果（`task backend:image` 已代劳）。两个镜像
+`git describe --always --long --dirty` 的结果（`task server:image` 已代劳）。两个镜像
 不合并成一个，因此可以单独回滚。
 前后端同源之后浏览器不发跨域请求，`config.prod.yaml` 的 `cors_origins` 只影响直连后端的场景。
 
@@ -116,7 +116,7 @@ docker compose -f deployments/docker-compose.yml logs -f server frontend
 |---|---|---|
 | 起哪些服务 | 只起库与缓存，应用在宿主机上跑 | 前端 + 后端两个容器，库与缓存是外部服务 |
 | 端口 | 库 / 缓存都映射到本机，方便连工具 | 前端对外（默认 80），后端只绑 `127.0.0.1` |
-| 配置 | `apps/backend/configs/config.yaml`（可再用 `GOWORK_*` 覆盖） | `deployments/config.prod.yaml`，密钥走 `.env` |
+| 配置 | `apps/server/configs/config.yaml`（可再用 `GOWORK_*` 覆盖） | `deployments/config.prod.yaml`，密钥走 `.env` |
 | 运行身份 | 当前登录用户 | 默认 root；设 `PUID`/`PGID` 则降权并让 `/app` 属主对齐 |
 | 建表 / 种子 | 每次启动按 `config.yaml` 决定 | 在 `config.prod.yaml` 里首启时打开，之后改回 `false` |
 
@@ -131,9 +131,9 @@ docker compose -f deployments/docker-compose.yml logs -f server frontend
 | `task install` | 安装前后端依赖 |
 | `task install:ci` | 按锁文件严格安装（前端 `--frozen-lockfile`） |
 | `task dev` | 并行启动前后端（air + Vite HMR） |
-| `task backend:dev:once` | 后端单次启动、不监听变更 |
-| `task backend:tool:air` | 安装 air（一次性） |
-| `task backend:image` | 构建后端镜像（版本号缺省 `git describe --always --long --dirty`） |
+| `task server:dev:once` | 后端单次启动、不监听变更 |
+| `task server:tool:air` | 安装 air（一次性） |
+| `task server:image` | 构建后端镜像（版本号缺省 `git describe --always --long --dirty`） |
 | `task build` | 后端二进制 + 前端静态产物 |
 | `task test` | 后端单元测试 |
 | `task test:storage` | 三库两缓存一致性测试 |
@@ -143,11 +143,11 @@ docker compose -f deployments/docker-compose.yml logs -f server frontend
 | `task clean` | 清理 `bin/` 与 `dist/` |
 | `task infra:up` / `infra:down` | 启停开发用的 PostgreSQL + Redis（`docker-compose.dev.yml`；MySQL 加 `--profile mysql`） |
 
-子目录也有各自任务：`task -d apps/backend -- --list`、`task -d apps/frontend -- --list`。
+子目录也有各自任务：`task -d apps/server -- --list`、`task -d apps/web -- --list`。
 
 ## 发版
 
-版本号正本是仓库根目录的 `VERSION.txt`（一行数字），`apps/frontend/package.json` 的 `version`
+版本号正本是仓库根目录的 `VERSION.txt`（一行数字），`apps/web/package.json` 的 `version`
 跟着一起改。产物不读这个文件，而是**构建期注进去** —— 二进制要能在任何目录、任何机器上
 用 `gowork-server -version` 自证：
 
@@ -161,8 +161,8 @@ gowork-server 0.1.0
 | 优先级 | 来源 | 用在哪 |
 |---|---|---|
 | 1（最高） | `-X main.version=…` 链接参数 | 发布流水线把 tag 名注进去；`docker build --build-arg VERSION=` 同理，不传就是 `dev` |
-| 2 | `task backend:build APP_VERSION=1.2.3` | 本地试打某个号 |
-| 3 | 根目录 `VERSION.txt` | `task backend:build` 没显式给号时的缺省值（**只管本地编译，镜像不读它**） |
+| 2 | `task server:build APP_VERSION=1.2.3` | 本地试打某个号 |
+| 3 | 根目录 `VERSION.txt` | `task server:build` 没显式给号时的缺省值（**只管本地编译，镜像不读它**） |
 | 4（兜底） | 代码里的 `"dev"` | 裸 `go build` / air 热重载 / 没传 `VERSION` 的镜像构建，一眼看出不是发布产物 |
 
 发版走 `task release`，它按顺序做完这几步，任一步失败就停下并说明停在哪：
@@ -171,7 +171,7 @@ gowork-server 0.1.0
 |---|---|---|
 | 前置校验 | 工作区干净、不在 detached HEAD、远程（若配置了）可达且没有同名 tag | 列出原因后退出，不留半成品 |
 | 问版本号 | 回车 = 当前版本 +1 patch，也可以直接敲 `1.3.0` / `1.3.0-rc.1` | 输错当场重问 |
-| 同步版本号 | 写 `VERSION.txt` 与 `apps/frontend/package.json` 的 `version` | 两处本来就是目标版本时跳过提交，只打 tag |
+| 同步版本号 | 写 `VERSION.txt` 与 `apps/web/package.json` 的 `version` | 两处本来就是目标版本时跳过提交，只打 tag |
 | 提交 + 打 tag | 一个「发布 vX.Y.Z」提交，加一个带注释的 `vX.Y.Z` tag | — |
 | 问推送 | 回车即 `git push --atomic`，分支与 tag 一起推 | 选不推就只留本地提交与 tag，并把补推命令打在屏幕上 |
 
@@ -205,7 +205,7 @@ task release DRY_RUN=true         # 只打印将要发生什么，不改文件�
 
 一个反直觉行为：pnpm 默认 `minimumReleaseAge=1440`（24 小时），刚发布的版本会被跳过，
 所以同样的 `^` 范围解析出的版本可能比 npm 低一版——这是供应链保护，不是锁文件坏了。
-其余 pnpm 细节见 [`apps/frontend/AGENTS.md`](apps/frontend/AGENTS.md)。
+其余 pnpm 细节见 [`apps/web/AGENTS.md`](apps/web/AGENTS.md)。
 
 ## 安装 task
 

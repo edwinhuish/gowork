@@ -1,6 +1,6 @@
 # 前端镜像：nginx 托管构建好的 dist，并把 /api 反代给后端容器。
-# 构建上下文是 apps/frontend（不是仓库根目录）：
-#   docker build -t gowork-frontend apps/frontend
+# 构建上下文是 apps/web（不是仓库根目录）：
+#   docker build -t gowork-web apps/web
 # 与后端镜像是两个镜像，不合并：两端只靠 HTTP 耦合，各自可独立回滚（见根 AGENTS.md 第 2 节）。
 # 前端代码一律用 /api 相对路径，换后端地址改的是 nginx 的上游，不用重编前端。
 

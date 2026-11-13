@@ -1,7 +1,7 @@
-# apps/frontend —— React 管理端（面向 AI 协作者）
+# apps/web —— React 管理端（面向 AI 协作者）
 
 **职责**：前端手册——页面怎么组织、数据怎么流动、加模块照什么套路。
-**不管**：业务规则与接口契约（`apps/backend/AGENTS.md`）、项目整体目标（根 `AGENTS.md`）、
+**不管**：业务规则与接口契约（`apps/server/AGENTS.md`）、项目整体目标（根 `AGENTS.md`）、
 取舍理由（`docs/architecture.md`）、业务对象命名（`docs/glossary.md`）。
 **相关**：`README.md`（命令与 pnpm 约定）、`docs/roadmap.md`（已实现哪些模块）。
 
@@ -37,7 +37,7 @@
 ## 2. 目录结构
 
 ```
-apps/frontend/
+apps/web/
 ├── index.html
 ├── vite.config.ts          # 端口 5173；/api 代理到 :8080；@ 别名；手动分包
 ├── tsconfig.json           # strict + noUnusedLocals/Parameters；paths 的 @/* -> src/*
@@ -478,12 +478,12 @@ pages/xxx/
 ## 7. 运行方式
 
 ```bash
-task frontend:dev         # Vite 开发服务器 :5173，/api 代理到 :8080
-task frontend:build       # tsc --noEmit && vite build → dist/
-task frontend:typecheck   # 只做类型检查
-task frontend:preview     # 预览 dist（会自动先 build）
-task frontend:install     # pnpm install
-task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
+task web:dev         # Vite 开发服务器 :5173，/api 代理到 :8080
+task web:build       # tsc --noEmit && vite build → dist/
+task web:typecheck   # 只做类型检查
+task web:preview     # 预览 dist（会自动先 build）
+task web:install     # pnpm install
+task web:install:ci  # pnpm install --frozen-lockfile（CI 用）
 ```
 
 不用 task 时：`pnpm install && pnpm run dev`。
@@ -529,7 +529,7 @@ task frontend:install:ci  # pnpm install --frozen-lockfile（CI 用）
 | 刷新页面被踢回登录 | 令牌过期或后端会话被清（登出、重启且内存缓存未落盘） | 预期行为；检查后端 `cache.memory.persist` |
 | 续期在生产不生效，状态码却都是 200 | 跨域下 `X-Renewed-Token` 未在 `Access-Control-Expose-Headers` 暴露 | 见后端 `AGENTS.md`「令牌续期」；开发期同源复现不出来 |
 | 每个页面跳转都多一次 `/auth/profile` | `authProvider.check` 里的 identity 缓存被清掉了 | 检查 `login` / `check` / `onError` 三处对 `identity` 的赋值 |
-| `npm install` 报 `[gowork-frontend] 本项目使用 pnpm` | `package.json` 的 `preinstall` 守卫 | 用 pnpm；`package-lock.json` 被忽略，删掉即可 |
+| `npm install` 报 `[gowork-web] 本项目使用 pnpm` | `package.json` 的 `preinstall` 守卫 | 用 pnpm；`package-lock.json` 被忽略，删掉即可 |
 | 某个下拉的选项和后端对不上 | 页面里自己写了一份 options，没走 `constants/catalog.ts` | 字典只留在 catalog.ts 一处，页面 import 它 |
 | 改了 `pnpm-workspace.yaml` 不生效 | pnpm 设置只能放这里 | 见根 `README.md`「前端只认 pnpm」 |
 | 客供两用的主体在列表里显示成"未知角色" | 写了 `role === 1` / `role === 2` | `Partner.role` 是位掩码，必须按位与：`(role & PARTNER_ROLE.supplier) !== 0`，展示统一用 `RoleTag` |

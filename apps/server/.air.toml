@@ -1,11 +1,11 @@
 # air 热重载配置（github.com/air-verse/air）。
 #
-# 位置：与 go.mod 同级，即 apps/backend/.air.toml。
+# 位置：与 go.mod 同级，即 apps/server/.air.toml。
 # air 只从「当前工作目录」读 .air.toml，而所有后端命令（含根 Taskfile）都以
-# apps/backend 为工作目录，所以配置必须放这一层——放仓库根目录会找不到。
-# 想从别处启动就显式指定：air -c apps/backend/.air.toml（不推荐，root 会对不上）。
+# apps/server 为工作目录，所以配置必须放这一层——放仓库根目录会找不到。
+# 想从别处启动就显式指定：air -c apps/server/.air.toml（不推荐，root 会对不上）。
 #
-# 常规用法：task backend:dev（后端热重载）或根目录 task dev（前后端一起）。
+# 常规用法：task server:dev（后端热重载）或根目录 task dev（前后端一起）。
 
 root = "."
 # 编译产物与 air 自己的 build-errors.log 都落在 bin/dev/，root 是 "." 所以是相对路径。
@@ -44,7 +44,7 @@ tmp_dir = "bin/dev"
   #   编辑器与 IDE 目录
   exclude_dir = ["bin", "data", ".git", "vendor", "node_modules", ".vscode", ".idea"]
   # 排除的文件类型 / 命名：
-  #   _test.go —— 测试文件不进服务二进制，改了不必重启（跑 task backend:test 即可）
+  #   _test.go —— 测试文件不进服务二进制，改了不必重启（跑 task server:test 即可）
   #   临时/交换文件（.swp、编辑器写入过程中的 .#xxx、vim 备份 xxx~）
   exclude_regex = ["_test\\.go$", "^\\.#", "~$"]
   # 内容没变就跳过（编辑器「保存但未修改」不会触发重启）。

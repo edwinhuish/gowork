@@ -13,7 +13,7 @@ import { http, toQuery } from '@/api/client'
 import type { PageResult } from '@/types'
 
 /**
- * 后端分页与筛选契约（见 apps/backend/internal/dto/common.go 与各资源 Query）：
+ * 后端分页与筛选契约（见 apps/server/internal/dto/common.go 与各资源 Query）：
  *   page / page_size / keyword 全资源通用
  *   sort_field + sort_order 目前只有产品列表消费（白名单在 repository/product.go）
  *   category+supplier_id 仅产品

@@ -64,7 +64,7 @@ services:
     # 使用前需要登录
     # echo "你的_ghp_开头的_PAT" | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
     image: ghcr.io/edwinhuish/gowork/frontend:latest
-    container_name: gowork-frontend
+    container_name: gowork-web
     restart: unless-stopped
     # 只管启动顺序：后端没 Ready 时前端也能起，那段时间 /api 返回 502、静态页面照常打开，
     # 比让前端跟着启动失败好。

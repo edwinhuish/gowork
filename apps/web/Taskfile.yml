@@ -2,7 +2,7 @@ version: '3'
 
 # 包管理器是 pnpm，版本由 package.json 的 packageManager 字段锁定（corepack / CI 都读它）。
 # PNPM 可覆盖，便于在没把 pnpm 放进 PATH 的机器上指定绝对路径：
-#   task frontend:build PNPM=/usr/local/bin/pnpm
+#   task web:build PNPM=/usr/local/bin/pnpm
 vars:
   PNPM: '{{.PNPM | default "pnpm"}}'
 

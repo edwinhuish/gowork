@@ -1,8 +1,8 @@
-# apps/backend —— Go 服务（面向 AI 协作者）
+# apps/server —— Go 服务（面向 AI 协作者）
 
 **职责**：后端手册——代码怎么组织、改东西动哪、为什么这么写会报错。**接口清单全项目只有第 5 节这一份。**
 **不管**：项目目标与整体架构（根 `AGENTS.md`）、取舍理由（`docs/architecture.md`）、
-业务对象命名（`docs/glossary.md`）、前端（`apps/frontend/AGENTS.md`）。
+业务对象命名（`docs/glossary.md`）、前端（`apps/web/AGENTS.md`）。
 **相关**：`docs/roadmap.md` 第三节（每个任务收尾要跑的命令）。
 
 ---
@@ -25,7 +25,7 @@
 
 | 不属于这里 | 归哪 |
 |---|---|
-| 页面渲染、静态资源 | `apps/frontend` |
+| 页面渲染、静态资源 | `apps/web` |
 | 权限矩阵、多租户 | 当前不做（见根 `AGENTS.md` 第 1 节） |
 | 库存 / 出入库单据 | **已实现**（`inv_` 前缀）：流水是事实、快照是缓存；调拨待仓库维度（T-16b）。差距见 `docs/gap-analysis.md` |
 | 账龄、汇兑损益、报表 | 未实现；口径与名称已在 `docs/glossary.md`、`docs/roadmap.md` 定好 |
@@ -35,7 +35,7 @@
 ## 2. 目录结构
 
 ```
-apps/backend/
+apps/server/
 ├── cmd/server/main.go           # 入口：参数 → 配置 → 装配 → 启停（不做业务）
 ├── configs/                     # 4 份配置样例，见第 7 节
 ├── Dockerfile                   # 后端镜像；构建上下文就是本目录，版本号只经 --build-arg VERSION
@@ -125,7 +125,7 @@ go list -f '{{join .Imports "\n"}}' ./internal/service | grep -cE 'gin-gonic|gor
 
 统一前缀 `/api/v1`。除 `POST /auth/login` 与 `/healthz` 外都要 `Authorization: Bearer <token>`。
 
-机器可读的完整清单是 `docs/openapi.json`（从路由表生成、CI 校验，`task backend:openapi` 重新生成）。
+机器可读的完整清单是 `docs/openapi.json`（从路由表生成、CI 校验，`task server:openapi` 重新生成）。
 下面这张表是给人看的：它额外记了每个接口背后的 service 方法与行为约束，那些生成不出来。
 
 域归属见 `docs/glossary.md` 第三节：`products` 与 `partners` 会被 ERP、CRM 两侧引用。
@@ -348,13 +348,13 @@ jti 不变意味着它们指向同一条会话，续期天然幂等；若每次�
 ## 7. 运行与配置
 
 ```bash
-task backend:dev        # 热重载启动（air），SQLite + 内存缓存（默认），:8080
-task backend:dev:pg     # PostgreSQL + Redis，:8081（需先 task infra:up）
-task backend:dev:mysql  # MySQL + Redis，:8082（需先 infra:up + compose --profile mysql）
-task backend:test       # go test ./... -count=1
+task server:dev        # 热重载启动（air），SQLite + 内存缓存（默认），:8080
+task server:dev:pg     # PostgreSQL + Redis，:8081（需先 task infra:up）
+task server:dev:mysql  # MySQL + Redis，:8082（需先 infra:up + compose --profile mysql）
+task server:test       # go test ./... -count=1
 ```
 
-命令的真实来源是 `apps/backend/Taskfile.yml`（`task -d apps/backend -- --list`）；
+命令的真实来源是 `apps/server/Taskfile.yml`（`task -d apps/server -- --list`）；
 前置版本、`build` / `test:storage` / `tool:air` 与存储切换见 `README.md`。
 直接跑二进制：`./bin/gowork-server -config configs/config.yaml`。
 启动参数只有三个：`-config`（缺省 `configs/config.yaml`）、`-env-prefix`（环境变量前缀，
@@ -362,24 +362,24 @@ task backend:test       # go test ./... -count=1
 
 ### 热重载（air）
 
-`task backend:dev` 走 [air](https://github.com/air-verse/air)：改 `*.go` → 重新编译 → 自动重启。
+`task server:dev` 走 [air](https://github.com/air-verse/air)：改 `*.go` → 重新编译 → 自动重启。
 前端 `pnpm dev` 本来就是 Vite HMR，根目录 `task dev` 因此是两端都热更新的。
 
 | 事项 | 约定 |
 |---|---|
-| 配置文件 | `apps/backend/.air.toml`，与 `go.mod` 同级。air 只从**工作目录**找它，所以必须在 `apps/backend` 下启动（Taskfile 的 `dir` 已保证）；在别处跑要用 `-c` 显式指，且 `root` 会对不上，不推荐 |
-| 安装 | `task backend:tool:air`。air 是开发工具，**不进 `go.mod`**；版本锁在 `Taskfile.yml` 的 `vars.AIR_VERSION` |
-| 监听范围 | `root = "."`（就是 `apps/backend`），`include_ext = ["go"]`：只有 `.go` 变更触发编译 |
+| 配置文件 | `apps/server/.air.toml`，与 `go.mod` 同级。air 只从**工作目录**找它，所以必须在 `apps/server` 下启动（Taskfile 的 `dir` 已保证）；在别处跑要用 `-c` 显式指，且 `root` 会对不上，不推荐 |
+| 安装 | `task server:tool:air`。air 是开发工具，**不进 `go.mod`**；版本锁在 `Taskfile.yml` 的 `vars.AIR_VERSION` |
+| 监听范围 | `root = "."`（就是 `apps/server`），`include_ext = ["go"]`：只有 `.go` 变更触发编译 |
 | 忽略目录 | `bin`（产物与 `build-errors.log`，不排除会自己触发自己）、`data`（sqlite 的 `db`/`-wal`/`-shm` 与缓存快照运行期一直在写）、`.git`、`vendor`、`node_modules`、`.vscode`、`.idea` |
 | 排除文件 | `_test.go`（不进服务二进制，改了不必重启）、编辑器临时/交换文件（`.#*`、`*~`）。另有 `exclude_unchanged = true`：内容没变不重启 |
-| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task backend:build` 的发布参数（它还用 `-X main.version` 注入版本号），热重载剥符号只拖慢重启，`-version` 也就该报 `dev` |
+| 编译命令 | `go build -o ./bin/dev/gowork-server ./cmd/server`。不带 `-trimpath` / `-ldflags "-s -w"`——那是 `task server:build` 的发布参数（它还用 `-X main.version` 注入版本号），热重载剥符号只拖慢重启，`-version` 也就该报 `dev` |
 | 运行命令 | `entrypoint = ["./bin/dev/gowork-server"]`，不写 `-config`，走 `main.go` 里 `-config` 的默认值 `configs/config.yaml` |
-| 产物位置 | `bin/dev/gowork-server`；`bin/` 已在 `.gitignore`。它与 `task backend:build` 的 `bin/gowork-server` 是两个文件，互不覆盖 |
+| 产物位置 | `bin/dev/gowork-server`；`bin/` 已在 `.gitignore`。它与 `task server:build` 的 `bin/gowork-server` 是两个文件，互不覆盖 |
 | 日志 | 业务日志仍是 slog 打 **stdout**，不经 air、不落文件。air 自己的 `building... / running... / failed to build` 带 `[HH:MM:SS]` 前缀（`log.time = true`），与业务日志一眼分得开。编译报错详情在终端，`bin/dev/build-errors.log` 只有一行 `exit status N` |
 | 重启语义 | `send_interrupt = true` + `kill_delay = "3s"`：先 SIGINT 走优雅关闭（刷缓存快照、关连接池），3 秒不退才 SIGKILL。`stop_on_error = true`：编译不过就停掉旧进程，不留着旧二进制继续服务（见第 9 节最后一条） |
 | 改配置 | `.yaml` / `.air.toml` 不在监听范围内，改完要手动 Ctrl-C 再起——air 不重载自身配置，被启动的进程也只在启动时读一次配置 |
 
-换库启动仍可热重载：`task backend:dev:pg` / `dev:mysql` 用 `air -c .air.toml -- -config configs/config.postgres.yaml`，
+换库启动仍可热重载：`task server:dev:pg` / `dev:mysql` 用 `air -c .air.toml -- -config configs/config.postgres.yaml`，
 `--` 之后的参数由 air 原样透传给被启动的二进制。
 
 想临时调 air 自身参数，用命令行覆盖而不是改文件：`air -c .air.toml -build.delay 1000`。
@@ -388,7 +388,7 @@ task backend:test       # go test ./... -count=1
 **团队协作**：`.air.toml` 提交进仓库、全组共用一份——air 不合并多份配置，谁本地改一份，
 谁的重启行为就和别人不一样，而症状是"同样的改动我这边重启了、你那边没有"。
 个人差异往两处走：端口/库这类环境差异用 `GOWORK_*` 环境变量
-（`GOWORK_HTTP_ADDR=:8090 task backend:dev`），air 自身参数用命令行覆盖。
+（`GOWORK_HTTP_ADDR=:8090 task server:dev`），air 自身参数用命令行覆盖。
 升级 air 版本只改 `Taskfile.yml` 的 `AIR_VERSION` 并单独提交——行为变化表现为"重启时机变了"，
 混在功能提交里没人查得出来。
 
@@ -429,7 +429,7 @@ task backend:test       # go test ./... -count=1
 4. `internal/service/xxx.go`：`XxxService` 接口 + 私有实现 + `WithXxxLogger` Option；
    业务规则（唯一性、状态归一、跨表校验）都在这里。
 5. `internal/handler/xxx.go` + `server/router.go` 挂路由 + `bootstrap/app.go` 装配。
-   **挂完路由跑一次 `task backend:openapi`**：`docs/openapi.json` 是从路由表生成的，
+   **挂完路由跑一次 `task server:openapi`**：`docs/openapi.json` 是从路由表生成的，
    测试按字节比对，忘了重新生成 CI 会直接红（这是故意的——它拦的就是"加了接口没更新文档"）。
 
 ### 软删除

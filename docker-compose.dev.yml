@@ -2,7 +2,7 @@
 #
 # 这里只提供外部依赖，应用在宿主机上跑（改代码即热重载），不构建也不运行应用本体。
 # 开发默认并不需要它们（config.yaml 走 SQLite + 内存缓存），起它们是为了验证换库 / 换缓存，
-# 配套 task backend:dev:pg、task backend:dev:mysql。生产编排见 deployments/docker-compose.yml，
+# 配套 task server:dev:pg、task server:dev:mysql。生产编排见 deployments/docker-compose.yml，
 # 两个文件的账号、卷、网络都不共用（dev 是公开的开发值，prod 走 .env）。
 #
 #   docker compose -f docker-compose.dev.yml up -d                  # postgres + redis

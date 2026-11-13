@@ -1,7 +1,7 @@
 # 应用外壳重构需求说明（Vben 视觉复刻 · React 实现）
 
 **职责**：定义"外壳"（布局 / 主题 / 多标签页）要复刻到什么程度、行为边界在哪、哪些东西明确不做。
-**不管**：业务页面的字段与口径（`apps/frontend/AGENTS.md`）、接口契约（`apps/backend/AGENTS.md`）、
+**不管**：业务页面的字段与口径（`apps/web/AGENTS.md`）、接口契约（`apps/server/AGENTS.md`）、
 取舍理由（`docs/architecture.md`）、任务进度（`docs/roadmap.md`）。
 **相关**：`docs/glossary.md`（业务对象命名）、Vben Admin 5.7 演示站（视觉参考物）。
 
@@ -13,7 +13,7 @@
 
 | 维度 | 结论 |
 |---|---|
-| 保留 | React 19 + TypeScript + Vite 6 + refine 5 + antd 5 + react-router 7 + TanStack Query 5；单包 `apps/frontend`；pnpm |
+| 保留 | React 19 + TypeScript + Vite 6 + refine 5 + antd 5 + react-router 7 + TanStack Query 5；单包 `apps/web`；pnpm |
 | 复刻 | 侧栏 / 顶栏 / 标签条 / 面包屑 / 内容区 / 移动端抽屉的**布局关系与视觉样式** |
 | 不复刻 | Vben 的 monorepo、`@vben/*` 包、Vue 运行时、Pinia、preferences / access 模块、动态菜单、权限码、i18n、mock、示例页 |
 | 不改 | `src/pages/**` 的业务字段、校验、口径、按钮语义；`api/**`、`providers/dataProvider|authProvider`、`types/**`、`utils/**` 的逻辑 |
@@ -190,7 +190,7 @@
 
 1. **不引入 Vue 生态**：`vue`、`@vben/*`、`pinia`、`vue-router`、`element-plus`、`naive-ui`、
    `ant-design-vue` 一律不进 `package.json`。
-2. **不 monorepo 化**：仍是 `apps/frontend` 单包；不引入 `turbo`、`packages/@core`、`internal/*` 配置包；
+2. **不 monorepo 化**：仍是 `apps/web` 单包；不引入 `turbo`、`packages/@core`、`internal/*` 配置包；
    不改根 `pnpm-workspace.yaml` 的用途。
 3. **不迁 Vben 目录规范**：不采用 `#/` 别名、`views/`、`router/routes/modules`；
    继续 `@/*` → `src/*`、`pages/` + `config/resources.tsx`。
@@ -273,7 +273,7 @@
 
 ## 八、非目标
 
-- 不改任何业务口径与字段（那属于 `apps/frontend/AGENTS.md`）；
+- 不改任何业务口径与字段（那属于 `apps/web/AGENTS.md`）；
 - 不优化首屏体积、不移除 `@ant-design/pro-layout`；
 - 不做国际化、不做多布局、不做主题可视化配置；
 - 不改后端、不改部署与发版流程。

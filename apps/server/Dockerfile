@@ -1,9 +1,9 @@
-# 后端镜像。构建上下文就是本目录（apps/backend）：
-#   docker build -t gowork-server -f apps/backend/Dockerfile apps/backend
-#   task backend:image        # 同上，版本号缺省取 `git describe --always --long --dirty`
+# 后端镜像。构建上下文就是本目录（apps/server）：
+#   docker build -t gowork-server -f apps/server/Dockerfile apps/server
+#   task server:image        # 同上，版本号缺省取 `git describe --always --long --dirty`
 #
 # 镜像不从仓库里读任何文件取版本号：只认 --build-arg VERSION，不传就是 dev。
-# 仓库根目录的 VERSION.txt 只服务 `task backend:build`（本地编译二进制），
+# 仓库根目录的 VERSION.txt 只服务 `task server:build`（本地编译二进制），
 # 镜像这条路由调用方把值传进来——镜像因此完全不依赖仓库根，上下文也只有本目录。
 #
 # 为什么不在这里跑 git describe：--dirty 判的是索引与工作区文件的差异，而构建上下文
@@ -33,7 +33,7 @@ COPY . .
 #
 # TARGETOS / TARGETARCH 由 buildx 传入；本地普通构建回退到当前平台。
 # VERSION / COMMIT / BUILD_DATE 由调用方传入：发布流水线给 tag 名，本地
-# `task backend:image` 给 `git describe --always --long --dirty`，都不传时落到 dev。
+# `task server:image` 给 `git describe --always --long --dirty`，都不传时落到 dev。
 ARG TARGETOS=linux
 ARG TARGETARCH
 ARG VERSION=
@@ -42,7 +42,7 @@ ARG BUILD_DATE=unknown
 
 RUN set -eu; \
     if [ -z "${VERSION}" ]; then \
-      echo "未传 --build-arg VERSION：版本号记为 dev（要真版本号用 task backend:image）" >&2; \
+      echo "未传 --build-arg VERSION：版本号记为 dev（要真版本号用 task server:image）" >&2; \
     fi; \
     ver="${VERSION:-dev}"; \
     arch="${TARGETARCH:-$(go env GOARCH)}"; \

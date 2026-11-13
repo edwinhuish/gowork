@@ -21,14 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/backend
+        working-directory: apps/server
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/backend/go.mod
-          cache-dependency-path: apps/backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
 
       - name: 下载依赖
         run: go mod download
@@ -57,17 +57,17 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/frontend
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
 
-      # pnpm 版本从 apps/frontend/package.json 的 packageManager 读，
+      # pnpm 版本从 apps/web/package.json 的 packageManager 读，
       # 不在这里写死版本号，避免和本地 / corepack 各说一套。
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: apps/frontend/package.json
+          package_json_file: apps/web/package.json
           cache: true
-          cache_dependency_path: apps/frontend/pnpm-lock.yaml
+          cache_dependency_path: apps/web/pnpm-lock.yaml
 
       # engines 允许 node>=20，这里固定一个版本跑，保证结果可重复
       - uses: actions/setup-node@v4
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/backend
+        working-directory: apps/server
 
     services:
       postgres:
@@ -128,8 +128,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/backend/go.mod
-          cache-dependency-path: apps/backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
 
       - name: 下载依赖
         run: go mod download

@@ -13,7 +13,7 @@ import (
 // 后端这份是判据（不在 attachTargets 里的类型一律 400），前端那份只是"少撞一次 400"。
 // 两边靠人肉对齐，而人会漏：补功能时只改了一边，界面上能选、点上传被拒——这条
 // 测试就是把它变成一次红灯，而不是等用户来报。
-const frontendAttachmentTypes = "../../../frontend/src/api/attachments.ts"
+const frontendAttachmentTypes = "../../../web/src/api/attachments.ts"
 
 var quotedTypePattern = regexp.MustCompile(`'([a-z_]+)'`)
 

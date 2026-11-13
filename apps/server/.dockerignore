@@ -1,8 +1,8 @@
-# 后端镜像的构建上下文就是这个目录（apps/backend），下面所有路径都相对它。
+# 后端镜像的构建上下文就是这个目录（apps/server），下面所有路径都相对它。
 # 挡的是「本机才有、镜像里要从源码重建」的东西：省的是每次构建的传输时间，不是镜像大小。
-# 仓库根目录已经不在上下文里了，所以不再需要挡 apps/frontend、docs、.git 那些。
+# 仓库根目录已经不在上下文里了，所以不再需要挡 apps/web、docs、.git 那些。
 
-# task backend:build 的产物、air 的临时目录
+# task server:build 的产物、air 的临时目录
 bin
 tmp
 

@@ -44,8 +44,8 @@ jobs:
       - name: 准备 Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: apps/backend/go.mod
-          cache-dependency-path: apps/backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
 
       - name: 构建
         env:
@@ -63,15 +63,15 @@ jobs:
             bin="gowork-server.exe"
           fi
           mkdir -p "${stage}"
-          # 与 apps/backend/Taskfile.yml 的 build 注同一批变量，只是版本号换成 tag 名：
+          # 与 apps/server/Taskfile.yml 的 build 注同一批变量，只是版本号换成 tag 名：
           # 发布产物自报的那个号必须与对外宣布的一致，而 tag 才是权威。
           ldflags="-s -w
             -X main.version=${{ github.ref_name }}
             -X main.commit=${{ github.sha }}
             -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          (cd apps/backend && go build -trimpath -ldflags "${ldflags}" -o "${stage}/${bin}" ./cmd/server)
+          (cd apps/server && go build -trimpath -ldflags "${ldflags}" -o "${stage}/${bin}" ./cmd/server)
           # 二进制默认读 configs/config.yaml，包里附一份样例，免得用户对着空目录手抄配置。
-          cp apps/backend/configs/config.yaml "${stage}/config.example.yaml"
+          cp apps/server/configs/config.yaml "${stage}/config.example.yaml"
 
       # 只有跟 runner 同架构的那一个包跑得起来，其余平台到 Release 里再验证。
       - name: 冒烟：版本号是否真的注入了
@@ -107,13 +107,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # pnpm 版本从 apps/frontend/package.json 的 packageManager 读，
+      # pnpm 版本从 apps/web/package.json 的 packageManager 读，
       # 与 ci.yml 同一套写法：本地、CI、发布三处不该各写一个版本号。
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: apps/frontend/package.json
+          package_json_file: apps/web/package.json
           cache: true
-          cache_dependency_path: apps/frontend/pnpm-lock.yaml
+          cache_dependency_path: apps/web/pnpm-lock.yaml
 
       - uses: actions/setup-node@v4
         with:
@@ -121,18 +121,18 @@ jobs:
 
       # 按锁文件装：发布产物不该依赖某个包昨晚发了新版本。
       - name: 安装依赖（严格按锁文件）
-        working-directory: apps/frontend
+        working-directory: apps/web
         run: pnpm install --frozen-lockfile
 
       - name: 构建
-        working-directory: apps/frontend
+        working-directory: apps/web
         run: pnpm run build
 
       - name: 打包
         run: |
           set -euo pipefail
           mkdir -p dist/archives
-          tar -czf "dist/archives/gowork-${{ github.ref_name }}-frontend.tar.gz" -C apps/frontend/dist .
+          tar -czf "dist/archives/gowork-${{ github.ref_name }}-frontend.tar.gz" -C apps/web/dist .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -150,14 +150,14 @@ jobs:
         include:
           # 后端：上下文就是子项目目录，镜像不读仓库里的任何版本文件，版本号只走 build-args。
           # 注意 path 的基准与 compose 相反：buildx 的 file 相对**工作目录**（$GITHUB_WORKSPACE），
-          # 所以要带 apps/backend/ 前缀；compose 的 dockerfile 才相对 context。两者别对调。
+          # 所以要带 apps/server/ 前缀；compose 的 dockerfile 才相对 context。两者别对调。
           - image: server
-            context: ./apps/backend
-            dockerfile: ./apps/backend/Dockerfile
-          # 前端：上下文就是 apps/frontend，产物在镜像里由 nginx 托管并把 /api 反代给后端。
+            context: ./apps/server
+            dockerfile: ./apps/server/Dockerfile
+          # 前端：上下文就是 apps/web，产物在镜像里由 nginx 托管并把 /api 反代给后端。
           - image: frontend
-            context: ./apps/frontend
-            dockerfile: ./apps/frontend/Dockerfile
+            context: ./apps/web
+            dockerfile: ./apps/web/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -198,7 +198,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           # 上下文与 Dockerfile 按 matrix 分：后端从仓库根目录建（要读 VERSION.txt），
-          # 前端只从 apps/frontend 建，镜像里是 nginx + dist。
+          # 前端只从 apps/web 建，镜像里是 nginx + dist。
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64

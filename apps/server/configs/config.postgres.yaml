@@ -4,7 +4,7 @@
 # sslmode=disable，且开启自动迁移与种子数据，方便直接跑起来对比行为。
 #
 #   task infra:up
-#   task backend:dev:pg
+#   task server:dev:pg
 
 app:
   name: gowork

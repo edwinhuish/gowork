@@ -1,7 +1,7 @@
 # 架构说明
 
 **职责**：讲清楚每个设计**为什么**这么定，以及哪些地方可以换实现（三库两缓存）。
-**不管**：怎么做（`apps/backend/AGENTS.md` 的五步与硬性规则）、有什么差距
+**不管**：怎么做（`apps/server/AGENTS.md` 的五步与硬性规则）、有什么差距
 （`docs/gap-analysis.md` 第五章）、下一步做什么（`docs/roadmap.md`）。
 **相关**：`AGENTS.md` 第 3 节（依赖方向的一句话版）、`docs/glossary.md`（域模型）。
 
@@ -213,7 +213,7 @@ GOWORK_DB_DRIVER=postgres \
 GOWORK_DB_HOST=10.0.0.5 GOWORK_DB_NAME=gowork \
 GOWORK_DB_USERNAME=gowork GOWORK_DB_PASSWORD=*** \
 GOWORK_CACHE_DRIVER=redis GOWORK_REDIS_ADDR=10.0.0.6:6379 \
-task backend:run
+task server:run
 ```
 
 ### 2. 数据库：默认拆字段，也可以整段给 dsn
@@ -297,7 +297,7 @@ cache:
 
 ## 六、新增一个业务模块
 
-**机械步骤见 `apps/backend/AGENTS.md` 第 8 节**（model → repository → dto → service →
+**机械步骤见 `apps/server/AGENTS.md` 第 8 节**（model → repository → dto → service →
 handler+router，最后在 `bootstrap/app.go` 装配一次），那节的「硬性规则」也是全项目唯一一份。
 本节只讲**为什么**按这个顺序，以及步骤里最容易做错的三处。
 
@@ -313,7 +313,7 @@ handler+router，最后在 `bootstrap/app.go` 装配一次），那节的「硬�
 | model | 金额自创第二套表示 | 跨模块汇总时「同一笔钱两个精度」；统一口径与迁移计划见 T-37 |
 | repository | 把业务字段塞进泛型基类 | 基类不再通用，下一个模块要把这套逻辑再抄一遍 |
 
-表前缀、编码唯一性、分页上限、三库兼容、错误码一律以 `apps/backend/AGENTS.md` 第 8 节为准，
+表前缀、编码唯一性、分页上限、三库兼容、错误码一律以 `apps/server/AGENTS.md` 第 8 节为准，
 本节不再抄一遍。
 
 ## 七、下一批模块的建模提醒
@@ -328,7 +328,7 @@ handler+router，最后在 `bootstrap/app.go` 装配一次），那节的「硬�
 
 ## 八、前端分层
 
-目录结构见 `apps/frontend/AGENTS.md` 第 2 节。这里只讲**为什么这么分**——
+目录结构见 `apps/web/AGENTS.md` 第 2 节。这里只讲**为什么这么分**——
 调用链是 `pages → @refinedev/antd → providers → api/client.ts → types`，
 每一层只解决一类问题，不越界：
 

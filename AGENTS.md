@@ -1,7 +1,7 @@
 # GoWork —— 项目总览（面向 AI 协作者）
 
 **职责**：入口。读完它应当能回答三个问题——这个项目要解决什么、代码在哪、改某类东西该动哪一层。
-**不管**：机制细节与操作步骤（`apps/backend/AGENTS.md`、`apps/frontend/AGENTS.md`）、
+**不管**：机制细节与操作步骤（`apps/server/AGENTS.md`、`apps/web/AGENTS.md`）、
 取舍理由（`docs/architecture.md`）、术语（`docs/glossary.md`）、进度（`docs/roadmap.md`）。
 **约定**：同一事实只写一处；本文只给导航与跨层约束，细节一律交给第 8 节列出的文档。
 
@@ -54,15 +54,15 @@ GoWork/
 ├── Taskfile.yml                 # 根编排：只调子项目任务，不写具体命令
 ├── VERSION.txt                  # 版本号正本：task release 写它，构建期注入二进制
 ├── apps/
-│   ├── backend/                 # Go 服务（见 apps/backend/AGENTS.md）
+│   ├── server/                  # Go 服务（见 apps/server/AGENTS.md）
 │   │   ├── cmd/server/          # 启动入口，只做参数→配置→装配→启停
 │   │   ├── configs/             # 4 份配置样例：默认 / prod / postgres / mysql
 │   │   ├── Dockerfile           # 后端镜像（上下文就是本目录；版本号只走 --build-arg）
 │   │   ├── entrypoint.sh        # 容器入口：PUID/PGID 降权 + 默认 -config 参数
 │   │   └── internal/            # 全部业务代码，不对外暴露
-│   └── frontend/                # React 单页应用（见 apps/frontend/AGENTS.md）
+│   └── web/                     # React 单页应用（见 apps/web/AGENTS.md）
 │       ├── src/                 # pages / providers / api / components / constants / utils / types
-│       ├── Dockerfile           # 前端镜像（上下文是 apps/frontend）：nginx + dist + /api 反代
+│       ├── Dockerfile           # 前端镜像（上下文是 apps/web）：nginx + dist + /api 反代
 │       ├── nginx/               # 上面的镜像用的站点配置模板（envsubst 注入后端地址）
 │       └── pnpm-workspace.yaml  # pnpm 设置（不是工作区划分）
 ├── docker-compose.dev.yml       # 本地依赖容器：PostgreSQL + Redis（MySQL 走 profile）
@@ -83,9 +83,9 @@ GoWork/
 **两端的耦合方式只有一条：HTTP。** 前端不 import 后端代码，后端不产前端产物，
 `deployments/docker-compose.yml` 里也没有把两者打包进同一镜像——那份 compose 起两个容器：
 `server`（只绑回环）与 `frontend`（nginx，对外入口，`/api` 反向代理到 `server`）。
-两个镜像各自由 `apps/backend/Dockerfile` 与 `apps/frontend/Dockerfile` 构建，可以单独回滚。
+两个镜像各自由 `apps/server/Dockerfile` 与 `apps/web/Dockerfile` 构建，可以单独回滚。
 两个镜像的构建上下文都是各自的子项目目录，也都不从仓库里读版本号：后端版本只经
-`--build-arg VERSION` 传（缺省 `dev`，`task backend:image` 传 `git describe` 的结果）。
+`--build-arg VERSION` 传（缺省 `dev`，`task server:image` 传 `git describe` 的结果）。
 
 ## 3. 整体架构
 
@@ -111,7 +111,7 @@ gin HTTP 层 (Go :8080)
 
 ## 4. 技术栈
 
-版本以 `apps/backend/go.mod` 与 `apps/frontend/package.json` 为准，此处只写选型理由。
+版本以 `apps/server/go.mod` 与 `apps/web/package.json` 为准，此处只写选型理由。
 
 | 位置 | 选型 | 为什么是这个 |
 |---|---|---|
@@ -127,7 +127,7 @@ gin HTTP 层 (Go :8080)
 
 ## 5. 模块划分
 
-**后端**（细节见 `apps/backend/AGENTS.md`）：
+**后端**（细节见 `apps/server/AGENTS.md`）：
 
 | 模块 | 域 | 路由前缀 | 说明 |
 |---|---|---|---|
@@ -153,7 +153,7 @@ gin HTTP 层 (Go :8080)
 | stock | ERP · 库存 | `/api/v1/stock-movements`、`/api/v1/stock-snapshots` | 流水是库存的唯一事实来源；快照只由流水推出来，接口只有读与重算 |
 | stock-document | ERP · 库存 | `/api/v1/stock-documents` | 出入库单（采购入库 / 销售出库 / 盘点）：确认那一刻才生成流水 |
 
-**前端**（细节见 `apps/frontend/AGENTS.md`）：主数据、CRM、单据各自成模块，
+**前端**（细节见 `apps/web/AGENTS.md`）：主数据、CRM、单据各自成模块，
 每个模块是 refine 的 `list / create / edit / show` 四页，新建与编辑共用
 `form-fields.tsx` 的字段定义；单据类另有明细 / 分配行编辑器。
 客户与供应商两个模块的类型都是 `Partner`，只是默认角色不同。
@@ -184,7 +184,7 @@ CRM 侧的 `Contact` / `Activity` / `Opportunity` / `Lead`。
    `repository/dialect.go`。三库行为一致性由 `task test:storage` 保证。
 4. **前端只认 pnpm。** 锁文件只有 `pnpm-lock.yaml`；`npm install` 会被 `preinstall` 守卫拦掉。
 5. **新增业务模块照五步走**：model → repository → dto → service → handler+router，
-   最后在 `bootstrap/app.go` 装配一次。步骤与硬性规则见 `apps/backend/AGENTS.md` 第 8 节，
+   最后在 `bootstrap/app.go` 装配一次。步骤与硬性规则见 `apps/server/AGENTS.md` 第 8 节，
    为什么这么排见 `docs/architecture.md` 第六节。
    **起名和定表前缀之前先查 `docs/glossary.md`**：未实现的模块名已经定好了，
    自己换一个叫法会让前后端和文档立刻分叉。
@@ -215,8 +215,8 @@ task release  # 发版：问版本号 -> 同步版本号 -> 提交打 tag -> 问
 | `docs/trade-erp-crm-blueprint.md` | **能力地图**：要做什么、为什么做、优先级判据（不含任务编号与进度） | 决定"做什么、先做哪个"时 |
 | `docs/roadmap.md` | **唯一的任务表**：编号、交付物、验收标准、依赖、优先级、进度 | 每开一个新任务之前 |
 | `docs/gap-analysis.md` | **差距与整改**：与主流 ERP / CRM 的能力差距证据、架构评估、为什么建议补某条 | 要补功能、评估重构或质疑优先级时 |
-| `apps/backend/AGENTS.md` | 后端手册：分层、接口清单（唯一处）、数据流、约定、陷阱 | 改 Go 代码 |
-| `apps/frontend/AGENTS.md` | 前端手册：分层、数据流、页面套路、约定、陷阱 | 改 React 代码 |
+| `apps/server/AGENTS.md` | 后端手册：分层、接口清单（唯一处）、数据流、约定、陷阱 | 改 Go 代码 |
+| `apps/web/AGENTS.md` | 前端手册：分层、数据流、页面套路、约定、陷阱 | 改 React 代码 |
 | `docs/ui-shell-refactor.md` | **外壳重构需求**：Vben 视觉复刻范围、多标签页行为与 keepAlive 边界、不保留 Vben 结构的约束、验收口径 | 要动布局、主题或标签页时 |
 
 **格式约定**（三份人读手册与业务文档分开编号，避免 `## 3.` 同时表示两种意思）：

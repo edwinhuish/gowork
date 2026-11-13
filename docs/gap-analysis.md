@@ -25,7 +25,7 @@
    统一落在阶段 10；对既有任务的拆分沿用 `T-16b` 这种形式。**编号与验收只在那边维护**。
 3. **主流能力有来源**，标注方式 `[Odoo-S]` / `[ERPNext-B]` / `[SAP]` / `[Salesforce]` / `[外贸垂直]`，
    来源清单与抓取日期见 3.1。没抓到原文的能力不写进矩阵——它会让整张表的可信度一起下降。
-4. **代码引用用相对仓库根的路径**，如 `apps/backend/internal/model/document.go`。
+4. **代码引用用相对仓库根的路径**，如 `apps/server/internal/model/document.go`。
 5. **三态判定**（已覆盖 / 部分覆盖 / 缺失）只描述代码事实，不描述「应该怎么做」；
    改进建议一律落到任务卡或第九章的排除清单，不留在矩阵里。
 
@@ -472,7 +472,7 @@ T-37 把金额换成了定点 `Decimal`，浮点尾巴这一层风险已经消�
 ### 5.1 分层与依赖方向
 
 **结论：方向正确，是这套代码最扎实的部分。** `handler → service → repository → model` 单向，
-`service` 不碰 gin、`handler` 不碰 gorm，有 `go list` 自检命令可验证（`apps/backend/AGENTS.md:84-91`）。
+`service` 不碰 gin、`handler` 不碰 gorm，有 `go list` 自检命令可验证（`apps/server/AGENTS.md:84-91`）。
 泛型 `Base[T]` + `Scope` 把分页 / 计数 / 软删 / NotFound 收敛掉了，新增模块不用重写这套易错逻辑。
 
 **与外贸场景不匹配之处**：分层是对的，但**缺一层「单据引擎」**。外贸系统的复杂性集中在单据上：
@@ -561,7 +561,7 @@ repository 不得 import service              （已有）
 **一个可以不改的「重复」**：五张单据主表各自重复了 `partner_id / currency_code / exchange_rate /
 amount_total / amount_base_total / trade_term / status / doc_no` 八个字段。看起来适合抽一个
 `DocumentBase` embed（`Base` 已经证明 gorm embed 可行）。**但我建议不抽**：
-gorm 的 embed 与软删、索引、`TableName` 的交互有坑（`apps/backend/AGENTS.md:391` 记录的
+gorm 的 embed 与软删、索引、`TableName` 的交互有坑（`apps/server/AGENTS.md:391` 记录的
 「改字段名没写 column 导致数据变空」就是同一类问题），而重复这 8 个字段的成本只是「加字段时多改几处」。
 收益不抵风险。
 
@@ -803,7 +803,7 @@ T-57（用户维护）工作量最小、风险最低，建议与 T-49 同批做�
 
 | 文件 | 修了什么 | 条数 |
 |---|---|---|
-| `apps/backend/AGENTS.md` | 第 1 节现状表、库存 / 出入库单状态、service 测试清单、`Base` 方法名与 `WithTx` 状态 | 4 |
+| `apps/server/AGENTS.md` | 第 1 节现状表、库存 / 出入库单状态、service 测试清单、`Base` 方法名与 `WithTx` 状态 | 4 |
 | `docs/trade-erp-crm-blueprint.md` | 联系人时区、跟进挂靠对象、出货批次状态、多币种折算现状、角色扩展现状、第七节加指向 | 6 |
 | `docs/architecture.md` | CRM 拆分触发条件的结论、金额 `float64` 改为指向 T-37 | 2 |
 | `docs/roadmap.md` | 并入 T-37～T-46 与阶段 5.5、更新进度表 | 2 |
@@ -893,13 +893,13 @@ T-57（用户维护）工作量最小、风险最低，建议与 T-49 同批做�
 
 | 主题 | 位置 |
 |---|---|
-| 路由全表 | `apps/backend/internal/server/router.go`（181 条：4 条未保护 + 177 条 `secured`） |
-| 数据表全量 | `apps/backend/internal/model/`（41 张，含 `sys_migration`） |
+| 路由全表 | `apps/server/internal/server/router.go`（181 条：4 条未保护 + 177 条 `secured`） |
+| 数据表全量 | `apps/server/internal/model/`（41 张，含 `sys_migration`） |
 | 鉴权与数据范围 | `server/middleware/auth.go`、`service/owner_scope.go`、`model/partner.go:136-190` |
 | 角色常量 | `model/user.go:43-55` |
 | 状态机 | `model/document.go:19-77`、`service/document.go:93-102` |
 | 单号与套号 | `model/doc_seq.go`、`repository/doc_seq.go:58-90`、`service/document.go` |
-| 金额定点 | `apps/backend/internal/pkg/money/` |
+| 金额定点 | `apps/server/internal/pkg/money/` |
 | 汇率折算 | `service/currency.go:199-303` |
 | 汇率锁定入口 | `service/document.go:59-85` |
 | 报价转单幂等 | `service/quotation.go`、`repository/quotation.go:64-68` |
@@ -914,8 +914,8 @@ T-57（用户维护）工作量最小、风险最低，建议与 T-49 同批做�
 | 测试库 | `service/testdb_test.go:19-38` |
 | 三库一致性 | `repository/storage_test.go` |
 | PDF 模板 | `pkg/pdf/templates/*.json`、`service/pdf.go:31-42` |
-| 前端筛选白名单 | `apps/frontend/src/providers/dataProvider.ts:33-61` |
-| 前端金额展示 | `apps/frontend/src/components/fields.tsx:20-32` |
+| 前端筛选白名单 | `apps/web/src/providers/dataProvider.ts:33-61` |
+| 前端金额展示 | `apps/web/src/components/fields.tsx:20-32` |
 
 **证据索引的使用限制**：行号只对提交 `5e75368` 成立。改动代码之后，
 请以「主题 → 文件」为线索重新定位，不要直接把行号贴进新的文档。

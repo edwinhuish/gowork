@@ -1,7 +1,7 @@
 # MySQL + Redis 配置示例。
 #
 # 用途：验证「同一套业务代码换库不用改任何 Go 代码」。
-#   GOWORK_DB_PASSWORD=gowork task backend:run -- -config configs/config.mysql.yaml
+#   GOWORK_DB_PASSWORD=gowork task server:run -- -config configs/config.mysql.yaml
 #
 # 注意与 postgres 的差别只在 params 的语义：
 #   postgres -> key=value（sslmode、TimeZone）
