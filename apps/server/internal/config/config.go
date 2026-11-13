@@ -108,13 +108,14 @@ type Database struct {
 	MaxIdle     int  `yaml:"max_idle"`
 	MaxLifetime int  `yaml:"max_lifetime"` // 秒
 	AutoMigrate bool `yaml:"auto_migrate"`
-	Seed        bool `yaml:"seed"`
-	// DemoSeed 在 Seed 之上再灌一整条业务演示链（客户 / 产品 / 报价 / 订单 /
-	// 出货 / 应收 / 收付款 / 库存）。
+	// DemoSeed 决定是否灌演示数据：示例主数据（往来单位 / 产品 / 货源 / 条款模板）
+	// 与整条业务演示链（报价 / 合同 / 订单 / 出货 / 应收 / 收付款 / 库存）。
 	//
-	// 与 Seed 分开是有原因的：单元测试也开 Seed（要那个 admin 账号），
-	// 但测试断言的是"自己造的数据"的合计，库里预置几十张单会让它们全部对不上。
-	// 所以默认关闭，只有本地开发配置打开。
+	// 基础数据不在这里面——默认管理员与币种汇率**总是**在空表时写入，没有开关。
+	// 曾经有个 seed 开关连基础数据一起管，结果关掉它之后空库连登录都进不去。
+	//
+	// 演示数据默认关闭、只有本地开发配置打开：测试断言的是"自己造的数据"的合计，
+	// 库里预置几十张单会让它们全部对不上。
 	DemoSeed bool `yaml:"demo_seed"`
 	// LogLevel: silent | error | warn | info，默认 warn（只打慢查询与错误）。
 	LogLevel string `yaml:"log_level"`

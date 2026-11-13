@@ -12,10 +12,11 @@ import (
 
 const defaultAdminPassword = "admin123"
 
-// seedDeps 是灌演示数据要用到的仓储与服务。
+// seedDeps 是灌种子要用到的仓储与服务。
 //
 // 收成一个结构体而不是一长串参数：演示场景从"主数据"扩到"整条业务链"之后，
-// 依赖已经有二十来个，逐个位置传参没人读得出哪个是哪个。
+// 依赖已经有二十来个，逐个位置传参没人读得出哪个是哪个。基础数据只用前四项
+// （Auth / Users / Currencies / Rates），其余都是演示链路要的。
 type seedDeps struct {
 	Auth     service.AuthService
 	Users    repository.UserRepository
@@ -52,11 +53,14 @@ type seedDeps struct {
 
 // seed 只在数据为空时写入，重复启动不会产生重复数据。
 //
-// 分三段：账号 → 币种汇率 → 业务演示数据。后两段都要有汇率才能跑：
-// 报价、订单、收付款都要按某天的汇率折本币，缺一条就报"缺少某日汇率"。
+// 分两层，开关只有第二个：
 //
-// withDemo 为假时只写账号、汇率与主数据（单元测试要的就是这个：有账号能登录、
-// 有产品能开单，但没有预置单据去干扰它们自己造的合计）。
+//   - 基础数据（无条件）：默认管理员与币种汇率。空库第一次启动要能登进去，
+//     也要有本币与汇率才能开单，所以不给开关——它从来不是"演示"的一部分。
+//   - 演示数据（database.demo_seed）：示例主数据与整条业务链。
+//
+// 演示这一段内部分两步：主数据 → 单据。两者都要有汇率才能跑：报价、订单、
+// 收付款都要按某天的汇率折本币，缺一条就报"缺少某日汇率"。
 func (a *App) seed(ctx context.Context, d seedDeps, withDemo bool) error {
 	admin, err := a.seedAdmin(ctx, d.Auth, d.Users)
 	if err != nil {
@@ -65,13 +69,14 @@ func (a *App) seed(ctx context.Context, d seedDeps, withDemo bool) error {
 	if err := a.seedCurrencies(ctx, d.Currencies, d.Rates); err != nil {
 		return err
 	}
-	master, err := a.seedMasterData(ctx, d, admin)
+	if !withDemo {
+		return nil
+	}
+
+	master, err := a.seedDemoMaster(ctx, d, admin)
 	if err != nil || master == nil {
 		// master 为 nil 表示库里已经有主数据（此前灌过），演示单据也就不再补。
 		return err
-	}
-	if !withDemo {
-		return nil
 	}
 	return a.seedBusiness(ctx, d, master)
 }
@@ -80,6 +85,9 @@ func (a *App) seed(ctx context.Context, d seedDeps, withDemo bool) error {
 //
 // 历史汇率不是"多给点数据"：报价与订单会锁当天的汇率，收付款取**到账日**的汇率，
 // 两者的差就是汇兑损益。只留今天一条，汇兑损益报表永远是空的。
+//
+// 这些汇率只是初始占位值（来源标成"系统初始化"）：投产前要按实际行情把自己用的
+// 那几种货币的汇率录一遍，否则报价里的本币金额是按假行情算的。
 func (a *App) seedCurrencies(
 	ctx context.Context,
 	currencies repository.CurrencyRepository,
@@ -131,7 +139,7 @@ func (a *App) seedCurrencies(
 			Rate:          money.MustParse(spec.value),
 			RateType:      "middle",
 			EffectiveDate: model.DateOnly(time.Now().AddDate(0, 0, spec.day)),
-			Source:        "演示数据",
+			Source:        "系统初始化",
 		})
 	}
 	for i := range demoRates {

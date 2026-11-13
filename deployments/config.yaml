@@ -37,10 +37,11 @@ database:
   max_idle: 20
   max_lifetime: 3600
   log_level: warn
-  # 空库首次部署要建表并创建 admin（默认密码 admin123）：先开着跑一次，
-  # 登录后在「账号维护」里改掉密码，再把这两项改成 false 重启。
+  # 空库首次部署会自动建表，并写入基础数据（默认 admin / admin123 与币种汇率）：
+  # 登录后在「账号维护」里改掉密码，再把 auto_migrate 改成 false 重启。
+  # 演示数据由 demo_seed 单独控制，生产保持 false。
   auto_migrate: true
-  seed: true
+  demo_seed: false
 
 cache:
   driver: redis

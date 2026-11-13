@@ -48,7 +48,6 @@ database:
   driver: sqlite
   dsn: %q
   auto_migrate: true
-  seed: true
 cache:
   driver: memory
   # 关掉落盘：默认会写 data/cache.snapshot，于是幂等结果与会话跨测试、跨运行残留，
@@ -79,7 +78,33 @@ log:
 
 	srv := httptest.NewServer(app.Engine)
 	t.Cleanup(srv.Close)
+
+	seedE2EFixtures(t, srv)
 	return app, srv
+}
+
+// seedE2EFixtures 造一组最小主数据：一个产品、一个客户、一个供应商。
+//
+// 启动期只补基础数据（管理员与币种汇率），示例主数据归 database.demo_seed，
+// 而这一组用例处处要拿"至少一条产品 / 客户 / 供应商"当锚点，所以由测试自己造。
+// 自己造还顺带保证了断言里的金额与库存不会被别人预置的单据带偏。
+func seedE2EFixtures(t *testing.T, srv *httptest.Server) {
+	t.Helper()
+	token := login(t, srv)
+
+	fixtures := []struct{ path, body string }{
+		{"/api/v1/products", `{"sku_code":"E2E-BASE-001","name_cn":"冒烟基准件","unit":"PCS","status":1}`},
+		{"/api/v1/partners", `{"code":"E2E-BASE-CUS","name":"冒烟基准客户","role":1,"entity_type":1}`},
+		{"/api/v1/partners", `{"code":"E2E-BASE-SUP","name":"冒烟基准供应商","role":2,"entity_type":1}`},
+	}
+	for _, f := range fixtures {
+		res := call(t, srv, http.MethodPost, f.path, token, []byte(f.body))
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+			_, msg, _ := decodeEnvelope(t, res)
+			t.Fatalf("造基准数据 %s 失败: %d %s", f.path, res.StatusCode, msg)
+		}
+		decodeEnvelope(t, res)
+	}
 }
 
 func call(t *testing.T, srv *httptest.Server, method, path, token string, body []byte) *http.Response {

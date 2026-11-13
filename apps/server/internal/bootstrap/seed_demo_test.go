@@ -35,7 +35,6 @@ database:
   driver: sqlite
   dsn: %q
   auto_migrate: true
-  seed: true
   demo_seed: true
 cache:
   driver: memory

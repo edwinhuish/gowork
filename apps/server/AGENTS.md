@@ -42,7 +42,7 @@ apps/server/
 ├── entrypoint.sh                # 容器入口：PUID/PGID 降权 + 默认 --config 参数
 └── internal/                    # 全部业务代码，外部不可 import
     ├── config/                  配置结构体、默认值、env 覆盖、启动期校验
-    ├── bootstrap/               依赖装配（app.go）+ 演示数据（seed.go）
+    ├── bootstrap/               依赖装配（app.go）+ 种子数据（seed.go：基础数据与演示数据）
     ├── server/                  gin 引擎与路由表
     │   └── middleware/          RequestID / AccessLog / Recovery / CORS / Auth
     ├── handler/                 HTTP 适配：绑定 → 调 service → 写响应
@@ -417,15 +417,18 @@ task server:test       # go test ./... -count=1
 用途是同一个制品在一台机器上跑多套实例时靠前缀隔离各自的变量。
 变量名一律经 `applyEnv` 里的 `key()` 拼出，新增配置项照这个写，不要在别处硬编码前缀。
 
-启动顺序里有三个开关值得记住：`database.auto_migrate`（建表）、`database.seed`（账号
-`admin / admin123`、币种汇率、往来单位/产品/货源/条款）、`database.demo_seed`（在 seed 之上
-再灌 CRM 记录与整条交易链：报价 → 合同 → 订单 → 采购 → 出货 → 应收应付 → 收付款 → 期初库存）。
-生产三者都应为 false。
+启动顺序里有三个开关值得记住：`database.auto_migrate`（建表）、**无条件执行的基础种子**
+（账号 `admin / admin123` 与币种汇率——空库第一次启动要能登进去，所以没有开关）、
+`database.demo_seed`（演示数据：示例往来单位/产品/货源/条款，再往下是 CRM 记录与整条交易链
+报价 → 合同 → 订单 → 采购 → 出货 → 应收应付 → 收付款 → 期初库存）。
+生产只应保留 `auto_migrate`（首次建表后可关），`demo_seed` 保持 false。
 
 种子只往**空表**里写（每段先 `Count()`），所以改动演示数据后要看效果，得
 `task demo:reset` 删掉 sqlite 文件再重启。`seed_demo_test.go` 用
 `demo_seed: true` 起一套真实装配，逐页断言列表非空、报表非零 —— 加演示数据或改口径时
 先跑它：演示数据写错在界面上不像报错，只像"这个功能没做"。
+反过来，`e2e_test.go` 那组只开基础种子，产品与客户由 `seedE2EFixtures` 自己造：
+它们断言的是自己造的数据的合计，多一张别人的单据就会红。
 
 ## 8. 开发约定
 

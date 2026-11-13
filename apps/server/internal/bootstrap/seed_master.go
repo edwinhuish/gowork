@@ -50,12 +50,14 @@ func (a *App) seedBusiness(ctx context.Context, d seedDeps, master *demoMaster) 
 	return a.seedStockAndFinance(ctx, d, master)
 }
 
-// seedMasterData 写入往来单位、产品与条款模板。
+// seedDemoMaster 写入示例往来单位、产品与条款模板，是演示数据的第一层。
 //
-// 演示数据刻意包含几种"合并前无法表达"的记录：客供两用（role=3）、
+// 刻意包含几种"合并前无法表达"的记录：客供两用（role=3）、
 // 个人主体（entity_type=1）、以及不同分级 / 账期 / 信用额度的客户，
 // 这样列表、筛选、概览计数与额度拦截一跑起来就能看出模型是否真的生效。
-func (a *App) seedMasterData(
+//
+// 它属于演示数据而不是基础数据：真实部署的往来单位与产品必须由用户自己录。
+func (a *App) seedDemoMaster(
 	ctx context.Context,
 	d seedDeps,
 	admin *model.User,

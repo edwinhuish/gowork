@@ -403,24 +403,23 @@ func New(cfg *config.Config) (*App, error) {
 
 	app := &App{Config: cfg, Engine: engine, DB: db, Cache: c, Log: log}
 
-	if cfg.Database.Seed {
-		deps := seedDeps{
-			Auth: authSvc, Users: userRepo, Partners: partnerRepo, Products: productRepo,
-			Sources:    sourceSvc,
-			Currencies: currencyRepo, Rates: rateRepo,
-			Contacts: contactSvc, Activities: activitySvc,
-			Leads: leadSvc, Opportunities: opptySvc, Clauses: clauseSvc,
-			Quotations: quotationSvc, Contracts: contractSvc, Orders: orderSvc,
-			Purchases: purchaseSvc, Shipments: shipmentSvc,
-			Charges: chargeSvc, Customs: customsSvc,
-			Receivables: receivableSvc, Payables: payableSvc, Payments: paymentSvc,
-			StockDocs: stockDocSvc, Receipts: receiptSvc, Inspections: inspectionSvc,
-			ProductImages: productImageSvc,
-		}
-		if err := app.seed(context.Background(), deps, cfg.Database.DemoSeed); err != nil {
-			app.Close()
-			return nil, fmt.Errorf("初始化种子数据: %w", err)
-		}
+	// 基础数据无条件补：空库第一次启动必须能登进去，关掉它只会让人对着登录页发愁。
+	deps := seedDeps{
+		Auth: authSvc, Users: userRepo, Partners: partnerRepo, Products: productRepo,
+		Sources:    sourceSvc,
+		Currencies: currencyRepo, Rates: rateRepo,
+		Contacts: contactSvc, Activities: activitySvc,
+		Leads: leadSvc, Opportunities: opptySvc, Clauses: clauseSvc,
+		Quotations: quotationSvc, Contracts: contractSvc, Orders: orderSvc,
+		Purchases: purchaseSvc, Shipments: shipmentSvc,
+		Charges: chargeSvc, Customs: customsSvc,
+		Receivables: receivableSvc, Payables: payableSvc, Payments: paymentSvc,
+		StockDocs: stockDocSvc, Receipts: receiptSvc, Inspections: inspectionSvc,
+		ProductImages: productImageSvc,
+	}
+	if err := app.seed(context.Background(), deps, cfg.Database.DemoSeed); err != nil {
+		app.Close()
+		return nil, fmt.Errorf("初始化种子数据: %w", err)
 	}
 
 	return app, nil

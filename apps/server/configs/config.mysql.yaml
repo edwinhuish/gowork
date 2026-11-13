@@ -37,7 +37,9 @@ database:
   max_open: 50
   max_idle: 10
   auto_migrate: true
-  seed: true
+  # 空库启动总会补基础数据（默认 admin + 币种汇率），不需要开关；
+  # 这份配置面向真实库，演示数据保持关闭。
+  demo_seed: false
 
 cache:
   driver: redis

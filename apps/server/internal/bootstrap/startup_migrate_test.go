@@ -57,7 +57,6 @@ database:
   driver: %s
   dsn: %q
   auto_migrate: true
-  seed: false
 cache:
   driver: memory
   memory:
