@@ -6,9 +6,16 @@
 name: CI
 
 on:
-  # 不按分支名过滤：本仓库主干是 master，一旦改名或换成 main，
+  # 不按分支名过滤（`**` 覆盖所有分支）：本仓库主干是 master，一旦改名或换成 main，
   # 写成 branches: [main] 会静默不触发，比"多跑几个分支"麻烦得多。
+  #
+  # 但必须显式写 branches —— 只有这样 tag 的 push 才不会触发本工作流。
+  # 发版时 `git push --atomic` 会同时推分支与 tag，GitHub 按 ref 拆成两个 push 事件；
+  # 裸写 `push:` 的话，同一次发布会产生两份「CI」：一份挂在分支上、一份挂在版本号上，
+  # 而后者与 release.yml 完全重叠（那边自己会跨五个平台编译后端包、构建前端 dist），
+  # 只是多跑一遍 gofmt / go vet / 单测 / storage。tag 这一侧统一交给 release.yml。
   push:
+    branches: ['**']
   pull_request:
 
 # 同一分支连续提交时取消上一次运行，省 runner 也避免旧结果误导

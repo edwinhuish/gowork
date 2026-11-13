@@ -76,7 +76,7 @@ GoWork/
 ├── scripts/                     # 发版脚本：release.sh 与发布说明用的两个单用途脚本
 └── .github/
     └── workflows/
-        ├── ci.yml               # CI：go build/vet/test + pnpm install/typecheck/build
+        ├── ci.yml               # CI（分支 push / PR）：go build/vet/test + pnpm install/typecheck/build
         └── release.yml          # 推 v* tag：后端包 + 前端 dist + server/web 两个镜像 + Release
 ```
 
